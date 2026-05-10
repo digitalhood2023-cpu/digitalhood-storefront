@@ -1,0 +1,16 @@
+{
+  "name": "DigitalHood Zambia",
+  "short_name": "DigitalHood",
+  "description": "Zambia online marketplace for phones, laptops, accessories and repairs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
