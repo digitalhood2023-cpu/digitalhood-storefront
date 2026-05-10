@@ -2,6 +2,9 @@ import { Routes, Route } from 'react-router-dom';
 import { CartProvider } from '@/context/CartContext';
 import { WishlistProvider } from '@/context/WishlistContext';
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext';
+
+import SEO from '@/components/SEO';
+
 import Home from '@/pages/Home';
 import ShopPage from '@/pages/ShopPage';
 import ProductPage from '@/pages/ProductPage';
@@ -24,6 +27,9 @@ function App() {
     <CartProvider>
       <WishlistProvider>
         <RecentlyViewedProvider>
+
+          <SEO />
+
           <Routes>
             {/* Main Pages */}
             <Route path="/" element={<Home />} />
@@ -31,7 +37,7 @@ function App() {
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
-            
+
             {/* SEO Pages */}
             <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
             <Route path="/iphone-zambia" element={<IPhonePage />} />
@@ -42,16 +48,17 @@ function App() {
             <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
             <Route path="/about" element={<AboutUsPage />} />
             <Route path="/contact" element={<ContactPage />} />
-            
+
             {/* Alias routes for better SEO */}
             <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
             <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
             <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
             <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
-            
+
             {/* Fallback route */}
             <Route path="*" element={<Home />} />
           </Routes>
+
         </RecentlyViewedProvider>
       </WishlistProvider>
     </CartProvider>
