@@ -19,7 +19,12 @@ import SEO from '@/components/SEO';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { fetchWooProducts, type WooProduct } from '@/lib/woocommerce';
+import {
+  fetchWooCategories,
+  fetchWooProducts,
+  type WooCategory,
+  type WooProduct,
+} from '@/lib/woocommerce';
 
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -32,7 +37,10 @@ const PRODUCTS_PER_PAGE = 24;
 
 export default function ShopPage() {
   const [products, setProducts] = useState<WooProduct[]>([]);
+  const [categories, setCategories] = useState<WooCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
@@ -44,9 +52,19 @@ export default function ShopPage() {
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    fetchWooCategories()
+      .then((items) => setCategories(items))
+      .catch((error) => {
+        console.error(error);
+        setCategories([]);
+      })
+      .finally(() => setCategoriesLoading(false));
+  }, []);
+
+  useEffect(() => {
     setIsLoading(true);
 
-    fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery)
+    fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery, selectedCategoryId)
       .then(({ products, total, totalPages }) => {
         setProducts(products);
         setTotalProducts(total);
@@ -62,7 +80,7 @@ export default function ShopPage() {
         setLoadError('We could not load products right now. Please try again.');
       })
       .finally(() => setIsLoading(false));
-  }, [page, searchQuery]);
+  }, [page, searchQuery, selectedCategoryId]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -78,7 +96,12 @@ export default function ShopPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategoryId]);
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId),
+    [categories, selectedCategoryId]
+  );
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
@@ -133,12 +156,12 @@ export default function ShopPage() {
             </h1>
 
             <p className="text-gray-600 max-w-3xl mb-6">
-              Discover phones, laptops, accessories, tech services and verified products from
+              Discover phones, laptops, accessories, services and verified products from
               DigitalHood. Built for safe, simple and reliable online shopping in Zambia.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
+            <div className="flex flex-col gap-4">
+              <div className="relative">
                 <Input
                   type="text"
                   placeholder="Search products..."
@@ -147,6 +170,46 @@ export default function ShopPage() {
                   className="w-full pl-10 pr-4 py-3 rounded-xl"
                 />
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryId(null)}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                    selectedCategoryId === null
+                      ? 'bg-black text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  All Products
+                </button>
+
+                {categoriesLoading ? (
+                  <>
+                    <div className="h-10 w-24 rounded-full bg-white animate-pulse" />
+                    <div className="h-10 w-28 rounded-full bg-white animate-pulse" />
+                    <div className="h-10 w-20 rounded-full bg-white animate-pulse" />
+                  </>
+                ) : (
+                  categories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(category.id)}
+                      className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                        selectedCategoryId === category.id
+                          ? 'bg-black text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      {category.name}
+                      <span className="ml-2 text-xs opacity-70">
+                        {category.productCount}
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -162,7 +225,7 @@ export default function ShopPage() {
                 <span className="font-semibold text-black">
                   {totalProducts}
                 </span>{' '}
-                products
+                {selectedCategory ? selectedCategory.name : 'products'}
               </p>
 
               <div className="flex items-center gap-4">
@@ -237,10 +300,16 @@ export default function ShopPage() {
                   No products found
                 </h3>
                 <p className="text-gray-500 mb-6">
-                  Try searching for another product name.
+                  Try another search or choose a different category.
                 </p>
-                <Button onClick={() => setSearchQuery('')} variant="outline">
-                  Clear Search
+                <Button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategoryId(null);
+                  }}
+                  variant="outline"
+                >
+                  Clear Filters
                 </Button>
               </div>
             ) : (
