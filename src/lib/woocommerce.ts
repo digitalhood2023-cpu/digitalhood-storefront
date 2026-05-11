@@ -20,6 +20,12 @@ export type WooProduct = {
   addToCartText: string;
 };
 
+export type WooProductsResponse = {
+  products: WooProduct[];
+  total: number;
+  totalPages: number;
+};
+
 function stripHtml(html = '') {
   return html.replace(/<[^>]*>/g, '').trim();
 }
@@ -45,9 +51,19 @@ export function mapWooProduct(product: any): WooProduct {
 
 export async function fetchWooProducts(
   limit = 24,
-  page = 1
-): Promise<WooProduct[]> {
-  const response = await fetch(`${PRODUCTS_API}?per_page=${limit}&page=${page}`);
+  page = 1,
+  search = ''
+): Promise<WooProductsResponse> {
+  const params = new URLSearchParams({
+    per_page: String(limit),
+    page: String(page),
+  });
+
+  if (search.trim()) {
+    params.set('search', search.trim());
+  }
+
+  const response = await fetch(`${PRODUCTS_API}?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`WooCommerce products failed: ${response.status}`);
@@ -55,5 +71,9 @@ export async function fetchWooProducts(
 
   const products = await response.json();
 
-  return products.map(mapWooProduct);
+  return {
+    products: products.map(mapWooProduct),
+    total: Number(response.headers.get('X-WP-Total') || products.length),
+    totalPages: Number(response.headers.get('X-WP-TotalPages') || 1),
+  };
 }

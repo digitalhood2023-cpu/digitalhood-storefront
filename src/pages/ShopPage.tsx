@@ -37,16 +37,19 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsLoading(true);
 
-    fetchWooProducts(PRODUCTS_PER_PAGE, page)
-      .then((items) => {
-        setProducts(items);
-        setHasNextPage(items.length === PRODUCTS_PER_PAGE);
+    fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery)
+      .then(({ products, total, totalPages }) => {
+        setProducts(products);
+        setTotalProducts(total);
+        setTotalPages(totalPages);
         setLoadError('');
 
         if (page > 1) {
@@ -58,7 +61,7 @@ export default function ShopPage() {
         setLoadError('We could not load live products from DigitalHood right now.');
       })
       .finally(() => setIsLoading(false));
-  }, [page]);
+  }, [page, searchQuery]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -76,32 +79,20 @@ export default function ShopPage() {
     setPage(1);
   }, [searchQuery]);
 
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return products
-      .filter((product) => {
-        if (!query) return true;
-
-        return (
-          product.name.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query) ||
-          product.shortDescription.toLowerCase().includes(query)
-        );
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case 'price-low':
-            return a.price - b.price;
-          case 'price-high':
-            return b.price - a.price;
-          case 'newest':
-            return b.id - a.id;
-          default:
-            return 0;
-        }
-      });
-  }, [products, searchQuery, sortBy]);
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.price - b.price;
+        case 'price-high':
+          return b.price - a.price;
+        case 'newest':
+          return b.id - a.id;
+        default:
+          return 0;
+      }
+    });
+  }, [products, sortBy]);
 
   const formatPrice = (price: number) =>
     `K${price.toLocaleString('en-ZM', {
@@ -114,7 +105,7 @@ export default function ShopPage() {
   };
 
   const goToNextPage = () => {
-    if (hasNextPage) {
+    if (page < totalPages) {
       setPage((current) => current + 1);
     }
   };
@@ -149,7 +140,7 @@ export default function ShopPage() {
               <div className="relative flex-1">
                 <Input
                   type="text"
-                  placeholder="Search products on this page..."
+                  placeholder="Search all WooCommerce products..."
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl"
@@ -164,9 +155,13 @@ export default function ShopPage() {
               <p className="text-gray-600 text-sm">
                 Showing{' '}
                 <span className="font-semibold text-black">
-                  {filteredProducts.length}
+                  {sortedProducts.length}
                 </span>{' '}
-                live products on page {page}
+                of{' '}
+                <span className="font-semibold text-black">
+                  {totalProducts}
+                </span>{' '}
+                live products
               </p>
 
               <div className="flex items-center gap-4">
@@ -231,7 +226,7 @@ export default function ShopPage() {
                   Try again
                 </Button>
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : sortedProducts.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-2xl">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="w-10 h-10 text-gray-400" />
@@ -253,7 +248,7 @@ export default function ShopPage() {
                       : 'grid-cols-1 gap-4'
                   }`}
                 >
-                  {filteredProducts.map((product) => (
+                  {sortedProducts.map((product) => (
                     <div
                       key={product.id}
                       className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
@@ -347,12 +342,12 @@ export default function ShopPage() {
                   </Button>
 
                   <span className="text-sm font-medium text-gray-600">
-                    Page {page}
+                    Page {page} of {totalPages}
                   </span>
 
                   <Button
                     variant="outline"
-                    disabled={!hasNextPage || isLoading}
+                    disabled={page >= totalPages || isLoading}
                     onClick={goToNextPage}
                     className="w-full sm:w-auto"
                   >
