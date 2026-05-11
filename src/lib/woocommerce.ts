@@ -24,20 +24,6 @@ function stripHtml(html = '') {
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
-export function formatPrice(product: any) {
-  const rawPrice = product.prices?.price;
-
-  if (!rawPrice) return 'Price unavailable';
-
-  const amount = Number(rawPrice) / 100;
-  const symbol = product.prices?.currency_symbol || 'K';
-
-  return `${symbol}${amount.toLocaleString('en-ZM', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export function mapWooProduct(product: any): WooProduct {
   return {
     id: product.id,
@@ -57,8 +43,11 @@ export function mapWooProduct(product: any): WooProduct {
   };
 }
 
-export async function fetchWooProducts(limit = 20): Promise<WooProduct[]> {
-  const response = await fetch(`${PRODUCTS_API}?per_page=${limit}`);
+export async function fetchWooProducts(
+  limit = 24,
+  page = 1
+): Promise<WooProduct[]> {
+  const response = await fetch(`${PRODUCTS_API}?per_page=${limit}&page=${page}`);
 
   if (!response.ok) {
     throw new Error(`WooCommerce products failed: ${response.status}`);

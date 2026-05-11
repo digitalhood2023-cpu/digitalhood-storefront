@@ -8,6 +8,8 @@ import {
   Star,
   CheckCircle,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import Header from '@/sections/Header';
@@ -25,6 +27,8 @@ gsap.registerPlugin(ScrollTrigger);
 
 type SortOption = 'featured' | 'price-low' | 'price-high' | 'newest';
 
+const PRODUCTS_PER_PAGE = 24;
+
 export default function ShopPage() {
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,20 +36,29 @@ export default function ShopPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchWooProducts(24)
+    setIsLoading(true);
+
+    fetchWooProducts(PRODUCTS_PER_PAGE, page)
       .then((items) => {
         setProducts(items);
+        setHasNextPage(items.length === PRODUCTS_PER_PAGE);
         setLoadError('');
+
+        if (page > 1) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       })
       .catch((error) => {
         console.error(error);
         setLoadError('We could not load live products from DigitalHood right now.');
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -58,6 +71,10 @@ export default function ShopPage() {
 
     return () => ctx.revert();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -92,6 +109,16 @@ export default function ShopPage() {
       maximumFractionDigits: 2,
     })}`;
 
+  const goToPreviousPage = () => {
+    setPage((current) => Math.max(1, current - 1));
+  };
+
+  const goToNextPage = () => {
+    if (hasNextPage) {
+      setPage((current) => current + 1);
+    }
+  };
+
   return (
     <div ref={pageRef} className="min-h-screen bg-gray-50">
       <SEO
@@ -122,9 +149,9 @@ export default function ShopPage() {
               <div className="relative flex-1">
                 <Input
                   type="text"
-                  placeholder="Search live products..."
+                  placeholder="Search products on this page..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(event) => setSearchQuery(event.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl"
                 />
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -139,7 +166,7 @@ export default function ShopPage() {
                 <span className="font-semibold text-black">
                   {filteredProducts.length}
                 </span>{' '}
-                live products
+                live products on page {page}
               </p>
 
               <div className="flex items-center gap-4">
@@ -147,7 +174,7 @@ export default function ShopPage() {
                   <span className="text-sm text-gray-500 hidden sm:inline">Sort by:</span>
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                    onChange={(event) => setSortBy(event.target.value as SortOption)}
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black bg-white"
                   >
                     <option value="featured">Featured</option>
@@ -165,6 +192,7 @@ export default function ShopPage() {
                         ? 'bg-black text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
+                    aria-label="Grid view"
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </button>
@@ -175,6 +203,7 @@ export default function ShopPage() {
                         ? 'bg-black text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
+                    aria-label="List view"
                   >
                     <List className="w-4 h-4" />
                   </button>
@@ -216,90 +245,122 @@ export default function ShopPage() {
                 </Button>
               </div>
             ) : (
-              <div
-                className={`grid ${
-                  viewMode === 'grid'
-                    ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
-                    : 'grid-cols-1 gap-4'
-                }`}
-              >
-                {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
-                      viewMode === 'list' ? 'flex' : ''
-                    }`}
-                  >
+              <>
+                <div
+                  className={`grid ${
+                    viewMode === 'grid'
+                      ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
+                      : 'grid-cols-1 gap-4'
+                  }`}
+                >
+                  {filteredProducts.map((product) => (
                     <div
-                      className={`relative overflow-hidden bg-gray-100 ${
-                        viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
+                      key={product.id}
+                      className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
+                        viewMode === 'list' ? 'flex' : ''
                       }`}
                     >
-                      <a href={product.permalink}>
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      </a>
+                      <div
+                        className={`relative overflow-hidden bg-gray-100 ${
+                          viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
+                        }`}
+                      >
+                        <a href={product.permalink}>
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        </a>
 
-                      <Badge className="absolute top-2 left-2 bg-black text-white font-semibold text-xs">
-                        {product.inStock ? 'In stock' : 'Out of stock'}
-                      </Badge>
+                        <Badge className="absolute top-2 left-2 bg-black text-white font-semibold text-xs">
+                          {product.inStock ? 'In stock' : 'Out of stock'}
+                        </Badge>
 
-                      <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="w-8 h-8 rounded-full bg-white text-gray-600 hover:text-red-500 flex items-center justify-center transition-all hover:scale-110">
-                          <Heart className="w-4 h-4" />
-                        </button>
+                        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            className="w-8 h-8 rounded-full bg-white text-gray-600 hover:text-red-500 flex items-center justify-center transition-all hover:scale-110"
+                            aria-label={`Save ${product.name}`}
+                          >
+                            <Heart className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 flex-1">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
+                          <span className="text-sm font-medium">Live</span>
+                          <span className="text-sm text-gray-400">WooCommerce</span>
+                        </div>
+
+                        <a href={product.permalink}>
+                          <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
+                            {product.name}
+                          </h3>
+                        </a>
+
+                        <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+                          {product.shortDescription || product.description || 'DigitalHood product'}
+                        </p>
+
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="font-display font-bold text-lg">
+                            {formatPrice(product.price)}
+                          </span>
+                        </div>
+
+                        <a href={product.permalink}>
+                          <Button
+                            className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
+                            size="sm"
+                          >
+                            {product.hasOptions ? (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Select Options
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart className="w-4 h-4 mr-2" />
+                                Buy on WooCommerce
+                              </>
+                            )}
+                          </Button>
+                        </a>
                       </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div className="p-4 flex-1">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
-                        <span className="text-sm font-medium">Live</span>
-                        <span className="text-sm text-gray-400">WooCommerce</span>
-                      </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+                  <Button
+                    variant="outline"
+                    disabled={page === 1 || isLoading}
+                    onClick={goToPreviousPage}
+                    className="w-full sm:w-auto"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
 
-                      <a href={product.permalink}>
-                        <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
-                          {product.name}
-                        </h3>
-                      </a>
+                  <span className="text-sm font-medium text-gray-600">
+                    Page {page}
+                  </span>
 
-                      <p className="text-sm text-gray-500 mb-2 line-clamp-2">
-                        {product.shortDescription || product.description || 'DigitalHood product'}
-                      </p>
-
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="font-display font-bold text-lg">
-                          {formatPrice(product.price)}
-                        </span>
-                      </div>
-
-                      <a href={product.permalink}>
-                        <Button
-                          className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
-                          size="sm"
-                        >
-                          {product.hasOptions ? (
-                            <>
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Select Options
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingCart className="w-4 h-4 mr-2" />
-                              Buy on WooCommerce
-                            </>
-                          )}
-                        </Button>
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  <Button
+                    variant="outline"
+                    disabled={!hasNextPage || isLoading}
+                    onClick={goToNextPage}
+                    className="w-full sm:w-auto"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </>
             )}
           </div>
 
