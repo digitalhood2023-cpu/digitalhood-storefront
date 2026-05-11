@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Filter,
   Grid3X3,
@@ -58,7 +59,7 @@ export default function ShopPage() {
       })
       .catch((error) => {
         console.error(error);
-        setLoadError('We could not load live products from DigitalHood right now.');
+        setLoadError('We could not load products right now. Please try again.');
       })
       .finally(() => setIsLoading(false));
   }, [page, searchQuery]);
@@ -114,7 +115,7 @@ export default function ShopPage() {
     <div ref={pageRef} className="min-h-screen bg-gray-50">
       <SEO
         title="Shop"
-        description="Shop live DigitalHood products from WooCommerce including phones, laptops, accessories and tech services in Zambia."
+        description="Shop phones, laptops, accessories, services and trusted products on DigitalHood Marketplace Zambia."
         path="/shop"
       />
 
@@ -124,23 +125,23 @@ export default function ShopPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="mb-8">
             <Badge className="mb-4 bg-[#ffb54a] text-black hover:bg-[#ffb54a]">
-              Live WooCommerce Products
+              DigitalHood Marketplace
             </Badge>
 
             <h1 className="font-display font-bold text-2xl lg:text-3xl text-black mb-4">
-              Shop DigitalHood Products
+              Shop Trusted Products in Zambia
             </h1>
 
             <p className="text-gray-600 max-w-3xl mb-6">
-              These products are loaded directly from your WooCommerce backend on digitalhood.info.
-              Prices, images and availability now come from WordPress.
+              Discover phones, laptops, accessories, tech services and verified products from
+              DigitalHood. Built for safe, simple and reliable online shopping in Zambia.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
                 <Input
                   type="text"
-                  placeholder="Search all WooCommerce products..."
+                  placeholder="Search products..."
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl"
@@ -161,7 +162,7 @@ export default function ShopPage() {
                 <span className="font-semibold text-black">
                   {totalProducts}
                 </span>{' '}
-                live products
+                products
               </p>
 
               <div className="flex items-center gap-4">
@@ -191,6 +192,7 @@ export default function ShopPage() {
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </button>
+
                   <button
                     onClick={() => setViewMode('list')}
                     className={`p-2 transition-colors ${
@@ -231,7 +233,9 @@ export default function ShopPage() {
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="w-10 h-10 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-black mb-2">No products found</h3>
+                <h3 className="text-xl font-semibold text-black mb-2">
+                  No products found
+                </h3>
                 <p className="text-gray-500 mb-6">
                   Try searching for another product name.
                 </p>
@@ -260,14 +264,14 @@ export default function ShopPage() {
                           viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
                         }`}
                       >
-                        <a href={product.permalink}>
+                        <Link to={`/product/${product.slug}`}>
                           <img
                             src={product.image}
                             alt={product.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             loading="lazy"
                           />
-                        </a>
+                        </Link>
 
                         <Badge className="absolute top-2 left-2 bg-black text-white font-semibold text-xs">
                           {product.inStock ? 'In stock' : 'Out of stock'}
@@ -287,18 +291,20 @@ export default function ShopPage() {
                       <div className="p-4 flex-1">
                         <div className="flex items-center gap-1 mb-1">
                           <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
-                          <span className="text-sm font-medium">Live</span>
-                          <span className="text-sm text-gray-400">WooCommerce</span>
+                          <span className="text-sm font-medium">Trusted</span>
+                          <span className="text-sm text-gray-400">DigitalHood</span>
                         </div>
 
-                        <a href={product.permalink}>
+                        <Link to={`/product/${product.slug}`}>
                           <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
                             {product.name}
                           </h3>
-                        </a>
+                        </Link>
 
                         <p className="text-sm text-gray-500 mb-2 line-clamp-2">
-                          {product.shortDescription || product.description || 'DigitalHood product'}
+                          {product.shortDescription ||
+                            product.description ||
+                            'DigitalHood marketplace product'}
                         </p>
 
                         <div className="flex items-center gap-2 mb-3">
@@ -307,7 +313,7 @@ export default function ShopPage() {
                           </span>
                         </div>
 
-                        <a href={product.permalink}>
+                        <Link to={`/product/${product.slug}`}>
                           <Button
                             className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
                             size="sm"
@@ -315,16 +321,16 @@ export default function ShopPage() {
                             {product.hasOptions ? (
                               <>
                                 <CheckCircle className="w-4 h-4 mr-2" />
-                                Select Options
+                                View Options
                               </>
                             ) : (
                               <>
                                 <ShoppingCart className="w-4 h-4 mr-2" />
-                                Buy on WooCommerce
+                                View Product
                               </>
                             )}
                           </Button>
-                        </a>
+                        </Link>
                       </div>
                     </div>
                   ))}
@@ -361,12 +367,11 @@ export default function ShopPage() {
 
           <div className="mt-10 rounded-2xl bg-black text-white p-6 md:p-8">
             <h2 className="text-xl md:text-2xl font-bold mb-2">
-              Checkout is handled securely by WooCommerce
+              Safe shopping starts with trust
             </h2>
             <p className="text-white/75 max-w-3xl">
-              For this first integration, product browsing happens on React while product
-              selection and payment continue through digitalhood.info. This keeps Stripe,
-              Lenco and future payment methods stable while we build the marketplace frontend.
+              DigitalHood is building a safer online marketplace for Zambia — with trusted
+              listings, clear product information, secure checkout and customer support.
             </p>
           </div>
         </div>
