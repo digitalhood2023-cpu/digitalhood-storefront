@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Filter,
   Grid3X3,
@@ -36,6 +36,11 @@ type SortOption = 'featured' | 'price-low' | 'price-high' | 'newest';
 const PRODUCTS_PER_PAGE = 24;
 
 export default function ShopPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const categorySlugFromUrl = searchParams.get('category');
+  const searchFromUrl = searchParams.get('search') || '';
+
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [categories, setCategories] = useState<WooCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -44,7 +49,7 @@ export default function ShopPage() {
   const [loadError, setLoadError] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -62,13 +67,34 @@ export default function ShopPage() {
   }, []);
 
   useEffect(() => {
+    if (!categories.length) return;
+
+    if (searchFromUrl !== searchQuery) {
+      setSearchQuery(searchFromUrl);
+    }
+
+    if (!categorySlugFromUrl) {
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    const matchedCategory = categories.find(
+      (category) => category.slug === categorySlugFromUrl
+    );
+
+    if (matchedCategory) {
+      setSelectedCategoryId(matchedCategory.id);
+    }
+  }, [categories, categorySlugFromUrl, searchFromUrl]);
+
+  useEffect(() => {
     setIsLoading(true);
 
     fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery, selectedCategoryId)
       .then(({ products, total, totalPages }) => {
         setProducts(products);
         setTotalProducts(total);
-        setTotalPages(totalPages);
+        setTotalPages(totalPages || 1);
         setLoadError('');
 
         if (page > 1) {
@@ -102,6 +128,43 @@ export default function ShopPage() {
     () => categories.find((category) => category.id === selectedCategoryId),
     [categories, selectedCategoryId]
   );
+
+  const selectedCategorySlug = selectedCategory?.slug;
+
+  const updateShopUrl = (categorySlug?: string | null, search?: string) => {
+    const params: Record<string, string> = {};
+
+    if (categorySlug) {
+      params.category = categorySlug;
+    }
+
+    if (search?.trim()) {
+      params.search = search.trim();
+    }
+
+    setSearchParams(params);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, value);
+  };
+
+  const handleAllProductsClick = () => {
+    setSelectedCategoryId(null);
+    updateShopUrl(null, searchQuery);
+  };
+
+  const handleCategoryClick = (category: WooCategory) => {
+    setSelectedCategoryId(category.id);
+    updateShopUrl(category.slug, searchQuery);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategoryId(null);
+    setSearchParams({});
+  };
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
@@ -166,7 +229,7 @@ export default function ShopPage() {
                   type="text"
                   placeholder="Search products..."
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => handleSearchChange(event.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl"
                 />
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -175,7 +238,7 @@ export default function ShopPage() {
               <div className="flex gap-2 overflow-x-auto pb-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedCategoryId(null)}
+                  onClick={handleAllProductsClick}
                   className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     selectedCategoryId === null
                       ? 'bg-black text-white'
@@ -196,7 +259,7 @@ export default function ShopPage() {
                     <button
                       key={category.id}
                       type="button"
-                      onClick={() => setSelectedCategoryId(category.id)}
+                      onClick={() => handleCategoryClick(category)}
                       className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                         selectedCategoryId === category.id
                           ? 'bg-black text-white'
@@ -302,13 +365,7 @@ export default function ShopPage() {
                 <p className="text-gray-500 mb-6">
                   Try another search or choose a different category.
                 </p>
-                <Button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategoryId(null);
-                  }}
-                  variant="outline"
-                >
+                <Button onClick={clearFilters} variant="outline">
                   Clear Filters
                 </Button>
               </div>
@@ -339,6 +396,9 @@ export default function ShopPage() {
                             alt={product.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.src = '/logo.jpg';
+                            }}
                           />
                         </Link>
 
