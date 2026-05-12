@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
-  ShoppingCart,
   User,
   Heart,
   Menu,
@@ -12,11 +11,12 @@ import {
   MapPin,
   Clock,
 } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { navCategories } from '@/data/products';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CartButton } from '@/features/cart/CartButton';
+import { CartDrawer } from '@/features/cart/CartDrawer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +52,7 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastScrollY, setLastScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
@@ -60,7 +61,6 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { totalItems } = useCart();
   const { items: wishlistItems } = useWishlist();
 
   useEffect(() => {
@@ -233,16 +233,7 @@ export default function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Link to="/cart">
-                <Button variant="ghost" size="icon" className="relative hover:bg-gray-100">
-                  <ShoppingCart className="w-5 h-5" />
-                  {totalItems > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ffb54a] text-black text-xs font-bold rounded-full flex items-center justify-center animate-scale-in">
-                      {totalItems}
-                    </span>
-                  )}
-                </Button>
-              </Link>
+              <CartButton onClick={() => setIsCartOpen(true)} />
             </div>
 
             <div className="flex items-center gap-2 md:hidden">
@@ -254,14 +245,7 @@ export default function Header() {
                 <Search className="w-5 h-5" />
               </button>
 
-              <Link to="/cart" className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-                <ShoppingCart className="w-5 h-5" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ffb54a] text-black text-xs font-bold rounded-full flex items-center justify-center">
-                    {totalItems}
-                  </span>
-                )}
-              </Link>
+              <CartButton onClick={() => setIsCartOpen(true)} />
 
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -349,6 +333,8 @@ export default function Header() {
           </div>
         )}
       </header>
+
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
   );
 }

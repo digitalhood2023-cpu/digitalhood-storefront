@@ -4,7 +4,8 @@ import {
   ChevronRight,
   Check,
   Heart,
-  Phone,
+  Minus,
+  Plus,
   RotateCcw,
   Share2,
   Shield,
@@ -18,10 +19,13 @@ import Footer from '@/sections/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import {
   fetchWooProductBySlug,
   type WooProduct,
 } from '@/lib/woocommerce';
+
+import { useAddToCart } from '@/hooks/useCart';
 
 import gsap from 'gsap';
 
@@ -33,6 +37,11 @@ export default function ProductPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState('description');
+
+  const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const addToCart = useAddToCart();
 
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -94,7 +103,25 @@ export default function ProductPage() {
         ? [product.image]
         : ['/logo.jpg'];
 
-  const buyUrl = product?.permalink || 'https://digitalhood.info';
+  const handleAddToCart = () => {
+    if (!product) return;
+
+    addToCart.mutate(
+      {
+        productId: Number(product.id),
+        quantity,
+      },
+      {
+        onSuccess: () => {
+          setAdded(true);
+
+          setTimeout(() => {
+            setAdded(false);
+          }, 2000);
+        },
+      }
+    );
+  };
 
   return (
     <div ref={pageRef} className="min-h-screen bg-white">
@@ -106,16 +133,20 @@ export default function ProductPage() {
             <Link to="/" className="hover:text-black transition-colors">
               Home
             </Link>
+
             <ChevronRight className="w-4 h-4" />
+
             <Link to="/shop" className="hover:text-black transition-colors">
               Shop
             </Link>
+
             {product?.categories?.[0] && (
               <>
                 <ChevronRight className="w-4 h-4" />
                 <span>{product.categories[0].name}</span>
               </>
             )}
+
             {product && (
               <>
                 <ChevronRight className="w-4 h-4" />
@@ -131,6 +162,7 @@ export default function ProductPage() {
           {isLoading ? (
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 animate-pulse">
               <div className="aspect-square bg-gray-100 rounded-2xl" />
+
               <div>
                 <div className="h-8 bg-gray-100 rounded mb-4" />
                 <div className="h-6 bg-gray-100 rounded w-1/2 mb-6" />
@@ -143,9 +175,11 @@ export default function ProductPage() {
               <h1 className="text-2xl font-bold text-black mb-3">
                 Product unavailable
               </h1>
+
               <p className="text-gray-500 mb-6">
                 {loadError || 'This product could not be found.'}
               </p>
+
               <Link to="/shop">
                 <Button className="bg-black text-white hover:bg-[#ffb54a] hover:text-black">
                   Back to Shop
@@ -205,6 +239,7 @@ export default function ProductPage() {
                         />
                       ))}
                     </div>
+
                     <span className="text-gray-600 text-sm">
                       Live WooCommerce product
                     </span>
@@ -235,16 +270,46 @@ export default function ProductPage() {
                   ))}
                 </div>
 
+                <div className="flex items-center gap-3 mb-6">
+                  <button
+                    onClick={() =>
+                      setQuantity((prev) => Math.max(1, prev - 1))
+                    }
+                    className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+
+                  <div className="w-14 h-10 rounded-lg border border-gray-300 flex items-center justify-center font-semibold">
+                    {quantity}
+                  </div>
+
+                  <button
+                    onClick={() => setQuantity((prev) => prev + 1)}
+                    className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-4 mb-8">
-                  <a href={buyUrl}>
-                    <Button
-                      disabled={!product.inStock}
-                      className="min-w-[220px] h-12 rounded-xl bg-black hover:bg-[#ffb54a] hover:text-black text-white font-semibold"
-                    >
-                      <ShoppingCart className="w-5 h-5 mr-2" />
-                      {product.hasOptions ? 'Select Options' : 'Buy Securely'}
-                    </Button>
-                  </a>
+                  <Button
+                    onClick={handleAddToCart}
+                    disabled={!product.inStock || addToCart.isPending}
+                    className="min-w-[220px] h-12 rounded-xl bg-black hover:bg-[#ffb54a] hover:text-black text-white font-semibold"
+                  >
+                    {added ? (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Added
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        {addToCart.isPending ? 'Adding...' : 'Add to Cart'}
+                      </>
+                    )}
+                  </Button>
 
                   <Button
                     variant="outline"
@@ -256,10 +321,12 @@ export default function ProductPage() {
                   <Button
                     variant="outline"
                     className="w-12 h-12 rounded-xl border-2 border-gray-200 hover:border-black"
-                    onClick={() => navigator.share?.({
-                      title: product.name,
-                      url: window.location.href,
-                    })}
+                    onClick={() =>
+                      navigator.share?.({
+                        title: product.name,
+                        url: window.location.href,
+                      })
+                    }
                   >
                     <Share2 className="w-5 h-5" />
                   </Button>
@@ -270,34 +337,15 @@ export default function ProductPage() {
                     <Truck className="w-5 h-5 text-black" />
                     <span className="text-sm">Delivery in Zambia</span>
                   </div>
+
                   <div className="flex items-center gap-3">
                     <Shield className="w-5 h-5 text-black" />
                     <span className="text-sm">Secure checkout</span>
                   </div>
+
                   <div className="flex items-center gap-3">
                     <RotateCcw className="w-5 h-5 text-black" />
                     <span className="text-sm">Seller support</span>
-                  </div>
-                </div>
-
-                <div className="bg-black rounded-xl p-4 mb-8">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                      <p className="text-white font-medium">
-                        Need help with this product?
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        Call DigitalHood for product support
-                      </p>
-                    </div>
-
-                    <a
-                      href="tel:+260971047570"
-                      className="flex items-center gap-2 bg-[#ffb54a] text-black px-4 py-2 rounded-lg font-medium hover:bg-white transition-colors"
-                    >
-                      <Phone className="w-4 h-4" />
-                      +260 971 047 570
-                    </a>
                   </div>
                 </div>
 
@@ -320,23 +368,23 @@ export default function ProductPage() {
                     <div className="space-y-4">
                       <div className="flex justify-between py-2 border-b border-gray-200">
                         <span className="text-gray-600">Product type</span>
-                        <span className="font-medium capitalize">{product.type}</span>
-                      </div>
-
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-gray-600">Availability</span>
-                        <span
-                          className={`font-medium ${
-                            product.inStock ? 'text-green-600' : 'text-red-500'
-                          }`}
-                        >
-                          {product.inStock ? 'In stock' : 'Out of stock'}
+                        <span className="font-medium capitalize">
+                          {product.type}
                         </span>
                       </div>
 
                       <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-gray-600">Checkout</span>
-                        <span className="font-medium">WooCommerce secure checkout</span>
+                        <span className="text-gray-600">Availability</span>
+
+                        <span
+                          className={`font-medium ${
+                            product.inStock
+                              ? 'text-green-600'
+                              : 'text-red-500'
+                          }`}
+                        >
+                          {product.inStock ? 'In stock' : 'Out of stock'}
+                        </span>
                       </div>
                     </div>
                   </TabsContent>
@@ -345,12 +393,14 @@ export default function ProductPage() {
                     <div className="space-y-3 text-gray-600">
                       <p className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-green-600 mt-0.5" />
-                        Products are loaded directly from DigitalHood WooCommerce.
+                        Products are loaded directly from WooCommerce.
                       </p>
+
                       <p className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-green-600 mt-0.5" />
-                        Checkout happens securely on digitalhood.info.
+                        Cart state persists securely using WooCommerce sessions.
                       </p>
+
                       <p className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-green-600 mt-0.5" />
                         Built for safe online shopping in Zambia.
