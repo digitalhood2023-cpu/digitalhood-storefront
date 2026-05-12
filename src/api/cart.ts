@@ -35,7 +35,7 @@ export function addCartItem(productId: number, quantity = 1) {
     method: 'POST',
     body: JSON.stringify({
       id: productId,
-      quantity,
+      quantity: String(quantity),
     }),
   });
 }
@@ -43,13 +43,18 @@ export function addCartItem(productId: number, quantity = 1) {
 export function removeCartItem(key: string) {
   return wcStoreFetch<Cart>('/cart/remove-item', {
     method: 'POST',
-    body: JSON.stringify({ key }),
+    body: JSON.stringify({
+      key,
+    }),
   });
 }
 
 export function updateCartItem(key: string, quantity: number) {
   return wcStoreFetch<Cart>('/cart/update-item', {
     method: 'POST',
-    body: JSON.stringify({ key, quantity }),
+    body: JSON.stringify({
+      key,
+      quantity: String(quantity),
+    }),
   });
 }
