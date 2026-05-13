@@ -15,20 +15,26 @@ app.use(
     target: 'https://digitalhood.info',
     changeOrigin: true,
     secure: true,
-    pathRewrite: {
-      '^/api/wc/store': '/wp-json/wc/store',
+    pathRewrite: (path) => {
+      return `/wp-json/wc/store${path}`;
+    },
+    onProxyReq(proxyReq) {
+      proxyReq.setHeader('Origin', 'https://digitalhood.info');
     },
   })
 );
 
 app.use(
-  '/api/digitalhood',
+  '/api/wc/store',
   createProxyMiddleware({
     target: 'https://digitalhood.info',
     changeOrigin: true,
     secure: true,
-    pathRewrite: {
-      '^/api/digitalhood': '/wp-json/digitalhood',
+    pathRewrite: (path) => {
+      return `/wp-json/wc/store${path}`;
+    },
+    onProxyReq(proxyReq) {
+      proxyReq.setHeader('Origin', 'https://digitalhood.info');
     },
   })
 );
