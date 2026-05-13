@@ -26,6 +26,39 @@ export type Cart = {
   };
 };
 
+export type CheckoutPayload = {
+  billing_address: {
+    first_name: string;
+    last_name: string;
+    company: string;
+    address_1: string;
+    address_2: string;
+    city: string;
+    state: string;
+    postcode: string;
+    country: string;
+    email: string;
+    phone: string;
+  };
+  shipping_address: {
+    first_name: string;
+    last_name: string;
+    company: string;
+    address_1: string;
+    address_2: string;
+    city: string;
+    state: string;
+    postcode: string;
+    country: string;
+    phone: string;
+  };
+  payment_method: string;
+  payment_data: Array<{
+    key: string;
+    value: string | boolean;
+  }>;
+};
+
 export function getCart() {
   return wcStoreFetch<Cart>('/cart');
 }
@@ -43,9 +76,7 @@ export function addCartItem(productId: number, quantity = 1) {
 export function removeCartItem(key: string) {
   return wcStoreFetch<Cart>('/cart/remove-item', {
     method: 'POST',
-    body: JSON.stringify({
-      key,
-    }),
+    body: JSON.stringify({ key }),
   });
 }
 
@@ -56,5 +87,12 @@ export function updateCartItem(key: string, quantity: number) {
       key,
       quantity: String(quantity),
     }),
+  });
+}
+
+export function submitCheckout(payload: CheckoutPayload) {
+  return wcStoreFetch('/checkout', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }

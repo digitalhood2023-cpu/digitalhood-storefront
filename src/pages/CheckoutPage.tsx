@@ -7,9 +7,10 @@ import {
   Shield,
   Check,
   Smartphone,
+  AlertCircle,
 } from 'lucide-react';
 
-import { useCart } from '@/hooks/useCart';
+import { useCart, useSubmitCheckout } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,14 +18,33 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
 
+const paymentMethodMap: Record<string, string> = {
+  card: 'stripe',
+  mobile: 'lenco',
+  cod: 'cod',
+};
+
 export default function CheckoutPage() {
   const { data: cart, isLoading } = useCart();
+  const submitCheckout = useSubmitCheckout();
 
   const navigate = useNavigate();
 
-  const [paymentMethod, setPaymentMethod] = useState('card');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('mobile');
   const [orderComplete, setOrderComplete] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: 'Lusaka',
+    province: 'ZM-02',
+    postcode: '',
+  });
 
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -45,13 +65,93 @@ export default function CheckoutPage() {
       maximumFractionDigits: 2,
     })}`;
 
+  const updateField = (field: keyof typeof formData, value: string) => {
+    setFormData((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const validateCheckout = () => {
+    if (!formData.firstName.trim()) return 'First name is required.';
+    if (!formData.lastName.trim()) return 'Last name is required.';
+    if (!formData.email.trim()) return 'Email is required.';
+    if (!formData.phone.trim()) return 'Phone number is required.';
+    if (!formData.address.trim()) return 'Street address is required.';
+    if (!formData.city.trim()) return 'City is required.';
+
+    return '';
+  };
+
   const handlePlaceOrder = async () => {
-    setIsProcessing(true);
+    setCheckoutError('');
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const validationError = validateCheckout();
 
-    setIsProcessing(false);
-    setOrderComplete(true);
+    if (validationError) {
+      setCheckoutError(validationError);
+      return;
+    }
+
+    const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco';
+
+    submitCheckout.mutate(
+      {
+        billing_address: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          company: '',
+          address_1: formData.address,
+          address_2: '',
+          city: formData.city,
+          state: formData.province,
+          postcode: formData.postcode,
+          country: 'ZM',
+          email: formData.email,
+          phone: formData.phone,
+        },
+        shipping_address: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          company: '',
+          address_1: formData.address,
+          address_2: '',
+          city: formData.city,
+          state: formData.province,
+          postcode: formData.postcode,
+          country: 'ZM',
+          phone: formData.phone,
+        },
+        payment_method: paymentMethodId,
+        payment_data: [
+          {
+            key: 'wc-' + paymentMethodId + '-payment-token',
+            value: '',
+          },
+          {
+            key: 'wc-' + paymentMethodId + '-new-payment-method',
+            value: false,
+          },
+        ],
+      },
+      {
+        onSuccess: (response: any) => {
+          setOrderNumber(
+            response?.order_id?.toString() ||
+              response?.order_key ||
+              'Pending'
+          );
+          setOrderComplete(true);
+        },
+        onError: (error) => {
+          setCheckoutError(
+            error instanceof Error
+              ? error.message
+              : 'Checkout failed. Please try again.'
+          );
+        },
+      }
+    );
   };
 
   if (isLoading) {
@@ -84,14 +184,19 @@ export default function CheckoutPage() {
               </div>
 
               <h1 className="font-display font-bold text-2xl text-dh-primary mb-3">
-                Order Request Received
+                Order Created Successfully
               </h1>
 
-              <p className="text-dh-dark-gray mb-8">
-                Thank you. Your order request has been captured. Payment processing will be connected next.
+              <p className="text-dh-dark-gray mb-4">
+                Your order has been created in WooCommerce.
               </p>
 
               <div className="bg-white rounded-2xl p-6 mb-8">
+                <p className="text-sm text-dh-dark-gray mb-2">Order Reference</p>
+                <p className="font-display font-bold text-xl text-dh-primary mb-4">
+                  {orderNumber}
+                </p>
+
                 <p className="text-sm text-dh-dark-gray mb-2">Order Total</p>
                 <p className="font-display font-bold text-2xl text-dh-primary">
                   {formatPrice(finalTotal)}
@@ -131,6 +236,13 @@ export default function CheckoutPage() {
             Checkout
           </h1>
 
+          {checkoutError && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 flex gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <p className="text-sm whitespace-pre-wrap">{checkoutError}</p>
+            </div>
+          )}
+
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white rounded-2xl p-6">
@@ -146,12 +258,28 @@ export default function CheckoutPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" placeholder="John" className="mt-1" />
+                    <Input
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(event) =>
+                        updateField('firstName', event.target.value)
+                      }
+                      placeholder="John"
+                      className="mt-1"
+                    />
                   </div>
 
                   <div>
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Doe" className="mt-1" />
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(event) =>
+                        updateField('lastName', event.target.value)
+                      }
+                      placeholder="Doe"
+                      className="mt-1"
+                    />
                   </div>
 
                   <div className="sm:col-span-2">
@@ -159,6 +287,10 @@ export default function CheckoutPage() {
                     <Input
                       id="email"
                       type="email"
+                      value={formData.email}
+                      onChange={(event) =>
+                        updateField('email', event.target.value)
+                      }
                       placeholder="john@example.com"
                       className="mt-1"
                     />
@@ -168,6 +300,10 @@ export default function CheckoutPage() {
                     <Label htmlFor="phone">Phone Number</Label>
                     <Input
                       id="phone"
+                      value={formData.phone}
+                      onChange={(event) =>
+                        updateField('phone', event.target.value)
+                      }
                       placeholder="+260 97X XXX XXX"
                       className="mt-1"
                     />
@@ -177,6 +313,10 @@ export default function CheckoutPage() {
                     <Label htmlFor="address">Street Address</Label>
                     <Input
                       id="address"
+                      value={formData.address}
+                      onChange={(event) =>
+                        updateField('address', event.target.value)
+                      }
                       placeholder="123 Main Street"
                       className="mt-1"
                     />
@@ -184,14 +324,39 @@ export default function CheckoutPage() {
 
                   <div>
                     <Label htmlFor="city">City</Label>
-                    <Input id="city" placeholder="Lusaka" className="mt-1" />
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={(event) =>
+                        updateField('city', event.target.value)
+                      }
+                      placeholder="Lusaka"
+                      className="mt-1"
+                    />
                   </div>
 
                   <div>
                     <Label htmlFor="province">Province</Label>
                     <Input
                       id="province"
-                      placeholder="Lusaka Province"
+                      value={formData.province}
+                      onChange={(event) =>
+                        updateField('province', event.target.value)
+                      }
+                      placeholder="ZM-02"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="postcode">Postal Code / Area Code</Label>
+                    <Input
+                      id="postcode"
+                      value={formData.postcode}
+                      onChange={(event) =>
+                        updateField('postcode', event.target.value)
+                      }
+                      placeholder="Optional"
                       className="mt-1"
                     />
                   </div>
@@ -215,23 +380,6 @@ export default function CheckoutPage() {
                 >
                   <label
                     className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === 'card'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
-                    }`}
-                  >
-                    <RadioGroupItem value="card" />
-                    <CreditCard className="w-5 h-5 text-dh-primary" />
-                    <div>
-                      <p className="font-medium">Credit/Debit Card</p>
-                      <p className="text-sm text-dh-dark-gray">
-                        Visa, Mastercard
-                      </p>
-                    </div>
-                  </label>
-
-                  <label
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                       paymentMethod === 'mobile'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -242,7 +390,24 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-medium">Mobile Money</p>
                       <p className="text-sm text-dh-dark-gray">
-                        MTN, Airtel, Zamtel
+                        Lenco / MTN / Airtel / Zamtel
+                      </p>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      paymentMethod === 'card'
+                        ? 'border-dh-primary bg-dh-primary/5'
+                        : 'border-dh-light-gray'
+                    }`}
+                  >
+                    <RadioGroupItem value="card" />
+                    <CreditCard className="w-5 h-5 text-dh-primary" />
+                    <div>
+                      <p className="font-medium">Credit/Debit Card</p>
+                      <p className="text-sm text-dh-dark-gray">
+                        Stripe / WooPayments
                       </p>
                     </div>
                   </label>
@@ -323,10 +488,12 @@ export default function CheckoutPage() {
 
                 <Button
                   onClick={handlePlaceOrder}
-                  disabled={isProcessing}
+                  disabled={submitCheckout.isPending}
                   className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6"
                 >
-                  {isProcessing ? 'Processing...' : `Place Order - ${formatPrice(finalTotal)}`}
+                  {submitCheckout.isPending
+                    ? 'Creating Order...'
+                    : `Place Order - ${formatPrice(finalTotal)}`}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 mt-4 text-sm text-dh-dark-gray">
