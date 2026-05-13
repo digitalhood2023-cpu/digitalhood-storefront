@@ -17,6 +17,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
+import {
+  detectMobileMoneyOperator,
+  initiateLencoMobileMoney,
+} from '@/api/lenco';
 
 const paymentMethodMap: Record<string, string> = {
   card: 'stripe',
@@ -135,14 +139,34 @@ export default function CheckoutPage() {
         ],
       },
       {
-        onSuccess: (response: any) => {
-          setOrderNumber(
-            response?.order_id?.toString() ||
-              response?.order_key ||
-              'Pending'
-          );
-          setOrderComplete(true);
-        },
+        onSuccess: async (response: any) => {
+  const orderReference =
+    response?.order_id?.toString() ||
+    response?.order_key ||
+    `DH_${Date.now()}`;
+
+  setOrderNumber(orderReference);
+
+  if (paymentMethod === 'mobile') {
+    try {
+      await initiateLencoMobileMoney({
+        amount: finalTotal,
+        phone: formData.phone,
+        operator: detectMobileMoneyOperator(formData.phone),
+        reference: `DH_ORDER_${orderReference}`,
+      });
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : 'Order was created, but mobile money payment could not be initiated.'
+      );
+      return;
+    }
+  }
+
+  setOrderComplete(true);
+},
         onError: (error) => {
           setCheckoutError(
             error instanceof Error
