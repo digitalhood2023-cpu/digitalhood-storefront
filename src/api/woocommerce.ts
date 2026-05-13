@@ -1,6 +1,18 @@
-let storeNonce = localStorage.getItem('dh_store_nonce');
+let storeNonce: string | null = localStorage.getItem('dh_store_nonce');
 
 const API_BASE_URL = '/api/wc/store';
+
+function buildHeaders(options: RequestInit = {}): HeadersInit {
+  const headers = new Headers(options.headers);
+
+  headers.set('Content-Type', 'application/json');
+
+  if (storeNonce) {
+    headers.set('Nonce', storeNonce);
+  }
+
+  return headers;
+}
 
 async function refreshStoreNonce() {
   const response = await fetch(`${API_BASE_URL}/cart`, {
@@ -39,14 +51,10 @@ export async function wcStoreFetch<T>(
   let response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(storeNonce ? { Nonce: storeNonce } : {}),
-      ...options.headers,
-    },
+    headers: buildHeaders(options),
   });
 
-  let newNonce = response.headers.get('Nonce');
+  const newNonce = response.headers.get('Nonce');
 
   if (newNonce) {
     storeNonce = newNonce;
@@ -62,18 +70,14 @@ export async function wcStoreFetch<T>(
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(storeNonce ? { Nonce: storeNonce } : {}),
-        ...options.headers,
-      },
+      headers: buildHeaders(options),
     });
 
-    newNonce = response.headers.get('Nonce');
+    const retryNonce = response.headers.get('Nonce');
 
-    if (newNonce) {
-      storeNonce = newNonce;
-      localStorage.setItem('dh_store_nonce', newNonce);
+    if (retryNonce) {
+      storeNonce = retryNonce;
+      localStorage.setItem('dh_store_nonce', retryNonce);
     }
   }
 
