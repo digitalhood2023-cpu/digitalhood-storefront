@@ -1,60 +1,86 @@
 let storeNonce = localStorage.getItem('dh_store_nonce');
 
 const API_BASE_URL = '/api/wc/store';
-const NONCE_URL = '/api/digitalhood/v1/store-nonce';
 
-async function getStoreNonce() {
-  if (storeNonce) return storeNonce;
-
-  const response = await fetch(NONCE_URL, {
+async function refreshStoreNonce() {
+  const response = await fetch(`${API_BASE_URL}/cart`, {
     credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
 
-  if (!response.ok) {
-    throw new Error('Could not fetch WooCommerce Store API nonce');
+  const nonce = response.headers.get('Nonce');
+
+  if (nonce) {
+    storeNonce = nonce;
+    localStorage.setItem('dh_store_nonce', nonce);
   }
 
-  const data = await response.json();
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'Could not refresh WooCommerce nonce');
+  }
 
-  storeNonce = data.nonce;
-  localStorage.setItem('dh_store_nonce', data.nonce);
-
-  return data.nonce;
+  return storeNonce;
 }
 
 export async function wcStoreFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const isWriteRequest =
-    options.method && options.method.toUpperCase() !== 'GET';
+  const method = options.method?.toUpperCase() || 'GET';
+  const isWriteRequest = method !== 'GET';
 
-  const nonce = isWriteRequest ? await getStoreNonce() : storeNonce;
+  if (isWriteRequest && !storeNonce) {
+    await refreshStoreNonce();
+  }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  let response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(nonce ? { Nonce: nonce } : {}),
+      ...(storeNonce ? { Nonce: storeNonce } : {}),
       ...options.headers,
     },
   });
 
-  const newNonce = response.headers.get('Nonce');
+  let newNonce = response.headers.get('Nonce');
 
   if (newNonce) {
     storeNonce = newNonce;
     localStorage.setItem('dh_store_nonce', newNonce);
   }
 
+  if (!response.ok && response.status === 401) {
+    localStorage.removeItem('dh_store_nonce');
+    storeNonce = null;
+
+    await refreshStoreNonce();
+
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(storeNonce ? { Nonce: storeNonce } : {}),
+        ...options.headers,
+      },
+    });
+
+    newNonce = response.headers.get('Nonce');
+
+    if (newNonce) {
+      storeNonce = newNonce;
+      localStorage.setItem('dh_store_nonce', newNonce);
+    }
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
 
     console.error('WooCommerce Store API Error:', errorText);
-
-    localStorage.removeItem('dh_store_nonce');
-    storeNonce = null;
 
     throw new Error(
       errorText || `WooCommerce request failed: ${response.status}`
