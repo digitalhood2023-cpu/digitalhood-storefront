@@ -1,12 +1,7 @@
 let storeNonce = localStorage.getItem('dh_store_nonce');
 
-const API_BASE_URL =
-  import.meta.env.VITE_WC_STORE_API_URL ||
-  'https://digitalhood.info/wp-json/wc/store';
-
-const NONCE_URL =
-  import.meta.env.VITE_WC_STORE_NONCE_URL ||
-  'https://digitalhood.info/wp-json/digitalhood/v1/store-nonce';
+const API_BASE_URL = '/api/wc/store';
+const NONCE_URL = '/api/digitalhood/v1/store-nonce';
 
 async function getStoreNonce() {
   if (storeNonce) return storeNonce;
@@ -32,8 +27,7 @@ export async function wcStoreFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const isWriteRequest =
-    options.method &&
-    options.method.toUpperCase() !== 'GET';
+    options.method && options.method.toUpperCase() !== 'GET';
 
   const nonce = isWriteRequest ? await getStoreNonce() : storeNonce;
 
