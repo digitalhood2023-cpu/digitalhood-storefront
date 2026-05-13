@@ -11,16 +11,16 @@ import {
 } from 'lucide-react';
 
 import { useCart, useSubmitCheckout } from '@/hooks/useCart';
+import {
+  detectMobileMoneyOperator,
+  initiateLencoMobileMoney,
+} from '@/api/lenco';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
-import {
-  detectMobileMoneyOperator,
-  initiateLencoMobileMoney,
-} from '@/api/lenco';
 
 const paymentMethodMap: Record<string, string> = {
   card: 'stripe',
@@ -40,14 +40,13 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('');
 
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     email: '',
     phone: '',
     address: '',
     city: 'Lusaka',
     province: 'ZM-02',
-    postcode: '',
+    paymentPhone: '',
   });
 
   const pageRef = useRef<HTMLDivElement>(null);
@@ -76,13 +75,32 @@ export default function CheckoutPage() {
     }));
   };
 
+  const splitFullName = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+
+    if (parts.length === 1) {
+      return {
+        firstName: parts[0],
+        lastName: parts[0],
+      };
+    }
+
+    return {
+      firstName: parts.slice(0, -1).join(' '),
+      lastName: parts[parts.length - 1],
+    };
+  };
+
   const validateCheckout = () => {
-    if (!formData.firstName.trim()) return 'First name is required.';
-    if (!formData.lastName.trim()) return 'Last name is required.';
+    if (!formData.fullName.trim()) return 'Full name is required.';
     if (!formData.email.trim()) return 'Email is required.';
-    if (!formData.phone.trim()) return 'Phone number is required.';
-    if (!formData.address.trim()) return 'Street address is required.';
+    if (!formData.phone.trim()) return 'Contact phone number is required.';
+    if (!formData.address.trim()) return 'Delivery address is required.';
     if (!formData.city.trim()) return 'City is required.';
+
+    if (paymentMethod === 'mobile' && !formData.paymentPhone.trim()) {
+      return 'Mobile Money payment number is required.';
+    }
 
     return '';
   };
@@ -97,32 +115,33 @@ export default function CheckoutPage() {
       return;
     }
 
+    const { firstName, lastName } = splitFullName(formData.fullName);
     const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco';
 
     submitCheckout.mutate(
       {
         billing_address: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
+          first_name: firstName,
+          last_name: lastName,
           company: '',
           address_1: formData.address,
           address_2: '',
           city: formData.city,
           state: formData.province,
-          postcode: formData.postcode,
+          postcode: '',
           country: 'ZM',
           email: formData.email,
           phone: formData.phone,
         },
         shipping_address: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
+          first_name: firstName,
+          last_name: lastName,
           company: '',
           address_1: formData.address,
           address_2: '',
           city: formData.city,
           state: formData.province,
-          postcode: formData.postcode,
+          postcode: '',
           country: 'ZM',
           phone: formData.phone,
         },
@@ -140,33 +159,33 @@ export default function CheckoutPage() {
       },
       {
         onSuccess: async (response: any) => {
-  const orderReference =
-    response?.order_id?.toString() ||
-    response?.order_key ||
-    `DH_${Date.now()}`;
+          const orderReference =
+            response?.order_id?.toString() ||
+            response?.order_key ||
+            `DH_${Date.now()}`;
 
-  setOrderNumber(orderReference);
+          setOrderNumber(orderReference);
 
-  if (paymentMethod === 'mobile') {
-    try {
-      await initiateLencoMobileMoney({
-        amount: finalTotal,
-        phone: formData.phone,
-        operator: detectMobileMoneyOperator(formData.phone),
-        reference: `DH_ORDER_${orderReference}`,
-      });
-    } catch (error) {
-      setCheckoutError(
-        error instanceof Error
-          ? error.message
-          : 'Order was created, but mobile money payment could not be initiated.'
-      );
-      return;
-    }
-  }
+          if (paymentMethod === 'mobile') {
+            try {
+              await initiateLencoMobileMoney({
+                amount: finalTotal,
+                phone: formData.paymentPhone,
+                operator: detectMobileMoneyOperator(formData.paymentPhone),
+                reference: `DH_ORDER_${orderReference}`,
+              });
+            } catch (error) {
+              setCheckoutError(
+                error instanceof Error
+                  ? error.message
+                  : 'Order was created, but mobile money payment could not be initiated.'
+              );
+              return;
+            }
+          }
 
-  setOrderComplete(true);
-},
+          setOrderComplete(true);
+        },
         onError: (error) => {
           setCheckoutError(
             error instanceof Error
@@ -280,28 +299,15 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="fullName">Full Name</Label>
                     <Input
-                      id="firstName"
-                      value={formData.firstName}
+                      id="fullName"
+                      value={formData.fullName}
                       onChange={(event) =>
-                        updateField('firstName', event.target.value)
+                        updateField('fullName', event.target.value)
                       }
-                      placeholder="John"
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(event) =>
-                        updateField('lastName', event.target.value)
-                      }
-                      placeholder="Doe"
+                      placeholder="e.g. Caster Williams"
                       className="mt-1"
                     />
                   </div>
@@ -312,36 +318,32 @@ export default function CheckoutPage() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(event) =>
-                        updateField('email', event.target.value)
-                      }
+                      onChange={(event) => updateField('email', event.target.value)}
                       placeholder="john@example.com"
                       className="mt-1"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone">Delivery Contact Number</Label>
                     <Input
                       id="phone"
                       value={formData.phone}
-                      onChange={(event) =>
-                        updateField('phone', event.target.value)
-                      }
+                      onChange={(event) => updateField('phone', event.target.value)}
                       placeholder="+260 97X XXX XXX"
                       className="mt-1"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <Label htmlFor="address">Street Address</Label>
+                    <Label htmlFor="address">Delivery Address</Label>
                     <Input
                       id="address"
                       value={formData.address}
                       onChange={(event) =>
                         updateField('address', event.target.value)
                       }
-                      placeholder="123 Main Street"
+                      placeholder="House number, road, area"
                       className="mt-1"
                     />
                   </div>
@@ -351,16 +353,14 @@ export default function CheckoutPage() {
                     <Input
                       id="city"
                       value={formData.city}
-                      onChange={(event) =>
-                        updateField('city', event.target.value)
-                      }
+                      onChange={(event) => updateField('city', event.target.value)}
                       placeholder="Lusaka"
                       className="mt-1"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="province">Province</Label>
+                    <Label htmlFor="province">Province / State Code</Label>
                     <Input
                       id="province"
                       value={formData.province}
@@ -368,19 +368,6 @@ export default function CheckoutPage() {
                         updateField('province', event.target.value)
                       }
                       placeholder="ZM-02"
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label htmlFor="postcode">Postal Code / Area Code</Label>
-                    <Input
-                      id="postcode"
-                      value={formData.postcode}
-                      onChange={(event) =>
-                        updateField('postcode', event.target.value)
-                      }
-                      placeholder="Optional"
                       className="mt-1"
                     />
                   </div>
@@ -453,6 +440,27 @@ export default function CheckoutPage() {
                     </div>
                   </label>
                 </RadioGroup>
+
+                {paymentMethod === 'mobile' && (
+                  <div className="mt-6 rounded-xl border border-dh-light-gray bg-dh-gray/40 p-4">
+                    <Label htmlFor="paymentPhone">
+                      Mobile Money Payment Number
+                    </Label>
+                    <Input
+                      id="paymentPhone"
+                      value={formData.paymentPhone}
+                      onChange={(event) =>
+                        updateField('paymentPhone', event.target.value)
+                      }
+                      placeholder="e.g. 097XXXXXXX or +26097XXXXXXX"
+                      className="mt-2"
+                    />
+                    <p className="mt-2 text-sm text-dh-dark-gray">
+                      This number is only used for payment and can be different
+                      from the delivery contact number.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
