@@ -28,6 +28,8 @@ const paymentMethodMap: Record<string, string> = {
   cod: 'cod',
 };
 
+const DEFAULT_POSTCODE = '10101';
+
 export default function CheckoutPage() {
   const { data: cart, isLoading } = useCart();
   const submitCheckout = useSubmitCheckout();
@@ -45,7 +47,7 @@ export default function CheckoutPage() {
     phone: '',
     address: '',
     city: 'Lusaka',
-    province: 'ZM-02',
+    province: 'Lusaka',
     paymentPhone: '',
   });
 
@@ -97,6 +99,7 @@ export default function CheckoutPage() {
     if (!formData.phone.trim()) return 'Contact phone number is required.';
     if (!formData.address.trim()) return 'Delivery address is required.';
     if (!formData.city.trim()) return 'City is required.';
+    if (!formData.province.trim()) return 'Province is required.';
 
     if (paymentMethod === 'mobile' && !formData.paymentPhone.trim()) {
       return 'Mobile Money payment number is required.';
@@ -128,7 +131,7 @@ export default function CheckoutPage() {
           address_2: '',
           city: formData.city,
           state: formData.province,
-          postcode: '',
+          postcode: DEFAULT_POSTCODE,
           country: 'ZM',
           email: formData.email,
           phone: formData.phone,
@@ -141,7 +144,7 @@ export default function CheckoutPage() {
           address_2: '',
           city: formData.city,
           state: formData.province,
-          postcode: '',
+          postcode: DEFAULT_POSTCODE,
           country: 'ZM',
           phone: formData.phone,
         },
@@ -360,14 +363,14 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="province">Province / State Code</Label>
+                    <Label htmlFor="province">Province</Label>
                     <Input
                       id="province"
                       value={formData.province}
                       onChange={(event) =>
                         updateField('province', event.target.value)
                       }
-                      placeholder="ZM-02"
+                      placeholder="Lusaka"
                       className="mt-1"
                     />
                   </div>
