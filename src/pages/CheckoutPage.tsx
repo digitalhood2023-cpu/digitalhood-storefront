@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Elements } from '@stripe/react-stripe-js'
+import { loadStripe } from '@stripe/stripe-js'
 
 import {
   ChevronLeft,
@@ -20,10 +22,15 @@ import {
   initiateLencoMobileMoney,
 } from '@/api/lenco'
 
-import { applyWooCommerceOrderShipping } from '@/api/woocommerceOrders'
+import {
+  applyWooCommerceOrderShipping,
+  markWooCommerceOrderPaid,
+} from '@/api/woocommerceOrders'
 
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
+
+import StripeCheckoutForm from '@/components/payments/StripeCheckoutForm'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +41,14 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
 const DEFAULT_POSTCODE = '10101'
-const WOO_CHECKOUT_URL = 'https://digitalhood.info/checkout'
+
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+)
+
+const PAYMENTS_API_URL =
+  import.meta.env.VITE_PAYMENTS_API_URL ||
+  'https://payments.digitalhood.info'
 
 const paymentMethodMap: Record<string, string> = {
   mobile: 'lenco',
@@ -62,6 +76,9 @@ export default function CheckoutPage() {
   const [checkoutError, setCheckoutError] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [cardClientSecret, setCardClientSecret] = useState('')
+  const [isPreparingCard, setIsPreparingCard] = useState(false)
 
   const [successState, setSuccessState] = useState<SuccessState>({
     title: 'Order Created Successfully',
@@ -145,6 +162,74 @@ export default function CheckoutPage() {
     }
   }
 
+  const createWooCommerceOrder = async (method: 'mobile' | 'cod' | 'card') => {
+    await syncZustandCartToWooCommerce()
+
+    const { firstName, lastName } = splitFullName(formData.fullName)
+
+    const paymentMethodId =
+      method === 'card'
+        ? 'cod'
+        : paymentMethodMap[method] || 'lenco'
+
+    const response = await submitCheckout({
+      billing_address: {
+        first_name: firstName,
+        last_name: lastName,
+        company: '',
+        address_1: formData.address,
+        address_2: '',
+        city: formData.city,
+        state: formData.province,
+        postcode: DEFAULT_POSTCODE,
+        country: 'ZM',
+        email: formData.email,
+        phone: formData.phone,
+      },
+
+      shipping_address: {
+        first_name: firstName,
+        last_name: lastName,
+        company: '',
+        address_1: formData.address,
+        address_2: '',
+        city: formData.city,
+        state: formData.province,
+        postcode: DEFAULT_POSTCODE,
+        country: 'ZM',
+        phone: formData.phone,
+      },
+
+      payment_method: paymentMethodId,
+
+      payment_data: [
+        {
+          key: `wc-${paymentMethodId}-payment-token`,
+          value: '',
+        },
+        {
+          key: `wc-${paymentMethodId}-new-payment-method`,
+          value: false,
+        },
+      ],
+    })
+
+    const orderReference =
+      response?.order_id?.toString() ||
+      response?.order_key ||
+      `DH_${Date.now()}`
+
+    setOrderNumber(orderReference)
+
+    await applyWooCommerceOrderShipping({
+      orderId: orderReference,
+      shippingFee: deliveryFee,
+      shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
+    })
+
+    return orderReference
+  }
+
   const getSuccessState = (method: string): SuccessState => {
     if (method === 'mobile') {
       return {
@@ -156,12 +241,102 @@ export default function CheckoutPage() {
       }
     }
 
+    if (method === 'card') {
+      return {
+        title: 'Card Payment Successful',
+        message:
+          'Your card payment has been confirmed and your order has been created successfully.',
+        nextStep:
+          'Our team will process your order and contact you with delivery updates.',
+      }
+    }
+
     return {
       title: 'Order Placed Successfully',
       message:
         'Your Cash on Delivery order has been created successfully.',
       nextStep:
         'Our team will contact you to confirm delivery. You will pay when you receive your order.',
+    }
+  }
+
+  const prepareCardPayment = async () => {
+    setCheckoutError('')
+    setCardClientSecret('')
+
+    const validationError = validateCheckout()
+
+    if (validationError) {
+      setCheckoutError(validationError)
+      return
+    }
+
+    setIsPreparingCard(true)
+
+    try {
+      const response = await fetch(
+        `${PAYMENTS_API_URL}/api/stripe/create-payment-intent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: finalTotal,
+            currency: 'zmw',
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok || !data?.clientSecret) {
+        throw new Error(
+          data?.error || 'Could not prepare card payment.'
+        )
+      }
+
+      setCardClientSecret(data.clientSecret)
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : 'Could not prepare card payment.'
+      )
+    } finally {
+      setIsPreparingCard(false)
+    }
+  }
+
+  useEffect(() => {
+    if (paymentMethod === 'card' && finalTotal > 0) {
+      prepareCardPayment()
+    } else {
+      setCardClientSecret('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod, finalTotal])
+
+  const handleCardPaymentSuccess = async () => {
+    setCheckoutError('')
+    setIsSubmitting(true)
+
+    try {
+      const orderReference = await createWooCommerceOrder('card')
+
+      await markWooCommerceOrderPaid(orderReference)
+
+      setSuccessState(getSuccessState('card'))
+      setOrderComplete(true)
+      clearCart()
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : 'Card payment was successful, but order creation failed. Please contact DigitalHood support.'
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -175,73 +350,20 @@ export default function CheckoutPage() {
       return
     }
 
+    if (paymentMethod === 'card') {
+      if (!cardClientSecret) {
+        await prepareCardPayment()
+      }
+
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      await syncZustandCartToWooCommerce()
-
-      if (paymentMethod === 'card') {
-        window.location.href = WOO_CHECKOUT_URL
-        return
-      }
-
-      const { firstName, lastName } = splitFullName(formData.fullName)
-      const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco'
-
-      const response = await submitCheckout({
-        billing_address: {
-          first_name: firstName,
-          last_name: lastName,
-          company: '',
-          address_1: formData.address,
-          address_2: '',
-          city: formData.city,
-          state: formData.province,
-          postcode: DEFAULT_POSTCODE,
-          country: 'ZM',
-          email: formData.email,
-          phone: formData.phone,
-        },
-
-        shipping_address: {
-          first_name: firstName,
-          last_name: lastName,
-          company: '',
-          address_1: formData.address,
-          address_2: '',
-          city: formData.city,
-          state: formData.province,
-          postcode: DEFAULT_POSTCODE,
-          country: 'ZM',
-          phone: formData.phone,
-        },
-
-        payment_method: paymentMethodId,
-
-        payment_data: [
-          {
-            key: `wc-${paymentMethodId}-payment-token`,
-            value: '',
-          },
-          {
-            key: `wc-${paymentMethodId}-new-payment-method`,
-            value: false,
-          },
-        ],
-      })
-
-      const orderReference =
-        response?.order_id?.toString() ||
-        response?.order_key ||
-        `DH_${Date.now()}`
-
-      setOrderNumber(orderReference)
-
-      await applyWooCommerceOrderShipping({
-        orderId: orderReference,
-        shippingFee: deliveryFee,
-        shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
-      })
+      const orderReference = await createWooCommerceOrder(
+        paymentMethod as 'mobile' | 'cod'
+      )
 
       if (paymentMethod === 'mobile') {
         await initiateLencoMobileMoney({
@@ -560,7 +682,7 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
                       <p className="text-sm text-dh-dark-gray">
-                        Secure card payment via WooCommerce Stripe
+                        Secure card payment with Stripe
                       </p>
                     </div>
                   </label>
@@ -602,16 +724,39 @@ export default function CheckoutPage() {
                 )}
 
                 {paymentMethod === 'card' && (
-                  <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-4">
-                    <p className="text-sm font-semibold text-blue-800">
-                      Card Payment
-                    </p>
+                  <div className="mt-6">
+                    {isPreparingCard && (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                        Preparing secure card payment...
+                      </div>
+                    )}
 
-                    <p className="mt-1 text-sm text-blue-700">
-                      You will be redirected to DigitalHood&apos;s secure
-                      WooCommerce checkout to complete card payment through
-                      Stripe.
-                    </p>
+                    {!isPreparingCard && cardClientSecret && (
+                      <Elements
+                        stripe={stripePromise}
+                        options={{
+                          clientSecret: cardClientSecret,
+                          appearance: {
+                            theme: 'stripe',
+                          },
+                        }}
+                      >
+                        <StripeCheckoutForm
+                          amount={finalTotal}
+                          onSuccess={handleCardPaymentSuccess}
+                        />
+                      </Elements>
+                    )}
+
+                    {!isPreparingCard && !cardClientSecret && (
+                      <Button
+                        type="button"
+                        onClick={prepareCardPayment}
+                        className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold"
+                      >
+                        Prepare Card Payment
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -668,19 +813,24 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={handlePlaceOrder}
-                  disabled={isSubmitting}
-                  className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6"
-                >
-                  {isSubmitting
-                    ? paymentMethod === 'card'
-                      ? 'Opening Card Checkout...'
-                      : 'Creating Order...'
-                    : paymentMethod === 'card'
-                      ? `Continue to Card Payment - ${formatPrice(finalTotal)}`
+                {paymentMethod !== 'card' && (
+                  <Button
+                    onClick={handlePlaceOrder}
+                    disabled={isSubmitting}
+                    className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6"
+                  >
+                    {isSubmitting
+                      ? 'Creating Order...'
                       : `Place Order - ${formatPrice(finalTotal)}`}
-                </Button>
+                  </Button>
+                )}
+
+                {paymentMethod === 'card' && (
+                  <p className="mt-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
+                    Enter card details in the secure Stripe form to complete
+                    payment.
+                  </p>
+                )}
 
                 <div className="flex items-center justify-center gap-2 mt-4 text-sm text-dh-dark-gray">
                   <Shield className="w-4 h-4" />
