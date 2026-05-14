@@ -4,6 +4,24 @@ const STORE_URL =
 const PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
 const CATEGORIES_API = `${STORE_URL}/wp-json/wc/store/v1/products/categories`;
 
+export type WooProductAttribute = {
+  id: number;
+  name: string;
+  taxonomy: string | null;
+  options: string[];
+};
+
+export type WooProductVariation = {
+  id: number;
+  parentId: number;
+  name: string;
+  price: number;
+  priceHtml: string;
+  image: string;
+  inStock: boolean;
+  attributes: Record<string, string>;
+};
+
 export type WooProduct = {
   id: number;
   name: string;
@@ -25,6 +43,8 @@ export type WooProduct = {
     name: string;
     slug: string;
   }[];
+  attributes: WooProductAttribute[];
+  variations: WooProductVariation[];
 };
 
 export type WooCategory = {
@@ -53,6 +73,71 @@ function getPrice(product: any) {
   return rawPrice / Math.pow(10, minorUnit);
 }
 
+function normalizeAttributeName(name = '') {
+  return name
+    .replace(/^pa_/, '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function mapWooAttributes(product: any): WooProductAttribute[] {
+  const rawAttributes = product.attributes || [];
+
+  return rawAttributes
+    .map((attribute: any) => {
+      const options =
+        attribute.terms?.map((term: any) => term.name) ||
+        attribute.options ||
+        [];
+
+      return {
+        id: attribute.id || 0,
+        name: normalizeAttributeName(attribute.name || attribute.taxonomy || ''),
+        taxonomy: attribute.taxonomy || attribute.name || null,
+        options,
+      };
+    })
+    .filter((attribute: WooProductAttribute) => attribute.options.length > 0);
+}
+
+function mapVariationAttributes(variation: any) {
+  const attributes: Record<string, string> = {};
+
+  const rawAttributes = variation.attributes || [];
+
+  rawAttributes.forEach((attribute: any) => {
+    const key = normalizeAttributeName(
+      attribute.name || attribute.taxonomy || attribute.attribute || ''
+    );
+
+    const value =
+      attribute.value ||
+      attribute.term ||
+      attribute.option ||
+      attribute.name ||
+      '';
+
+    if (key && value) {
+      attributes[key] = value;
+    }
+  });
+
+  return attributes;
+}
+
+export function mapWooVariation(variation: any): WooProductVariation {
+  return {
+    id: variation.id,
+    parentId: variation.parent || variation.parent_id || 0,
+    name: variation.name || '',
+    price: getPrice(variation),
+    priceHtml: variation.price_html || '',
+    image: variation.image?.src || variation.images?.[0]?.src || '/logo.jpg',
+    inStock: variation.is_in_stock ?? variation.is_purchasable ?? true,
+    attributes: mapVariationAttributes(variation),
+  };
+}
+
 export function mapWooProduct(product: any): WooProduct {
   const categories =
     product.categories?.map((category: any) => ({
@@ -78,6 +163,8 @@ export function mapWooProduct(product: any): WooProduct {
     addToCartText: product.add_to_cart?.text || 'View product',
     categoryIds: categories.map((category: any) => category.id),
     categories,
+    attributes: mapWooAttributes(product),
+    variations: [],
   };
 }
 
@@ -126,7 +213,28 @@ export async function fetchWooProducts(
   };
 }
 
-export async function fetchWooProductBySlug(slug: string): Promise<WooProduct | null> {
+export async function fetchWooProductVariations(
+  productId: number
+): Promise<WooProductVariation[]> {
+  const response = await fetch(`${PRODUCTS_API}/${productId}/variations`);
+
+  if (!response.ok) {
+    console.warn(`WooCommerce variations failed: ${response.status}`);
+    return [];
+  }
+
+  const variations = await response.json();
+
+  if (!Array.isArray(variations)) {
+    return [];
+  }
+
+  return variations.map(mapWooVariation);
+}
+
+export async function fetchWooProductBySlug(
+  slug: string
+): Promise<WooProduct | null> {
   const params = new URLSearchParams({
     slug,
     per_page: '1',
@@ -144,7 +252,13 @@ export async function fetchWooProductBySlug(slug: string): Promise<WooProduct | 
     return null;
   }
 
-  return mapWooProduct(products[0]);
+  const product = mapWooProduct(products[0]);
+
+  if (product.type === 'variable' || product.hasOptions) {
+    product.variations = await fetchWooProductVariations(product.id);
+  }
+
+  return product;
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {

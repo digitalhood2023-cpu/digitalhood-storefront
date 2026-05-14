@@ -5,6 +5,10 @@ export type CartItem = {
   id: number;
   name: string;
   quantity: number;
+  variation?: Array<{
+    attribute: string;
+    value: string;
+  }>;
   prices?: {
     price: string;
     currency_code: string;
@@ -63,11 +67,15 @@ export function getCart() {
   return wcStoreFetch<Cart>('/cart');
 }
 
-export function addCartItem(productId: number, quantity = 1) {
+export function addCartItem(
+  productId: number,
+  quantity = 1,
+  variationId?: number
+) {
   return wcStoreFetch<Cart>('/cart/add-item', {
     method: 'POST',
     body: JSON.stringify({
-      id: productId,
+      id: variationId || productId,
       quantity: String(quantity),
     }),
   });

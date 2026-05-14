@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import {
   addCartItem,
   getCart,
@@ -18,10 +19,21 @@ export function useAddToCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ productId, quantity }: { productId: number; quantity?: number }) =>
-      addCartItem(productId, quantity),
+    mutationFn: ({
+      productId,
+      quantity,
+      variationId,
+    }: {
+      productId: number;
+      quantity?: number;
+      variationId?: number;
+    }) =>
+      addCartItem(productId, quantity, variationId),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({
+        queryKey: ['cart'],
+      });
     },
   });
 }
@@ -31,8 +43,11 @@ export function useRemoveCartItem() {
 
   return useMutation({
     mutationFn: removeCartItem,
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({
+        queryKey: ['cart'],
+      });
     },
   });
 }
@@ -41,10 +56,18 @@ export function useUpdateCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ key, quantity }: { key: string; quantity: number }) =>
-      updateCartItem(key, quantity),
+    mutationFn: ({
+      key,
+      quantity,
+    }: {
+      key: string;
+      quantity: number;
+    }) => updateCartItem(key, quantity),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({
+        queryKey: ['cart'],
+      });
     },
   });
 }
@@ -54,8 +77,11 @@ export function useSubmitCheckout() {
 
   return useMutation({
     mutationFn: submitCheckout,
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({
+        queryKey: ['cart'],
+      });
     },
   });
 }
