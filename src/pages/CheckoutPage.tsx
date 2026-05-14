@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import {
   ChevronLeft,
   CreditCard,
@@ -8,21 +9,33 @@ import {
   Check,
   Smartphone,
   AlertCircle,
+  Clock,
+  MapPin,
 } from 'lucide-react';
 
-import { useCart, useSubmitCheckout } from '@/hooks/useCart';
+import {
+  useCart,
+  useRemoveCartItem,
+  useSubmitCheckout,
+} from '@/hooks/useCart';
+
 import {
   detectMobileMoneyOperator,
   initiateLencoMobileMoney,
 } from '@/api/lenco';
+
 import {
   applyWooCommerceOrderShipping,
   markWooCommerceOrderPaid,
 } from '@/api/woocommerceOrders';
+
+import { getShippingDetails } from '@/lib/shipping';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
 
@@ -37,6 +50,7 @@ const DEFAULT_POSTCODE = '10101';
 export default function CheckoutPage() {
   const { data: cart, isLoading } = useCart();
   const submitCheckout = useSubmitCheckout();
+  const removeCartItem = useRemoveCartItem();
 
   const navigate = useNavigate();
 
@@ -60,28 +74,15 @@ export default function CheckoutPage() {
   const items = cart?.items || [];
   const totalPrice = Number(cart?.totals?.total_price || 0) / 100;
 
-  const isLusaka =
-    formData.city.trim().toLowerCase().includes('lusaka') ||
-    formData.province.trim().toLowerCase().includes('lusaka');
+  const shipping = getShippingDetails({
+    subtotal: totalPrice,
+    city: formData.city,
+    province: formData.province,
+  });
 
-  const isBeforeSameDayCutoff = new Date().getHours() < 16;
-
-  const deliveryFee = totalPrice >= 499 ? 0 : isLusaka ? 30 : 50;
-
-  const deliveryTitle =
-    totalPrice >= 499
-      ? 'Free Shipping'
-      : isLusaka
-        ? 'Lusaka Delivery'
-        : 'Outside Lusaka Delivery';
-
-  const deliveryEstimate =
-    isLusaka && isBeforeSameDayCutoff
-      ? 'Same-day delivery available'
-      : isLusaka
-        ? 'Next-day delivery'
-        : '1–2 days delivery outside Lusaka';
-
+  const deliveryFee = shipping.fee;
+  const deliveryTitle = shipping.title;
+  const deliveryEstimate = shipping.estimate;
   const finalTotal = totalPrice + deliveryFee;
 
   useEffect(() => {
@@ -134,6 +135,12 @@ export default function CheckoutPage() {
     return '';
   };
 
+  const clearPurchasedCartItems = async () => {
+    await Promise.all(
+      items.map((item) => removeCartItem.mutateAsync(item.key))
+    );
+  };
+
   const handlePlaceOrder = async () => {
     setCheckoutError('');
 
@@ -162,6 +169,7 @@ export default function CheckoutPage() {
           email: formData.email,
           phone: formData.phone,
         },
+
         shipping_address: {
           first_name: firstName,
           last_name: lastName,
@@ -174,7 +182,9 @@ export default function CheckoutPage() {
           country: 'ZM',
           phone: formData.phone,
         },
+
         payment_method: paymentMethodId,
+
         payment_data: [
           {
             key: 'wc-' + paymentMethodId + '-payment-token',
@@ -231,7 +241,9 @@ export default function CheckoutPage() {
           }
 
           setOrderComplete(true);
+          await clearPurchasedCartItems();
         },
+
         onError: (error) => {
           setCheckoutError(
             error instanceof Error
@@ -247,7 +259,6 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen bg-dh-gray">
         <Header />
-
         <main className="py-16">
           <div className="container mx-auto px-4">
             <div className="animate-pulse space-y-4">
@@ -256,7 +267,6 @@ export default function CheckoutPage() {
             </div>
           </div>
         </main>
-
         <Footer />
       </div>
     );
@@ -283,12 +293,18 @@ export default function CheckoutPage() {
               </p>
 
               <div className="bg-white rounded-2xl p-6 mb-8">
-                <p className="text-sm text-dh-dark-gray mb-2">Order Reference</p>
+                <p className="text-sm text-dh-dark-gray mb-2">
+                  Order Reference
+                </p>
+
                 <p className="font-display font-bold text-xl text-dh-primary mb-4">
                   {orderNumber}
                 </p>
 
-                <p className="text-sm text-dh-dark-gray mb-2">Order Total</p>
+                <p className="text-sm text-dh-dark-gray mb-2">
+                  Order Total
+                </p>
+
                 <p className="font-display font-bold text-2xl text-dh-primary">
                   {formatPrice(finalTotal)}
                 </p>
@@ -431,6 +447,36 @@ export default function CheckoutPage() {
                     />
                   </div>
                 </div>
+
+                <div className="mt-6 rounded-2xl bg-green-50 border border-green-100 p-4">
+                  <div className="flex items-start gap-2">
+                    <Truck className="w-5 h-5 text-green-700 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-green-800">
+                        {deliveryTitle}
+                      </p>
+                      <p className="text-sm text-green-700">
+                        {deliveryEstimate}
+                      </p>
+                    </div>
+                  </div>
+
+                  {shipping.isLusaka && (
+                    <div className="flex items-start gap-2 mt-3">
+                      <Clock className="w-4 h-4 text-green-700 mt-0.5" />
+                      <p className="text-sm text-green-700">
+                        {shipping.countdown}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-2 mt-3">
+                    <MapPin className="w-4 h-4 text-green-700 mt-0.5" />
+                    <p className="text-sm text-green-700">
+                      Shipping updates automatically based on your city and province.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white rounded-2xl p-6">
@@ -458,7 +504,6 @@ export default function CheckoutPage() {
                   >
                     <RadioGroupItem value="mobile" />
                     <Smartphone className="w-5 h-5 text-dh-primary" />
-
                     <div>
                       <p className="font-medium">Mobile Money</p>
                       <p className="text-sm text-dh-dark-gray">
@@ -476,7 +521,6 @@ export default function CheckoutPage() {
                   >
                     <RadioGroupItem value="card" />
                     <CreditCard className="w-5 h-5 text-dh-primary" />
-
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
                       <p className="text-sm text-dh-dark-gray">
@@ -494,7 +538,6 @@ export default function CheckoutPage() {
                   >
                     <RadioGroupItem value="cod" />
                     <Truck className="w-5 h-5 text-dh-primary" />
-
                     <div>
                       <p className="font-medium">Cash on Delivery</p>
                       <p className="text-sm text-dh-dark-gray">
@@ -521,8 +564,7 @@ export default function CheckoutPage() {
                     />
 
                     <p className="mt-2 text-sm text-dh-dark-gray">
-                      This number is only used for payment and can be different
-                      from the delivery contact number.
+                      This number is only used for payment and can be different from the delivery contact number.
                     </p>
                   </div>
                 )}
