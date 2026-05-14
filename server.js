@@ -10,8 +10,12 @@ const PORT = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(express.json());
-
+/**
+ * IMPORTANT:
+ * WooCommerce Store API proxy must come BEFORE express.json().
+ * Otherwise POST bodies for add-to-cart, update-cart, remove-cart,
+ * and checkout get consumed before reaching WooCommerce.
+ */
 app.use(
   '/api/wc/store',
   createProxyMiddleware({
@@ -24,6 +28,11 @@ app.use(
     },
   })
 );
+
+/**
+ * JSON parser only for our custom backend routes.
+ */
+app.use(express.json());
 
 app.post('/api/lenco/mobile-money', async (req, res) => {
   try {
