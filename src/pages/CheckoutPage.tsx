@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -13,8 +13,20 @@ import {
   MapPin,
 } from 'lucide-react'
 
-import { useCartStore } from '@/store/cartStore'
+import { addCartItem, submitCheckout } from '@/api/cart'
+
+import {
+  detectMobileMoneyOperator,
+  initiateLencoMobileMoney,
+} from '@/api/lenco'
+
+import {
+  applyWooCommerceOrderShipping,
+  markWooCommerceOrderPaid,
+} from '@/api/woocommerceOrders'
+
 import { getShippingDetails } from '@/lib/shipping'
+import { useCartStore } from '@/store/cartStore'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +36,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
+const DEFAULT_POSTCODE = '10101'
+
+const paymentMethodMap: Record<string, string> = {
+  card: 'stripe',
+  mobile: 'lenco',
+  cod: 'cod',
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -62,12 +81,6 @@ export default function CheckoutPage() {
   const deliveryEstimate = shipping.estimate
   const finalTotal = subtotal + deliveryFee
 
-  useEffect(() => {
-    if (items.length === 0 && !orderComplete) {
-      navigate('/cart')
-    }
-  }, [items.length, orderComplete, navigate])
-
   const formatPrice = (price: number) =>
     `K${Number(price || 0).toLocaleString('en-ZM', {
       minimumFractionDigits: 2,
@@ -81,7 +94,24 @@ export default function CheckoutPage() {
     }))
   }
 
+  const splitFullName = (name: string) => {
+    const parts = name.trim().split(/\s+/)
+
+    if (parts.length === 1) {
+      return {
+        firstName: parts[0],
+        lastName: parts[0],
+      }
+    }
+
+    return {
+      firstName: parts.slice(0, -1).join(' '),
+      lastName: parts[parts.length - 1],
+    }
+  }
+
   const validateCheckout = () => {
+    if (items.length === 0) return 'Your cart is empty.'
     if (!formData.fullName.trim()) return 'Full name is required.'
     if (!formData.email.trim()) return 'Email is required.'
     if (!formData.phone.trim()) return 'Contact phone number is required.'
@@ -94,6 +124,16 @@ export default function CheckoutPage() {
     }
 
     return ''
+  }
+
+  const syncZustandCartToWooCommerce = async () => {
+    for (const item of items) {
+      await addCartItem(
+        Number(item.productId || item.id),
+        item.quantity,
+        item.variationId ? Number(item.variationId) : undefined
+      )
+    }
   }
 
   const handlePlaceOrder = async () => {
@@ -109,9 +149,77 @@ export default function CheckoutPage() {
     setIsSubmitting(true)
 
     try {
-      const generatedOrderNumber = `DH-${Date.now()}`
+      await syncZustandCartToWooCommerce()
 
-      setOrderNumber(generatedOrderNumber)
+      const { firstName, lastName } = splitFullName(formData.fullName)
+      const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco'
+
+      const response: any = await submitCheckout({
+        billing_address: {
+          first_name: firstName,
+          last_name: lastName,
+          company: '',
+          address_1: formData.address,
+          address_2: '',
+          city: formData.city,
+          state: formData.province,
+          postcode: DEFAULT_POSTCODE,
+          country: 'ZM',
+          email: formData.email,
+          phone: formData.phone,
+        },
+
+        shipping_address: {
+          first_name: firstName,
+          last_name: lastName,
+          company: '',
+          address_1: formData.address,
+          address_2: '',
+          city: formData.city,
+          state: formData.province,
+          postcode: DEFAULT_POSTCODE,
+          country: 'ZM',
+          phone: formData.phone,
+        },
+
+        payment_method: paymentMethodId,
+
+        payment_data: [
+          {
+            key: `wc-${paymentMethodId}-payment-token`,
+            value: '',
+          },
+          {
+            key: `wc-${paymentMethodId}-new-payment-method`,
+            value: false,
+          },
+        ],
+      })
+
+      const orderReference =
+        response?.order_id?.toString() ||
+        response?.order_key ||
+        `DH_${Date.now()}`
+
+      setOrderNumber(orderReference)
+
+      await applyWooCommerceOrderShipping({
+        orderId: orderReference,
+        shippingFee: deliveryFee,
+        shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
+      })
+
+      if (paymentMethod === 'mobile') {
+        await initiateLencoMobileMoney({
+          amount: finalTotal,
+          phone: formData.paymentPhone,
+          operator: detectMobileMoneyOperator(formData.paymentPhone),
+          reference: `DH_ORDER_${orderReference}`,
+        })
+
+        await markWooCommerceOrderPaid(orderReference)
+      }
+
       setOrderComplete(true)
       clearCart()
     } catch (error) {
@@ -123,6 +231,35 @@ export default function CheckoutPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (items.length === 0 && !orderComplete) {
+    return (
+      <div className="min-h-screen bg-dh-gray">
+        <Header />
+
+        <main className="py-16">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="font-display font-bold text-2xl text-dh-primary mb-3">
+              Your cart is empty
+            </h1>
+
+            <p className="text-dh-dark-gray mb-6">
+              Add items to your cart before checkout.
+            </p>
+
+            <Button
+              onClick={() => navigate('/cart')}
+              className="bg-dh-primary hover:bg-dh-secondary text-white rounded-full px-8"
+            >
+              Go to Cart
+            </Button>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    )
   }
 
   if (orderComplete) {
@@ -142,7 +279,7 @@ export default function CheckoutPage() {
               </h1>
 
               <p className="text-dh-dark-gray mb-4">
-                Your order has been received by DigitalHood Marketplace.
+                Your order has been created in WooCommerce.
               </p>
 
               <div className="bg-white rounded-2xl p-6 mb-8">
@@ -304,10 +441,12 @@ export default function CheckoutPage() {
                 <div className="mt-6 rounded-2xl bg-green-50 border border-green-100 p-4">
                   <div className="flex items-start gap-2">
                     <Truck className="w-5 h-5 text-green-700 mt-0.5" />
+
                     <div>
                       <p className="font-semibold text-green-800">
                         {deliveryTitle}
                       </p>
+
                       <p className="text-sm text-green-700">
                         {deliveryEstimate}
                       </p>
@@ -349,47 +488,29 @@ export default function CheckoutPage() {
                   onValueChange={setPaymentMethod}
                   className="space-y-3"
                 >
-                  <label
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === 'mobile'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
-                    }`}
-                  >
+                  <label className="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer">
                     <RadioGroupItem value="mobile" />
                     <Smartphone className="w-5 h-5 text-dh-primary" />
                     <div>
                       <p className="font-medium">Mobile Money</p>
                       <p className="text-sm text-dh-dark-gray">
-                        MTN / Airtel / Zamtel
+                        Lenco / MTN / Airtel
                       </p>
                     </div>
                   </label>
 
-                  <label
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === 'card'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
-                    }`}
-                  >
+                  <label className="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer">
                     <RadioGroupItem value="card" />
                     <CreditCard className="w-5 h-5 text-dh-primary" />
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
                       <p className="text-sm text-dh-dark-gray">
-                        Card payment
+                        Stripe / WooPayments
                       </p>
                     </div>
                   </label>
 
-                  <label
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === 'cod'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
-                    }`}
-                  >
+                  <label className="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer">
                     <RadioGroupItem value="cod" />
                     <Truck className="w-5 h-5 text-dh-primary" />
                     <div>
@@ -416,11 +537,6 @@ export default function CheckoutPage() {
                       placeholder="e.g. 097XXXXXXX or +26097XXXXXXX"
                       className="mt-2"
                     />
-
-                    <p className="mt-2 text-sm text-dh-dark-gray">
-                      This number is only used for payment and can be different
-                      from the delivery contact number.
-                    </p>
                   </div>
                 )}
               </div>
@@ -464,17 +580,11 @@ export default function CheckoutPage() {
                     <span>{formatPrice(subtotal)}</span>
                   </div>
 
-                  <div>
-                    <div className="flex justify-between text-dh-dark-gray">
-                      <span>Delivery</span>
-                      <span>
-                        {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-dh-dark-gray mt-1">
-                      {deliveryTitle} · {deliveryEstimate}
-                    </p>
+                  <div className="flex justify-between text-dh-dark-gray">
+                    <span>Delivery</span>
+                    <span>
+                      {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
+                    </span>
                   </div>
 
                   <div className="flex justify-between font-display font-bold text-lg text-dh-primary pt-3 border-t border-dh-light-gray">

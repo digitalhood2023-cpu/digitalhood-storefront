@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 
 export type CartProduct = {
   id: number
+  productId?: number
+  variationId?: number
   name: string
   slug?: string
   price?: number | string
@@ -19,6 +21,8 @@ export type CartProduct = {
 
 export type CartItem = {
   id: number
+  productId: number
+  variationId?: number
   name: string
   slug?: string
   price: number
@@ -56,14 +60,21 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (product, quantity = 1) => {
         const items = get().items
+
+        const cartItemId = Number(product.id)
+        const productId = Number(product.productId || product.id)
+        const variationId = product.variationId
+          ? Number(product.variationId)
+          : undefined
+
         const existingItem = items.find(
-          (item) => item.id === product.id
+          (item) => item.id === cartItemId
         )
 
         if (existingItem) {
           set({
             items: items.map((item) =>
-              item.id === product.id
+              item.id === cartItemId
                 ? {
                     ...item,
                     quantity: item.quantity + quantity,
@@ -89,7 +100,9 @@ export const useCartStore = create<CartStore>()(
           items: [
             ...items,
             {
-              id: product.id,
+              id: cartItemId,
+              productId,
+              variationId,
               name: product.name,
               slug: product.slug,
               price,
