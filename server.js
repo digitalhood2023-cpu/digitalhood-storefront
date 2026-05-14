@@ -136,6 +136,71 @@ app.post('/api/woocommerce/orders/:orderId/mark-paid', async (req, res) => {
     });
   }
 });
+app.post('/api/woocommerce/orders/:orderId/apply-shipping', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { shippingFee, shippingTitle } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({
+        status: false,
+        message: 'Order ID is required',
+      });
+    }
+
+    if (!process.env.WC_CONSUMER_KEY || !process.env.WC_CONSUMER_SECRET) {
+      return res.status(500).json({
+        status: false,
+        message: 'WooCommerce API credentials are not configured',
+      });
+    }
+
+    const response = await axios.put(
+      `https://digitalhood.info/wp-json/wc/v3/orders/${orderId}`,
+      {
+        shipping_lines:
+          Number(shippingFee) > 0
+            ? [
+                {
+                  method_id: 'digitalhood_delivery',
+                  method_title: shippingTitle || 'DigitalHood Delivery',
+                  total: Number(shippingFee).toFixed(2),
+                },
+              ]
+            : [
+                {
+                  method_id: 'free_shipping',
+                  method_title: shippingTitle || 'Free Shipping',
+                  total: '0.00',
+                },
+              ],
+      },
+      {
+        auth: {
+          username: process.env.WC_CONSUMER_KEY,
+          password: process.env.WC_CONSUMER_SECRET,
+        },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    const status = error.response?.status || 500;
+
+    return res.status(status).json({
+      status: false,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        'Could not apply shipping to WooCommerce order',
+      details: error.response?.data || null,
+    });
+  }
+});
 
 app.use(express.static(path.join(__dirname, 'dist')));
 

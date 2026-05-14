@@ -15,13 +15,16 @@ import {
   detectMobileMoneyOperator,
   initiateLencoMobileMoney,
 } from '@/api/lenco';
+import {
+  applyWooCommerceOrderShipping,
+  markWooCommerceOrderPaid,
+} from '@/api/woocommerceOrders';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
-import { markWooCommerceOrderPaid } from '@/api/woocommerceOrders';
 
 const paymentMethodMap: Record<string, string> = {
   card: 'stripe',
@@ -56,7 +59,29 @@ export default function CheckoutPage() {
 
   const items = cart?.items || [];
   const totalPrice = Number(cart?.totals?.total_price || 0) / 100;
-  const deliveryFee = totalPrice >= 500 ? 0 : 50;
+
+  const isLusaka =
+    formData.city.trim().toLowerCase().includes('lusaka') ||
+    formData.province.trim().toLowerCase().includes('lusaka');
+
+  const isBeforeSameDayCutoff = new Date().getHours() < 16;
+
+  const deliveryFee = totalPrice >= 499 ? 0 : isLusaka ? 30 : 50;
+
+  const deliveryTitle =
+    totalPrice >= 499
+      ? 'Free Shipping'
+      : isLusaka
+        ? 'Lusaka Delivery'
+        : 'Outside Lusaka Delivery';
+
+  const deliveryEstimate =
+    isLusaka && isBeforeSameDayCutoff
+      ? 'Same-day delivery available'
+      : isLusaka
+        ? 'Next-day delivery'
+        : '1–2 days delivery outside Lusaka';
+
   const finalTotal = totalPrice + deliveryFee;
 
   useEffect(() => {
@@ -170,6 +195,21 @@ export default function CheckoutPage() {
 
           setOrderNumber(orderReference);
 
+          try {
+            await applyWooCommerceOrderShipping({
+              orderId: orderReference,
+              shippingFee: deliveryFee,
+              shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
+            });
+          } catch (error) {
+            setCheckoutError(
+              error instanceof Error
+                ? error.message
+                : 'Order was created, but shipping could not be applied.'
+            );
+            return;
+          }
+
           if (paymentMethod === 'mobile') {
             try {
               await initiateLencoMobileMoney({
@@ -178,7 +218,8 @@ export default function CheckoutPage() {
                 operator: detectMobileMoneyOperator(formData.paymentPhone),
                 reference: `DH_ORDER_${orderReference}`,
               });
-             await markWooCommerceOrderPaid(orderReference);
+
+              await markWooCommerceOrderPaid(orderReference);
             } catch (error) {
               setCheckoutError(
                 error instanceof Error
@@ -206,6 +247,7 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen bg-dh-gray">
         <Header />
+
         <main className="py-16">
           <div className="container mx-auto px-4">
             <div className="animate-pulse space-y-4">
@@ -214,6 +256,7 @@ export default function CheckoutPage() {
             </div>
           </div>
         </main>
+
         <Footer />
       </div>
     );
@@ -248,6 +291,10 @@ export default function CheckoutPage() {
                 <p className="text-sm text-dh-dark-gray mb-2">Order Total</p>
                 <p className="font-display font-bold text-2xl text-dh-primary">
                   {formatPrice(finalTotal)}
+                </p>
+
+                <p className="mt-3 text-sm text-dh-dark-gray">
+                  {deliveryTitle} · {deliveryEstimate}
                 </p>
               </div>
 
@@ -298,6 +345,7 @@ export default function CheckoutPage() {
                   <div className="w-10 h-10 bg-dh-primary rounded-full flex items-center justify-center text-white font-bold">
                     1
                   </div>
+
                   <h2 className="font-display font-semibold text-xl">
                     Shipping Information
                   </h2>
@@ -323,7 +371,9 @@ export default function CheckoutPage() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(event) => updateField('email', event.target.value)}
+                      onChange={(event) =>
+                        updateField('email', event.target.value)
+                      }
                       placeholder="john@example.com"
                       className="mt-1"
                     />
@@ -334,7 +384,9 @@ export default function CheckoutPage() {
                     <Input
                       id="phone"
                       value={formData.phone}
-                      onChange={(event) => updateField('phone', event.target.value)}
+                      onChange={(event) =>
+                        updateField('phone', event.target.value)
+                      }
                       placeholder="+260 97X XXX XXX"
                       className="mt-1"
                     />
@@ -358,7 +410,9 @@ export default function CheckoutPage() {
                     <Input
                       id="city"
                       value={formData.city}
-                      onChange={(event) => updateField('city', event.target.value)}
+                      onChange={(event) =>
+                        updateField('city', event.target.value)
+                      }
                       placeholder="Lusaka"
                       className="mt-1"
                     />
@@ -384,6 +438,7 @@ export default function CheckoutPage() {
                   <div className="w-10 h-10 bg-dh-primary rounded-full flex items-center justify-center text-white font-bold">
                     2
                   </div>
+
                   <h2 className="font-display font-semibold text-xl">
                     Payment Method
                   </h2>
@@ -403,6 +458,7 @@ export default function CheckoutPage() {
                   >
                     <RadioGroupItem value="mobile" />
                     <Smartphone className="w-5 h-5 text-dh-primary" />
+
                     <div>
                       <p className="font-medium">Mobile Money</p>
                       <p className="text-sm text-dh-dark-gray">
@@ -420,6 +476,7 @@ export default function CheckoutPage() {
                   >
                     <RadioGroupItem value="card" />
                     <CreditCard className="w-5 h-5 text-dh-primary" />
+
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
                       <p className="text-sm text-dh-dark-gray">
@@ -437,6 +494,7 @@ export default function CheckoutPage() {
                   >
                     <RadioGroupItem value="cod" />
                     <Truck className="w-5 h-5 text-dh-primary" />
+
                     <div>
                       <p className="font-medium">Cash on Delivery</p>
                       <p className="text-sm text-dh-dark-gray">
@@ -451,6 +509,7 @@ export default function CheckoutPage() {
                     <Label htmlFor="paymentPhone">
                       Mobile Money Payment Number
                     </Label>
+
                     <Input
                       id="paymentPhone"
                       value={formData.paymentPhone}
@@ -460,6 +519,7 @@ export default function CheckoutPage() {
                       placeholder="e.g. 097XXXXXXX or +26097XXXXXXX"
                       className="mt-2"
                     />
+
                     <p className="mt-2 text-sm text-dh-dark-gray">
                       This number is only used for payment and can be different
                       from the delivery contact number.
@@ -491,6 +551,7 @@ export default function CheckoutPage() {
                           <p className="text-sm font-medium line-clamp-2">
                             {item.name}
                           </p>
+
                           <p className="text-sm text-dh-dark-gray">
                             Qty: {item.quantity}
                           </p>
@@ -510,11 +571,17 @@ export default function CheckoutPage() {
                     <span>{formatPrice(totalPrice)}</span>
                   </div>
 
-                  <div className="flex justify-between text-dh-dark-gray">
-                    <span>Delivery</span>
-                    <span>
-                      {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
-                    </span>
+                  <div>
+                    <div className="flex justify-between text-dh-dark-gray">
+                      <span>Delivery</span>
+                      <span>
+                        {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-dh-dark-gray mt-1">
+                      {deliveryTitle} · {deliveryEstimate}
+                    </p>
                   </div>
 
                   <div className="flex justify-between font-display font-bold text-lg text-dh-primary pt-3 border-t border-dh-light-gray">
