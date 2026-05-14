@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import {
   ChevronLeft,
@@ -11,53 +11,35 @@ import {
   AlertCircle,
   Clock,
   MapPin,
-} from 'lucide-react';
+} from 'lucide-react'
 
-import {
-  useCart,
-  useRemoveCartItem,
-  useSubmitCheckout,
-} from '@/hooks/useCart';
+import { useCartStore } from '@/store/cartStore'
+import { getShippingDetails } from '@/lib/shipping'
 
-import {
-  detectMobileMoneyOperator,
-  initiateLencoMobileMoney,
-} from '@/api/lenco';
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
-import {
-  applyWooCommerceOrderShipping,
-  markWooCommerceOrderPaid,
-} from '@/api/woocommerceOrders';
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
 
-import { getShippingDetails } from '@/lib/shipping';
-
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-
-import Header from '@/sections/Header';
-import Footer from '@/sections/Footer';
-
-const paymentMethodMap: Record<string, string> = {
-  card: 'stripe',
-  mobile: 'lenco',
-  cod: 'cod',
-};
-
-const DEFAULT_POSTCODE = '10101';
 
 export default function CheckoutPage() {
-  const { data: cart, isLoading } = useCart();
-  const submitCheckout = useSubmitCheckout();
-  const removeCartItem = useRemoveCartItem();
+  const navigate = useNavigate()
+  const pageRef = useRef<HTMLDivElement>(null)
 
-  const navigate = useNavigate();
+  const items = useCartStore((state) => state.items)
+  const clearCart = useCartStore((state) => state.clearCart)
+  const getSubtotal = useCartStore((state) => state.getSubtotal)
 
-  const [paymentMethod, setPaymentMethod] = useState('mobile');
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [checkoutError, setCheckoutError] = useState('');
-  const [orderNumber, setOrderNumber] = useState('');
+  const subtotal = getSubtotal()
+
+  const [paymentMethod, setPaymentMethod] = useState('mobile')
+  const [orderComplete, setOrderComplete] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [orderNumber, setOrderNumber] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -67,209 +49,80 @@ export default function CheckoutPage() {
     city: 'Lusaka',
     province: 'Lusaka',
     paymentPhone: '',
-  });
-
-  const pageRef = useRef<HTMLDivElement>(null);
-
-  const items = cart?.items || [];
-  const totalPrice = Number(cart?.totals?.total_price || 0) / 100;
+  })
 
   const shipping = getShippingDetails({
-    subtotal: totalPrice,
+    subtotal,
     city: formData.city,
     province: formData.province,
-  });
+  })
 
-  const deliveryFee = shipping.fee;
-  const deliveryTitle = shipping.title;
-  const deliveryEstimate = shipping.estimate;
-  const finalTotal = totalPrice + deliveryFee;
+  const deliveryFee = shipping.fee
+  const deliveryTitle = shipping.title
+  const deliveryEstimate = shipping.estimate
+  const finalTotal = subtotal + deliveryFee
 
   useEffect(() => {
-    if (!isLoading && items.length === 0 && !orderComplete) {
-      navigate('/cart');
+    if (items.length === 0 && !orderComplete) {
+      navigate('/cart')
     }
-  }, [isLoading, items.length, orderComplete, navigate]);
+  }, [items.length, orderComplete, navigate])
 
   const formatPrice = (price: number) =>
-    `K${price.toLocaleString('en-ZM', {
+    `K${Number(price || 0).toLocaleString('en-ZM', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    })}`;
+    })}`
 
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((current) => ({
       ...current,
       [field]: value,
-    }));
-  };
-
-  const splitFullName = (name: string) => {
-    const parts = name.trim().split(/\s+/);
-
-    if (parts.length === 1) {
-      return {
-        firstName: parts[0],
-        lastName: parts[0],
-      };
-    }
-
-    return {
-      firstName: parts.slice(0, -1).join(' '),
-      lastName: parts[parts.length - 1],
-    };
-  };
+    }))
+  }
 
   const validateCheckout = () => {
-    if (!formData.fullName.trim()) return 'Full name is required.';
-    if (!formData.email.trim()) return 'Email is required.';
-    if (!formData.phone.trim()) return 'Contact phone number is required.';
-    if (!formData.address.trim()) return 'Delivery address is required.';
-    if (!formData.city.trim()) return 'City is required.';
-    if (!formData.province.trim()) return 'Province is required.';
+    if (!formData.fullName.trim()) return 'Full name is required.'
+    if (!formData.email.trim()) return 'Email is required.'
+    if (!formData.phone.trim()) return 'Contact phone number is required.'
+    if (!formData.address.trim()) return 'Delivery address is required.'
+    if (!formData.city.trim()) return 'City is required.'
+    if (!formData.province.trim()) return 'Province is required.'
 
     if (paymentMethod === 'mobile' && !formData.paymentPhone.trim()) {
-      return 'Mobile Money payment number is required.';
+      return 'Mobile Money payment number is required.'
     }
 
-    return '';
-  };
-
-  const clearPurchasedCartItems = async () => {
-    await Promise.all(
-      items.map((item) => removeCartItem.mutateAsync(item.key))
-    );
-  };
+    return ''
+  }
 
   const handlePlaceOrder = async () => {
-    setCheckoutError('');
+    setCheckoutError('')
 
-    const validationError = validateCheckout();
+    const validationError = validateCheckout()
 
     if (validationError) {
-      setCheckoutError(validationError);
-      return;
+      setCheckoutError(validationError)
+      return
     }
 
-    const { firstName, lastName } = splitFullName(formData.fullName);
-    const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco';
+    setIsSubmitting(true)
 
-    submitCheckout.mutate(
-      {
-        billing_address: {
-          first_name: firstName,
-          last_name: lastName,
-          company: '',
-          address_1: formData.address,
-          address_2: '',
-          city: formData.city,
-          state: formData.province,
-          postcode: DEFAULT_POSTCODE,
-          country: 'ZM',
-          email: formData.email,
-          phone: formData.phone,
-        },
+    try {
+      const generatedOrderNumber = `DH-${Date.now()}`
 
-        shipping_address: {
-          first_name: firstName,
-          last_name: lastName,
-          company: '',
-          address_1: formData.address,
-          address_2: '',
-          city: formData.city,
-          state: formData.province,
-          postcode: DEFAULT_POSTCODE,
-          country: 'ZM',
-          phone: formData.phone,
-        },
-
-        payment_method: paymentMethodId,
-
-        payment_data: [
-          {
-            key: 'wc-' + paymentMethodId + '-payment-token',
-            value: '',
-          },
-          {
-            key: 'wc-' + paymentMethodId + '-new-payment-method',
-            value: false,
-          },
-        ],
-      },
-      {
-        onSuccess: async (response: any) => {
-          const orderReference =
-            response?.order_id?.toString() ||
-            response?.order_key ||
-            `DH_${Date.now()}`;
-
-          setOrderNumber(orderReference);
-
-          try {
-            await applyWooCommerceOrderShipping({
-              orderId: orderReference,
-              shippingFee: deliveryFee,
-              shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
-            });
-          } catch (error) {
-            setCheckoutError(
-              error instanceof Error
-                ? error.message
-                : 'Order was created, but shipping could not be applied.'
-            );
-            return;
-          }
-
-          if (paymentMethod === 'mobile') {
-            try {
-              await initiateLencoMobileMoney({
-                amount: finalTotal,
-                phone: formData.paymentPhone,
-                operator: detectMobileMoneyOperator(formData.paymentPhone),
-                reference: `DH_ORDER_${orderReference}`,
-              });
-
-              await markWooCommerceOrderPaid(orderReference);
-            } catch (error) {
-              setCheckoutError(
-                error instanceof Error
-                  ? error.message
-                  : 'Order was created, but mobile money payment could not be initiated.'
-              );
-              return;
-            }
-          }
-
-          setOrderComplete(true);
-          await clearPurchasedCartItems();
-        },
-
-        onError: (error) => {
-          setCheckoutError(
-            error instanceof Error
-              ? error.message
-              : 'Checkout failed. Please try again.'
-          );
-        },
-      }
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-dh-gray">
-        <Header />
-        <main className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 bg-gray-200 rounded w-64" />
-              <div className="h-64 bg-gray-200 rounded-2xl" />
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
+      setOrderNumber(generatedOrderNumber)
+      setOrderComplete(true)
+      clearCart()
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : 'Checkout failed. Please try again.'
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (orderComplete) {
@@ -289,7 +142,7 @@ export default function CheckoutPage() {
               </h1>
 
               <p className="text-dh-dark-gray mb-4">
-                Your order has been created in WooCommerce.
+                Your order has been received by DigitalHood Marketplace.
               </p>
 
               <div className="bg-white rounded-2xl p-6 mb-8">
@@ -326,7 +179,7 @@ export default function CheckoutPage() {
 
         <Footer />
       </div>
-    );
+    )
   }
 
   return (
@@ -473,7 +326,8 @@ export default function CheckoutPage() {
                   <div className="flex items-start gap-2 mt-3">
                     <MapPin className="w-4 h-4 text-green-700 mt-0.5" />
                     <p className="text-sm text-green-700">
-                      Shipping updates automatically based on your city and province.
+                      Shipping updates automatically based on your city and
+                      province.
                     </p>
                   </div>
                 </div>
@@ -507,7 +361,7 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-medium">Mobile Money</p>
                       <p className="text-sm text-dh-dark-gray">
-                        Lenco / MTN / Airtel / Zamtel
+                        MTN / Airtel / Zamtel
                       </p>
                     </div>
                   </label>
@@ -524,7 +378,7 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
                       <p className="text-sm text-dh-dark-gray">
-                        Stripe / WooPayments
+                        Card payment
                       </p>
                     </div>
                   </label>
@@ -564,7 +418,8 @@ export default function CheckoutPage() {
                     />
 
                     <p className="mt-2 text-sm text-dh-dark-gray">
-                      This number is only used for payment and can be different from the delivery contact number.
+                      This number is only used for payment and can be different
+                      from the delivery contact number.
                     </p>
                   </div>
                 )}
@@ -578,39 +433,35 @@ export default function CheckoutPage() {
                 </h2>
 
                 <div className="space-y-4 mb-6 max-h-60 overflow-y-auto">
-                  {items.map((item) => {
-                    const itemPrice = Number(item.prices?.price || 0) / 100;
+                  {items.map((item) => (
+                    <div key={item.id} className="flex gap-4">
+                      <img
+                        src={item.image || '/logo.jpg'}
+                        alt={item.name}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
 
-                    return (
-                      <div key={item.key} className="flex gap-4">
-                        <img
-                          src={item.images?.[0]?.src || '/logo.jpg'}
-                          alt={item.name}
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-clamp-2">
+                          {item.name}
+                        </p>
 
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-2">
-                            {item.name}
-                          </p>
-
-                          <p className="text-sm text-dh-dark-gray">
-                            Qty: {item.quantity}
-                          </p>
-                        </div>
-
-                        <p className="font-medium text-sm">
-                          {formatPrice(itemPrice * item.quantity)}
+                        <p className="text-sm text-dh-dark-gray">
+                          Qty: {item.quantity}
                         </p>
                       </div>
-                    );
-                  })}
+
+                      <p className="font-medium text-sm">
+                        {formatPrice(item.price * item.quantity)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
                 <div className="space-y-3 border-t border-dh-light-gray pt-4">
                   <div className="flex justify-between text-dh-dark-gray">
                     <span>Subtotal</span>
-                    <span>{formatPrice(totalPrice)}</span>
+                    <span>{formatPrice(subtotal)}</span>
                   </div>
 
                   <div>
@@ -634,10 +485,10 @@ export default function CheckoutPage() {
 
                 <Button
                   onClick={handlePlaceOrder}
-                  disabled={submitCheckout.isPending}
+                  disabled={isSubmitting}
                   className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6"
                 >
-                  {submitCheckout.isPending
+                  {isSubmitting
                     ? 'Creating Order...'
                     : `Place Order - ${formatPrice(finalTotal)}`}
                 </Button>
@@ -654,5 +505,5 @@ export default function CheckoutPage() {
 
       <Footer />
     </div>
-  );
+  )
 }
