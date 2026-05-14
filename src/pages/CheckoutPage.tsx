@@ -13,11 +13,7 @@ import {
   MapPin,
 } from 'lucide-react'
 
-import {
-  addCartItem,
-  submitCheckout,
-  type CheckoutResponse,
-} from '@/api/cart'
+import { addCartItem, submitCheckout } from '@/api/cart'
 
 import {
   detectMobileMoneyOperator,
@@ -38,9 +34,9 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
 const DEFAULT_POSTCODE = '10101'
+const WOO_CHECKOUT_URL = 'https://digitalhood.info/checkout'
 
 const paymentMethodMap: Record<string, string> = {
-  card: 'stripe',
   mobile: 'lenco',
   cod: 'cod',
 }
@@ -149,14 +145,6 @@ export default function CheckoutPage() {
     }
   }
 
-  const getCheckoutRedirectUrl = (response: CheckoutResponse) => {
-    return (
-      response?.payment_result?.redirect_url ||
-      response?.redirect_url ||
-      ''
-    )
-  }
-
   const getSuccessState = (method: string): SuccessState => {
     if (method === 'mobile') {
       return {
@@ -168,22 +156,12 @@ export default function CheckoutPage() {
       }
     }
 
-    if (method === 'cod') {
-      return {
-        title: 'Order Placed Successfully',
-        message:
-          'Your Cash on Delivery order has been created successfully.',
-        nextStep:
-          'Our team will contact you to confirm delivery. You will pay when you receive your order.',
-      }
-    }
-
     return {
-      title: 'Redirecting to Card Payment',
+      title: 'Order Placed Successfully',
       message:
-        'Your order has been created. You are being redirected to complete card payment.',
+        'Your Cash on Delivery order has been created successfully.',
       nextStep:
-        'Complete your card payment securely through Stripe.',
+        'Our team will contact you to confirm delivery. You will pay when you receive your order.',
     }
   }
 
@@ -201,6 +179,11 @@ export default function CheckoutPage() {
 
     try {
       await syncZustandCartToWooCommerce()
+
+      if (paymentMethod === 'card') {
+        window.location.href = WOO_CHECKOUT_URL
+        return
+      }
 
       const { firstName, lastName } = splitFullName(formData.fullName)
       const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco'
@@ -259,20 +242,6 @@ export default function CheckoutPage() {
         shippingFee: deliveryFee,
         shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
       })
-
-      if (paymentMethod === 'card') {
-        const redirectUrl = getCheckoutRedirectUrl(response)
-
-        if (redirectUrl) {
-          clearCart()
-          window.location.href = redirectUrl
-          return
-        }
-
-        throw new Error(
-          'Stripe checkout was not returned by WooCommerce. We need to connect the Stripe payment element next.'
-        )
-      }
 
       if (paymentMethod === 'mobile') {
         await initiateLencoMobileMoney({
@@ -591,7 +560,7 @@ export default function CheckoutPage() {
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
                       <p className="text-sm text-dh-dark-gray">
-                        Stripe / WooPayments
+                        Secure card payment via WooCommerce Stripe
                       </p>
                     </div>
                   </label>
@@ -629,6 +598,20 @@ export default function CheckoutPage() {
                       placeholder="e.g. 097XXXXXXX or +26097XXXXXXX"
                       className="mt-2"
                     />
+                  </div>
+                )}
+
+                {paymentMethod === 'card' && (
+                  <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                    <p className="text-sm font-semibold text-blue-800">
+                      Card Payment
+                    </p>
+
+                    <p className="mt-1 text-sm text-blue-700">
+                      You will be redirected to DigitalHood&apos;s secure
+                      WooCommerce checkout to complete card payment through
+                      Stripe.
+                    </p>
                   </div>
                 )}
               </div>
@@ -692,10 +675,10 @@ export default function CheckoutPage() {
                 >
                   {isSubmitting
                     ? paymentMethod === 'card'
-                      ? 'Redirecting to Stripe...'
+                      ? 'Opening Card Checkout...'
                       : 'Creating Order...'
                     : paymentMethod === 'card'
-                      ? `Pay by Card - ${formatPrice(finalTotal)}`
+                      ? `Continue to Card Payment - ${formatPrice(finalTotal)}`
                       : `Place Order - ${formatPrice(finalTotal)}`}
                 </Button>
 
