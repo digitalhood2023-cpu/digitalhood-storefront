@@ -1,70 +1,85 @@
-import { wcStoreFetch } from './woocommerce';
+import { wcStoreFetch } from './woocommerce'
 
 export type CartItem = {
-  key: string;
-  id: number;
-  name: string;
-  quantity: number;
+  key: string
+  id: number
+  name: string
+  quantity: number
   variation?: Array<{
-    attribute: string;
-    value: string;
-  }>;
+    attribute: string
+    value: string
+  }>
   prices?: {
-    price: string;
-    currency_code: string;
-    currency_symbol: string;
-  };
+    price: string
+    currency_code: string
+    currency_symbol: string
+  }
   images?: Array<{
-    src: string;
-    alt: string;
-  }>;
-};
+    src: string
+    alt: string
+  }>
+}
 
 export type Cart = {
-  items: CartItem[];
-  items_count: number;
+  items: CartItem[]
+  items_count: number
   totals?: {
-    total_price: string;
-    currency_code: string;
-    currency_symbol: string;
-  };
-};
+    total_price: string
+    currency_code: string
+    currency_symbol: string
+  }
+}
 
 export type CheckoutPayload = {
   billing_address: {
-    first_name: string;
-    last_name: string;
-    company: string;
-    address_1: string;
-    address_2: string;
-    city: string;
-    state: string;
-    postcode: string;
-    country: string;
-    email: string;
-    phone: string;
-  };
+    first_name: string
+    last_name: string
+    company: string
+    address_1: string
+    address_2: string
+    city: string
+    state: string
+    postcode: string
+    country: string
+    email: string
+    phone: string
+  }
   shipping_address: {
-    first_name: string;
-    last_name: string;
-    company: string;
-    address_1: string;
-    address_2: string;
-    city: string;
-    state: string;
-    postcode: string;
-    country: string;
-    phone: string;
-  };
-  payment_method: string;
+    first_name: string
+    last_name: string
+    company: string
+    address_1: string
+    address_2: string
+    city: string
+    state: string
+    postcode: string
+    country: string
+    phone: string
+  }
+  payment_method: string
   payment_data: Array<{
-    key: string;
-    value: string | boolean;
-  }>;
-};
+    key: string
+    value: string | boolean
+  }>
+}
+
+export type CheckoutResponse = {
+  order_id?: number
+  order_key?: string
+  status?: string
+  redirect_url?: string
+  payment_result?: {
+    payment_status?: string
+    redirect_url?: string
+    payment_details?: Array<{
+      key: string
+      value: string
+    }>
+  }
+}
 
 export function getCart() {
-  return wcStoreFetch<Cart>('/cart');
+  return wcStoreFetch<Cart>('/cart')
 }
 
 export function addCartItem(
@@ -78,14 +93,14 @@ export function addCartItem(
       id: variationId || productId,
       quantity: String(quantity),
     }),
-  });
+  })
 }
 
 export function removeCartItem(key: string) {
   return wcStoreFetch<Cart>('/cart/remove-item', {
     method: 'POST',
     body: JSON.stringify({ key }),
-  });
+  })
 }
 
 export function updateCartItem(key: string, quantity: number) {
@@ -95,12 +110,12 @@ export function updateCartItem(key: string, quantity: number) {
       key,
       quantity: String(quantity),
     }),
-  });
+  })
 }
 
 export function submitCheckout(payload: CheckoutPayload) {
-  return wcStoreFetch('/checkout', {
+  return wcStoreFetch<CheckoutResponse>('/checkout', {
     method: 'POST',
     body: JSON.stringify(payload),
-  });
+  })
 }

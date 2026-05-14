@@ -13,7 +13,11 @@ import {
   MapPin,
 } from 'lucide-react'
 
-import { addCartItem, submitCheckout } from '@/api/cart'
+import {
+  addCartItem,
+  submitCheckout,
+  type CheckoutResponse,
+} from '@/api/cart'
 
 import {
   detectMobileMoneyOperator,
@@ -145,6 +149,14 @@ export default function CheckoutPage() {
     }
   }
 
+  const getCheckoutRedirectUrl = (response: CheckoutResponse) => {
+    return (
+      response?.payment_result?.redirect_url ||
+      response?.redirect_url ||
+      ''
+    )
+  }
+
   const getSuccessState = (method: string): SuccessState => {
     if (method === 'mobile') {
       return {
@@ -167,11 +179,11 @@ export default function CheckoutPage() {
     }
 
     return {
-      title: 'Order Created Successfully',
+      title: 'Redirecting to Card Payment',
       message:
-        'Your card order has been created. Stripe card payment setup is the next checkout step.',
+        'Your order has been created. You are being redirected to complete card payment.',
       nextStep:
-        'Card payment integration will be connected next using your WooCommerce Stripe configuration.',
+        'Complete your card payment securely through Stripe.',
     }
   }
 
@@ -193,7 +205,7 @@ export default function CheckoutPage() {
       const { firstName, lastName } = splitFullName(formData.fullName)
       const paymentMethodId = paymentMethodMap[paymentMethod] || 'lenco'
 
-      const response: any = await submitCheckout({
+      const response = await submitCheckout({
         billing_address: {
           first_name: firstName,
           last_name: lastName,
@@ -247,6 +259,20 @@ export default function CheckoutPage() {
         shippingFee: deliveryFee,
         shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
       })
+
+      if (paymentMethod === 'card') {
+        const redirectUrl = getCheckoutRedirectUrl(response)
+
+        if (redirectUrl) {
+          clearCart()
+          window.location.href = redirectUrl
+          return
+        }
+
+        throw new Error(
+          'Stripe checkout was not returned by WooCommerce. We need to connect the Stripe payment element next.'
+        )
+      }
 
       if (paymentMethod === 'mobile') {
         await initiateLencoMobileMoney({
@@ -665,8 +691,12 @@ export default function CheckoutPage() {
                   className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6"
                 >
                   {isSubmitting
-                    ? 'Creating Order...'
-                    : `Place Order - ${formatPrice(finalTotal)}`}
+                    ? paymentMethod === 'card'
+                      ? 'Redirecting to Stripe...'
+                      : 'Creating Order...'
+                    : paymentMethod === 'card'
+                      ? `Pay by Card - ${formatPrice(finalTotal)}`
+                      : `Place Order - ${formatPrice(finalTotal)}`}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 mt-4 text-sm text-dh-dark-gray">
