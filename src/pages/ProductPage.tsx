@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 
 import {
   ChevronRight,
@@ -14,91 +14,79 @@ import {
   ShoppingCart,
   Star,
   Truck,
-} from 'lucide-react';
+} from 'lucide-react'
 
-import Header from '@/sections/Header';
-import Footer from '@/sections/Footer';
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
 
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@/components/ui/tabs';
+} from '@/components/ui/tabs'
 
 import {
   fetchWooProductBySlug,
   type WooProduct,
-} from '@/lib/woocommerce';
+} from '@/lib/woocommerce'
 
-import { getShippingDetails } from '@/lib/shipping';
-import { useAddToCart } from '@/hooks/useCart';
+import { getShippingDetails } from '@/lib/shipping'
+import { useCartStore } from '@/store/cartStore'
 
-import gsap from 'gsap';
+import gsap from 'gsap'
 
 export default function ProductPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug } = useParams<{ slug: string }>()
 
-  const [product, setProduct] = useState<WooProduct | null>(null);
-
-  const [selectedImage, setSelectedImage] = useState(0);
-
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [loadError, setLoadError] = useState('');
-
-  const [activeTab, setActiveTab] =
-    useState('description');
-
-  const [quantity, setQuantity] = useState(1);
-
-  const [added, setAdded] = useState(false);
+  const [product, setProduct] = useState<WooProduct | null>(null)
+  const [selectedImage, setSelectedImage] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [activeTab, setActiveTab] = useState('description')
+  const [quantity, setQuantity] = useState(1)
+  const [added, setAdded] = useState(false)
 
   const [selectedAttributes, setSelectedAttributes] =
-    useState<Record<string, string>>({});
+    useState<Record<string, string>>({})
 
-  const addToCart = useAddToCart();
+  const addItem = useCartStore((state) => state.addItem)
 
-  const pageRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) return
 
-    setIsLoading(true);
-
-    setLoadError('');
-
-    setSelectedImage(0);
+    setIsLoading(true)
+    setLoadError('')
+    setSelectedImage(0)
 
     fetchWooProductBySlug(slug)
       .then((item) => {
         if (!item) {
-          setLoadError('Product not found.');
-
-          setProduct(null);
-
-          return;
+          setLoadError('Product not found.')
+          setProduct(null)
+          return
         }
 
-        setProduct(item);
-
-        window.scrollTo(0, 0);
+        setProduct(item)
+        window.scrollTo(0, 0)
       })
       .catch((error) => {
-        console.error(error);
+        console.error(error)
 
         setLoadError(
           'We could not load this product right now.'
-        );
+        )
       })
-      .finally(() => setIsLoading(false));
-  }, [slug]);
+      .finally(() => setIsLoading(false))
+  }, [slug])
 
   useEffect(() => {
-    if (!product) return;
+    if (!product) return
 
     const ctx = gsap.context(() => {
       gsap.fromTo(
@@ -110,7 +98,7 @@ export default function ProductPage() {
           duration: 0.5,
           ease: 'expo.out',
         }
-      );
+      )
 
       gsap.fromTo(
         '.product-info',
@@ -122,55 +110,56 @@ export default function ProductPage() {
           ease: 'expo.out',
           delay: 0.15,
         }
-      );
-    }, pageRef);
+      )
+    }, pageRef)
 
-    return () => ctx.revert();
-  }, [product]);
+    return () => ctx.revert()
+  }, [product])
 
   const matchingVariation = useMemo(() => {
-    if (!product?.variations?.length) return null;
+    if (!product?.variations?.length) return null
 
     return (
       product.variations.find((variation) => {
         return Object.entries(selectedAttributes).every(
           ([key, value]) =>
             variation.attributes[key] === value
-        );
+        )
       }) || null
-    );
-  }, [product, selectedAttributes]);
+    )
+  }, [product, selectedAttributes])
 
   const activePrice =
-    matchingVariation?.price || product?.price || 0;
+    matchingVariation?.price || product?.price || 0
 
   const activeImage =
-    matchingVariation?.image || product?.image;
+    matchingVariation?.image || product?.image
 
   const formatPrice = (price: number) =>
     `K${price.toLocaleString('en-ZM', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    })}`;
+    })}`
 
   const productImages =
     product?.images && product.images.length > 0
       ? product.images
       : product?.image
         ? [product.image]
-        : ['/logo.jpg'];
+        : ['/logo.jpg']
 
   const displayImages = activeImage
-    ? [activeImage, ...productImages.filter(
-        (img) => img !== activeImage
-      )]
-    : productImages;
+    ? [
+        activeImage,
+        ...productImages.filter((img) => img !== activeImage),
+      ]
+    : productImages
 
   const shipping = getShippingDetails({
     subtotal: activePrice,
     city: 'Lusaka',
     province: 'Lusaka',
-  });
+  })
 
   const handleVariationChange = (
     attributeName: string,
@@ -179,42 +168,37 @@ export default function ProductPage() {
     setSelectedAttributes((current) => ({
       ...current,
       [attributeName]: value,
-    }));
+    }))
 
-    setSelectedImage(0);
-  };
+    setSelectedImage(0)
+  }
 
   const handleAddToCart = () => {
-    if (!product) return;
+    if (!product) return
 
-    if (
-      product.variations.length > 0 &&
-      !matchingVariation
-    ) {
-      alert('Please select product options.');
-
-      return;
+    if (product.variations.length > 0 && !matchingVariation) {
+      alert('Please select product options.')
+      return
     }
 
-    addToCart.mutate(
+    addItem(
       {
-        productId: Number(product.id),
-
-        variationId: matchingVariation?.id,
-
-        quantity,
+        id: Number(matchingVariation?.id || product.id),
+        name: product.name,
+        slug: product.slug,
+        price: activePrice,
+        regular_price: activePrice,
+        image: activeImage || product.image || '/logo.jpg',
       },
-      {
-        onSuccess: () => {
-          setAdded(true);
+      quantity
+    )
 
-          setTimeout(() => {
-            setAdded(false);
-          }, 2000);
-        },
-      }
-    );
-  };
+    setAdded(true)
+
+    setTimeout(() => {
+      setAdded(false)
+    }, 2000)
+  }
 
   return (
     <div
@@ -271,11 +255,8 @@ export default function ProductPage() {
 
               <div>
                 <div className="h-8 bg-gray-100 rounded mb-4" />
-
                 <div className="h-6 bg-gray-100 rounded w-1/2 mb-6" />
-
                 <div className="h-24 bg-gray-100 rounded mb-6" />
-
                 <div className="h-12 bg-gray-100 rounded" />
               </div>
             </div>
@@ -301,9 +282,7 @@ export default function ProductPage() {
               <div className="product-image min-w-0">
                 <div className="relative w-full aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4">
                   <img
-                    src={
-                      displayImages[selectedImage]
-                    }
+                    src={displayImages[selectedImage]}
                     alt={product.name}
                     className="w-full h-full object-contain sm:object-cover"
                   />
@@ -317,29 +296,23 @@ export default function ProductPage() {
 
                 {displayImages.length > 1 && (
                   <div className="flex gap-3 overflow-x-auto pb-2 max-w-full">
-                    {displayImages.map(
-                      (image, index) => (
-                        <button
-                          key={`${image}-${index}`}
-                          onClick={() =>
-                            setSelectedImage(index)
-                          }
-                          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
-                            selectedImage === index
-                              ? 'border-black'
-                              : 'border-transparent hover:border-gray-300'
-                          }`}
-                        >
-                          <img
-                            src={image}
-                            alt={`${product.name} ${
-                              index + 1
-                            }`}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      )
-                    )}
+                    {displayImages.map((image, index) => (
+                      <button
+                        key={`${image}-${index}`}
+                        onClick={() => setSelectedImage(index)}
+                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                          selectedImage === index
+                            ? 'border-black'
+                            : 'border-transparent hover:border-gray-300'
+                        }`}
+                      >
+                        <img
+                          src={image}
+                          alt={`${product.name} ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -352,14 +325,12 @@ export default function ProductPage() {
 
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-1 shrink-0">
-                      {[...Array(5)].map(
-                        (_, index) => (
-                          <Star
-                            key={index}
-                            className="w-5 h-5 fill-[#ffb54a] text-[#ffb54a]"
-                          />
-                        )
-                      )}
+                      {[...Array(5)].map((_, index) => (
+                        <Star
+                          key={index}
+                          className="w-5 h-5 fill-[#ffb54a] text-[#ffb54a]"
+                        />
+                      ))}
                     </div>
 
                     <span className="text-gray-600 text-sm">
@@ -384,9 +355,7 @@ export default function ProductPage() {
                           {shipping.title}:{' '}
                           {shipping.fee === 0
                             ? 'Free'
-                            : formatPrice(
-                                shipping.fee
-                              )}
+                            : formatPrice(shipping.fee)}
                         </p>
 
                         <p className="text-sm text-green-700">
@@ -406,78 +375,67 @@ export default function ProductPage() {
                     )}
 
                     <p className="text-xs text-green-700">
-                      Final delivery fee updates
-                      automatically at checkout.
+                      Final delivery fee updates automatically at checkout.
                     </p>
                   </div>
                 </div>
 
                 {product.attributes.length > 0 && (
                   <div className="space-y-5 mb-6">
-                    {product.attributes.map(
-                      (attribute) => (
-                        <div
-                          key={attribute.id}
-                        >
-                          <p className="text-sm font-semibold text-black mb-3">
-                            {attribute.name}
-                          </p>
+                    {product.attributes.map((attribute) => (
+                      <div key={attribute.id}>
+                        <p className="text-sm font-semibold text-black mb-3">
+                          {attribute.name}
+                        </p>
 
-                          <div className="flex flex-wrap gap-2">
-                            {attribute.options.map(
-                              (option) => {
-                                const isSelected =
-                                  selectedAttributes[
-                                    attribute.name
-                                  ] === option;
+                        <div className="flex flex-wrap gap-2">
+                          {attribute.options.map((option) => {
+                            const isSelected =
+                              selectedAttributes[
+                                attribute.name
+                              ] === option
 
-                                return (
-                                  <button
-                                    key={option}
-                                    onClick={() =>
-                                      handleVariationChange(
-                                        attribute.name,
-                                        option
-                                      )
-                                    }
-                                    className={`px-4 py-2 rounded-full border text-sm transition-all ${
-                                      isSelected
-                                        ? 'bg-black text-white border-black'
-                                        : 'border-gray-300 hover:border-black'
-                                    }`}
-                                  >
-                                    {option}
-                                  </button>
-                                );
-                              }
-                            )}
-                          </div>
+                            return (
+                              <button
+                                key={option}
+                                onClick={() =>
+                                  handleVariationChange(
+                                    attribute.name,
+                                    option
+                                  )
+                                }
+                                className={`px-4 py-2 rounded-full border text-sm transition-all ${
+                                  isSelected
+                                    ? 'bg-black text-white border-black'
+                                    : 'border-gray-300 hover:border-black'
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            )
+                          })}
                         </div>
-                      )
-                    )}
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 <div className="flex flex-wrap gap-2 mb-6 min-w-0">
-                  {product.categories.map(
-                    (category) => (
-                      <Badge
-                        key={category.id}
-                        variant="outline"
-                        className="rounded-full max-w-full truncate"
-                      >
-                        {category.name}
-                      </Badge>
-                    )
-                  )}
+                  {product.categories.map((category) => (
+                    <Badge
+                      key={category.id}
+                      variant="outline"
+                      className="rounded-full max-w-full truncate"
+                    >
+                      {category.name}
+                    </Badge>
+                  ))}
                 </div>
 
                 <div className="flex items-center gap-3 mb-6">
                   <button
                     onClick={() =>
-                      setQuantity((prev) =>
-                        Math.max(1, prev - 1)
-                      )
+                      setQuantity((prev) => Math.max(1, prev - 1))
                     }
                     className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
                   >
@@ -489,9 +447,7 @@ export default function ProductPage() {
                   </div>
 
                   <button
-                    onClick={() =>
-                      setQuantity((prev) => prev + 1)
-                    }
+                    onClick={() => setQuantity((prev) => prev + 1)}
                     className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
                   >
                     <Plus className="w-4 h-4" />
@@ -501,10 +457,7 @@ export default function ProductPage() {
                 <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-4 mb-8 w-full">
                   <Button
                     onClick={handleAddToCart}
-                    disabled={
-                      !product.inStock ||
-                      addToCart.isPending
-                    }
+                    disabled={!product.inStock}
                     className="w-full sm:w-auto sm:min-w-[220px] h-12 rounded-xl bg-black hover:bg-[#ffb54a] hover:text-black text-white font-semibold"
                   >
                     {added ? (
@@ -515,9 +468,7 @@ export default function ProductPage() {
                     ) : (
                       <>
                         <ShoppingCart className="w-5 h-5 mr-2" />
-                        {addToCart.isPending
-                          ? 'Adding...'
-                          : 'Add to Cart'}
+                        Add to Cart
                       </>
                     )}
                   </Button>
@@ -548,26 +499,17 @@ export default function ProductPage() {
                 <div className="grid sm:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl mb-8">
                   <div className="flex items-center gap-3 min-w-0">
                     <Truck className="w-5 h-5 text-black shrink-0" />
-
-                    <span className="text-sm">
-                      Delivery in Zambia
-                    </span>
+                    <span className="text-sm">Delivery in Zambia</span>
                   </div>
 
                   <div className="flex items-center gap-3 min-w-0">
                     <Shield className="w-5 h-5 text-black shrink-0" />
-
-                    <span className="text-sm">
-                      Secure checkout
-                    </span>
+                    <span className="text-sm">Secure checkout</span>
                   </div>
 
                   <div className="flex items-center gap-3 min-w-0">
                     <RotateCcw className="w-5 h-5 text-black shrink-0" />
-
-                    <span className="text-sm">
-                      Customer support
-                    </span>
+                    <span className="text-sm">Customer support</span>
                   </div>
                 </div>
 
@@ -600,10 +542,7 @@ export default function ProductPage() {
                     </p>
                   </TabsContent>
 
-                  <TabsContent
-                    value="details"
-                    className="mt-4"
-                  >
+                  <TabsContent value="details" className="mt-4">
                     <div className="space-y-4">
                       <div className="flex justify-between gap-4 py-2 border-b border-gray-200">
                         <span className="text-gray-600">
@@ -635,31 +574,23 @@ export default function ProductPage() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent
-                    value="trust"
-                    className="mt-4"
-                  >
+                  <TabsContent value="trust" className="mt-4">
                     <div className="space-y-3 text-gray-600">
                       <p className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-
-                        Seller verified by DigitalHood
-                        Marketplace.
+                        Seller verified by DigitalHood Marketplace.
                       </p>
 
                       <p className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-
-                        Secure payments with Mobile
-                        Money, Cards and Cash on
+                        Secure payments with Mobile Money, Cards and Cash on
                         Delivery.
                       </p>
 
                       <p className="flex items-start gap-2">
                         <Check className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-
-                        Fast Zambia-wide delivery and
-                        customer support available.
+                        Fast Zambia-wide delivery and customer support
+                        available.
                       </p>
                     </div>
                   </TabsContent>
@@ -672,5 +603,5 @@ export default function ProductPage() {
 
       <Footer />
     </div>
-  );
+  )
 }

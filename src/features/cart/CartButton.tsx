@@ -1,14 +1,12 @@
-import { ShoppingCart } from 'lucide-react';
-import { useCart } from '@/hooks/useCart';
+import { ShoppingCart } from 'lucide-react'
+import { useCartStore } from '@/store/cartStore'
 
 type CartButtonProps = {
-  onClick?: () => void;
-};
+  onClick?: () => void
+}
 
 export function CartButton({ onClick }: CartButtonProps) {
-  const { data: cart } = useCart();
-
-  const itemCount = cart?.items_count || 0;
+  const itemCount = useCartStore((state) => state.getCartCount())
 
   return (
     <button
@@ -25,5 +23,5 @@ export function CartButton({ onClick }: CartButtonProps) {
         </span>
       )}
     </button>
-  );
+  )
 }
