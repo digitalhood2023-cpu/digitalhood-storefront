@@ -10,38 +10,20 @@ const PORT = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(
-  '/api/wc/store',
-  createProxyMiddleware({
-    target: 'https://digitalhood.info',
-    changeOrigin: true,
-    secure: true,
-    pathRewrite: (path) => {
-      return `/wp-json/wc/store${path}`;
-    },
-    onProxyReq(proxyReq) {
-      proxyReq.setHeader('Origin', 'https://digitalhood.info');
-    },
-  })
-);
-
-app.use(
-  '/api/wc/store',
-  createProxyMiddleware({
-    target: 'https://digitalhood.info',
-    changeOrigin: true,
-    secure: true,
-    pathRewrite: (path) => {
-      return `/wp-json/wc/store${path}`;
-    },
-    onProxyReq(proxyReq) {
-      proxyReq.setHeader('Origin', 'https://digitalhood.info');
-    },
-  })
-);
-
-
 app.use(express.json());
+
+app.use(
+  '/api/wc/store',
+  createProxyMiddleware({
+    target: 'https://digitalhood.info',
+    changeOrigin: true,
+    secure: true,
+    pathRewrite: (path) => `/wp-json/wc/store${path}`,
+    onProxyReq(proxyReq) {
+      proxyReq.setHeader('Origin', 'https://digitalhood.info');
+    },
+  })
+);
 
 app.post('/api/lenco/mobile-money', async (req, res) => {
   try {
@@ -90,6 +72,57 @@ app.post('/api/lenco/mobile-money', async (req, res) => {
         error.response?.data?.message ||
         error.message ||
         'Lenco mobile money request failed',
+      details: error.response?.data || null,
+    });
+  }
+});
+
+app.post('/api/woocommerce/orders/:orderId/mark-paid', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      return res.status(400).json({
+        status: false,
+        message: 'Order ID is required',
+      });
+    }
+
+    if (!process.env.WC_CONSUMER_KEY || !process.env.WC_CONSUMER_SECRET) {
+      return res.status(500).json({
+        status: false,
+        message: 'WooCommerce API credentials are not configured',
+      });
+    }
+
+    const response = await axios.put(
+      `https://digitalhood.info/wp-json/wc/v3/orders/${orderId}`,
+      {
+        set_paid: true,
+        status: 'processing',
+      },
+      {
+        auth: {
+          username: process.env.WC_CONSUMER_KEY,
+          password: process.env.WC_CONSUMER_SECRET,
+        },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    const status = error.response?.status || 500;
+
+    return res.status(status).json({
+      status: false,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        'Could not mark WooCommerce order as paid',
       details: error.response?.data || null,
     });
   }

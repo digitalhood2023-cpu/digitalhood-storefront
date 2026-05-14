@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
+import { markWooCommerceOrderPaid } from '@/api/woocommerceOrders';
 
 const paymentMethodMap: Record<string, string> = {
   card: 'stripe',
@@ -177,6 +178,7 @@ export default function CheckoutPage() {
                 operator: detectMobileMoneyOperator(formData.paymentPhone),
                 reference: `DH_ORDER_${orderReference}`,
               });
+             await markWooCommerceOrderPaid(orderReference);
             } catch (error) {
               setCheckoutError(
                 error instanceof Error
