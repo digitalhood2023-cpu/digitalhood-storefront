@@ -20,10 +20,7 @@ import {
   initiateLencoMobileMoney,
 } from '@/api/lenco'
 
-import {
-  applyWooCommerceOrderShipping,
-  markWooCommerceOrderPaid,
-} from '@/api/woocommerceOrders'
+import { applyWooCommerceOrderShipping } from '@/api/woocommerceOrders'
 
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
@@ -44,6 +41,12 @@ const paymentMethodMap: Record<string, string> = {
   cod: 'cod',
 }
 
+type SuccessState = {
+  title: string
+  message: string
+  nextStep: string
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const pageRef = useRef<HTMLDivElement>(null)
@@ -59,6 +62,12 @@ export default function CheckoutPage() {
   const [checkoutError, setCheckoutError] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [successState, setSuccessState] = useState<SuccessState>({
+    title: 'Order Created Successfully',
+    message: 'Your order has been created.',
+    nextStep: 'We will contact you shortly.',
+  })
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -133,6 +142,36 @@ export default function CheckoutPage() {
         item.quantity,
         item.variationId ? Number(item.variationId) : undefined
       )
+    }
+  }
+
+  const getSuccessState = (method: string): SuccessState => {
+    if (method === 'mobile') {
+      return {
+        title: 'Payment Request Sent',
+        message:
+          'Your order has been created and a Mobile Money payment request has been sent to your phone.',
+        nextStep:
+          'Approve the payment on your phone to complete your order. We will confirm once payment is received.',
+      }
+    }
+
+    if (method === 'cod') {
+      return {
+        title: 'Order Placed Successfully',
+        message:
+          'Your Cash on Delivery order has been created successfully.',
+        nextStep:
+          'Our team will contact you to confirm delivery. You will pay when you receive your order.',
+      }
+    }
+
+    return {
+      title: 'Order Created Successfully',
+      message:
+        'Your card order has been created. Stripe card payment setup is the next checkout step.',
+      nextStep:
+        'Card payment integration will be connected next using your WooCommerce Stripe configuration.',
     }
   }
 
@@ -216,10 +255,9 @@ export default function CheckoutPage() {
           operator: detectMobileMoneyOperator(formData.paymentPhone),
           reference: `DH_ORDER_${orderReference}`,
         })
-
-        await markWooCommerceOrderPaid(orderReference)
       }
 
+      setSuccessState(getSuccessState(paymentMethod))
       setOrderComplete(true)
       clearCart()
     } catch (error) {
@@ -275,11 +313,11 @@ export default function CheckoutPage() {
               </div>
 
               <h1 className="font-display font-bold text-2xl text-dh-primary mb-3">
-                Order Created Successfully
+                {successState.title}
               </h1>
 
               <p className="text-dh-dark-gray mb-4">
-                Your order has been created in WooCommerce.
+                {successState.message}
               </p>
 
               <div className="bg-white rounded-2xl p-6 mb-8">
@@ -302,6 +340,16 @@ export default function CheckoutPage() {
                 <p className="mt-3 text-sm text-dh-dark-gray">
                   {deliveryTitle} · {deliveryEstimate}
                 </p>
+
+                <div className="mt-5 rounded-xl bg-dh-gray p-4 text-left">
+                  <p className="text-sm font-semibold text-dh-primary mb-1">
+                    Next Step
+                  </p>
+
+                  <p className="text-sm text-dh-dark-gray">
+                    {successState.nextStep}
+                  </p>
+                </div>
               </div>
 
               <Button
@@ -488,7 +536,13 @@ export default function CheckoutPage() {
                   onValueChange={setPaymentMethod}
                   className="space-y-3"
                 >
-                  <label className="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer">
+                  <label
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      paymentMethod === 'mobile'
+                        ? 'border-dh-primary bg-dh-primary/5'
+                        : 'border-dh-light-gray'
+                    }`}
+                  >
                     <RadioGroupItem value="mobile" />
                     <Smartphone className="w-5 h-5 text-dh-primary" />
                     <div>
@@ -499,7 +553,13 @@ export default function CheckoutPage() {
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer">
+                  <label
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      paymentMethod === 'card'
+                        ? 'border-dh-primary bg-dh-primary/5'
+                        : 'border-dh-light-gray'
+                    }`}
+                  >
                     <RadioGroupItem value="card" />
                     <CreditCard className="w-5 h-5 text-dh-primary" />
                     <div>
@@ -510,7 +570,13 @@ export default function CheckoutPage() {
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer">
+                  <label
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      paymentMethod === 'cod'
+                        ? 'border-dh-primary bg-dh-primary/5'
+                        : 'border-dh-light-gray'
+                    }`}
+                  >
                     <RadioGroupItem value="cod" />
                     <Truck className="w-5 h-5 text-dh-primary" />
                     <div>
