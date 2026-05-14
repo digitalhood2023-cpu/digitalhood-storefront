@@ -1,26 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Eye, Check } from 'lucide-react';
-import { products } from '@/data/products';
-import { useWishlist } from '@/context/WishlistContext';
-import { useAddToCart } from '@/hooks/useCart';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Heart, ShoppingCart, Star, Eye, Check } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { products } from '@/data/products'
+import { useWishlist } from '@/context/WishlistContext'
+import { useCartStore } from '@/store/cartStore'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger)
 
 export default function FeaturedProducts() {
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null)
+  const [addedToCart, setAddedToCart] = useState<number | null>(null)
 
-  const [addedToCart, setAddedToCart] = useState<number | null>(null);
+  const addItem = useCartStore((state) => state.addItem)
+  const { toggleWishlist, isInWishlist } = useWishlist()
 
-  const addToCart = useAddToCart();
-
-  const { toggleWishlist, isInWishlist } = useWishlist();
-
-  const featuredProducts = products.slice(0, 8);
+  const featuredProducts = products.slice(0, 8)
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -38,7 +37,7 @@ export default function FeaturedProducts() {
             toggleActions: 'play none none none',
           },
         }
-      );
+      )
 
       gsap.fromTo(
         '.product-card',
@@ -55,33 +54,43 @@ export default function FeaturedProducts() {
             toggleActions: 'play none none none',
           },
         }
-      );
-    }, sectionRef);
+      )
+    }, sectionRef)
 
-    return () => ctx.revert();
-  }, []);
+    return () => ctx.revert()
+  }, [])
 
-  const handleAddToCart = (product: typeof products[0]) => {
-    addToCart.mutate(
+  const handleAddToCart = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    product: typeof products[number]
+  ) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    addItem(
       {
-        productId: Number(product.id),
-        quantity: 1,
+        id: Number(product.id),
+        name: product.name,
+        slug: product.name.toLowerCase().replace(/\s+/g, '-'),
+        price: product.price,
+        regular_price: product.originalPrice || product.price,
+        image: product.image,
       },
-      {
-        onSuccess: () => {
-          setAddedToCart(Number(product.id));
+      1
+    )
 
-          setTimeout(() => {
-            setAddedToCart(null);
-          }, 2000);
-        },
-      }
-    );
-  };
+    toast.success(`${product.name} added to cart`)
+
+    setAddedToCart(Number(product.id))
+
+    setTimeout(() => {
+      setAddedToCart(null)
+    }, 2000)
+  }
 
   const formatPrice = (price: number) => {
-    return `K${price.toLocaleString()}`;
-  };
+    return `K${price.toLocaleString()}`
+  }
 
   return (
     <section ref={sectionRef} className="py-16 lg:py-24 bg-dh-gray">
@@ -129,8 +138,8 @@ export default function FeaturedProducts() {
                         product.badge === 'Sale'
                           ? 'bg-red-500'
                           : product.badge === 'Hot'
-                          ? 'bg-orange-500'
-                          : 'bg-dh-secondary text-dh-black'
+                            ? 'bg-orange-500'
+                            : 'bg-dh-secondary text-dh-black'
                       } text-white font-semibold`}
                     >
                       {product.badge}
@@ -146,6 +155,7 @@ export default function FeaturedProducts() {
                         ? 'bg-red-500 text-white'
                         : 'bg-white text-dh-dark-gray hover:text-red-500'
                     }`}
+                    aria-label="Add to wishlist"
                   >
                     <Heart
                       className={`w-4 h-4 ${
@@ -157,6 +167,7 @@ export default function FeaturedProducts() {
                   <Link
                     to={`/product/${product.id}`}
                     className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-dh-dark-gray hover:text-dh-primary transition-all hover:scale-110"
+                    aria-label="View product"
                   >
                     <Eye className="w-4 h-4" />
                   </Link>
@@ -164,13 +175,7 @@ export default function FeaturedProducts() {
 
                 <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                   <Button
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-
-                      handleAddToCart(product);
-                    }}
-                    disabled={addToCart.isPending}
+                    onClick={(event) => handleAddToCart(event, product)}
                     className={`w-full rounded-xl transition-all ${
                       addedToCart === Number(product.id)
                         ? 'bg-green-500 hover:bg-green-600'
@@ -186,7 +191,7 @@ export default function FeaturedProducts() {
                     ) : (
                       <>
                         <ShoppingCart className="w-4 h-4 mr-2" />
-                        {addToCart.isPending ? 'Adding...' : 'Add to Cart'}
+                        Add to Cart
                       </>
                     )}
                   </Button>
@@ -229,5 +234,5 @@ export default function FeaturedProducts() {
         </div>
       </div>
     </section>
-  );
+  )
 }

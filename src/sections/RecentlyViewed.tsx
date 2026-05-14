@@ -1,26 +1,26 @@
-import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Eye, Check, X } from 'lucide-react';
-import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
-import { useCart } from '@/context/CartContext';
-import { useWishlist } from '@/context/WishlistContext';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Heart, ShoppingCart, Star, Eye, Check, X } from 'lucide-react'
+import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
+import { useWishlist } from '@/context/WishlistContext'
+import { useCartStore } from '@/store/cartStore'
+import { Button } from '@/components/ui/button'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger)
 
 export default function RecentlyViewed() {
-  const { items, hasItems, clearRecentlyViewed } = useRecentlyViewed();
-  const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
-  const [addedToCart, setAddedToCart] = useState<string | null>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const { items, hasItems, clearRecentlyViewed } = useRecentlyViewed()
+  const { toggleWishlist, isInWishlist } = useWishlist()
+  const addItem = useCartStore((state) => state.addItem)
+
+  const [addedToCart, setAddedToCart] = useState<string | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!hasItems) return;
-    
+    if (!hasItems) return
+
     const ctx = gsap.context(() => {
       gsap.fromTo(
         '.recently-viewed-title',
@@ -36,7 +36,7 @@ export default function RecentlyViewed() {
             toggleActions: 'play none none none',
           },
         }
-      );
+      )
 
       gsap.fromTo(
         '.recent-item',
@@ -53,35 +53,51 @@ export default function RecentlyViewed() {
             toggleActions: 'play none none none',
           },
         }
-      );
-    }, sectionRef);
+      )
+    }, sectionRef)
 
-    return () => ctx.revert();
-  }, [hasItems, items]);
+    return () => ctx.revert()
+  }, [hasItems, items])
 
-  const handleAddToCart = (product: typeof items[0]) => {
-    addToCart(product);
-    setAddedToCart(product.id);
-    setTimeout(() => setAddedToCart(null), 2000);
-  };
+  const handleAddToCart = (product: typeof items[number]) => {
+    addItem(
+      {
+        id: Number(product.id),
+        name: product.name,
+        slug: product.name.toLowerCase().replace(/\s+/g, '-'),
+        price: product.price,
+        regular_price: product.originalPrice || product.price,
+        image: product.image,
+      },
+      1
+    )
 
-  const formatPrice = (price: number) => `K${price.toLocaleString()}`;
+    setAddedToCart(String(product.id))
 
-  if (!hasItems) return null;
+    setTimeout(() => {
+      setAddedToCart(null)
+    }, 2000)
+  }
+
+  const formatPrice = (price: number) => `K${price.toLocaleString()}`
+
+  if (!hasItems) return null
 
   return (
-    <section ref={sectionRef} className="py-16 lg:py-24 bg-gray-50 border-t border-gray-200">
+    <section
+      ref={sectionRef}
+      className="py-16 lg:py-24 bg-gray-50 border-t border-gray-200"
+    >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-        {/* Section Header */}
         <div className="recently-viewed-title flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h2 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-black mb-2">
               Recently Viewed
             </h2>
-            <p className="text-gray-600">
-              Pick up where you left off
-            </p>
+
+            <p className="text-gray-600">Pick up where you left off</p>
           </div>
+
           <button
             onClick={clearRecentlyViewed}
             className="flex items-center gap-2 text-gray-500 hover:text-red-500 transition-colors text-sm"
@@ -91,7 +107,6 @@ export default function RecentlyViewed() {
           </button>
         </div>
 
-        {/* Products Grid - Horizontal Scroll on Mobile */}
         <div className="recently-viewed-grid overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 min-w-max sm:min-w-0">
             {items.slice(0, 6).map((product) => (
@@ -99,7 +114,6 @@ export default function RecentlyViewed() {
                 key={product.id}
                 className="recent-item group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 w-48 sm:w-auto flex-shrink-0 sm:flex-shrink"
               >
-                {/* Image Container */}
                 <div className="relative aspect-square overflow-hidden bg-gray-100">
                   <Link to={`/product/${product.id}`}>
                     <img
@@ -109,7 +123,6 @@ export default function RecentlyViewed() {
                     />
                   </Link>
 
-                  {/* Quick Actions */}
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <button
                       onClick={() => toggleWishlist(product)}
@@ -118,38 +131,45 @@ export default function RecentlyViewed() {
                           ? 'bg-red-500 text-white'
                           : 'bg-white text-gray-600 hover:text-red-500'
                       }`}
+                      aria-label="Add to wishlist"
                     >
-                      <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? 'fill-current' : ''}`} />
+                      <Heart
+                        className={`w-4 h-4 ${
+                          isInWishlist(product.id) ? 'fill-current' : ''
+                        }`}
+                      />
                     </button>
+
                     <Link
                       to={`/product/${product.id}`}
                       className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-black transition-all hover:scale-110"
+                      aria-label="View product"
                     >
                       <Eye className="w-4 h-4" />
                     </Link>
                   </div>
                 </div>
 
-                {/* Content */}
                 <div className="p-3">
-                  {/* Rating */}
                   <div className="flex items-center gap-1 mb-1">
                     <Star className="w-3 h-3 fill-[#ffb54a] text-[#ffb54a]" />
-                    <span className="text-xs font-medium">{product.rating}</span>
+
+                    <span className="text-xs font-medium">
+                      {product.rating}
+                    </span>
                   </div>
 
-                  {/* Name */}
                   <Link to={`/product/${product.id}`}>
                     <h3 className="text-sm font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2 min-h-[2.5rem]">
                       {product.name}
                     </h3>
                   </Link>
 
-                  {/* Price */}
                   <div className="flex items-center gap-2 mb-2">
                     <span className="font-display font-bold text-sm">
                       {formatPrice(product.price)}
                     </span>
+
                     {product.originalPrice && (
                       <span className="text-xs text-gray-400 line-through">
                         {formatPrice(product.originalPrice)}
@@ -157,17 +177,16 @@ export default function RecentlyViewed() {
                     )}
                   </div>
 
-                  {/* Add to Cart */}
                   <Button
                     onClick={() => handleAddToCart(product)}
                     className={`w-full transition-all text-xs h-8 ${
-                      addedToCart === product.id
+                      addedToCart === String(product.id)
                         ? 'bg-green-500 hover:bg-green-600'
                         : 'bg-black hover:bg-[#ffb54a] hover:text-black'
                     } text-white`}
                     size="sm"
                   >
-                    {addedToCart === product.id ? (
+                    {addedToCart === String(product.id) ? (
                       <>
                         <Check className="w-3 h-3 mr-1" />
                         Added
@@ -186,5 +205,5 @@ export default function RecentlyViewed() {
         </div>
       </div>
     </section>
-  );
+  )
 }
