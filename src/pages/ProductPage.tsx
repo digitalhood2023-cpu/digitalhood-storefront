@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   ChevronRight,
@@ -16,6 +16,7 @@ import {
   Sparkles,
   Star,
   Truck,
+  Zap,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -112,6 +113,7 @@ function formatProductPrice(price: number) {
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
 
   const [product, setProduct] = useState<WooProduct | null>(null)
   const [recommendedProducts, setRecommendedProducts] = useState<WooProduct[]>([])
@@ -129,6 +131,7 @@ export default function ProductPage() {
     useState<Record<string, string>>({})
 
   const addItem = useCartStore((state) => state.addItem)
+  const clearCart = useCartStore((state) => state.clearCart)
   const { toggleWishlist, isInWishlist } = useWishlist()
 
   const pageRef = useRef<HTMLDivElement>(null)
@@ -338,13 +341,60 @@ export default function ProductPage() {
     setTouchStartX(null)
   }
 
-  const handleAddToCart = () => {
-    if (!product) return
+  const buildCartProduct = () => {
+    if (!product) return null
+
+    return {
+      id: Number(matchingVariation?.id || product.id),
+      productId: product.id,
+      variationId: matchingVariation?.id,
+      name: product.name,
+      slug: product.slug,
+      type: product.type,
+      price: activePrice,
+      regular_price: activePrice,
+      image: activeImage || product.image || '/logo.jpg',
+      stock_status:
+        matchingVariation?.stockStatus ||
+        matchingVariation?.stock_status ||
+        product.stockStatus ||
+        product.stock_status,
+      stock_quantity:
+        matchingVariation?.stockQuantity ??
+        matchingVariation?.stock_quantity ??
+        product.stockQuantity ??
+        product.stock_quantity,
+      manage_stock:
+        matchingVariation?.manageStock ??
+        matchingVariation?.manage_stock ??
+        product.manageStock ??
+        product.manage_stock,
+      stock_label:
+        matchingVariation?.stockLabel ||
+        matchingVariation?.stock_label ||
+        product.stockLabel ||
+        product.stock_label,
+      stock_tone:
+        matchingVariation?.stockTone ||
+        matchingVariation?.stock_tone ||
+        product.stockTone ||
+        product.stock_tone,
+      can_add_to_cart:
+        matchingVariation?.canAddToCart ??
+        matchingVariation?.can_add_to_cart ??
+        product.canAddToCart ??
+        product.can_add_to_cart,
+      selectedVariation: matchingVariation as any,
+    }
+  }
+
+  const validateBeforeCartAction = () => {
+    if (!product) return false
 
     if (hasVariations && !matchingVariation) {
       alert('Please select an available product option.')
       setShowVariations(true)
-      return
+      return false
     }
 
     if (!activeCanAddToCart) {
@@ -353,54 +403,20 @@ export default function ProductPage() {
           (activeStockItem as any)?.stock_label ||
           'This product is currently unavailable.'
       )
-      return
+      return false
     }
 
-    const addedToCart = addItem(
-      {
-        id: Number(matchingVariation?.id || product.id),
-        productId: product.id,
-        variationId: matchingVariation?.id,
-        name: product.name,
-        slug: product.slug,
-        type: product.type,
-        price: activePrice,
-        regular_price: activePrice,
-        image: activeImage || product.image || '/logo.jpg',
-        stock_status:
-          matchingVariation?.stockStatus ||
-          matchingVariation?.stock_status ||
-          product.stockStatus ||
-          product.stock_status,
-        stock_quantity:
-          matchingVariation?.stockQuantity ??
-          matchingVariation?.stock_quantity ??
-          product.stockQuantity ??
-          product.stock_quantity,
-        manage_stock:
-          matchingVariation?.manageStock ??
-          matchingVariation?.manage_stock ??
-          product.manageStock ??
-          product.manage_stock,
-        stock_label:
-          matchingVariation?.stockLabel ||
-          matchingVariation?.stock_label ||
-          product.stockLabel ||
-          product.stock_label,
-        stock_tone:
-          matchingVariation?.stockTone ||
-          matchingVariation?.stock_tone ||
-          product.stockTone ||
-          product.stock_tone,
-        can_add_to_cart:
-          matchingVariation?.canAddToCart ??
-          matchingVariation?.can_add_to_cart ??
-          product.canAddToCart ??
-          product.can_add_to_cart,
-        selectedVariation: matchingVariation as any,
-      },
-      quantity
-    )
+    return true
+  }
+
+  const handleAddToCart = () => {
+    if (!validateBeforeCartAction()) return
+
+    const cartProduct = buildCartProduct()
+
+    if (!cartProduct) return
+
+    const addedToCart = addItem(cartProduct, quantity)
 
     if (!addedToCart) return
 
@@ -409,6 +425,22 @@ export default function ProductPage() {
     setTimeout(() => {
       setAdded(false)
     }, 2000)
+  }
+
+  const handleExpressCheckout = () => {
+    if (!validateBeforeCartAction()) return
+
+    const cartProduct = buildCartProduct()
+
+    if (!cartProduct) return
+
+    clearCart()
+
+    const addedToCart = addItem(cartProduct, quantity)
+
+    if (!addedToCart) return
+
+    navigate('/checkout')
   }
 
   const RecommendationsPanel = ({ mobile = false }: { mobile?: boolean }) => {
@@ -773,7 +805,7 @@ export default function ProductPage() {
                           {attribute.name}
                         </p>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
                           {attribute.options.map((option) => {
                             const isSelected =
                               selectedAttributes[
@@ -790,10 +822,10 @@ export default function ProductPage() {
                                     option
                                   )
                                 }
-                                className={`px-4 py-2 rounded-full border text-sm transition-all ${
+                                className={`shrink-0 whitespace-nowrap rounded-full border px-5 py-2 text-sm transition-all ${
                                   isSelected
                                     ? 'bg-black text-white border-black'
-                                    : 'border-gray-300 hover:border-black'
+                                    : 'border-gray-300 bg-white hover:border-black'
                                 }`}
                               >
                                 {option}
@@ -915,7 +947,7 @@ export default function ProductPage() {
                   </button>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-4 mb-8 w-full">
+                <div className="grid gap-3 mb-8 w-full sm:grid-cols-[minmax(0,1fr)_auto]">
                   <Button
                     type="button"
                     onClick={handleAddToCart}
@@ -923,7 +955,7 @@ export default function ProductPage() {
                       !activeCanAddToCart ||
                       (hasVariations && !matchingVariation)
                     }
-                    className={`w-full sm:w-auto sm:min-w-[220px] h-12 rounded-xl font-semibold ${
+                    className={`h-12 rounded-xl font-semibold ${
                       !activeCanAddToCart ||
                       (hasVariations && !matchingVariation)
                         ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
@@ -955,11 +987,11 @@ export default function ProductPage() {
                     )}
                   </Button>
 
-                  <div className="flex gap-4">
+                  <div className="flex gap-3">
                     <Button
                       type="button"
                       variant="outline"
-                      className={`w-12 h-12 rounded-xl border-2 ${
+                      className={`h-12 w-12 rounded-xl border-2 ${
                         isInWishlist(String(product.id))
                           ? 'border-red-500 bg-red-50 text-red-500'
                           : 'border-gray-200 hover:border-black'
@@ -976,7 +1008,7 @@ export default function ProductPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 hover:border-black"
+                      className="h-12 w-12 rounded-xl border-2 border-gray-200 hover:border-black"
                       onClick={() =>
                         navigator.share?.({
                           title: product.name,
@@ -987,6 +1019,24 @@ export default function ProductPage() {
                       <Share2 className="w-5 h-5" />
                     </Button>
                   </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleExpressCheckout}
+                    disabled={
+                      !activeCanAddToCart ||
+                      (hasVariations && !matchingVariation)
+                    }
+                    className={`h-12 rounded-xl font-semibold sm:col-span-2 ${
+                      !activeCanAddToCart ||
+                      (hasVariations && !matchingVariation)
+                        ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
+                        : 'bg-[#ffb54a] text-black hover:bg-black hover:text-white'
+                    }`}
+                  >
+                    <Zap className="w-5 h-5 mr-2" />
+                    Express Checkout
+                  </Button>
                 </div>
 
                 <div className="grid sm:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl mb-8">
