@@ -17,6 +17,8 @@ import {
   Star,
   Truck,
   Zap,
+  Flame,
+  BadgeCheck,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -111,12 +113,29 @@ function formatProductPrice(price: number) {
   })}`
 }
 
+function sortByNewest(products: WooProduct[]) {
+  return [...products].sort((a, b) => Number(b.id) - Number(a.id))
+}
+
+function sortByHotSelling(products: WooProduct[]) {
+  return [...products].sort((a, b) => {
+    const salesA = Number(a.totalSales || 0)
+    const salesB = Number(b.totalSales || 0)
+    const ratingA = Number(a.averageRating || 0)
+    const ratingB = Number(b.averageRating || 0)
+
+    return salesB + ratingB - (salesA + ratingA)
+  })
+}
+
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
 
   const [product, setProduct] = useState<WooProduct | null>(null)
   const [recommendedProducts, setRecommendedProducts] = useState<WooProduct[]>([])
+  const [newArrivalProducts, setNewArrivalProducts] = useState<WooProduct[]>([])
+  const [hotSellingProducts, setHotSellingProducts] = useState<WooProduct[]>([])
   const [selectedImage, setSelectedImage] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -147,6 +166,8 @@ export default function ProductPage() {
     setShowFullDescription(false)
     setShowVariations(false)
     setRecommendedProducts([])
+    setNewArrivalProducts([])
+    setHotSellingProducts([])
 
     fetchWooProductBySlug(slug)
       .then((item) => {
@@ -161,28 +182,34 @@ export default function ProductPage() {
 
         const categoryId = item.categoryIds?.[0] || item.categories?.[0]?.id || null
 
-        fetchWooProducts(12, 1, '', categoryId)
+        fetchWooProducts(16, 1, '', categoryId)
           .then(({ products }) => {
-            const recommendations = products
-              .filter((recommended) => recommended.id !== item.id)
-              .slice(0, 8)
+            const filtered = products.filter(
+              (recommended) => recommended.id !== item.id
+            )
 
-            setRecommendedProducts(recommendations)
+            setRecommendedProducts(filtered.slice(0, 8))
+            setNewArrivalProducts(sortByNewest(filtered).slice(0, 8))
+            setHotSellingProducts(sortByHotSelling(filtered).slice(0, 8))
           })
           .catch((error) => {
             console.error(error)
 
-            fetchWooProducts(12, 1)
+            fetchWooProducts(16, 1)
               .then(({ products }) => {
-                const recommendations = products
-                  .filter((recommended) => recommended.id !== item.id)
-                  .slice(0, 8)
+                const filtered = products.filter(
+                  (recommended) => recommended.id !== item.id
+                )
 
-                setRecommendedProducts(recommendations)
+                setRecommendedProducts(filtered.slice(0, 8))
+                setNewArrivalProducts(sortByNewest(filtered).slice(0, 8))
+                setHotSellingProducts(sortByHotSelling(filtered).slice(0, 8))
               })
               .catch((fallbackError) => {
                 console.error(fallbackError)
                 setRecommendedProducts([])
+                setNewArrivalProducts([])
+                setHotSellingProducts([])
               })
           })
       })
@@ -227,8 +254,33 @@ export default function ProductPage() {
     return () => ctx.revert()
   }, [product])
 
+  const requiredAttributeNames = useMemo(() => {
+    return product?.attributes?.map((attribute) => attribute.name) || []
+  }, [product])
+
+  const allRequiredAttributesSelected = useMemo(() => {
+    if (!hasVariations) return true
+
+    if (requiredAttributeNames.length === 0) {
+      return Boolean(matchingVariation)
+    }
+
+    return requiredAttributeNames.every((attributeName) => {
+      return Boolean(selectedAttributes[attributeName])
+    })
+  }, [requiredAttributeNames, selectedAttributes])
+
   const matchingVariation = useMemo(() => {
     if (!product?.variations?.length) return null
+
+    const hasSelectedAllAttributes =
+      product.attributes.length === 0
+        ? Object.keys(selectedAttributes).length > 0
+        : product.attributes.every((attribute) =>
+            Boolean(selectedAttributes[attribute.name])
+          )
+
+    if (!hasSelectedAllAttributes) return null
 
     return (
       product.variations.find((variation) => {
@@ -255,6 +307,12 @@ export default function ProductPage() {
       (activeStockItem as any).can_add_to_cart !== false &&
       (activeStockItem as any).stockStatus !== 'outofstock' &&
       (activeStockItem as any).stock_status !== 'outofstock'
+  )
+
+  const canProceedToBuy = Boolean(
+    product &&
+      activeCanAddToCart &&
+      (!hasVariations || (allRequiredAttributesSelected && matchingVariation))
   )
 
   const soldText = product ? getSoldText(product) : ''
@@ -391,8 +449,14 @@ export default function ProductPage() {
   const validateBeforeCartAction = () => {
     if (!product) return false
 
+    if (hasVariations && !allRequiredAttributesSelected) {
+      alert('Please select all product options before continuing.')
+      setShowVariations(true)
+      return false
+    }
+
     if (hasVariations && !matchingVariation) {
-      alert('Please select an available product option.')
+      alert('This combination is unavailable. Please choose another option.')
       setShowVariations(true)
       return false
     }
@@ -427,7 +491,7 @@ export default function ProductPage() {
     }, 2000)
   }
 
-  const handleExpressCheckout = () => {
+  const handleBuyNow = () => {
     if (!validateBeforeCartAction()) return
 
     const cartProduct = buildCartProduct()
@@ -441,6 +505,85 @@ export default function ProductPage() {
     if (!addedToCart) return
 
     navigate('/checkout')
+  }
+
+  const ProductRow = ({
+    title,
+    subtitle,
+    icon,
+    products,
+  }: {
+    title: string
+    subtitle: string
+    icon: React.ReactNode
+    products: WooProduct[]
+  }) => {
+    if (products.length === 0) return null
+
+    return (
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5">{icon}</div>
+
+            <div>
+              <p className="text-sm font-semibold text-black">
+                {title}
+              </p>
+
+              <p className="text-xs text-gray-600">
+                {subtitle}
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to={
+              product?.categories?.[0]
+                ? `/shop?category=${product.categories[0].slug}`
+                : '/shop'
+            }
+            className="shrink-0 text-xs font-semibold text-black underline"
+          >
+            View more
+          </Link>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {products.map((item) => (
+            <Link
+              key={item.id}
+              to={`/product/${item.slug}`}
+              className="w-36 shrink-0 rounded-xl border border-gray-100 bg-gray-50 p-2 transition hover:border-black hover:bg-white"
+            >
+              <div className="mb-2 aspect-square overflow-hidden rounded-lg bg-white">
+                <img
+                  src={item.image || '/logo.jpg'}
+                  alt={item.name}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(event) => {
+                    event.currentTarget.src = '/logo.jpg'
+                  }}
+                />
+              </div>
+
+              <p className="line-clamp-2 text-xs font-semibold text-black">
+                {item.name}
+              </p>
+
+              <p className="mt-1 text-xs font-bold text-black">
+                {formatProductPrice(item.price || 0)}
+              </p>
+
+              <div className="mt-2">
+                <StockBadge item={item as any} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   const RecommendationsPanel = ({ mobile = false }: { mobile?: boolean }) => {
@@ -460,109 +603,62 @@ export default function ProductPage() {
           </h2>
         </div>
 
-        {recommendedProducts.length > 0 ? (
-          <div>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-black">
-                  Similar and recommended products
-                </p>
+        <ProductRow
+          title="Similar products"
+          subtitle="Compare options from the same category."
+          icon={<BadgeCheck className="h-4 w-4 text-black" />}
+          products={recommendedProducts}
+        />
 
-                <p className="text-xs text-gray-600">
-                  Compare live stock, prices and trusted listings.
-                </p>
-              </div>
+        <ProductRow
+          title="New arrivals"
+          subtitle="Fresh listings recently added to DigitalHood."
+          icon={<Sparkles className="h-4 w-4 text-[#ffb54a]" />}
+          products={newArrivalProducts}
+        />
 
-              <Link
-                to={
-                  product.categories?.[0]
-                    ? `/shop?category=${product.categories[0].slug}`
-                    : '/shop'
-                }
-                className="shrink-0 text-xs font-semibold text-black underline"
-              >
-                View more
-              </Link>
-            </div>
+        <ProductRow
+          title="Hot selling"
+          subtitle="Popular products buyers are checking out."
+          icon={<Flame className="h-4 w-4 text-orange-500" />}
+          products={hotSellingProducts}
+        />
 
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {recommendedProducts.map((item) => (
+        {recommendedProducts.length === 0 &&
+          newArrivalProducts.length === 0 &&
+          hotSellingProducts.length === 0 && (
+            <div className="grid gap-3">
+              {product.categories?.[0] && (
                 <Link
-                  key={item.id}
-                  to={`/product/${item.slug}`}
-                  className="w-36 shrink-0 rounded-xl border border-gray-100 bg-gray-50 p-2 transition hover:border-black hover:bg-white"
+                  to={`/shop?category=${product.categories[0].slug}`}
+                  className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
                 >
-                  <div className="mb-2 aspect-square overflow-hidden rounded-lg bg-white">
-                    <img
-                      src={item.image || '/logo.jpg'}
-                      alt={item.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      onError={(event) => {
-                        event.currentTarget.src = '/logo.jpg'
-                      }}
-                    />
-                  </div>
-
-                  <p className="line-clamp-2 text-xs font-semibold text-black">
-                    {item.name}
+                  <p className="text-sm font-semibold text-black">
+                    See similar products
                   </p>
 
-                  <p className="mt-1 text-xs font-bold text-black">
-                    {formatProductPrice(item.price || 0)}
+                  <p className="text-xs text-gray-600">
+                    Browse more in {product.categories[0].name}
                   </p>
-
-                  <div className="mt-2">
-                    <StockBadge item={item as any} />
-                  </div>
                 </Link>
-              ))}
+              )}
 
               <Link
-                to={
-                  product.categories?.[0]
-                    ? `/shop?category=${product.categories[0].slug}`
-                    : '/shop'
-                }
-                className="flex w-36 shrink-0 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white p-3 text-center text-xs font-semibold text-black transition hover:border-black"
-              >
-                View more products
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {product.categories?.[0] && (
-              <Link
-                to={`/shop?category=${product.categories[0].slug}`}
+                to="/shop"
                 className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
               >
                 <p className="text-sm font-semibold text-black">
-                  See similar products
+                  Recommended marketplace picks
                 </p>
 
                 <p className="text-xs text-gray-600">
-                  Browse more in {product.categories[0].name}
+                  Compare prices, stock and trusted DigitalHood listings.
                 </p>
               </Link>
-            )}
+            </div>
+          )}
 
-            <Link
-              to="/shop"
-              className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
-            >
-              <p className="text-sm font-semibold text-black">
-                Recommended marketplace picks
-              </p>
-
-              <p className="text-xs text-gray-600">
-                Compare prices, stock and trusted DigitalHood listings.
-              </p>
-            </Link>
-          </div>
-        )}
-
-        <div className="mt-3 rounded-xl border border-green-100 bg-green-50 p-3">
+        <div className="mt-5 rounded-xl border border-green-100 bg-green-50 p-3">
           <div className="flex items-start gap-2">
             <PackageCheck className="mt-0.5 h-4 w-4 text-green-700" />
 
@@ -849,7 +945,7 @@ export default function ProductPage() {
                         <p className="text-xs text-gray-500">
                           {matchingVariation
                             ? `Selected: ${getVariationLabel(matchingVariation)}`
-                            : 'Choose one option to continue'}
+                            : 'Choose all options to continue'}
                         </p>
                       </div>
 
@@ -923,75 +1019,36 @@ export default function ProductPage() {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-3 mb-6">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setQuantity((prev) => Math.max(1, prev - 1))
-                    }
-                    className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
+                <div className="mb-6 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setQuantity((prev) => Math.max(1, prev - 1))
+                      }
+                      className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
 
-                  <div className="w-14 h-10 rounded-lg border border-gray-300 flex items-center justify-center font-semibold">
-                    {quantity}
+                    <div className="w-14 h-10 rounded-lg border border-gray-300 flex items-center justify-center font-semibold">
+                      {quantity}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((prev) => prev + 1)}
+                      className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => prev + 1)}
-                    className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid gap-3 mb-8 w-full sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <Button
-                    type="button"
-                    onClick={handleAddToCart}
-                    disabled={
-                      !activeCanAddToCart ||
-                      (hasVariations && !matchingVariation)
-                    }
-                    className={`h-12 rounded-xl font-semibold ${
-                      !activeCanAddToCart ||
-                      (hasVariations && !matchingVariation)
-                        ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
-                        : 'bg-black hover:bg-[#ffb54a] hover:text-black text-white'
-                    }`}
-                  >
-                    {added ? (
-                      <>
-                        <Check className="w-5 h-5 mr-2" />
-                        Added
-                      </>
-                    ) : hasVariations && !matchingVariation ? (
-                      <>
-                        <ShoppingCart className="w-5 h-5 mr-2" />
-                        Choose options
-                      </>
-                    ) : !activeCanAddToCart ? (
-                      <>
-                        <ShoppingCart className="w-5 h-5 mr-2" />
-                        {(activeStockItem as any)?.stockLabel ||
-                          (activeStockItem as any)?.stock_label ||
-                          'Unavailable'}
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCart className="w-5 h-5 mr-2" />
-                        Add to Cart
-                      </>
-                    )}
-                  </Button>
 
                   <div className="flex gap-3">
                     <Button
                       type="button"
                       variant="outline"
-                      className={`h-12 w-12 rounded-xl border-2 ${
+                      className={`h-10 w-10 rounded-xl border-2 ${
                         isInWishlist(String(product.id))
                           ? 'border-red-500 bg-red-50 text-red-500'
                           : 'border-gray-200 hover:border-black'
@@ -1008,7 +1065,7 @@ export default function ProductPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-12 w-12 rounded-xl border-2 border-gray-200 hover:border-black"
+                      className="h-10 w-10 rounded-xl border-2 border-gray-200 hover:border-black"
                       onClick={() =>
                         navigator.share?.({
                           title: product.name,
@@ -1019,23 +1076,61 @@ export default function ProductPage() {
                       <Share2 className="w-5 h-5" />
                     </Button>
                   </div>
+                </div>
+
+                <div className="grid gap-3 mb-8 w-full">
+                  <Button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={!canProceedToBuy}
+                    className={`h-12 rounded-xl font-semibold ${
+                      !canProceedToBuy
+                        ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
+                        : 'bg-black hover:bg-[#ffb54a] hover:text-black text-white'
+                    }`}
+                  >
+                    {added ? (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Added
+                      </>
+                    ) : hasVariations && !allRequiredAttributesSelected ? (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Select options first
+                      </>
+                    ) : hasVariations && !matchingVariation ? (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Combination unavailable
+                      </>
+                    ) : !activeCanAddToCart ? (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        {(activeStockItem as any)?.stockLabel ||
+                          (activeStockItem as any)?.stock_label ||
+                          'Unavailable'}
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Add to Cart
+                      </>
+                    )}
+                  </Button>
 
                   <Button
                     type="button"
-                    onClick={handleExpressCheckout}
-                    disabled={
-                      !activeCanAddToCart ||
-                      (hasVariations && !matchingVariation)
-                    }
-                    className={`h-12 rounded-xl font-semibold sm:col-span-2 ${
-                      !activeCanAddToCart ||
-                      (hasVariations && !matchingVariation)
+                    onClick={handleBuyNow}
+                    disabled={!canProceedToBuy}
+                    className={`h-12 rounded-xl font-semibold ${
+                      !canProceedToBuy
                         ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
                         : 'bg-[#ffb54a] text-black hover:bg-black hover:text-white'
                     }`}
                   >
                     <Zap className="w-5 h-5 mr-2" />
-                    Express Checkout
+                    Buy it Now
                   </Button>
                 </div>
 
