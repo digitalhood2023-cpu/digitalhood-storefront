@@ -20,7 +20,7 @@ import StockBadge from '@/components/StockBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useCart } from '@/context/CartContext';
+import { useCartStore } from '@/store/cartStore';
 import {
   fetchWooCategories,
   fetchWooProducts,
@@ -43,22 +43,36 @@ type SortOption =
 
 const PRODUCTS_PER_PAGE = 24;
 
+function safeNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
 function getRatingText(product: WooProduct) {
-  if (!product.averageRating || product.ratingCount <= 0) {
+  const averageRating = safeNumber(product.averageRating);
+  const ratingCount = safeNumber(product.ratingCount);
+
+  if (!averageRating || ratingCount <= 0) {
     return 'No verified ratings yet';
   }
 
-  return `${product.averageRating.toFixed(1)} · ${product.ratingCount} verified ${
-    product.ratingCount === 1 ? 'rating' : 'ratings'
+  return `${averageRating.toFixed(1)} · ${ratingCount} verified ${
+    ratingCount === 1 ? 'rating' : 'ratings'
   }`;
 }
 
 function getSoldText(product: WooProduct) {
-  if (!product.totalSales || product.totalSales <= 0) {
+  const totalSales = safeNumber(product.totalSales);
+
+  if (totalSales <= 0) {
     return '';
   }
 
-  return `${product.totalSales.toLocaleString()} sold`;
+  return `${totalSales.toLocaleString()} sold`;
+}
+
+function getProductPrice(product: WooProduct) {
+  return safeNumber(product.price);
 }
 
 export default function ShopPage() {
@@ -81,7 +95,7 @@ export default function ShopPage() {
   const [totalProducts, setTotalProducts] = useState(0);
   const [addedToCart, setAddedToCart] = useState<number | null>(null);
 
-  const { addToCart } = useCart();
+  const addItem = useCartStore((state) => state.addItem);
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -200,15 +214,15 @@ export default function ShopPage() {
     return [...products].sort((a, b) => {
       switch (sortBy) {
         case 'price-low':
-          return a.price - b.price;
+          return getProductPrice(a) - getProductPrice(b);
         case 'price-high':
-          return b.price - a.price;
+          return getProductPrice(b) - getProductPrice(a);
         case 'newest':
-          return b.id - a.id;
+          return safeNumber(b.id) - safeNumber(a.id);
         case 'best-selling':
-          return b.totalSales - a.totalSales;
+          return safeNumber(b.totalSales) - safeNumber(a.totalSales);
         case 'rating':
-          return b.averageRating - a.averageRating;
+          return safeNumber(b.averageRating) - safeNumber(a.averageRating);
         default:
           return 0;
       }
@@ -216,7 +230,7 @@ export default function ShopPage() {
   }, [products, sortBy]);
 
   const formatPrice = (price: number) =>
-    `K${price.toLocaleString('en-ZM', {
+    `K${safeNumber(price).toLocaleString('en-ZM', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -241,7 +255,25 @@ export default function ShopPage() {
       return;
     }
 
-    const added = addToCart(product as any);
+    const added = addItem(
+      {
+        id: Number(product.id),
+        productId: Number(product.id),
+        name: product.name,
+        slug: product.slug,
+        type: product.type,
+        price: product.price,
+        regular_price: product.price,
+        image: product.image,
+        stock_status: product.stockStatus || product.stock_status,
+        stock_quantity: product.stockQuantity ?? product.stock_quantity,
+        manage_stock: product.manageStock ?? product.manage_stock,
+        stock_label: product.stockLabel || product.stock_label,
+        stock_tone: product.stockTone || product.stock_tone,
+        can_add_to_cart: product.canAddToCart ?? product.can_add_to_cart,
+      },
+      1
+    );
 
     if (!added) {
       return;
@@ -459,7 +491,7 @@ export default function ShopPage() {
                         >
                           <Link to={`/product/${product.slug}`}>
                             <img
-                              src={product.image}
+                              src={product.image || '/logo.jpg'}
                               alt={product.name}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                               loading="lazy"

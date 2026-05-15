@@ -55,7 +55,9 @@ export type WooProduct = {
   image: string;
   images: string[];
   description: string;
+  descriptionHtml: string;
   shortDescription: string;
+  shortDescriptionHtml: string;
   inStock: boolean;
   purchasable: boolean;
   hasOptions: boolean;
@@ -444,7 +446,13 @@ export function mapWooProduct(product: any): WooProduct {
     image: images[0] || '/logo.jpg',
     images,
     description: stripHtml(product.description),
-    shortDescription: stripHtml(product.short_description || product.shortDescription),
+descriptionHtml: product.description || product.descriptionHtml || '',
+shortDescription: stripHtml(product.short_description || product.shortDescription),
+shortDescriptionHtml:
+  product.short_description ||
+  product.shortDescriptionHtml ||
+  product.shortDescription ||
+  '',
     inStock: stockStatus !== 'outofstock',
     purchasable,
     hasOptions,

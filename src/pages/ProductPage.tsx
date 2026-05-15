@@ -8,10 +8,12 @@ import {
   Heart,
   Minus,
   Plus,
+  PackageCheck,
   RotateCcw,
   Share2,
   Shield,
   ShoppingCart,
+  Sparkles,
   Star,
   Truck,
 } from 'lucide-react'
@@ -69,6 +71,36 @@ function getSoldText(product: WooProduct) {
   return `${product.totalSales.toLocaleString()} sold`
 }
 
+function getProductDescriptionHtml(product: WooProduct) {
+  const extendedProduct = product as WooProduct & {
+    descriptionHtml?: string
+    shortDescriptionHtml?: string
+  }
+
+  return (
+    extendedProduct.descriptionHtml ||
+    extendedProduct.shortDescriptionHtml ||
+    product.description ||
+    product.shortDescription ||
+    ''
+  )
+}
+
+function getVisibleDescriptionHtml(
+  descriptionHtml: string,
+  showFullDescription: boolean
+) {
+  if (!descriptionHtml) return ''
+
+  const shouldTruncate = descriptionHtml.length > 1400
+
+  if (!shouldTruncate || showFullDescription) {
+    return descriptionHtml
+  }
+
+  return `${descriptionHtml.slice(0, 1400)}...`
+}
+
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
 
@@ -79,6 +111,7 @@ export default function ProductPage() {
   const [activeTab, setActiveTab] = useState('description')
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
+  const [showFullDescription, setShowFullDescription] = useState(false)
 
   const [selectedAttributes, setSelectedAttributes] =
     useState<Record<string, string>>({})
@@ -95,6 +128,7 @@ export default function ProductPage() {
     setSelectedImage(0)
     setSelectedAttributes({})
     setQuantity(1)
+    setShowFullDescription(false)
 
     fetchWooProductBySlug(slug)
       .then((item) => {
@@ -180,6 +214,13 @@ export default function ProductPage() {
 
   const soldText = product ? getSoldText(product) : ''
   const ratingText = product ? getRatingText(product) : ''
+
+  const descriptionHtml = product ? getProductDescriptionHtml(product) : ''
+  const hasLongDescription = descriptionHtml.length > 1400
+  const visibleDescriptionHtml = getVisibleDescriptionHtml(
+    descriptionHtml,
+    showFullDescription
+  )
 
   const formatPrice = (price: number) =>
     `K${price.toLocaleString('en-ZM', {
@@ -410,6 +451,62 @@ export default function ProductPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-[#ffb54a]" />
+
+                    <h2 className="font-semibold text-black">
+                      Helpful for this product
+                    </h2>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {product.categories?.[0] && (
+                      <Link
+                        to={`/shop?category=${product.categories[0].slug}`}
+                        className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
+                      >
+                        <p className="text-sm font-semibold text-black">
+                          See similar products
+                        </p>
+
+                        <p className="text-xs text-gray-600">
+                          Browse more in {product.categories[0].name}
+                        </p>
+                      </Link>
+                    )}
+
+                    <Link
+                      to="/shop"
+                      className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
+                    >
+                      <p className="text-sm font-semibold text-black">
+                        Recommended marketplace picks
+                      </p>
+
+                      <p className="text-xs text-gray-600">
+                        Compare prices, stock and trusted DigitalHood listings.
+                      </p>
+                    </Link>
+
+                    <div className="rounded-xl border border-green-100 bg-green-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <PackageCheck className="mt-0.5 h-4 w-4 text-green-700" />
+
+                        <div>
+                          <p className="text-sm font-semibold text-green-800">
+                            Buyer confidence
+                          </p>
+
+                          <p className="text-xs text-green-700">
+                            Pay by Mobile Money, card, or Cash on Delivery where available.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="product-info min-w-0">
@@ -696,15 +793,35 @@ export default function ProductPage() {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent
-                    value="description"
-                    className="mt-4"
-                  >
-                    <p className="text-gray-600 leading-relaxed break-words">
-                      {product.description ||
-                        product.shortDescription ||
-                        'Product details are managed from WooCommerce.'}
-                    </p>
+                  <TabsContent value="description" className="mt-4">
+                    {descriptionHtml ? (
+                      <div>
+                        <div
+                          className="max-w-none overflow-hidden text-gray-700 [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-gray-100 [&_img]:shadow-sm [&_p]:mb-4 [&_ul]:mb-4 [&_ol]:mb-4 [&_li]:ml-5 [&_table]:block [&_table]:overflow-x-auto [&_a]:text-black [&_a]:underline"
+                          dangerouslySetInnerHTML={{
+                            __html: visibleDescriptionHtml,
+                          }}
+                        />
+
+                        {hasLongDescription && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowFullDescription((current) => !current)
+                            }
+                            className="mt-4 rounded-full border border-black px-5 py-2 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
+                          >
+                            {showFullDescription
+                              ? 'Show less'
+                              : 'Load full description'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-gray-600 leading-relaxed break-words">
+                        Product details are managed from WooCommerce.
+                      </p>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="details" className="mt-4">
