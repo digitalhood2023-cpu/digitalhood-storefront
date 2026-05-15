@@ -34,12 +34,14 @@ import {
 
 import {
   fetchWooProductBySlug,
+  fetchWooProducts,
   type WooProduct,
   type WooProductVariation,
 } from '@/lib/woocommerce'
 
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
+import { useWishlist } from '@/context/WishlistContext'
 
 import gsap from 'gsap'
 
@@ -101,10 +103,18 @@ function getVisibleDescriptionHtml(
   return `${descriptionHtml.slice(0, 1400)}...`
 }
 
+function formatProductPrice(price: number) {
+  return `K${price.toLocaleString('en-ZM', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
 
   const [product, setProduct] = useState<WooProduct | null>(null)
+  const [recommendedProducts, setRecommendedProducts] = useState<WooProduct[]>([])
   const [selectedImage, setSelectedImage] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -112,11 +122,14 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
+  const [showVariations, setShowVariations] = useState(false)
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
   const [selectedAttributes, setSelectedAttributes] =
     useState<Record<string, string>>({})
 
   const addItem = useCartStore((state) => state.addItem)
+  const { toggleWishlist, isInWishlist } = useWishlist()
 
   const pageRef = useRef<HTMLDivElement>(null)
 
@@ -129,6 +142,8 @@ export default function ProductPage() {
     setSelectedAttributes({})
     setQuantity(1)
     setShowFullDescription(false)
+    setShowVariations(false)
+    setRecommendedProducts([])
 
     fetchWooProductBySlug(slug)
       .then((item) => {
@@ -140,6 +155,33 @@ export default function ProductPage() {
 
         setProduct(item)
         window.scrollTo(0, 0)
+
+        const categoryId = item.categoryIds?.[0] || item.categories?.[0]?.id || null
+
+        fetchWooProducts(12, 1, '', categoryId)
+          .then(({ products }) => {
+            const recommendations = products
+              .filter((recommended) => recommended.id !== item.id)
+              .slice(0, 8)
+
+            setRecommendedProducts(recommendations)
+          })
+          .catch((error) => {
+            console.error(error)
+
+            fetchWooProducts(12, 1)
+              .then(({ products }) => {
+                const recommendations = products
+                  .filter((recommended) => recommended.id !== item.id)
+                  .slice(0, 8)
+
+                setRecommendedProducts(recommendations)
+              })
+              .catch((fallbackError) => {
+                console.error(fallbackError)
+                setRecommendedProducts([])
+              })
+          })
       })
       .catch((error) => {
         console.error(error)
@@ -222,12 +264,6 @@ export default function ProductPage() {
     showFullDescription
   )
 
-  const formatPrice = (price: number) =>
-    `K${price.toLocaleString('en-ZM', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
-
   const productImages =
     product?.images && product.images.length > 0
       ? product.images
@@ -265,11 +301,49 @@ export default function ProductPage() {
     setSelectedImage(0)
   }
 
+  const goToPreviousImage = () => {
+    if (displayImages.length <= 1) return
+
+    setSelectedImage((current) =>
+      current === 0 ? displayImages.length - 1 : current - 1
+    )
+  }
+
+  const goToNextImage = () => {
+    if (displayImages.length <= 1) return
+
+    setSelectedImage((current) =>
+      current >= displayImages.length - 1 ? 0 : current + 1
+    )
+  }
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null)
+  }
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return
+
+    const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX
+    const distance = touchStartX - touchEndX
+
+    if (Math.abs(distance) > 45) {
+      if (distance > 0) {
+        goToNextImage()
+      } else {
+        goToPreviousImage()
+      }
+    }
+
+    setTouchStartX(null)
+  }
+
   const handleAddToCart = () => {
     if (!product) return
 
     if (hasVariations && !matchingVariation) {
       alert('Please select an available product option.')
+      setShowVariations(true)
       return
     }
 
@@ -335,6 +409,144 @@ export default function ProductPage() {
     setTimeout(() => {
       setAdded(false)
     }, 2000)
+  }
+
+  const RecommendationsPanel = ({ mobile = false }: { mobile?: boolean }) => {
+    if (!product) return null
+
+    return (
+      <div
+        className={`rounded-2xl border border-gray-200 bg-white p-4 shadow-sm ${
+          mobile ? 'mt-6' : 'mt-6'
+        }`}
+      >
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-[#ffb54a]" />
+
+          <h2 className="font-semibold text-black">
+            Helpful for this product
+          </h2>
+        </div>
+
+        {recommendedProducts.length > 0 ? (
+          <div>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-black">
+                  Similar and recommended products
+                </p>
+
+                <p className="text-xs text-gray-600">
+                  Compare live stock, prices and trusted listings.
+                </p>
+              </div>
+
+              <Link
+                to={
+                  product.categories?.[0]
+                    ? `/shop?category=${product.categories[0].slug}`
+                    : '/shop'
+                }
+                className="shrink-0 text-xs font-semibold text-black underline"
+              >
+                View more
+              </Link>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {recommendedProducts.map((item) => (
+                <Link
+                  key={item.id}
+                  to={`/product/${item.slug}`}
+                  className="w-36 shrink-0 rounded-xl border border-gray-100 bg-gray-50 p-2 transition hover:border-black hover:bg-white"
+                >
+                  <div className="mb-2 aspect-square overflow-hidden rounded-lg bg-white">
+                    <img
+                      src={item.image || '/logo.jpg'}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      onError={(event) => {
+                        event.currentTarget.src = '/logo.jpg'
+                      }}
+                    />
+                  </div>
+
+                  <p className="line-clamp-2 text-xs font-semibold text-black">
+                    {item.name}
+                  </p>
+
+                  <p className="mt-1 text-xs font-bold text-black">
+                    {formatProductPrice(item.price || 0)}
+                  </p>
+
+                  <div className="mt-2">
+                    <StockBadge item={item as any} />
+                  </div>
+                </Link>
+              ))}
+
+              <Link
+                to={
+                  product.categories?.[0]
+                    ? `/shop?category=${product.categories[0].slug}`
+                    : '/shop'
+                }
+                className="flex w-36 shrink-0 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white p-3 text-center text-xs font-semibold text-black transition hover:border-black"
+              >
+                View more products
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {product.categories?.[0] && (
+              <Link
+                to={`/shop?category=${product.categories[0].slug}`}
+                className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
+              >
+                <p className="text-sm font-semibold text-black">
+                  See similar products
+                </p>
+
+                <p className="text-xs text-gray-600">
+                  Browse more in {product.categories[0].name}
+                </p>
+              </Link>
+            )}
+
+            <Link
+              to="/shop"
+              className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
+            >
+              <p className="text-sm font-semibold text-black">
+                Recommended marketplace picks
+              </p>
+
+              <p className="text-xs text-gray-600">
+                Compare prices, stock and trusted DigitalHood listings.
+              </p>
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-3 rounded-xl border border-green-100 bg-green-50 p-3">
+          <div className="flex items-start gap-2">
+            <PackageCheck className="mt-0.5 h-4 w-4 text-green-700" />
+
+            <div>
+              <p className="text-sm font-semibold text-green-800">
+                Buyer confidence
+              </p>
+
+              <p className="text-xs text-green-700">
+                Pay by Mobile Money, card, or Cash on Delivery where available.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -417,7 +629,11 @@ export default function ProductPage() {
           ) : (
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 min-w-0">
               <div className="product-image min-w-0">
-                <div className="relative w-full aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4">
+                <div
+                  className="relative w-full aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4"
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                >
                   <img
                     src={displayImages[selectedImage]}
                     alt={product.name}
@@ -427,6 +643,32 @@ export default function ProductPage() {
                   <div className="absolute top-4 left-4">
                     <StockBadge item={activeStockItem as any} />
                   </div>
+
+                  {displayImages.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={goToPreviousImage}
+                        className="absolute left-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-md transition hover:bg-white sm:flex"
+                        aria-label="Previous product image"
+                      >
+                        ‹
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={goToNextImage}
+                        className="absolute right-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-md transition hover:bg-white sm:flex"
+                        aria-label="Next product image"
+                      >
+                        ›
+                      </button>
+
+                      <div className="absolute bottom-3 left-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white -translate-x-1/2">
+                        {selectedImage + 1} / {displayImages.length}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {displayImages.length > 1 && (
@@ -452,60 +694,8 @@ export default function ProductPage() {
                   </div>
                 )}
 
-                <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-[#ffb54a]" />
-
-                    <h2 className="font-semibold text-black">
-                      Helpful for this product
-                    </h2>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {product.categories?.[0] && (
-                      <Link
-                        to={`/shop?category=${product.categories[0].slug}`}
-                        className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
-                      >
-                        <p className="text-sm font-semibold text-black">
-                          See similar products
-                        </p>
-
-                        <p className="text-xs text-gray-600">
-                          Browse more in {product.categories[0].name}
-                        </p>
-                      </Link>
-                    )}
-
-                    <Link
-                      to="/shop"
-                      className="rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:border-black hover:bg-white"
-                    >
-                      <p className="text-sm font-semibold text-black">
-                        Recommended marketplace picks
-                      </p>
-
-                      <p className="text-xs text-gray-600">
-                        Compare prices, stock and trusted DigitalHood listings.
-                      </p>
-                    </Link>
-
-                    <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-                      <div className="flex items-start gap-2">
-                        <PackageCheck className="mt-0.5 h-4 w-4 text-green-700" />
-
-                        <div>
-                          <p className="text-sm font-semibold text-green-800">
-                            Buyer confidence
-                          </p>
-
-                          <p className="text-xs text-green-700">
-                            Pay by Mobile Money, card, or Cash on Delivery where available.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="hidden lg:block">
+                  <RecommendationsPanel />
                 </div>
               </div>
 
@@ -534,7 +724,7 @@ export default function ProductPage() {
 
                 <div className="flex flex-wrap items-center gap-3 mb-5">
                   <span className="font-display font-bold text-3xl lg:text-4xl text-black">
-                    {formatPrice(activePrice)}
+                    {formatProductPrice(activePrice)}
                   </span>
 
                   <StockBadge item={activeStockItem as any} />
@@ -550,7 +740,7 @@ export default function ProductPage() {
                           {shipping.title}:{' '}
                           {shipping.fee === 0
                             ? 'Free'
-                            : formatPrice(shipping.fee)}
+                            : formatProductPrice(shipping.fee)}
                         </p>
 
                         <p className="text-sm text-green-700">
@@ -618,42 +808,74 @@ export default function ProductPage() {
 
                 {hasVariations && (
                   <div className="mb-6 rounded-2xl border border-gray-200 p-4">
-                    <h3 className="mb-3 font-semibold text-black">
-                      Available variations
-                    </h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-black">
+                          Available variations
+                        </h3>
 
-                    <div className="grid gap-2">
-                      {product.variations.map((variation) => {
-                        const isSelected = matchingVariation?.id === variation.id
-                        const canSelect =
-                          variation.canAddToCart !== false &&
-                          variation.stockStatus !== 'outofstock'
+                        <p className="text-xs text-gray-500">
+                          {matchingVariation
+                            ? `Selected: ${getVariationLabel(matchingVariation)}`
+                            : 'Choose one option to continue'}
+                        </p>
+                      </div>
 
-                        return (
-                          <button
-                            key={variation.id}
-                            type="button"
-                            disabled={!canSelect}
-                            onClick={() => handleDirectVariationSelect(variation)}
-                            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                              isSelected
-                                ? 'border-black bg-black text-white'
-                                : 'border-gray-200 bg-white hover:border-black'
-                            } ${
-                              !canSelect
-                                ? 'cursor-not-allowed opacity-50'
-                                : ''
-                            }`}
-                          >
-                            <span className="text-sm font-medium">
-                              {getVariationLabel(variation)}
-                            </span>
-
-                            <StockBadge item={variation as any} />
-                          </button>
-                        )
-                      })}
+                      <button
+                        type="button"
+                        onClick={() => setShowVariations((current) => !current)}
+                        className="shrink-0 rounded-full border border-black px-4 py-2 text-xs font-semibold text-black transition hover:bg-black hover:text-white"
+                      >
+                        {showVariations ? 'Hide' : 'Show'}
+                      </button>
                     </div>
+
+                    {matchingVariation && !showVariations && (
+                      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3">
+                        <span className="text-sm font-medium text-black">
+                          {getVariationLabel(matchingVariation)}
+                        </span>
+
+                        <StockBadge item={matchingVariation as any} />
+                      </div>
+                    )}
+
+                    {showVariations && (
+                      <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+                        {product.variations.map((variation) => {
+                          const isSelected = matchingVariation?.id === variation.id
+                          const canSelect =
+                            variation.canAddToCart !== false &&
+                            variation.stockStatus !== 'outofstock'
+
+                          return (
+                            <button
+                              key={variation.id}
+                              type="button"
+                              disabled={!canSelect}
+                              onClick={() => handleDirectVariationSelect(variation)}
+                              className={`min-w-[180px] rounded-xl border px-4 py-3 text-left transition-all ${
+                                isSelected
+                                  ? 'border-black bg-black text-white'
+                                  : 'border-gray-200 bg-white hover:border-black'
+                              } ${
+                                !canSelect
+                                  ? 'cursor-not-allowed opacity-50'
+                                  : ''
+                              }`}
+                            >
+                              <span className="block text-sm font-medium">
+                                {getVariationLabel(variation)}
+                              </span>
+
+                              <span className="mt-2 block">
+                                <StockBadge item={variation as any} />
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -737,9 +959,18 @@ export default function ProductPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 hover:border-black"
+                      className={`w-12 h-12 rounded-xl border-2 ${
+                        isInWishlist(String(product.id))
+                          ? 'border-red-500 bg-red-50 text-red-500'
+                          : 'border-gray-200 hover:border-black'
+                      }`}
+                      onClick={() => toggleWishlist(product as any)}
                     >
-                      <Heart className="w-5 h-5" />
+                      <Heart
+                        className={`w-5 h-5 ${
+                          isInWishlist(String(product.id)) ? 'fill-current' : ''
+                        }`}
+                      />
                     </Button>
 
                     <Button
@@ -891,6 +1122,10 @@ export default function ProductPage() {
                     </div>
                   </TabsContent>
                 </Tabs>
+
+                <div className="lg:hidden">
+                  <RecommendationsPanel mobile />
+                </div>
               </div>
             </div>
           )}
