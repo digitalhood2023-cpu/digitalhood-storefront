@@ -10,6 +10,7 @@ const ShopPage = lazy(() => import('@/pages/ShopPage'))
 const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
+const WishlistPage = lazy(() => import('@/pages/WishlistPage'))
 
 const PhoneAccessoriesPage = lazy(() => import('@/pages/seo/PhoneAccessoriesPage'))
 const IPhonePage = lazy(() => import('@/pages/seo/IPhonePage'))
@@ -52,6 +53,7 @@ function App() {
 
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/wishlist" element={<WishlistPage />} />            
 
             <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
             <Route path="/iphone-zambia" element={<IPhonePage />} />
