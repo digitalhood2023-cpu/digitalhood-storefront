@@ -254,6 +254,8 @@ export default function ProductPage() {
     return () => ctx.revert()
   }, [product])
 
+  const hasVariations = Boolean(product?.variations?.length)
+
   const requiredAttributeNames = useMemo(() => {
     return product?.attributes?.map((attribute) => attribute.name) || []
   }, [product])
@@ -262,25 +264,18 @@ export default function ProductPage() {
     if (!hasVariations) return true
 
     if (requiredAttributeNames.length === 0) {
-      return Boolean(matchingVariation)
+      return Object.keys(selectedAttributes).length > 0
     }
 
     return requiredAttributeNames.every((attributeName) => {
       return Boolean(selectedAttributes[attributeName])
     })
-  }, [requiredAttributeNames, selectedAttributes])
+  }, [hasVariations, requiredAttributeNames, selectedAttributes])
 
   const matchingVariation = useMemo(() => {
     if (!product?.variations?.length) return null
 
-    const hasSelectedAllAttributes =
-      product.attributes.length === 0
-        ? Object.keys(selectedAttributes).length > 0
-        : product.attributes.every((attribute) =>
-            Boolean(selectedAttributes[attribute.name])
-          )
-
-    if (!hasSelectedAllAttributes) return null
+    if (!allRequiredAttributesSelected) return null
 
     return (
       product.variations.find((variation) => {
@@ -289,9 +284,7 @@ export default function ProductPage() {
         )
       }) || null
     )
-  }, [product, selectedAttributes])
-
-  const hasVariations = Boolean(product?.variations?.length)
+  }, [product, selectedAttributes, allRequiredAttributesSelected])
 
   const activePrice =
     matchingVariation?.price || product?.price || 0
