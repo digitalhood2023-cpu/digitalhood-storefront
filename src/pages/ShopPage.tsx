@@ -16,9 +16,11 @@ import {
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
 import SEO from '@/components/SEO';
+import StockBadge from '@/components/StockBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useCart } from '@/context/CartContext';
 import {
   fetchWooCategories,
   fetchWooProducts,
@@ -31,9 +33,33 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
-type SortOption = 'featured' | 'price-low' | 'price-high' | 'newest';
+type SortOption =
+  | 'featured'
+  | 'price-low'
+  | 'price-high'
+  | 'newest'
+  | 'best-selling'
+  | 'rating';
 
 const PRODUCTS_PER_PAGE = 24;
+
+function getRatingText(product: WooProduct) {
+  if (!product.averageRating || product.ratingCount <= 0) {
+    return 'No verified ratings yet';
+  }
+
+  return `${product.averageRating.toFixed(1)} · ${product.ratingCount} verified ${
+    product.ratingCount === 1 ? 'rating' : 'ratings'
+  }`;
+}
+
+function getSoldText(product: WooProduct) {
+  if (!product.totalSales || product.totalSales <= 0) {
+    return '';
+  }
+
+  return `${product.totalSales.toLocaleString()} sold`;
+}
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,7 +79,9 @@ export default function ShopPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [addedToCart, setAddedToCart] = useState<number | null>(null);
 
+  const { addToCart } = useCart();
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -103,7 +131,9 @@ export default function ShopPage() {
       })
       .catch((error) => {
         console.error(error);
-        setLoadError('We could not load products right now. Please try again.');
+        setLoadError(
+          error?.message || 'We could not load products right now. Please try again.'
+        );
       })
       .finally(() => setIsLoading(false));
   }, [page, searchQuery, selectedCategoryId]);
@@ -175,6 +205,10 @@ export default function ShopPage() {
           return b.price - a.price;
         case 'newest':
           return b.id - a.id;
+        case 'best-selling':
+          return b.totalSales - a.totalSales;
+        case 'rating':
+          return b.averageRating - a.averageRating;
         default:
           return 0;
       }
@@ -195,6 +229,26 @@ export default function ShopPage() {
     if (page < totalPages) {
       setPage((current) => current + 1);
     }
+  };
+
+  const handleAddToCart = (product: WooProduct) => {
+    if (product.hasOptions || product.type === 'variable') {
+      return;
+    }
+
+    if (!product.canAddToCart) {
+      alert(product.stockLabel || 'This product is currently unavailable.');
+      return;
+    }
+
+    const added = addToCart(product as any);
+
+    if (!added) {
+      return;
+    }
+
+    setAddedToCart(product.id);
+    setTimeout(() => setAddedToCart(null), 2000);
   };
 
   return (
@@ -293,13 +347,17 @@ export default function ShopPage() {
 
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 hidden sm:inline">Sort by:</span>
+                  <span className="text-sm text-gray-500 hidden sm:inline">
+                    Sort by:
+                  </span>
                   <select
                     value={sortBy}
                     onChange={(event) => setSortBy(event.target.value as SortOption)}
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black bg-white"
                   >
                     <option value="featured">Featured</option>
+                    <option value="best-selling">Best Selling</option>
+                    <option value="rating">Highest Rated</option>
                     <option value="price-low">Price: Low to High</option>
                     <option value="price-high">Price: High to Low</option>
                     <option value="newest">Newest Arrivals</option>
@@ -308,6 +366,7 @@ export default function ShopPage() {
 
                 <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                   <button
+                    type="button"
                     onClick={() => setViewMode('grid')}
                     className={`p-2 transition-colors ${
                       viewMode === 'grid'
@@ -320,6 +379,7 @@ export default function ShopPage() {
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setViewMode('list')}
                     className={`p-2 transition-colors ${
                       viewMode === 'list'
@@ -378,91 +438,132 @@ export default function ShopPage() {
                       : 'grid-cols-1 gap-4'
                   }`}
                 >
-                  {sortedProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
-                        viewMode === 'list' ? 'flex' : ''
-                      }`}
-                    >
+                  {sortedProducts.map((product) => {
+                    const soldText = getSoldText(product);
+                    const ratingText = getRatingText(product);
+                    const shouldViewOptions =
+                      product.hasOptions || product.type === 'variable';
+                    const canBuyDirectly = !shouldViewOptions && product.canAddToCart;
+
+                    return (
                       <div
-                        className={`relative overflow-hidden bg-gray-100 ${
-                          viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
+                        key={product.id}
+                        className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
+                          viewMode === 'list' ? 'flex' : ''
                         }`}
                       >
-                        <Link to={`/product/${product.slug}`}>
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            loading="lazy"
-                            onError={(event) => {
-                              event.currentTarget.src = '/logo.jpg';
-                            }}
-                          />
-                        </Link>
+                        <div
+                          className={`relative overflow-hidden bg-gray-100 ${
+                            viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
+                          }`}
+                        >
+                          <Link to={`/product/${product.slug}`}>
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                              onError={(event) => {
+                                event.currentTarget.src = '/logo.jpg';
+                              }}
+                            />
+                          </Link>
 
-                        <Badge className="absolute top-2 left-2 bg-black text-white font-semibold text-xs">
-                          {product.inStock ? 'In stock' : 'Out of stock'}
-                        </Badge>
+                          <div className="absolute top-2 left-2">
+                            <StockBadge item={product as any} />
+                          </div>
 
-                        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            className="w-8 h-8 rounded-full bg-white text-gray-600 hover:text-red-500 flex items-center justify-center transition-all hover:scale-110"
-                            aria-label={`Save ${product.name}`}
-                          >
-                            <Heart className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-4 flex-1">
-                        <div className="flex items-center gap-1 mb-1">
-                          <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
-                          <span className="text-sm font-medium">Trusted</span>
-                          <span className="text-sm text-gray-400">DigitalHood</span>
+                          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              className="w-8 h-8 rounded-full bg-white text-gray-600 hover:text-red-500 flex items-center justify-center transition-all hover:scale-110"
+                              aria-label={`Save ${product.name}`}
+                            >
+                              <Heart className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        <Link to={`/product/${product.slug}`}>
-                          <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
-                            {product.name}
-                          </h3>
-                        </Link>
+                        <div className="p-4 flex-1">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
+                            <span className="text-sm font-medium">{ratingText}</span>
+                          </div>
 
-                        <p className="text-sm text-gray-500 mb-2 line-clamp-2">
-                          {product.shortDescription ||
-                            product.description ||
-                            'DigitalHood marketplace product'}
-                        </p>
+                          <Link to={`/product/${product.slug}`}>
+                            <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
+                              {product.name}
+                            </h3>
+                          </Link>
 
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="font-display font-bold text-lg">
-                            {formatPrice(product.price)}
-                          </span>
-                        </div>
+                          <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+                            {product.shortDescription ||
+                              product.description ||
+                              'DigitalHood marketplace product'}
+                          </p>
 
-                        <Link to={`/product/${product.slug}`}>
-                          <Button
-                            className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
-                            size="sm"
-                          >
-                            {product.hasOptions ? (
-                              <>
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <StockBadge item={product as any} />
+
+                            {soldText && (
+                              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                                {soldText}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="font-display font-bold text-lg">
+                              {formatPrice(product.price)}
+                            </span>
+                          </div>
+
+                          {shouldViewOptions ? (
+                            <Link to={`/product/${product.slug}`}>
+                              <Button
+                                className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
+                                size="sm"
+                              >
                                 <CheckCircle className="w-4 h-4 mr-2" />
                                 View Options
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingCart className="w-4 h-4 mr-2" />
-                                View Product
-                              </>
-                            )}
-                          </Button>
-                        </Link>
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Button
+                              type="button"
+                              disabled={!canBuyDirectly}
+                              onClick={() => handleAddToCart(product)}
+                              className={`w-full transition-all ${
+                                addedToCart === product.id
+                                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                                  : canBuyDirectly
+                                    ? 'bg-black hover:bg-[#ffb54a] hover:text-black text-white'
+                                    : 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
+                              }`}
+                              size="sm"
+                            >
+                              {addedToCart === product.id ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Added
+                                </>
+                              ) : canBuyDirectly ? (
+                                <>
+                                  <ShoppingCart className="w-4 h-4 mr-2" />
+                                  Add to Cart
+                                </>
+                              ) : (
+                                <>
+                                  <ShoppingCart className="w-4 h-4 mr-2" />
+                                  {product.stockLabel || 'Unavailable'}
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">

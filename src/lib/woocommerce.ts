@@ -1,8 +1,15 @@
 const STORE_URL =
   import.meta.env.VITE_WOOCOMMERCE_STORE_URL || 'https://digitalhood.info';
 
-const PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
-const CATEGORIES_API = `${STORE_URL}/wp-json/wc/store/v1/products/categories`;
+const PAYMENTS_API_URL =
+  import.meta.env.VITE_PAYMENTS_API_URL || 'https://payments.digitalhood.info';
+
+const STORE_PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
+const STORE_CATEGORIES_API = `${STORE_URL}/wp-json/wc/store/v1/products/categories`;
+
+const MARKETPLACE_PRODUCTS_API = `${PAYMENTS_API_URL}/api/products`;
+
+export type MarketplaceStockTone = 'success' | 'warning' | 'danger' | 'muted';
 
 export type WooProductAttribute = {
   id: number;
@@ -19,7 +26,22 @@ export type WooProductVariation = {
   priceHtml: string;
   image: string;
   inStock: boolean;
+  purchasable: boolean;
+  stockStatus: string;
+  stockQuantity: number | null;
+  manageStock: boolean;
+  stockLabel: string;
+  stockTone: MarketplaceStockTone;
+  canAddToCart: boolean;
   attributes: Record<string, string>;
+
+  // Snake_case fields kept for shared stock helpers/cart compatibility
+  stock_status?: string;
+  stock_quantity?: number | null;
+  manage_stock?: boolean;
+  stock_label?: string;
+  stock_tone?: MarketplaceStockTone;
+  can_add_to_cart?: boolean;
 };
 
 export type WooProduct = {
@@ -35,8 +57,22 @@ export type WooProduct = {
   description: string;
   shortDescription: string;
   inStock: boolean;
+  purchasable: boolean;
   hasOptions: boolean;
   addToCartText: string;
+
+  stockStatus: string;
+  stockQuantity: number | null;
+  manageStock: boolean;
+  stockLabel: string;
+  stockTone: MarketplaceStockTone;
+  canAddToCart: boolean;
+
+  totalSales: number;
+  averageRating: number;
+  ratingCount: number;
+  reviewCount: number;
+
   categoryIds: number[];
   categories: {
     id: number;
@@ -45,6 +81,18 @@ export type WooProduct = {
   }[];
   attributes: WooProductAttribute[];
   variations: WooProductVariation[];
+
+  // Snake_case fields kept for shared stock helpers/cart compatibility
+  stock_status?: string;
+  stock_quantity?: number | null;
+  manage_stock?: boolean;
+  stock_label?: string;
+  stock_tone?: MarketplaceStockTone;
+  can_add_to_cart?: boolean;
+  total_sales?: number;
+  average_rating?: string;
+  rating_count?: number;
+  review_count?: number;
 };
 
 export type WooCategory = {
@@ -66,11 +114,65 @@ function stripHtml(html = '') {
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
-function getPrice(product: any) {
-  const rawPrice = Number(product.prices?.price || 0);
-  const minorUnit = Number(product.prices?.currency_minor_unit || 2);
+async function parseJsonResponse(response: Response) {
+  const text = await response.text();
+
+  let data: any;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(
+      `Server returned non-JSON response. Status: ${
+        response.status
+      }. Response started with: ${text.slice(0, 120)}`
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.details ||
+        data?.message ||
+        data?.error ||
+        `Request failed with status ${response.status}`
+    );
+  }
+
+  return data;
+}
+
+function getPrice(item: any): number {
+  if (item?.price !== undefined && item?.price !== null && item?.price !== '') {
+    const directPrice = Number(item.price);
+    return Number.isNaN(directPrice) ? 0 : directPrice;
+  }
+
+  const rawPrice = Number(item?.prices?.price || 0);
+  const minorUnit = Number(item?.prices?.currency_minor_unit || 2);
+
+  if (Number.isNaN(rawPrice)) {
+    return 0;
+  }
 
   return rawPrice / Math.pow(10, minorUnit);
+}
+
+function getImageSrc(image: any): string {
+  if (!image) return '/logo.jpg';
+
+  if (typeof image === 'string') return image;
+
+  return image.src || image.url || '/logo.jpg';
+}
+
+function getImages(item: any): string[] {
+  if (!Array.isArray(item?.images)) {
+    return item?.image ? [getImageSrc(item.image)] : ['/logo.jpg'];
+  }
+
+  const images = item.images.map(getImageSrc).filter(Boolean);
+
+  return images.length > 0 ? images : ['/logo.jpg'];
 }
 
 function normalizeAttributeName(name = '') {
@@ -78,6 +180,132 @@ function normalizeAttributeName(name = '') {
     .replace(/^pa_/, '')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function normalizeTone(tone?: string): MarketplaceStockTone {
+  if (
+    tone === 'success' ||
+    tone === 'warning' ||
+    tone === 'danger' ||
+    tone === 'muted'
+  ) {
+    return tone;
+  }
+
+  return 'muted';
+}
+
+function getStockStatus(item: any): string {
+  return (
+    item?.stock_status ||
+    item?.stockStatus ||
+    (item?.is_in_stock === false ? 'outofstock' : 'instock')
+  );
+}
+
+function getStockQuantity(item: any): number | null {
+  const value = item?.stock_quantity ?? item?.stockQuantity;
+
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const quantity = Number(value);
+
+  return Number.isNaN(quantity) ? null : quantity;
+}
+
+function getManageStock(item: any): boolean {
+  return Boolean(item?.manage_stock ?? item?.manageStock ?? false);
+}
+
+function getPurchasable(item: any): boolean {
+  if (item?.purchasable !== undefined) return Boolean(item.purchasable);
+  if (item?.is_purchasable !== undefined) return Boolean(item.is_purchasable);
+  return true;
+}
+
+function getMarketplaceStockLabel(item: any): {
+  label: string;
+  tone: MarketplaceStockTone;
+  canAddToCart: boolean;
+} {
+  if (!item) {
+    return {
+      label: 'Unavailable',
+      tone: 'muted',
+      canAddToCart: false,
+    };
+  }
+
+  if (item.stock_label || item.stockLabel) {
+    return {
+      label: item.stock_label || item.stockLabel,
+      tone: normalizeTone(item.stock_tone || item.stockTone),
+      canAddToCart: item.can_add_to_cart ?? item.canAddToCart ?? true,
+    };
+  }
+
+  const stockStatus = getStockStatus(item);
+  const stockQuantity = getStockQuantity(item);
+  const manageStock = getManageStock(item);
+  const purchasable = getPurchasable(item);
+
+  if (!purchasable) {
+    return {
+      label: 'Unavailable',
+      tone: 'muted',
+      canAddToCart: false,
+    };
+  }
+
+  if (stockStatus === 'outofstock') {
+    return {
+      label: 'Out of stock',
+      tone: 'danger',
+      canAddToCart: false,
+    };
+  }
+
+  if (stockStatus === 'onbackorder') {
+    return {
+      label: 'Available on backorder',
+      tone: 'warning',
+      canAddToCart: true,
+    };
+  }
+
+  if (manageStock && stockQuantity !== null) {
+    if (stockQuantity <= 0) {
+      return {
+        label: 'Out of stock',
+        tone: 'danger',
+        canAddToCart: false,
+      };
+    }
+
+    if (stockQuantity <= 3) {
+      return {
+        label: `Almost sold out - ${stockQuantity} left`,
+        tone: 'warning',
+        canAddToCart: true,
+      };
+    }
+
+    if (stockQuantity <= 10) {
+      return {
+        label: `Only ${stockQuantity} left`,
+        tone: 'warning',
+        canAddToCart: true,
+      };
+    }
+  }
+
+  return {
+    label: 'In stock',
+    tone: 'success',
+    canAddToCart: true,
+  };
 }
 
 function mapWooAttributes(product: any): WooProductAttribute[] {
@@ -100,7 +328,7 @@ function mapWooAttributes(product: any): WooProductAttribute[] {
     .filter((attribute: WooProductAttribute) => attribute.options.length > 0);
 }
 
-function mapVariationAttributes(variation: any) {
+function mapVariationAttributes(variation: any): Record<string, string> {
   const attributes: Record<string, string> = {};
 
   const rawAttributes = variation.attributes || [];
@@ -125,46 +353,132 @@ function mapVariationAttributes(variation: any) {
   return attributes;
 }
 
-export function mapWooVariation(variation: any): WooProductVariation {
-  return {
-    id: variation.id,
-    parentId: variation.parent || variation.parent_id || 0,
-    name: variation.name || '',
-    price: getPrice(variation),
-    priceHtml: variation.price_html || '',
-    image: variation.image?.src || variation.images?.[0]?.src || '/logo.jpg',
-    inStock: variation.is_in_stock ?? variation.is_purchasable ?? true,
-    attributes: mapVariationAttributes(variation),
-  };
-}
-
-export function mapWooProduct(product: any): WooProduct {
-  const categories =
+function mapCategories(product: any) {
+  return (
     product.categories?.map((category: any) => ({
       id: category.id,
       name: category.name,
       slug: category.slug,
-    })) || [];
+    })) || []
+  );
+}
+
+export function mapWooVariation(variation: any): WooProductVariation {
+  const stockStatus = getStockStatus(variation);
+  const stockQuantity = getStockQuantity(variation);
+  const manageStock = getManageStock(variation);
+  const purchasable = getPurchasable(variation);
+  const stock = getMarketplaceStockLabel(variation);
+  const image = getImageSrc(variation.image || variation.images?.[0]);
+
+  return {
+    id: variation.id,
+    parentId: variation.parent || variation.parent_id || variation.parentId || 0,
+    name: variation.name || '',
+    price: getPrice(variation),
+    priceHtml: variation.price_html || variation.priceHtml || '',
+    image,
+    inStock: stockStatus !== 'outofstock',
+    purchasable,
+    stockStatus,
+    stockQuantity,
+    manageStock,
+    stockLabel: stock.label,
+    stockTone: stock.tone,
+    canAddToCart: stock.canAddToCart,
+    attributes: Array.isArray(variation.attributes)
+      ? mapVariationAttributes(variation)
+      : variation.attributes || {},
+
+    stock_status: stockStatus,
+    stock_quantity: stockQuantity,
+    manage_stock: manageStock,
+    stock_label: stock.label,
+    stock_tone: stock.tone,
+    can_add_to_cart: stock.canAddToCart,
+  };
+}
+
+export function mapWooProduct(product: any): WooProduct {
+  const categories = mapCategories(product);
+  const images = getImages(product);
+  const stockStatus = getStockStatus(product);
+  const stockQuantity = getStockQuantity(product);
+  const manageStock = getManageStock(product);
+  const purchasable = getPurchasable(product);
+  const stock = getMarketplaceStockLabel(product);
+
+  const type = product.type || 'simple';
+  const variations = Array.isArray(product.variations)
+    ? product.variations.map((variation: any) =>
+        typeof variation === 'object'
+          ? mapWooVariation(variation)
+          : variation
+      )
+    : [];
+
+  const hasOptions =
+    Boolean(product.has_options) ||
+    Boolean(product.hasOptions) ||
+    type === 'variable' ||
+    variations.length > 0;
+
+  const averageRating = Number(
+    product.average_rating || product.averageRating || 0
+  );
+
+  const ratingCount = Number(
+    product.rating_count || product.ratingCount || product.review_count || 0
+  );
+
+  const totalSales = Number(product.total_sales || product.totalSales || 0);
 
   return {
     id: product.id,
     name: product.name,
     slug: product.slug,
-    type: product.type,
-    permalink: product.permalink,
+    type,
+    permalink: product.permalink || '',
     price: getPrice(product),
-    priceHtml: product.price_html || '',
-    image: product.images?.[0]?.src || '/logo.jpg',
-    images: product.images?.map((image: any) => image.src) || [],
+    priceHtml: product.price_html || product.priceHtml || '',
+    image: images[0] || '/logo.jpg',
+    images,
     description: stripHtml(product.description),
-    shortDescription: stripHtml(product.short_description),
-    inStock: product.is_in_stock,
-    hasOptions: product.has_options,
-    addToCartText: product.add_to_cart?.text || 'View product',
+    shortDescription: stripHtml(product.short_description || product.shortDescription),
+    inStock: stockStatus !== 'outofstock',
+    purchasable,
+    hasOptions,
+    addToCartText: product.add_to_cart?.text || product.addToCartText || 'View product',
+
+    stockStatus,
+    stockQuantity,
+    manageStock,
+    stockLabel: stock.label,
+    stockTone: stock.tone,
+    canAddToCart: stock.canAddToCart,
+
+    totalSales,
+    averageRating,
+    ratingCount,
+    reviewCount: Number(product.review_count || product.reviewCount || ratingCount),
+
     categoryIds: categories.map((category: any) => category.id),
     categories,
     attributes: mapWooAttributes(product),
-    variations: [],
+    variations: variations.filter(
+      (variation: any) => typeof variation === 'object'
+    ) as WooProductVariation[],
+
+    stock_status: stockStatus,
+    stock_quantity: stockQuantity,
+    manage_stock: manageStock,
+    stock_label: stock.label,
+    stock_tone: stock.tone,
+    can_add_to_cart: stock.canAddToCart,
+    total_sales: totalSales,
+    average_rating: String(averageRating || 0),
+    rating_count: ratingCount,
+    review_count: Number(product.review_count || product.reviewCount || ratingCount),
   };
 }
 
@@ -174,8 +488,8 @@ export function mapWooCategory(category: any): WooCategory {
     name: category.name,
     slug: category.slug,
     description: stripHtml(category.description),
-    productCount: category.count || 0,
-    image: category.image?.src || '/logo.jpg',
+    productCount: category.count || category.productCount || 0,
+    image: category.image?.src || category.image || '/logo.jpg',
   };
 }
 
@@ -198,36 +512,25 @@ export async function fetchWooProducts(
     params.set('category', String(categoryId));
   }
 
-  const response = await fetch(`${PRODUCTS_API}?${params.toString()}`);
+  const response = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`);
+  const data = await parseJsonResponse(response);
 
-  if (!response.ok) {
-    throw new Error(`WooCommerce products failed: ${response.status}`);
-  }
-
-  const products = await response.json();
+  const rawProducts = Array.isArray(data.products) ? data.products : [];
 
   return {
-    products: products.map(mapWooProduct),
-    total: Number(response.headers.get('X-WP-Total') || products.length),
-    totalPages: Number(response.headers.get('X-WP-TotalPages') || 1),
+    products: rawProducts.map(mapWooProduct),
+    total: Number(data.total || rawProducts.length),
+    totalPages: Number(data.totalPages || 1),
   };
 }
 
 export async function fetchWooProductVariations(
   productId: number
 ): Promise<WooProductVariation[]> {
-  const response = await fetch(`${PRODUCTS_API}/${productId}/variations`);
+  const response = await fetch(`${MARKETPLACE_PRODUCTS_API}/${productId}/variations`);
+  const data = await parseJsonResponse(response);
 
-  if (!response.ok) {
-    console.warn(`WooCommerce variations failed: ${response.status}`);
-    return [];
-  }
-
-  const variations = await response.json();
-
-  if (!Array.isArray(variations)) {
-    return [];
-  }
+  const variations = Array.isArray(data.variations) ? data.variations : [];
 
   return variations.map(mapWooVariation);
 }
@@ -240,25 +543,31 @@ export async function fetchWooProductBySlug(
     per_page: '1',
   });
 
-  const response = await fetch(`${PRODUCTS_API}?${params.toString()}`);
+  const listResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`);
+  const listData = await parseJsonResponse(listResponse);
 
-  if (!response.ok) {
-    throw new Error(`WooCommerce product failed: ${response.status}`);
-  }
+  const foundProduct = Array.isArray(listData.products)
+    ? listData.products[0]
+    : null;
 
-  const products = await response.json();
-
-  if (!Array.isArray(products) || products.length === 0) {
+  if (!foundProduct) {
     return null;
   }
 
-  const product = mapWooProduct(products[0]);
+  const detailResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}/${foundProduct.id}`);
+  const detailData = await parseJsonResponse(detailResponse);
 
-  if (product.type === 'variable' || product.hasOptions) {
-    product.variations = await fetchWooProductVariations(product.id);
-  }
+  const product = mapWooProduct(detailData.product || foundProduct);
 
-  return product;
+  const variations = Array.isArray(detailData.variations)
+    ? detailData.variations.map(mapWooVariation)
+    : [];
+
+  return {
+    ...product,
+    variations,
+    hasOptions: product.hasOptions || product.type === 'variable' || variations.length > 0,
+  };
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {
@@ -266,15 +575,52 @@ export async function fetchWooCategories(): Promise<WooCategory[]> {
     per_page: '100',
   });
 
-  const response = await fetch(`${CATEGORIES_API}?${params.toString()}`);
+  const response = await fetch(`${STORE_CATEGORIES_API}?${params.toString()}`);
+  const categories = await parseJsonResponse(response);
 
-  if (!response.ok) {
-    throw new Error(`WooCommerce categories failed: ${response.status}`);
+  if (!Array.isArray(categories)) {
+    return [];
   }
-
-  const categories = await response.json();
 
   return categories
     .map(mapWooCategory)
     .filter((category: WooCategory) => category.productCount > 0);
+}
+
+// Optional fallback helper in case you need direct Store API products later.
+export async function fetchWooProductsDirectFromStoreApi(
+  limit = 24,
+  page = 1,
+  search = '',
+  categoryId?: number | null
+): Promise<WooProductsResponse> {
+  const params = new URLSearchParams({
+    per_page: String(limit),
+    page: String(page),
+  });
+
+  if (search.trim()) {
+    params.set('search', search.trim());
+  }
+
+  if (categoryId) {
+    params.set('category', String(categoryId));
+  }
+
+  const response = await fetch(`${STORE_PRODUCTS_API}?${params.toString()}`);
+  const products = await parseJsonResponse(response);
+
+  if (!Array.isArray(products)) {
+    return {
+      products: [],
+      total: 0,
+      totalPages: 1,
+    };
+  }
+
+  return {
+    products: products.map(mapWooProduct),
+    total: Number(response.headers.get('X-WP-Total') || products.length),
+    totalPages: Number(response.headers.get('X-WP-TotalPages') || 1),
+  };
 }

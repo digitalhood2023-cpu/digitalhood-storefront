@@ -21,6 +21,7 @@ import Footer from '@/sections/Footer'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import StockBadge from '@/components/StockBadge'
 
 import {
   Tabs,
@@ -32,12 +33,41 @@ import {
 import {
   fetchWooProductBySlug,
   type WooProduct,
+  type WooProductVariation,
 } from '@/lib/woocommerce'
 
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
 
 import gsap from 'gsap'
+
+function getVariationLabel(variation: WooProductVariation) {
+  const values = Object.values(variation.attributes || {}).filter(Boolean)
+
+  if (values.length === 0) {
+    return `Variation #${variation.id}`
+  }
+
+  return values.join(' / ')
+}
+
+function getRatingText(product: WooProduct) {
+  if (!product.averageRating || product.ratingCount <= 0) {
+    return 'No verified ratings yet'
+  }
+
+  return `${product.averageRating.toFixed(1)} ★ · ${product.ratingCount} verified ${
+    product.ratingCount === 1 ? 'rating' : 'ratings'
+  }`
+}
+
+function getSoldText(product: WooProduct) {
+  if (!product.totalSales || product.totalSales <= 0) {
+    return ''
+  }
+
+  return `${product.totalSales.toLocaleString()} sold`
+}
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -63,6 +93,8 @@ export default function ProductPage() {
     setIsLoading(true)
     setLoadError('')
     setSelectedImage(0)
+    setSelectedAttributes({})
+    setQuantity(1)
 
     fetchWooProductBySlug(slug)
       .then((item) => {
@@ -79,7 +111,7 @@ export default function ProductPage() {
         console.error(error)
 
         setLoadError(
-          'We could not load this product right now.'
+          error?.message || 'We could not load this product right now.'
         )
       })
       .finally(() => setIsLoading(false))
@@ -122,18 +154,32 @@ export default function ProductPage() {
     return (
       product.variations.find((variation) => {
         return Object.entries(selectedAttributes).every(
-          ([key, value]) =>
-            variation.attributes[key] === value
+          ([key, value]) => variation.attributes[key] === value
         )
       }) || null
     )
   }, [product, selectedAttributes])
+
+  const hasVariations = Boolean(product?.variations?.length)
 
   const activePrice =
     matchingVariation?.price || product?.price || 0
 
   const activeImage =
     matchingVariation?.image || product?.image
+
+  const activeStockItem = matchingVariation || product
+
+  const activeCanAddToCart = Boolean(
+    activeStockItem &&
+      (activeStockItem as any).canAddToCart !== false &&
+      (activeStockItem as any).can_add_to_cart !== false &&
+      (activeStockItem as any).stockStatus !== 'outofstock' &&
+      (activeStockItem as any).stock_status !== 'outofstock'
+  )
+
+  const soldText = product ? getSoldText(product) : ''
+  const ratingText = product ? getRatingText(product) : ''
 
   const formatPrice = (price: number) =>
     `K${price.toLocaleString('en-ZM', {
@@ -173,25 +219,75 @@ export default function ProductPage() {
     setSelectedImage(0)
   }
 
+  const handleDirectVariationSelect = (variation: WooProductVariation) => {
+    setSelectedAttributes(variation.attributes || {})
+    setSelectedImage(0)
+  }
+
   const handleAddToCart = () => {
     if (!product) return
 
-    if (product.variations.length > 0 && !matchingVariation) {
-      alert('Please select product options.')
+    if (hasVariations && !matchingVariation) {
+      alert('Please select an available product option.')
       return
     }
 
-    addItem(
+    if (!activeCanAddToCart) {
+      alert(
+        (activeStockItem as any)?.stockLabel ||
+          (activeStockItem as any)?.stock_label ||
+          'This product is currently unavailable.'
+      )
+      return
+    }
+
+    const addedToCart = addItem(
       {
         id: Number(matchingVariation?.id || product.id),
+        productId: product.id,
+        variationId: matchingVariation?.id,
         name: product.name,
         slug: product.slug,
+        type: product.type,
         price: activePrice,
         regular_price: activePrice,
         image: activeImage || product.image || '/logo.jpg',
+        stock_status:
+          matchingVariation?.stockStatus ||
+          matchingVariation?.stock_status ||
+          product.stockStatus ||
+          product.stock_status,
+        stock_quantity:
+          matchingVariation?.stockQuantity ??
+          matchingVariation?.stock_quantity ??
+          product.stockQuantity ??
+          product.stock_quantity,
+        manage_stock:
+          matchingVariation?.manageStock ??
+          matchingVariation?.manage_stock ??
+          product.manageStock ??
+          product.manage_stock,
+        stock_label:
+          matchingVariation?.stockLabel ||
+          matchingVariation?.stock_label ||
+          product.stockLabel ||
+          product.stock_label,
+        stock_tone:
+          matchingVariation?.stockTone ||
+          matchingVariation?.stock_tone ||
+          product.stockTone ||
+          product.stock_tone,
+        can_add_to_cart:
+          matchingVariation?.canAddToCart ??
+          matchingVariation?.can_add_to_cart ??
+          product.canAddToCart ??
+          product.can_add_to_cart,
+        selectedVariation: matchingVariation as any,
       },
       quantity
     )
+
+    if (!addedToCart) return
 
     setAdded(true)
 
@@ -287,11 +383,9 @@ export default function ProductPage() {
                     className="w-full h-full object-contain sm:object-cover"
                   />
 
-                  <Badge className="absolute top-4 left-4 bg-black text-white font-semibold">
-                    {product.inStock
-                      ? 'In stock'
-                      : 'Out of stock'}
-                  </Badge>
+                  <div className="absolute top-4 left-4">
+                    <StockBadge item={activeStockItem as any} />
+                  </div>
                 </div>
 
                 {displayImages.length > 1 && (
@@ -299,6 +393,7 @@ export default function ProductPage() {
                     {displayImages.map((image, index) => (
                       <button
                         key={`${image}-${index}`}
+                        type="button"
                         onClick={() => setSelectedImage(index)}
                         className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
                           selectedImage === index
@@ -325,24 +420,27 @@ export default function ProductPage() {
 
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-1 shrink-0">
-                      {[...Array(5)].map((_, index) => (
-                        <Star
-                          key={index}
-                          className="w-5 h-5 fill-[#ffb54a] text-[#ffb54a]"
-                        />
-                      ))}
+                      <Star className="w-5 h-5 fill-[#ffb54a] text-[#ffb54a]" />
                     </div>
 
                     <span className="text-gray-600 text-sm">
-                      Verified marketplace product
+                      {ratingText}
                     </span>
+
+                    {soldText && (
+                      <span className="text-gray-600 text-sm">
+                        {soldText}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-5">
+                <div className="flex flex-wrap items-center gap-3 mb-5">
                   <span className="font-display font-bold text-3xl lg:text-4xl text-black">
                     {formatPrice(activePrice)}
                   </span>
+
+                  <StockBadge item={activeStockItem as any} />
                 </div>
 
                 <div className="mb-6 overflow-hidden rounded-2xl border border-green-100 bg-green-50">
@@ -398,6 +496,7 @@ export default function ProductPage() {
                             return (
                               <button
                                 key={option}
+                                type="button"
                                 onClick={() =>
                                   handleVariationChange(
                                     attribute.name,
@@ -420,6 +519,47 @@ export default function ProductPage() {
                   </div>
                 )}
 
+                {hasVariations && (
+                  <div className="mb-6 rounded-2xl border border-gray-200 p-4">
+                    <h3 className="mb-3 font-semibold text-black">
+                      Available variations
+                    </h3>
+
+                    <div className="grid gap-2">
+                      {product.variations.map((variation) => {
+                        const isSelected = matchingVariation?.id === variation.id
+                        const canSelect =
+                          variation.canAddToCart !== false &&
+                          variation.stockStatus !== 'outofstock'
+
+                        return (
+                          <button
+                            key={variation.id}
+                            type="button"
+                            disabled={!canSelect}
+                            onClick={() => handleDirectVariationSelect(variation)}
+                            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                              isSelected
+                                ? 'border-black bg-black text-white'
+                                : 'border-gray-200 bg-white hover:border-black'
+                            } ${
+                              !canSelect
+                                ? 'cursor-not-allowed opacity-50'
+                                : ''
+                            }`}
+                          >
+                            <span className="text-sm font-medium">
+                              {getVariationLabel(variation)}
+                            </span>
+
+                            <StockBadge item={variation as any} />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 mb-6 min-w-0">
                   {product.categories.map((category) => (
                     <Badge
@@ -434,6 +574,7 @@ export default function ProductPage() {
 
                 <div className="flex items-center gap-3 mb-6">
                   <button
+                    type="button"
                     onClick={() =>
                       setQuantity((prev) => Math.max(1, prev - 1))
                     }
@@ -447,6 +588,7 @@ export default function ProductPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => setQuantity((prev) => prev + 1)}
                     className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
                   >
@@ -456,14 +598,35 @@ export default function ProductPage() {
 
                 <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-4 mb-8 w-full">
                   <Button
+                    type="button"
                     onClick={handleAddToCart}
-                    disabled={!product.inStock}
-                    className="w-full sm:w-auto sm:min-w-[220px] h-12 rounded-xl bg-black hover:bg-[#ffb54a] hover:text-black text-white font-semibold"
+                    disabled={
+                      !activeCanAddToCart ||
+                      (hasVariations && !matchingVariation)
+                    }
+                    className={`w-full sm:w-auto sm:min-w-[220px] h-12 rounded-xl font-semibold ${
+                      !activeCanAddToCart ||
+                      (hasVariations && !matchingVariation)
+                        ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
+                        : 'bg-black hover:bg-[#ffb54a] hover:text-black text-white'
+                    }`}
                   >
                     {added ? (
                       <>
                         <Check className="w-5 h-5 mr-2" />
                         Added
+                      </>
+                    ) : hasVariations && !matchingVariation ? (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Choose options
+                      </>
+                    ) : !activeCanAddToCart ? (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        {(activeStockItem as any)?.stockLabel ||
+                          (activeStockItem as any)?.stock_label ||
+                          'Unavailable'}
                       </>
                     ) : (
                       <>
@@ -475,6 +638,7 @@ export default function ProductPage() {
 
                   <div className="flex gap-4">
                     <Button
+                      type="button"
                       variant="outline"
                       className="w-12 h-12 rounded-xl border-2 border-gray-200 hover:border-black"
                     >
@@ -482,6 +646,7 @@ export default function ProductPage() {
                     </Button>
 
                     <Button
+                      type="button"
                       variant="outline"
                       className="w-12 h-12 rounded-xl border-2 border-gray-200 hover:border-black"
                       onClick={() =>
@@ -559,16 +724,30 @@ export default function ProductPage() {
                           Availability
                         </span>
 
-                        <span
-                          className={`font-medium text-right ${
-                            product.inStock
-                              ? 'text-green-600'
-                              : 'text-red-500'
-                          }`}
-                        >
-                          {product.inStock
-                            ? 'In stock'
-                            : 'Out of stock'}
+                        <span className="font-medium text-right">
+                          <StockBadge item={activeStockItem as any} />
+                        </span>
+                      </div>
+
+                      {soldText && (
+                        <div className="flex justify-between gap-4 py-2 border-b border-gray-200">
+                          <span className="text-gray-600">
+                            Sold
+                          </span>
+
+                          <span className="font-medium text-right">
+                            {soldText}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between gap-4 py-2 border-b border-gray-200">
+                        <span className="text-gray-600">
+                          Rating
+                        </span>
+
+                        <span className="font-medium text-right">
+                          {ratingText}
                         </span>
                       </div>
                     </div>
