@@ -14,6 +14,7 @@ import {
   Clock,
   MapPin,
   ShoppingBag,
+  Loader2,
 } from 'lucide-react'
 
 import {
@@ -25,6 +26,7 @@ import {
 import {
   detectMobileMoneyOperator,
   initiateLencoMobileMoney,
+  verifyLencoMobileMoney,
 } from '@/api/lenco'
 
 import { getShippingDetails } from '@/lib/shipping'
@@ -51,6 +53,7 @@ type SuccessState = {
   title: string
   message: string
   nextStep: string
+  confirmed?: boolean
 }
 
 type CheckoutCartItem = {
@@ -111,6 +114,7 @@ function getVariationText(item: CheckoutCartItem) {
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const pageRef = useRef<HTMLDivElement>(null)
+  const lencoPollingRef = useRef<number | null>(null)
 
   const items = useCartStore((state) => state.items)
   const clearCart = useCartStore((state) => state.clearCart)
@@ -134,10 +138,15 @@ export default function CheckoutPage() {
   const [cardPaymentIntentId, setCardPaymentIntentId] = useState('')
   const [isPreparingCard, setIsPreparingCard] = useState(false)
 
+  const [isWaitingForLenco, setIsWaitingForLenco] = useState(false)
+  const [lencoReference, setLencoReference] = useState('')
+  const [lencoStatus, setLencoStatus] = useState('')
+
   const [successState, setSuccessState] = useState<SuccessState>({
     title: 'Order Created Successfully',
     message: 'Your order has been created.',
     nextStep: 'We will contact you shortly.',
+    confirmed: false,
   })
 
   const [formData, setFormData] = useState({
@@ -166,6 +175,19 @@ export default function CheckoutPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`
+
+  const stopLencoPolling = () => {
+    if (lencoPollingRef.current) {
+      window.clearInterval(lencoPollingRef.current)
+      lencoPollingRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      stopLencoPolling()
+    }
+  }, [])
 
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((current) => ({
@@ -305,7 +327,19 @@ export default function CheckoutPage() {
         message:
           'Your order has been created and a Mobile Money payment request has been sent to your phone.',
         nextStep:
-          'Approve the payment on your phone to complete your order. We will confirm once payment is received.',
+          'Approve the payment on your phone. This screen will update automatically once payment is confirmed.',
+        confirmed: false,
+      }
+    }
+
+    if (method === 'mobile-confirmed') {
+      return {
+        title: 'Payment Received Successfully',
+        message:
+          'Your Mobile Money payment has been confirmed and your order is now being processed.',
+        nextStep:
+          'Our team will process your order and contact you with delivery updates.',
+        confirmed: true,
       }
     }
 
@@ -316,6 +350,7 @@ export default function CheckoutPage() {
           'Your card payment has been confirmed and your order has been created successfully.',
         nextStep:
           'Our team will process your order and contact you with delivery updates.',
+        confirmed: true,
       }
     }
 
@@ -325,7 +360,64 @@ export default function CheckoutPage() {
         'Your Cash on Delivery order has been created successfully.',
       nextStep:
         'Our team will contact you to confirm delivery. You will pay when you receive your order.',
+      confirmed: true,
     }
+  }
+
+  const pollLencoPayment = ({
+    reference,
+    orderId,
+  }: {
+    reference: string
+    orderId: number
+  }) => {
+    stopLencoPolling()
+
+    let attempts = 0
+    const maxAttempts = 24
+
+    setIsWaitingForLenco(true)
+    setLencoStatus('Waiting for payment approval...')
+
+    lencoPollingRef.current = window.setInterval(async () => {
+      attempts += 1
+
+      try {
+        const result = await verifyLencoMobileMoney(reference)
+
+        setLencoStatus(result.status || 'checking')
+
+        if (result.paid) {
+          stopLencoPolling()
+
+          setIsWaitingForLenco(false)
+          setSuccessState(getSuccessState('mobile-confirmed'))
+          setOrderComplete(true)
+          setCreatedOrderId(orderId)
+          clearCart()
+
+          return
+        }
+
+        if (attempts >= maxAttempts) {
+          stopLencoPolling()
+          setIsWaitingForLenco(false)
+          setLencoStatus(
+            'Payment has not been confirmed yet. If you approved payment, we will still reconcile it automatically.'
+          )
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (attempts >= maxAttempts) {
+          stopLencoPolling()
+          setIsWaitingForLenco(false)
+          setLencoStatus(
+            'We could not confirm payment automatically. If you approved payment, DigitalHood support will verify it.'
+          )
+        }
+      }
+    }, 5000)
   }
 
   const prepareCardPayment = async () => {
@@ -431,12 +523,30 @@ export default function CheckoutPage() {
       const order = await createOrderThroughPaymentsApi(paymentMethod)
 
       if (paymentMethod === 'mobile') {
-        await initiateLencoMobileMoney({
+        const reference = `DH_ORDER_${order.orderId}`
+
+        const response = await initiateLencoMobileMoney({
           amount: finalTotal,
           phone: formData.paymentPhone,
           operator: detectMobileMoneyOperator(formData.paymentPhone),
-          reference: `DH_ORDER_${order.orderId}`,
+          reference,
+          orderId: order.orderId,
+          customerName: formData.fullName,
+          customerEmail: formData.email,
         })
+
+        const paymentReference = response.reference || reference
+
+        setLencoReference(paymentReference)
+        setSuccessState(getSuccessState('mobile'))
+        setOrderComplete(true)
+
+        pollLencoPayment({
+          reference: paymentReference,
+          orderId: order.orderId,
+        })
+
+        return
       }
 
       setSuccessState(getSuccessState(paymentMethod))
@@ -494,8 +604,18 @@ export default function CheckoutPage() {
         <main className="py-16">
           <div className="container mx-auto px-4">
             <div className="max-w-md mx-auto text-center">
-              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Check className="w-12 h-12 text-green-500" />
+              <div
+                className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${
+                  successState.confirmed
+                    ? 'bg-green-100'
+                    : 'bg-yellow-100'
+                }`}
+              >
+                {successState.confirmed ? (
+                  <Check className="w-12 h-12 text-green-500" />
+                ) : (
+                  <Loader2 className="w-12 h-12 text-yellow-600 animate-spin" />
+                )}
               </div>
 
               <h1 className="font-display font-bold text-2xl text-dh-primary mb-3">
@@ -515,6 +635,18 @@ export default function CheckoutPage() {
                   {orderNumber}
                 </p>
 
+                {lencoReference && (
+                  <>
+                    <p className="text-sm text-dh-dark-gray mb-2">
+                      Payment Reference
+                    </p>
+
+                    <p className="font-display font-bold text-base text-dh-primary mb-4 break-words">
+                      {lencoReference}
+                    </p>
+                  </>
+                )}
+
                 <p className="text-sm text-dh-dark-gray mb-2">
                   Order Total
                 </p>
@@ -526,6 +658,20 @@ export default function CheckoutPage() {
                 <p className="mt-3 text-sm text-dh-dark-gray">
                   {deliveryTitle} · {deliveryEstimate}
                 </p>
+
+                {!successState.confirmed && (
+                  <div className="mt-5 rounded-xl bg-yellow-50 border border-yellow-100 p-4 text-left">
+                    <p className="text-sm font-semibold text-yellow-800 mb-1">
+                      Payment Status
+                    </p>
+
+                    <p className="text-sm text-yellow-700">
+                      {isWaitingForLenco
+                        ? lencoStatus || 'Checking payment...'
+                        : lencoStatus || 'Waiting for confirmation...'}
+                    </p>
+                  </div>
+                )}
 
                 <div className="mt-5 rounded-xl bg-dh-gray p-4 text-left">
                   <p className="text-sm font-semibold text-dh-primary mb-1">
