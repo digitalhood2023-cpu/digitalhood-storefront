@@ -19,6 +19,7 @@ type CartPageItem = {
   id: number
   productId?: number
   variationId?: number
+  variationLabel?: string
   name: string
   slug?: string
   price: number
@@ -70,6 +71,7 @@ function isUnavailable(item: CartPageItem) {
 }
 
 function getVariationText(item: CartPageItem) {
+  if (item.variationLabel) return item.variationLabel
   if (!item.variationId) return ''
 
   return `Variation ID: ${item.variationId}`
@@ -204,7 +206,7 @@ export default function CartPage() {
 
                               {variationText && (
                                 <p className="mt-1 text-sm text-dh-dark-gray">
-                                  {variationText}
+                                  Selected: {variationText}
                                 </p>
                               )}
 

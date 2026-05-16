@@ -3,11 +3,24 @@ import { persist } from 'zustand/middleware'
 
 export type StockTone = 'success' | 'warning' | 'danger' | 'muted'
 
+type VariationAttributes =
+  | Record<string, string>
+  | {
+      name?: string
+      option?: string
+      value?: string
+    }[]
+
 export type CartProduct = {
   id: number
   productId?: number
   variationId?: number
   variation_id?: number
+  variationLabel?: string
+  variation_label?: string
+  variationAttributes?: VariationAttributes
+  attributes?: VariationAttributes
+
   name: string
   slug?: string
   type?: string
@@ -44,6 +57,7 @@ export type CartItem = {
   id: number
   productId: number
   variationId?: number
+  variationLabel?: string
   name: string
   slug?: string
   price: number
@@ -74,8 +88,7 @@ type CartStore = {
 const normalizePrice = (price: number | string | undefined): number => {
   if (price === undefined || price === null || price === '') return 0
 
-  const numericPrice =
-    typeof price === 'string' ? Number(price) : price
+  const numericPrice = typeof price === 'string' ? Number(price) : price
 
   return Number.isNaN(numericPrice) ? 0 : numericPrice
 }
@@ -221,6 +234,53 @@ const getVariationId = (product: CartProduct): number | undefined => {
   return variationId ? Number(variationId) : undefined
 }
 
+const getVariationLabelFromAttributes = (
+  attributes?: VariationAttributes
+): string => {
+  if (!attributes) return ''
+
+  if (Array.isArray(attributes)) {
+    return attributes
+      .map((attribute) => attribute.option || attribute.value || attribute.name || '')
+      .filter(Boolean)
+      .join(' / ')
+  }
+
+  return Object.values(attributes)
+    .filter(Boolean)
+    .join(' / ')
+}
+
+const getVariationLabel = (product: CartProduct): string => {
+  if (product.variationLabel || product.variation_label) {
+    return product.variationLabel || product.variation_label || ''
+  }
+
+  if (
+    product.selectedVariation?.variationLabel ||
+    product.selectedVariation?.variation_label
+  ) {
+    return (
+      product.selectedVariation.variationLabel ||
+      product.selectedVariation.variation_label ||
+      ''
+    )
+  }
+
+  const selectedVariationAttributes =
+    product.selectedVariation?.variationAttributes ||
+    product.selectedVariation?.attributes
+
+  const selectedVariationLabel =
+    getVariationLabelFromAttributes(selectedVariationAttributes)
+
+  if (selectedVariationLabel) return selectedVariationLabel
+
+  return getVariationLabelFromAttributes(
+    product.variationAttributes || product.attributes
+  )
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -239,10 +299,9 @@ export const useCartStore = create<CartStore>()(
         const cartItemId = getCartItemId(product)
         const productId = getProductId(product)
         const variationId = getVariationId(product)
+        const variationLabel = getVariationLabel(product)
 
-        const existingItem = items.find(
-          (item) => item.id === cartItemId
-        )
+        const existingItem = items.find((item) => item.id === cartItemId)
 
         const safeQuantity = Math.max(1, Number(quantity || 1))
 
@@ -253,6 +312,7 @@ export const useCartStore = create<CartStore>()(
                 ? {
                     ...item,
                     quantity: item.quantity + safeQuantity,
+                    variationLabel: item.variationLabel || variationLabel,
                   }
                 : item
             ),
@@ -281,6 +341,7 @@ export const useCartStore = create<CartStore>()(
               id: cartItemId,
               productId,
               variationId,
+              variationLabel,
               name: product.name,
               slug: product.slug,
               price,
@@ -306,9 +367,7 @@ export const useCartStore = create<CartStore>()(
 
       removeItem: (productId) => {
         set({
-          items: get().items.filter(
-            (item) => item.id !== productId
-          ),
+          items: get().items.filter((item) => item.id !== productId),
         })
       },
 
@@ -349,8 +408,7 @@ export const useCartStore = create<CartStore>()(
 
       getSubtotal: () => {
         return get().items.reduce(
-          (total, item) =>
-            total + item.price * item.quantity,
+          (total, item) => total + item.price * item.quantity,
           0
         )
       },

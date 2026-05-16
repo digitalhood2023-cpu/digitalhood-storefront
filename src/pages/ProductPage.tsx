@@ -395,10 +395,16 @@ export default function ProductPage() {
   const buildCartProduct = () => {
     if (!product) return null
 
+    const variationLabel = matchingVariation
+      ? getVariationLabel(matchingVariation)
+      : ''
+
     return {
       id: Number(matchingVariation?.id || product.id),
       productId: product.id,
       variationId: matchingVariation?.id,
+      variationLabel,
+      variationAttributes: matchingVariation?.attributes,
       name: product.name,
       slug: product.slug,
       type: product.type,
@@ -435,7 +441,13 @@ export default function ProductPage() {
         matchingVariation?.can_add_to_cart ??
         product.canAddToCart ??
         product.can_add_to_cart,
-      selectedVariation: matchingVariation as any,
+      selectedVariation: matchingVariation
+        ? ({
+            ...(matchingVariation as any),
+            variationLabel,
+            variationAttributes: matchingVariation.attributes,
+          } as any)
+        : null,
     }
   }
 

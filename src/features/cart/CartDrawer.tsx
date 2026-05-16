@@ -21,6 +21,7 @@ type CartDrawerItem = {
   id: number
   productId?: number
   variationId?: number
+  variationLabel?: string
   name: string
   slug?: string
   price: number
@@ -59,7 +60,12 @@ function getCartItemStockObject(item: CartDrawerItem) {
 function isUnavailable(item: CartDrawerItem) {
   if (item.canAddToCart === false) return true
   if (item.stockStatus === 'outofstock') return true
-  if (item.stockQuantity !== null && item.stockQuantity !== undefined && item.stockQuantity <= 0) {
+
+  if (
+    item.stockQuantity !== null &&
+    item.stockQuantity !== undefined &&
+    item.stockQuantity <= 0
+  ) {
     return true
   }
 
@@ -67,6 +73,7 @@ function isUnavailable(item: CartDrawerItem) {
 }
 
 function getVariationText(item: CartDrawerItem) {
+  if (item.variationLabel) return item.variationLabel
   if (!item.variationId) return ''
 
   return `Variation ID: ${item.variationId}`
@@ -80,7 +87,9 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const getSubtotal = useCartStore((state) => state.getSubtotal)
 
   const subtotal = getSubtotal()
-  const hasUnavailableItems = items.some((item) => isUnavailable(item as CartDrawerItem))
+  const hasUnavailableItems = items.some((item) =>
+    isUnavailable(item as CartDrawerItem)
+  )
 
   if (!isOpen) return null
 
@@ -92,6 +101,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         <div className="flex items-center justify-between border-b p-4">
           <div>
             <h2 className="text-lg font-bold text-black">Your Cart</h2>
+
             {items.length > 0 && (
               <p className="text-xs text-gray-500">
                 {items.length} {items.length === 1 ? 'item' : 'items'} ready for checkout
@@ -186,7 +196,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
                         {variationText && (
                           <p className="mt-1 text-xs text-gray-500">
-                            {variationText}
+                            Selected: {variationText}
                           </p>
                         )}
 
