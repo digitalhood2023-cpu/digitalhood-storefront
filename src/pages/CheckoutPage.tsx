@@ -16,17 +16,16 @@ import {
   ShoppingBag,
 } from 'lucide-react'
 
-import { addCartItem, submitCheckout } from '@/api/cart'
+import {
+  createDigitalHoodOrder,
+  createStripePaymentIntent,
+  verifyStripePayment,
+} from '@/api/payments'
 
 import {
   detectMobileMoneyOperator,
   initiateLencoMobileMoney,
 } from '@/api/lenco'
-
-import {
-  applyWooCommerceOrderShipping,
-  markWooCommerceOrderPaid,
-} from '@/api/woocommerceOrders'
 
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
@@ -47,15 +46,6 @@ const DEFAULT_POSTCODE = '10101'
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
 )
-
-const PAYMENTS_API_URL =
-  import.meta.env.VITE_PAYMENTS_API_URL ||
-  'https://payments.digitalhood.info'
-
-const paymentMethodMap: Record<string, string> = {
-  mobile: 'lenco',
-  cod: 'cod',
-}
 
 type SuccessState = {
   title: string
@@ -130,13 +120,18 @@ export default function CheckoutPage() {
   const checkoutItems = items as CheckoutCartItem[]
   const hasUnavailableItems = checkoutItems.some(isUnavailable)
 
-  const [paymentMethod, setPaymentMethod] = useState('mobile')
+  const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'card' | 'cod'>(
+    'mobile'
+  )
+
   const [orderComplete, setOrderComplete] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
+  const [createdOrderId, setCreatedOrderId] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [cardClientSecret, setCardClientSecret] = useState('')
+  const [cardPaymentIntentId, setCardPaymentIntentId] = useState('')
   const [isPreparingCard, setIsPreparingCard] = useState(false)
 
   const [successState, setSuccessState] = useState<SuccessState>({
@@ -177,6 +172,12 @@ export default function CheckoutPage() {
       ...current,
       [field]: value,
     }))
+
+    if (field !== 'paymentPhone') {
+      setCardClientSecret('')
+      setCardPaymentIntentId('')
+      setCreatedOrderId(null)
+    }
   }
 
   const splitFullName = (name: string) => {
@@ -216,82 +217,85 @@ export default function CheckoutPage() {
     return ''
   }
 
-  const syncZustandCartToWooCommerce = async () => {
-    for (const item of items) {
-      await addCartItem(
-        Number(item.productId || item.id),
-        item.quantity,
-        item.variationId ? Number(item.variationId) : undefined
-      )
+  const buildAddressPayload = () => {
+    const { firstName, lastName } = splitFullName(formData.fullName)
+
+    return {
+      first_name: firstName,
+      last_name: lastName,
+      company: '',
+      address_1: formData.address,
+      address_2: '',
+      city: formData.city,
+      state: formData.province,
+      postcode: DEFAULT_POSTCODE,
+      country: 'ZM',
+      email: formData.email,
+      phone: formData.phone,
     }
   }
 
-  const createWooCommerceOrder = async (method: 'mobile' | 'cod' | 'card') => {
-    await syncZustandCartToWooCommerce()
+  const buildLineItems = () => {
+    return checkoutItems.map((item) => ({
+      productId: Number(item.productId || item.id),
+      variationId: item.variationId ? Number(item.variationId) : undefined,
+      quantity: Number(item.quantity || 1),
+    }))
+  }
 
-    const { firstName, lastName } = splitFullName(formData.fullName)
+  const buildCustomerNote = () => {
+    const variationLines = checkoutItems
+      .map((item) => {
+        const variationText = getVariationText(item)
 
-    const paymentMethodId =
-      method === 'card'
-        ? 'cod'
-        : paymentMethodMap[method] || 'lenco'
+        if (!variationText) return ''
 
-    const response = await submitCheckout({
-      billing_address: {
-        first_name: firstName,
-        last_name: lastName,
-        company: '',
-        address_1: formData.address,
-        address_2: '',
-        city: formData.city,
-        state: formData.province,
-        postcode: DEFAULT_POSTCODE,
-        country: 'ZM',
-        email: formData.email,
-        phone: formData.phone,
-      },
+        return `${item.name}: ${variationText}`
+      })
+      .filter(Boolean)
 
-      shipping_address: {
-        first_name: firstName,
-        last_name: lastName,
-        company: '',
-        address_1: formData.address,
-        address_2: '',
-        city: formData.city,
-        state: formData.province,
-        postcode: DEFAULT_POSTCODE,
-        country: 'ZM',
-        phone: formData.phone,
-      },
+    const notes = [
+      'Created from DigitalHood React storefront.',
+      `Delivery: ${deliveryTitle} - ${deliveryEstimate}.`,
+    ]
 
-      payment_method: paymentMethodId,
+    if (variationLines.length > 0) {
+      notes.push(`Selected options: ${variationLines.join(' | ')}`)
+    }
 
-      payment_data: [
+    return notes.join('\n')
+  }
+
+  const createOrderThroughPaymentsApi = async (
+    method: 'mobile' | 'cod' | 'card'
+  ) => {
+    const address = buildAddressPayload()
+
+    const response = await createDigitalHoodOrder({
+      paymentMethod: method,
+      billing: address,
+      shipping: address,
+      lineItems: buildLineItems(),
+      shippingLines: [
         {
-          key: `wc-${paymentMethodId}-payment-token`,
-          value: '',
-        },
-        {
-          key: `wc-${paymentMethodId}-new-payment-method`,
-          value: false,
+          method_id: 'digitalhood_delivery',
+          method_title: `${deliveryTitle} - ${deliveryEstimate}`,
+          total: String(deliveryFee),
         },
       ],
+      customerNote: buildCustomerNote(),
     })
 
-    const orderReference =
-      response?.order_id?.toString() ||
-      response?.order_key ||
-      `DH_${Date.now()}`
+    const orderId = response.order.id
+    const orderRef = response.order.number || String(orderId)
 
-    setOrderNumber(orderReference)
+    setCreatedOrderId(orderId)
+    setOrderNumber(orderRef)
 
-    await applyWooCommerceOrderShipping({
-      orderId: orderReference,
-      shippingFee: deliveryFee,
-      shippingTitle: `${deliveryTitle} - ${deliveryEstimate}`,
-    })
-
-    return orderReference
+    return {
+      orderId,
+      orderRef,
+    }
   }
 
   const getSuccessState = (method: string): SuccessState => {
@@ -327,6 +331,7 @@ export default function CheckoutPage() {
   const prepareCardPayment = async () => {
     setCheckoutError('')
     setCardClientSecret('')
+    setCardPaymentIntentId('')
 
     const validationError = validateCheckout()
 
@@ -338,29 +343,21 @@ export default function CheckoutPage() {
     setIsPreparingCard(true)
 
     try {
-      const response = await fetch(
-        `${PAYMENTS_API_URL}/api/stripe/create-payment-intent`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount: finalTotal,
-            currency: 'zmw',
-          }),
-        }
-      )
+      const order =
+        createdOrderId && orderNumber
+          ? { orderId: createdOrderId, orderRef: orderNumber }
+          : await createOrderThroughPaymentsApi('card')
 
-      const data = await response.json()
+      const response = await createStripePaymentIntent({
+        amount: finalTotal,
+        currency: 'zmw',
+        orderId: order.orderId,
+        customerEmail: formData.email,
+        customerName: formData.fullName,
+      })
 
-      if (!response.ok || !data?.clientSecret) {
-        throw new Error(
-          data?.error || 'Could not prepare card payment.'
-        )
-      }
-
-      setCardClientSecret(data.clientSecret)
+      setCardClientSecret(response.clientSecret)
+      setCardPaymentIntentId(response.paymentIntentId)
     } catch (error) {
       setCheckoutError(
         error instanceof Error
@@ -373,13 +370,12 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
-    if (paymentMethod === 'card' && finalTotal > 0 && !hasUnavailableItems) {
-      prepareCardPayment()
-    } else {
+    if (paymentMethod !== 'card') {
       setCardClientSecret('')
+      setCardPaymentIntentId('')
+      setCreatedOrderId(null)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentMethod, finalTotal, hasUnavailableItems])
+  }, [paymentMethod])
 
   const handleCardPaymentSuccess = async () => {
     setCheckoutError('')
@@ -393,9 +389,9 @@ export default function CheckoutPage() {
         return
       }
 
-      const orderReference = await createWooCommerceOrder('card')
-
-      await markWooCommerceOrderPaid(orderReference)
+      if (cardPaymentIntentId) {
+        await verifyStripePayment(cardPaymentIntentId)
+      }
 
       setSuccessState(getSuccessState('card'))
       setOrderComplete(true)
@@ -404,7 +400,7 @@ export default function CheckoutPage() {
       setCheckoutError(
         error instanceof Error
           ? error.message
-          : 'Card payment was successful, but order creation failed. Please contact DigitalHood support.'
+          : 'Card payment was successful, but order verification failed. Please contact DigitalHood support.'
       )
     } finally {
       setIsSubmitting(false)
@@ -432,16 +428,14 @@ export default function CheckoutPage() {
     setIsSubmitting(true)
 
     try {
-      const orderReference = await createWooCommerceOrder(
-        paymentMethod as 'mobile' | 'cod'
-      )
+      const order = await createOrderThroughPaymentsApi(paymentMethod)
 
       if (paymentMethod === 'mobile') {
         await initiateLencoMobileMoney({
           amount: finalTotal,
           phone: formData.paymentPhone,
           operator: detectMobileMoneyOperator(formData.paymentPhone),
-          reference: `DH_ORDER_${orderReference}`,
+          reference: `DH_ORDER_${order.orderId}`,
         })
       }
 
@@ -587,10 +581,12 @@ export default function CheckoutPage() {
           {hasUnavailableItems && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 flex gap-3">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+
               <div>
                 <p className="font-semibold text-sm">
                   Some items need attention
                 </p>
+
                 <p className="text-sm">
                   Please return to cart and remove unavailable items before checkout.
                 </p>
@@ -710,6 +706,7 @@ export default function CheckoutPage() {
                   {shipping.isLusaka && (
                     <div className="flex items-start gap-2 mt-3">
                       <Clock className="w-4 h-4 text-green-700 mt-0.5" />
+
                       <p className="text-sm text-green-700">
                         {shipping.countdown}
                       </p>
@@ -718,9 +715,9 @@ export default function CheckoutPage() {
 
                   <div className="flex items-start gap-2 mt-3">
                     <MapPin className="w-4 h-4 text-green-700 mt-0.5" />
+
                     <p className="text-sm text-green-700">
-                      Shipping updates automatically based on your city and
-                      province.
+                      Shipping updates automatically based on your city and province.
                     </p>
                   </div>
                 </div>
@@ -739,7 +736,9 @@ export default function CheckoutPage() {
 
                 <RadioGroup
                   value={paymentMethod}
-                  onValueChange={setPaymentMethod}
+                  onValueChange={(value) =>
+                    setPaymentMethod(value as 'mobile' | 'card' | 'cod')
+                  }
                   className="space-y-3"
                 >
                   <label
@@ -750,9 +749,12 @@ export default function CheckoutPage() {
                     }`}
                   >
                     <RadioGroupItem value="mobile" />
+
                     <Smartphone className="w-5 h-5 text-dh-primary" />
+
                     <div>
                       <p className="font-medium">Mobile Money</p>
+
                       <p className="text-sm text-dh-dark-gray">
                         Lenco / MTN / Airtel
                       </p>
@@ -767,9 +769,12 @@ export default function CheckoutPage() {
                     }`}
                   >
                     <RadioGroupItem value="card" />
+
                     <CreditCard className="w-5 h-5 text-dh-primary" />
+
                     <div>
                       <p className="font-medium">Credit/Debit Card</p>
+
                       <p className="text-sm text-dh-dark-gray">
                         Secure card payment with Stripe
                       </p>
@@ -784,9 +789,12 @@ export default function CheckoutPage() {
                     }`}
                   >
                     <RadioGroupItem value="cod" />
+
                     <Truck className="w-5 h-5 text-dh-primary" />
+
                     <div>
                       <p className="font-medium">Cash on Delivery</p>
+
                       <p className="text-sm text-dh-dark-gray">
                         Pay when you receive
                       </p>
@@ -816,7 +824,7 @@ export default function CheckoutPage() {
                   <div className="mt-6">
                     {isPreparingCard && (
                       <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
-                        Preparing secure card payment...
+                        Creating your secure order and preparing card payment...
                       </div>
                     )}
 
@@ -927,6 +935,7 @@ export default function CheckoutPage() {
 
                   <div className="flex justify-between text-dh-dark-gray">
                     <span>Delivery</span>
+
                     <span>
                       {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
                     </span>
@@ -934,6 +943,7 @@ export default function CheckoutPage() {
 
                   <div className="flex justify-between font-display font-bold text-lg text-dh-primary pt-3 border-t border-dh-light-gray">
                     <span>Total</span>
+
                     <span>{formatPrice(finalTotal)}</span>
                   </div>
                 </div>
@@ -960,13 +970,13 @@ export default function CheckoutPage() {
 
                 {paymentMethod === 'card' && (
                   <p className="mt-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
-                    Enter card details in the secure Stripe form to complete
-                    payment.
+                    Prepare card payment, then enter your card details in the secure Stripe form.
                   </p>
                 )}
 
                 <div className="flex items-center justify-center gap-2 mt-4 text-sm text-dh-dark-gray">
                   <Shield className="w-4 h-4" />
+
                   <span>Secure checkout</span>
                 </div>
               </div>
