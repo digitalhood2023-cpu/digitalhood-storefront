@@ -111,6 +111,29 @@ function getVariationText(item: CheckoutCartItem) {
   return `Variation ID: ${item.variationId}`
 }
 
+function isLencoPaidStatus(status: unknown) {
+  if (status === true) return true
+
+  const normalizedStatus = String(status || '').toLowerCase()
+
+  return [
+    'true',
+    'successful',
+    'success',
+    'succeeded',
+    'completed',
+    'complete',
+    'paid',
+    'approved',
+    'processed',
+    'confirmed',
+    'collection.successful',
+    'collection.success',
+    'charge.success',
+    'payment.success',
+  ].includes(normalizedStatus)
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const pageRef = useRef<HTMLDivElement>(null)
@@ -385,9 +408,18 @@ export default function CheckoutPage() {
       try {
         const result = await verifyLencoMobileMoney(reference)
 
-        setLencoStatus(result.status || 'checking')
+        const paymentConfirmed =
+          result.paid === true || isLencoPaidStatus(result.status)
 
-        if (result.paid) {
+        setLencoStatus(
+          paymentConfirmed
+            ? 'Payment confirmed successfully.'
+            : result.status
+              ? String(result.status)
+              : 'Checking payment...'
+        )
+
+        if (paymentConfirmed) {
           stopLencoPolling()
 
           setIsWaitingForLenco(false)
@@ -536,8 +568,18 @@ export default function CheckoutPage() {
         })
 
         const paymentReference = response.reference || reference
+        const paymentConfirmed = isLencoPaidStatus(response.status)
 
         setLencoReference(paymentReference)
+
+        if (paymentConfirmed) {
+          setSuccessState(getSuccessState('mobile-confirmed'))
+          setOrderComplete(true)
+          setCreatedOrderId(order.orderId)
+          clearCart()
+          return
+        }
+
         setSuccessState(getSuccessState('mobile'))
         setOrderComplete(true)
 
