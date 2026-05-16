@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Clock,
   MapPin,
+  ShoppingBag,
 } from 'lucide-react'
 
 import { addCartItem, submitCheckout } from '@/api/cart'
@@ -30,6 +31,7 @@ import {
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
 
+import StockBadge from '@/components/StockBadge'
 import StripeCheckoutForm from '@/components/payments/StripeCheckoutForm'
 
 import { Button } from '@/components/ui/button'
@@ -61,6 +63,61 @@ type SuccessState = {
   nextStep: string
 }
 
+type CheckoutCartItem = {
+  id: number
+  productId?: number
+  variationId?: number
+  variationLabel?: string
+  name: string
+  slug?: string
+  price: number
+  regularPrice?: number
+  image: string
+  quantity: number
+  stockStatus?: string
+  stockQuantity?: number | null
+  stockLabel?: string
+  stockTone?: string
+  canAddToCart?: boolean
+}
+
+function getCartItemStockObject(item: CheckoutCartItem) {
+  return {
+    stockStatus: item.stockStatus,
+    stock_status: item.stockStatus,
+    stockQuantity: item.stockQuantity,
+    stock_quantity: item.stockQuantity,
+    stockLabel: item.stockLabel,
+    stock_label: item.stockLabel,
+    stockTone: item.stockTone,
+    stock_tone: item.stockTone,
+    canAddToCart: item.canAddToCart,
+    can_add_to_cart: item.canAddToCart,
+  }
+}
+
+function isUnavailable(item: CheckoutCartItem) {
+  if (item.canAddToCart === false) return true
+  if (item.stockStatus === 'outofstock') return true
+
+  if (
+    item.stockQuantity !== null &&
+    item.stockQuantity !== undefined &&
+    item.stockQuantity <= 0
+  ) {
+    return true
+  }
+
+  return false
+}
+
+function getVariationText(item: CheckoutCartItem) {
+  if (item.variationLabel) return item.variationLabel
+  if (!item.variationId) return ''
+
+  return `Variation ID: ${item.variationId}`
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const pageRef = useRef<HTMLDivElement>(null)
@@ -70,6 +127,8 @@ export default function CheckoutPage() {
   const getSubtotal = useCartStore((state) => state.getSubtotal)
 
   const subtotal = getSubtotal()
+  const checkoutItems = items as CheckoutCartItem[]
+  const hasUnavailableItems = checkoutItems.some(isUnavailable)
 
   const [paymentMethod, setPaymentMethod] = useState('mobile')
   const [orderComplete, setOrderComplete] = useState(false)
@@ -138,6 +197,11 @@ export default function CheckoutPage() {
 
   const validateCheckout = () => {
     if (items.length === 0) return 'Your cart is empty.'
+
+    if (hasUnavailableItems) {
+      return 'Some items in your cart are no longer available. Please go back to cart and remove or update them before checkout.'
+    }
+
     if (!formData.fullName.trim()) return 'Full name is required.'
     if (!formData.email.trim()) return 'Email is required.'
     if (!formData.phone.trim()) return 'Contact phone number is required.'
@@ -309,19 +373,26 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
-    if (paymentMethod === 'card' && finalTotal > 0) {
+    if (paymentMethod === 'card' && finalTotal > 0 && !hasUnavailableItems) {
       prepareCardPayment()
     } else {
       setCardClientSecret('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentMethod, finalTotal])
+  }, [paymentMethod, finalTotal, hasUnavailableItems])
 
   const handleCardPaymentSuccess = async () => {
     setCheckoutError('')
     setIsSubmitting(true)
 
     try {
+      const validationError = validateCheckout()
+
+      if (validationError) {
+        setCheckoutError(validationError)
+        return
+      }
+
       const orderReference = await createWooCommerceOrder('card')
 
       await markWooCommerceOrderPaid(orderReference)
@@ -395,6 +466,10 @@ export default function CheckoutPage() {
 
         <main className="py-16">
           <div className="container mx-auto px-4 text-center">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white">
+              <ShoppingBag className="h-10 w-10 text-dh-primary" />
+            </div>
+
             <h1 className="font-display font-bold text-2xl text-dh-primary mb-3">
               Your cart is empty
             </h1>
@@ -506,6 +581,20 @@ export default function CheckoutPage() {
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 flex gap-3">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <p className="text-sm whitespace-pre-wrap">{checkoutError}</p>
+            </div>
+          )}
+
+          {hasUnavailableItems && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 flex gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-sm">
+                  Some items need attention
+                </p>
+                <p className="text-sm">
+                  Please return to cart and remove unavailable items before checkout.
+                </p>
+              </div>
             </div>
           )}
 
@@ -752,7 +841,8 @@ export default function CheckoutPage() {
                       <Button
                         type="button"
                         onClick={prepareCardPayment}
-                        className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold"
+                        disabled={hasUnavailableItems}
+                        className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                       >
                         Prepare Card Payment
                       </Button>
@@ -768,30 +858,65 @@ export default function CheckoutPage() {
                   Order Summary
                 </h2>
 
-                <div className="space-y-4 mb-6 max-h-60 overflow-y-auto">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex gap-4">
-                      <img
-                        src={item.image || '/logo.jpg'}
-                        alt={item.name}
-                        className="w-16 h-16 object-cover rounded-lg"
-                      />
+                <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-1">
+                  {checkoutItems.map((item) => {
+                    const unavailable = isUnavailable(item)
+                    const variationText = getVariationText(item)
 
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium line-clamp-2">
-                          {item.name}
-                        </p>
+                    return (
+                      <div
+                        key={item.id}
+                        className={`rounded-xl border p-3 ${
+                          unavailable
+                            ? 'border-red-200 bg-red-50/40'
+                            : 'border-dh-light-gray bg-white'
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          <img
+                            src={item.image || '/logo.jpg'}
+                            alt={item.name}
+                            className="w-16 h-16 object-cover rounded-lg bg-dh-gray"
+                            onError={(event) => {
+                              event.currentTarget.src = '/logo.jpg'
+                            }}
+                          />
 
-                        <p className="text-sm text-dh-dark-gray">
-                          Qty: {item.quantity}
-                        </p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium line-clamp-2">
+                              {item.name}
+                            </p>
+
+                            {variationText && (
+                              <p className="mt-1 text-xs text-dh-dark-gray">
+                                Selected: {variationText}
+                              </p>
+                            )}
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <StockBadge item={getCartItemStockObject(item)} />
+
+                              {unavailable && (
+                                <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                                  Review
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <p className="text-xs text-dh-dark-gray">
+                                Qty: {item.quantity}
+                              </p>
+
+                              <p className="font-medium text-sm">
+                                {formatPrice(item.price * item.quantity)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-
-                      <p className="font-medium text-sm">
-                        {formatPrice(item.price * item.quantity)}
-                      </p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div className="space-y-3 border-t border-dh-light-gray pt-4">
@@ -813,15 +938,23 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {hasUnavailableItems && (
+                  <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                    Remove unavailable items before checkout.
+                  </div>
+                )}
+
                 {paymentMethod !== 'card' && (
                   <Button
                     onClick={handlePlaceOrder}
-                    disabled={isSubmitting}
-                    className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6"
+                    disabled={isSubmitting || hasUnavailableItems}
+                    className="w-full bg-dh-primary hover:bg-dh-secondary text-white h-12 rounded-xl font-semibold mt-6 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                   >
-                    {isSubmitting
-                      ? 'Creating Order...'
-                      : `Place Order - ${formatPrice(finalTotal)}`}
+                    {hasUnavailableItems
+                      ? 'Checkout unavailable'
+                      : isSubmitting
+                        ? 'Creating Order...'
+                        : `Place Order - ${formatPrice(finalTotal)}`}
                   </Button>
                 )}
 
