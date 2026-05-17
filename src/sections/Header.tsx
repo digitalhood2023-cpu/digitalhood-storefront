@@ -10,6 +10,7 @@ import {
   Phone,
   MapPin,
   Clock,
+  PackageCheck,
 } from 'lucide-react';
 import { useWishlist } from '@/context/WishlistContext';
 import { navCategories } from '@/data/products';
@@ -199,6 +200,14 @@ export default function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              <Link
+                to="/track-order"
+                className="hidden xl:inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black hover:bg-gray-100 transition-colors"
+              >
+                <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
+                Track Order
+              </Link>
+
               <Link to="/wishlist">
                 <Button variant="ghost" size="icon" className="relative hover:bg-gray-100">
                   <Heart className="w-5 h-5" />
@@ -225,6 +234,9 @@ export default function Header() {
                     <Link to="/orders">My Orders</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/track-order">Track Order</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/wishlist">Wishlist</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -244,6 +256,14 @@ export default function Header() {
               >
                 <Search className="w-5 h-5" />
               </button>
+
+              <Link
+                to="/track-order"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Track order"
+              >
+                <PackageCheck className="w-5 h-5" />
+              </Link>
 
               <CartButton onClick={() => setIsCartOpen(true)} />
 
@@ -291,6 +311,14 @@ export default function Header() {
 
                 <Link to="/shop" className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors">
                   Shop
+                </Link>
+
+                <Link
+                  to="/track-order"
+                  className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
+                  Track Order
                 </Link>
 
                 <div className="py-2 px-4">
