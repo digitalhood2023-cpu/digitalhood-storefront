@@ -28,6 +28,15 @@ export type CustomerOrderShippingLine = {
   total?: string
 }
 
+export type CustomerOrderDeliveryEstimate = {
+  expectedDate?: string
+  label?: string
+  window?: string
+  isLusaka?: boolean
+  businessDays?: number
+  skipDays?: string[]
+}
+
 export type CustomerOrder = {
   id: number
   number: string
@@ -42,6 +51,7 @@ export type CustomerOrder = {
   paymentMethodTitle?: string
   transactionId?: string
   customerNote?: string
+  deliveryEstimate?: CustomerOrderDeliveryEstimate
   billing?: {
     firstName?: string
     lastName?: string
