@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 
+import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import SEO from '@/components/SEO'
@@ -43,42 +44,44 @@ function PageLoader() {
 
 function App() {
   return (
-    <WishlistProvider>
-      <RecentlyViewedProvider>
-        <SEO />
+    <AccountProvider>
+      <WishlistProvider>
+        <RecentlyViewedProvider>
+          <SEO />
 
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/product/:slug" element={<ProductPage />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/shop" element={<ShopPage />} />
+              <Route path="/product/:slug" element={<ProductPage />} />
 
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/wishlist" element={<WishlistPage />} />
-            <Route path="/track-order" element={<TrackOrderPage />} />
-            <Route path="/account" element={<AccountPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/track-order" element={<TrackOrderPage />} />
+              <Route path="/account" element={<AccountPage />} />
 
-            <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
-            <Route path="/iphone-zambia" element={<IPhonePage />} />
-            <Route path="/samsung-phones-zambia" element={<SamsungPage />} />
-            <Route path="/laptops-zambia" element={<LaptopPage />} />
-            <Route path="/headphones-zambia" element={<HeadphonesPage />} />
-            <Route path="/power-banks-zambia" element={<PowerBankPage />} />
-            <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
-            <Route path="/about" element={<AboutUsPage />} />
-            <Route path="/contact" element={<ContactPage />} />
+              <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
+              <Route path="/iphone-zambia" element={<IPhonePage />} />
+              <Route path="/samsung-phones-zambia" element={<SamsungPage />} />
+              <Route path="/laptops-zambia" element={<LaptopPage />} />
+              <Route path="/headphones-zambia" element={<HeadphonesPage />} />
+              <Route path="/power-banks-zambia" element={<PowerBankPage />} />
+              <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
+              <Route path="/about" element={<AboutUsPage />} />
+              <Route path="/contact" element={<ContactPage />} />
 
-            <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
-            <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
-            <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
-            <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
+              <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
+              <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
+              <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
+              <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
 
-            <Route path="*" element={<Home />} />
-          </Routes>
-        </Suspense>
-      </RecentlyViewedProvider>
-    </WishlistProvider>
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </Suspense>
+        </RecentlyViewedProvider>
+      </WishlistProvider>
+    </AccountProvider>
   )
 }
 
