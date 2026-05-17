@@ -29,6 +29,15 @@ import {
   type CustomerOrderItem,
 } from '@/api/orders'
 
+type DeliveryDetails = {
+  expectedDate?: string | null
+  label: string
+  window: string
+  isLusaka: boolean
+  businessDays?: number
+  skipDays?: string[]
+}
+
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
 
@@ -141,7 +150,35 @@ function getDeliveryStartDate(order: CustomerOrder) {
   return parsed
 }
 
-function getExpectedDeliveryDetails(order: CustomerOrder) {
+function hasBackendDeliveryEstimate(order: CustomerOrder) {
+  return Boolean(
+    order.deliveryEstimate &&
+      (order.deliveryEstimate.label ||
+        order.deliveryEstimate.expectedDate ||
+        order.deliveryEstimate.window)
+  )
+}
+
+function getBackendDeliveryDetails(order: CustomerOrder): DeliveryDetails | null {
+  if (!hasBackendDeliveryEstimate(order)) return null
+
+  const backendEstimate = order.deliveryEstimate
+
+  if (!backendEstimate) return null
+
+  return {
+    expectedDate: backendEstimate.expectedDate || null,
+    label: backendEstimate.label || 'Expected delivery date not available yet',
+    window:
+      backendEstimate.window ||
+      'Delivery estimate will appear after order confirmation.',
+    isLusaka: Boolean(backendEstimate.isLusaka),
+    businessDays: backendEstimate.businessDays,
+    skipDays: backendEstimate.skipDays || ['Sunday'],
+  }
+}
+
+function getFallbackExpectedDeliveryDetails(order: CustomerOrder): DeliveryDetails {
   const startDate = getDeliveryStartDate(order)
 
   if (!startDate) {
@@ -150,6 +187,8 @@ function getExpectedDeliveryDetails(order: CustomerOrder) {
       label: 'Expected delivery date not available yet',
       window: 'Delivery estimate will appear after order confirmation.',
       isLusaka: isLusakaOrder(order),
+      businessDays: isLusakaOrder(order) ? 0 : 3,
+      skipDays: ['Sunday'],
     }
   }
 
@@ -158,21 +197,33 @@ function getExpectedDeliveryDetails(order: CustomerOrder) {
 
   if (lusaka) {
     return {
-      expectedDate: normalizedStartDate,
+      expectedDate: normalizedStartDate.toISOString(),
       label: formatDeliveryDate(normalizedStartDate),
       window: 'Same delivery business day in Lusaka, Monday to Saturday.',
       isLusaka: true,
+      businessDays: 0,
+      skipDays: ['Sunday'],
     }
   }
 
   const expectedDate = addDeliveryBusinessDays(normalizedStartDate, 3)
 
   return {
-    expectedDate,
+    expectedDate: expectedDate.toISOString(),
     label: formatDeliveryDate(expectedDate),
-    window: 'Estimated 3 delivery business days outside Lusaka, Monday to Saturday.',
+    window:
+      'Estimated 3 delivery business days outside Lusaka, Monday to Saturday.',
     isLusaka: false,
+    businessDays: 3,
+    skipDays: ['Sunday'],
   }
+}
+
+function getExpectedDeliveryDetails(order: CustomerOrder): DeliveryDetails {
+  return (
+    getBackendDeliveryDetails(order) ||
+    getFallbackExpectedDeliveryDetails(order)
+  )
 }
 
 function getStatusStyles(status?: string) {
@@ -775,7 +826,10 @@ export default function TrackOrderPage() {
 
                           {(order.shippingLines || []).length > 0 ? (
                             (order.shippingLines || []).map((line) => (
-                              <p key={line.id || line.methodTitle} className="text-dh-dark-gray">
+                              <p
+                                key={line.id || line.methodTitle}
+                                className="text-dh-dark-gray"
+                              >
                                 {line.methodTitle || 'Delivery'} ·{' '}
                                 {formatPrice(line.total, order.currency)}
                               </p>
