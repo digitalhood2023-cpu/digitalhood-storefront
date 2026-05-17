@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
   User,
@@ -11,19 +11,24 @@ import {
   MapPin,
   Clock,
   PackageCheck,
-} from 'lucide-react';
-import { useWishlist } from '@/context/WishlistContext';
-import { navCategories } from '@/data/products';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CartButton } from '@/features/cart/CartButton';
-import { CartDrawer } from '@/features/cart/CartDrawer';
+  LogOut,
+  UserPlus,
+  ShoppingBag,
+} from 'lucide-react'
+
+import { useWishlist } from '@/context/WishlistContext'
+import { useAccount } from '@/context/AccountContext'
+import { navCategories } from '@/data/products'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { CartButton } from '@/features/cart/CartButton'
+import { CartDrawer } from '@/features/cart/CartDrawer'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu'
 
 const categorySlugMap: Record<string, string> = {
   smartphones: 'smartphones',
@@ -42,92 +47,125 @@ const categorySlugMap: Record<string, string> = {
   accessories: 'phone-accessories',
   'computer-accessories': 'computer-accessories',
   deals: 'deals',
-};
+}
 
 function getShopCategoryUrl(slug: string) {
-  const mappedSlug = categorySlugMap[slug] || slug;
-  return `/shop?category=${mappedSlug}`;
+  const mappedSlug = categorySlugMap[slug] || slug
+  return `/shop?category=${mappedSlug}`
+}
+
+function getCustomerDisplayName(customer: {
+  firstName?: string
+  lastName?: string
+  email?: string
+} | null) {
+  if (!customer) return ''
+
+  const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+
+  return fullName || customer.email || 'Customer'
 }
 
 export default function Header() {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [lastScrollY, setLastScrollY] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [lastScrollY, setLastScrollY] = useState(0)
+  const [isVisible, setIsVisible] = useState(true)
 
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
 
-  const { items: wishlistItems } = useWishlist();
+  const { items: wishlistItems } = useWishlist()
+  const { customer, isAuthenticated, logout } = useAccount()
+
+  const customerDisplayName = getCustomerDisplayName(customer)
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      const currentScrollY = window.scrollY
 
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsVisible(false);
+        setIsVisible(false)
       } else {
-        setIsVisible(true);
+        setIsVisible(true)
       }
 
-      setIsScrolled(currentScrollY > 50);
-      setLastScrollY(currentScrollY);
-    };
+      setIsScrolled(currentScrollY > 50)
+      setLastScrollY(currentScrollY)
+    }
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [lastScrollY])
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
+      searchInputRef.current.focus()
     }
-  }, [isSearchOpen]);
+  }, [isSearchOpen])
 
   useEffect(() => {
-    setIsMobileMenuOpen(false);
-    setIsSearchOpen(false);
-  }, [location]);
+    setIsMobileMenuOpen(false)
+    setIsSearchOpen(false)
+  }, [location])
 
   const handleSearchSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
+    event.preventDefault()
 
-    const query = searchQuery.trim();
+    const query = searchQuery.trim()
 
     if (query) {
-      navigate(`/shop?search=${encodeURIComponent(query)}`);
-      setSearchQuery('');
+      navigate(`/shop?search=${encodeURIComponent(query)}`)
+      setSearchQuery('')
     }
-  };
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/')
+  }
 
   return (
     <>
-      <div className="bg-black text-white py-2 text-sm hidden md:block">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 flex justify-between items-center">
+      <div className="hidden bg-black py-2 text-sm text-white md:block">
+        <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-[#ffb54a]" />
+              <Phone className="h-4 w-4 text-[#ffb54a]" />
               +260 971 047 570
             </span>
+
             <span className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-[#ffb54a]" />
+              <MapPin className="h-4 w-4 text-[#ffb54a]" />
               Free delivery on orders over K500
             </span>
+
             <span className="flex items-center gap-2 text-[#ffb54a]">
-              <Clock className="w-4 h-4" />
+              <Clock className="h-4 w-4" />
               Fixing Tomorrow Today
             </span>
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/help" className="hover:text-[#ffb54a] transition-colors">
+            {isAuthenticated && (
+              <span className="hidden text-white/80 lg:inline">
+                Hi, {customerDisplayName}
+              </span>
+            )}
+
+            <Link to="/help" className="transition-colors hover:text-[#ffb54a]">
               Help
             </Link>
-            <Link to="/track-order" className="hover:text-[#ffb54a] transition-colors">
+
+            <Link
+              to="/track-order"
+              className="transition-colors hover:text-[#ffb54a]"
+            >
               Track Order
             </Link>
           </div>
@@ -136,63 +174,73 @@ export default function Header() {
 
       <header
         className={`sticky top-0 z-50 transition-all duration-300 ${
-          isScrolled ? 'glass-effect shadow-lg py-2' : 'bg-white py-4'
+          isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
         } ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center justify-between gap-4">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 flex items-center justify-center">
+            <Link to="/" className="group flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center">
                 <img
                   src="/logo.jpg"
                   alt="DigitalHood"
-                  className="w-full h-full object-contain"
+                  className="h-full w-full object-contain"
                 />
               </div>
 
               <div className="hidden sm:block">
-                <div className="font-display font-bold text-2xl text-black leading-tight">
+                <div className="font-display text-2xl font-bold leading-tight text-black">
                   Digital<span className="text-[#ffb54a]">Hood</span>
                 </div>
-                <div className="text-xs text-gray-500 tracking-wider">
+
+                <div className="text-xs tracking-wider text-gray-500">
                   FIXING TOMORROW TODAY
                 </div>
               </div>
             </Link>
 
-            <div className="hidden lg:flex flex-1 max-w-2xl mx-8">
+            <div className="mx-8 hidden max-w-2xl flex-1 lg:flex">
               <form onSubmit={handleSearchSubmit} className="relative w-full">
                 <Input
                   type="text"
                   placeholder="Search for products, brands, categories..."
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-full pl-4 pr-12 py-3 rounded-full border-2 border-gray-200 focus:border-black transition-colors"
+                  className="w-full rounded-full border-2 border-gray-200 py-3 pl-4 pr-12 transition-colors focus:border-black"
                 />
 
                 <button
                   type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black rounded-full flex items-center justify-center text-white hover:bg-[#ffb54a] hover:text-black transition-colors"
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black text-white transition-colors hover:bg-[#ffb54a] hover:text-black"
                   aria-label="Search products"
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className="h-4 w-4" />
                 </button>
               </form>
             </div>
 
-            <div className="hidden md:flex items-center gap-2">
+            <div className="hidden items-center gap-2 md:flex">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 hover:bg-gray-100">
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-1 hover:bg-gray-100"
+                  >
                     Categories
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-y-auto">
+                <DropdownMenuContent
+                  align="end"
+                  className="max-h-80 w-56 overflow-y-auto"
+                >
                   {navCategories.map((cat) => (
                     <DropdownMenuItem key={cat.slug} asChild>
-                      <Link to={getShopCategoryUrl(cat.slug)} className="cursor-pointer">
+                      <Link
+                        to={getShopCategoryUrl(cat.slug)}
+                        className="cursor-pointer"
+                      >
                         {cat.name}
                       </Link>
                     </DropdownMenuItem>
@@ -202,17 +250,23 @@ export default function Header() {
 
               <Link
                 to="/track-order"
-                className="hidden xl:inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black hover:bg-gray-100 transition-colors"
+                className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
               >
                 <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
                 Track Order
               </Link>
 
               <Link to="/wishlist">
-                <Button variant="ghost" size="icon" className="relative hover:bg-gray-100">
-                  <Heart className="w-5 h-5" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative hover:bg-gray-100"
+                  aria-label="Wishlist"
+                >
+                  <Heart className="h-5 w-5" />
+
                   {wishlistItems.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ffb54a] text-black text-xs font-bold rounded-full flex items-center justify-center animate-scale-in">
+                    <span className="animate-scale-in absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffb54a] text-xs font-bold text-black">
                       {wishlistItems.length}
                     </span>
                   )}
@@ -221,27 +275,100 @@ export default function Header() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hover:bg-gray-100">
-                    <User className="w-5 h-5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative hover:bg-gray-100"
+                    aria-label="Account"
+                  >
+                    <User className="h-5 w-5" />
+
+                    {isAuthenticated && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to="/account">My Account</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/orders">My Orders</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/track-order">Track Order</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/wishlist">Wishlist</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/login">Sign In</Link>
-                  </DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-60">
+                  {isAuthenticated ? (
+                    <>
+                      <div className="border-b border-gray-100 px-3 py-3">
+                        <p className="text-sm font-semibold text-dh-primary">
+                          {customerDisplayName}
+                        </p>
+
+                        <p className="truncate text-xs text-dh-dark-gray">
+                          {customer?.email}
+                        </p>
+                      </div>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/account" className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          My Account
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/orders" className="cursor-pointer">
+                          <ShoppingBag className="mr-2 h-4 w-4" />
+                          My Orders
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/track-order" className="cursor-pointer">
+                          <PackageCheck className="mr-2 h-4 w-4" />
+                          Track Order
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/wishlist" className="cursor-pointer">
+                          <Heart className="mr-2 h-4 w-4" />
+                          Wishlist
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer text-red-600 focus:text-red-600"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/login" className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          Sign in
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/register" className="cursor-pointer">
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Create account
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/track-order" className="cursor-pointer">
+                          <PackageCheck className="mr-2 h-4 w-4" />
+                          Track Order
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link to="/wishlist" className="cursor-pointer">
+                          <Heart className="mr-2 h-4 w-4" />
+                          Wishlist
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -251,34 +378,50 @@ export default function Header() {
             <div className="flex items-center gap-2 md:hidden">
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
                 aria-label="Open search"
               >
-                <Search className="w-5 h-5" />
+                <Search className="h-5 w-5" />
               </button>
 
               <Link
                 to="/track-order"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
                 aria-label="Track order"
               >
-                <PackageCheck className="w-5 h-5" />
+                <PackageCheck className="h-5 w-5" />
+              </Link>
+
+              <Link
+                to={isAuthenticated ? '/account' : '/login'}
+                className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
+                aria-label="Account"
+              >
+                <User className="h-5 w-5" />
+
+                {isAuthenticated && (
+                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+                )}
               </Link>
 
               <CartButton onClick={() => setIsCartOpen(true)} />
 
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
                 aria-label="Open menu"
               >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {isMobileMenuOpen ? (
+                  <X className="h-5 w-5" />
+                ) : (
+                  <Menu className="h-5 w-5" />
+                )}
               </button>
             </div>
           </div>
 
           {isSearchOpen && (
-            <div className="mt-4 md:hidden animate-slide-up">
+            <div className="animate-slide-up mt-4 md:hidden">
               <form onSubmit={handleSearchSubmit} className="relative">
                 <Input
                   ref={searchInputRef}
@@ -294,7 +437,7 @@ export default function Header() {
                   className="absolute right-2 top-1/2 -translate-y-1/2"
                   aria-label="Search products"
                 >
-                  <Search className="w-5 h-5 text-black" />
+                  <Search className="h-5 w-5 text-black" />
                 </button>
               </form>
             </div>
@@ -302,34 +445,88 @@ export default function Header() {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg border-t animate-slide-up">
+          <div className="animate-slide-up absolute left-0 right-0 top-full border-t bg-white shadow-lg md:hidden">
             <div className="container mx-auto px-4 py-4">
               <nav className="flex flex-col gap-2">
-                <Link to="/" className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors">
+                {isAuthenticated && (
+                  <div className="mb-2 rounded-2xl bg-dh-gray p-4">
+                    <p className="font-semibold text-dh-primary">
+                      {customerDisplayName}
+                    </p>
+
+                    <p className="truncate text-sm text-dh-dark-gray">
+                      {customer?.email}
+                    </p>
+                  </div>
+                )}
+
+                <Link
+                  to="/"
+                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                >
                   Home
                 </Link>
 
-                <Link to="/shop" className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors">
+                <Link
+                  to="/shop"
+                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                >
                   Shop
                 </Link>
 
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to="/account"
+                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                    >
+                      My Account
+                    </Link>
+
+                    <Link
+                      to="/orders"
+                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                    >
+                      My Orders
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                    >
+                      Sign in
+                    </Link>
+
+                    <Link
+                      to="/register"
+                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                    >
+                      Create account
+                    </Link>
+                  </>
+                )}
+
                 <Link
                   to="/track-order"
-                  className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                  className="flex items-center gap-2 rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
                 >
                   <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
                   Track Order
                 </Link>
 
-                <div className="py-2 px-4">
-                  <span className="text-sm text-gray-500 mb-2 block">Categories</span>
+                <div className="px-4 py-2">
+                  <span className="mb-2 block text-sm text-gray-500">
+                    Categories
+                  </span>
 
                   <div className="flex flex-col gap-1 pl-4">
                     {navCategories.slice(0, 8).map((cat) => (
                       <Link
                         key={cat.slug}
                         to={getShopCategoryUrl(cat.slug)}
-                        className="py-2 px-4 hover:bg-gray-100 rounded-lg transition-colors text-sm"
+                        className="rounded-lg px-4 py-2 text-sm transition-colors hover:bg-gray-100"
                       >
                         {cat.name}
                       </Link>
@@ -337,25 +534,35 @@ export default function Header() {
                   </div>
                 </div>
 
-                <Link to="/shop?category=deals" className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors">
+                <Link
+                  to="/shop?category=deals"
+                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                >
                   Deals
-                </Link>
-
-                <Link to="/account" className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors">
-                  My Account
                 </Link>
 
                 <Link
                   to="/wishlist"
-                  className="py-3 px-4 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-between"
+                  className="flex items-center justify-between rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
                 >
                   Wishlist
+
                   {wishlistItems.length > 0 && (
-                    <span className="bg-[#ffb54a] text-black text-xs font-bold px-2 py-1 rounded-full">
+                    <span className="rounded-full bg-[#ffb54a] px-2 py-1 text-xs font-bold text-black">
                       {wishlistItems.length}
                     </span>
                   )}
                 </Link>
+
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-lg px-4 py-3 text-left text-red-600 transition-colors hover:bg-red-50"
+                  >
+                    Sign out
+                  </button>
+                )}
               </nav>
             </div>
           </div>
@@ -364,5 +571,5 @@ export default function Header() {
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
-  );
+  )
 }
