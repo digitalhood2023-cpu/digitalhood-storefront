@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertCircle,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -57,14 +58,155 @@ function formatDate(date?: string | null) {
   }
 }
 
-function getStatusStyles(status?: string) {
-  const value = String(status || '').toLowerCase()
+function formatDeliveryDate(date?: Date | null) {
+  if (!date) return 'Not available'
 
-  if (value === 'processing' || value === 'completed') {
+  try {
+    return new Intl.DateTimeFormat('en-ZM', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(date)
+  } catch {
+    return date.toDateString()
+  }
+}
+
+function normalizeOrderStatus(status?: string) {
+  return String(status || '')
+    .toLowerCase()
+    .replace(/^wc-/, '')
+    .replace(/_/g, '-')
+    .replace(/\s+/g, '-')
+}
+
+function normalizeLocation(value?: string) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function isLusakaOrder(order: CustomerOrder) {
+  const city = normalizeLocation(order.shipping?.city)
+  const province = normalizeLocation(order.shipping?.province)
+  const address = normalizeLocation(order.shipping?.address1)
+
+  return (
+    city.includes('lusaka') ||
+    province.includes('lusaka') ||
+    address.includes('lusaka')
+  )
+}
+
+function isSunday(date: Date) {
+  return date.getDay() === 0
+}
+
+function moveToNextDeliveryDay(date: Date) {
+  const next = new Date(date)
+
+  while (isSunday(next)) {
+    next.setDate(next.getDate() + 1)
+  }
+
+  return next
+}
+
+function addDeliveryBusinessDays(startDate: Date, daysToAdd: number) {
+  let current = moveToNextDeliveryDay(startDate)
+  let addedDays = 0
+
+  while (addedDays < daysToAdd) {
+    current.setDate(current.getDate() + 1)
+
+    if (!isSunday(current)) {
+      addedDays += 1
+    }
+  }
+
+  return moveToNextDeliveryDay(current)
+}
+
+function getDeliveryStartDate(order: CustomerOrder) {
+  const sourceDate = order.datePaid || order.dateCreated
+
+  if (!sourceDate) return null
+
+  const parsed = new Date(sourceDate)
+
+  if (Number.isNaN(parsed.getTime())) return null
+
+  return parsed
+}
+
+function getExpectedDeliveryDetails(order: CustomerOrder) {
+  const startDate = getDeliveryStartDate(order)
+
+  if (!startDate) {
+    return {
+      expectedDate: null,
+      label: 'Expected delivery date not available yet',
+      window: 'Delivery estimate will appear after order confirmation.',
+      isLusaka: isLusakaOrder(order),
+    }
+  }
+
+  const lusaka = isLusakaOrder(order)
+  const normalizedStartDate = moveToNextDeliveryDay(startDate)
+
+  if (lusaka) {
+    return {
+      expectedDate: normalizedStartDate,
+      label: formatDeliveryDate(normalizedStartDate),
+      window: 'Same delivery business day in Lusaka, Monday to Saturday.',
+      isLusaka: true,
+    }
+  }
+
+  const expectedDate = addDeliveryBusinessDays(normalizedStartDate, 3)
+
+  return {
+    expectedDate,
+    label: formatDeliveryDate(expectedDate),
+    window: 'Estimated 3 delivery business days outside Lusaka, Monday to Saturday.',
+    isLusaka: false,
+  }
+}
+
+function getStatusStyles(status?: string) {
+  const value = normalizeOrderStatus(status)
+
+  if (value === 'processing') {
+    return {
+      icon: <PackageCheck className="h-5 w-5 text-blue-700" />,
+      badge: 'bg-blue-50 text-blue-700 border-blue-100',
+      title: 'Your order is being processed',
+    }
+  }
+
+  if (value === 'shipped') {
+    return {
+      icon: <Truck className="h-5 w-5 text-purple-700" />,
+      badge: 'bg-purple-50 text-purple-700 border-purple-100',
+      title: 'Your order has been shipped',
+    }
+  }
+
+  if (value === 'out-for-delivery' || value === 'outfordelivery') {
+    return {
+      icon: <Truck className="h-5 w-5 text-orange-700" />,
+      badge: 'bg-orange-50 text-orange-700 border-orange-100',
+      title: 'Your order is out for delivery',
+    }
+  }
+
+  if (value === 'delivered' || value === 'completed') {
     return {
       icon: <CheckCircle2 className="h-5 w-5 text-green-700" />,
       badge: 'bg-green-50 text-green-700 border-green-100',
-      title: 'Your order is active',
+      title: 'Your order has been delivered',
     }
   }
 
@@ -92,15 +234,31 @@ function getStatusStyles(status?: string) {
 }
 
 function getProgressSteps(order: CustomerOrder) {
-  const status = String(order.status || '').toLowerCase()
+  const status = normalizeOrderStatus(order.status)
+
+  const statusRank: Record<string, number> = {
+    pending: 1,
+    'on-hold': 1,
+    processing: 2,
+    shipped: 3,
+    'out-for-delivery': 4,
+    outfordelivery: 4,
+    delivered: 5,
+    completed: 5,
+  }
+
+  const currentRank = statusRank[status] || 1
 
   const paid =
     Boolean(order.datePaid) ||
-    status === 'processing' ||
-    status === 'completed'
-
-  const processing = status === 'processing' || status === 'completed'
-  const completed = status === 'completed'
+    [
+      'processing',
+      'shipped',
+      'out-for-delivery',
+      'outfordelivery',
+      'delivered',
+      'completed',
+    ].includes(status)
 
   return [
     {
@@ -117,17 +275,35 @@ function getProgressSteps(order: CustomerOrder) {
     },
     {
       label: 'Processing',
-      description: processing
-        ? 'DigitalHood is preparing your order.'
-        : 'Your order will move here after confirmation.',
-      done: processing,
+      description:
+        currentRank >= 2
+          ? 'DigitalHood is preparing your order.'
+          : 'Your order will move here after confirmation.',
+      done: currentRank >= 2,
     },
     {
-      label: 'Completed',
-      description: completed
-        ? 'Your order has been completed.'
-        : 'Delivery/completion update will appear here.',
-      done: completed,
+      label: 'Shipped',
+      description:
+        currentRank >= 3
+          ? 'Your order has left the seller or DigitalHood dispatch point.'
+          : 'Your order has not been shipped yet.',
+      done: currentRank >= 3,
+    },
+    {
+      label: 'Out for delivery',
+      description:
+        currentRank >= 4
+          ? 'Your order is on the way to your delivery address.'
+          : 'Delivery will start after the order is shipped.',
+      done: currentRank >= 4,
+    },
+    {
+      label: 'Delivered',
+      description:
+        currentRank >= 5
+          ? 'Your order has been delivered successfully.'
+          : 'Delivery confirmation will appear here.',
+      done: currentRank >= 5,
     },
   ]
 }
@@ -200,6 +376,7 @@ export default function TrackOrderPage() {
 
   const statusStyles = order ? getStatusStyles(order.status) : null
   const progressSteps = order ? getProgressSteps(order) : []
+  const deliveryDetails = order ? getExpectedDeliveryDetails(order) : null
 
   return (
     <div className="min-h-screen bg-dh-gray">
@@ -234,7 +411,8 @@ export default function TrackOrderPage() {
 
                   <p className="mt-3 max-w-2xl text-dh-dark-gray">
                     Enter the email address used at checkout and your order number
-                    to see payment, processing, and delivery details.
+                    to see payment, processing, shipping, delivery, and expected
+                    delivery details.
                   </p>
 
                   <form onSubmit={handleLookup} className="mt-8 grid gap-4">
@@ -309,7 +487,7 @@ export default function TrackOrderPage() {
 
                     <p className="mt-2 text-sm text-white/80">
                       DigitalHood tracks order status from checkout to payment
-                      confirmation and processing.
+                      confirmation, dispatch, and delivery.
                     </p>
 
                     <div className="mt-6 grid gap-4 text-sm">
@@ -319,7 +497,7 @@ export default function TrackOrderPage() {
                           <p className="font-semibold">Payment visibility</p>
                           <p className="text-white/70">
                             See whether your order is awaiting payment,
-                            processing, or completed.
+                            processing, shipped, or delivered.
                           </p>
                         </div>
                       </div>
@@ -327,10 +505,19 @@ export default function TrackOrderPage() {
                       <div className="flex gap-3">
                         <Truck className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
                         <div>
-                          <p className="font-semibold">Delivery details</p>
+                          <p className="font-semibold">Delivery tracking</p>
                           <p className="text-white/70">
-                            Review the delivery address and shipping method
-                            submitted at checkout.
+                            View shipping progress and expected delivery dates.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
+                        <div>
+                          <p className="font-semibold">Smart delivery dates</p>
+                          <p className="text-white/70">
+                            Delivery estimates count Monday to Saturday and skip Sundays.
                           </p>
                         </div>
                       </div>
@@ -350,7 +537,7 @@ export default function TrackOrderPage() {
               </div>
             </section>
 
-            {order && statusStyles && (
+            {order && statusStyles && deliveryDetails && (
               <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                 <div className="space-y-6">
                   <div className="rounded-3xl bg-white p-6 sm:p-8">
@@ -373,7 +560,7 @@ export default function TrackOrderPage() {
                       </div>
                     </div>
 
-                    <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="rounded-2xl bg-dh-gray p-4">
                         <p className="text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
                           Order total
@@ -399,6 +586,40 @@ export default function TrackOrderPage() {
                         <p className="mt-1 font-semibold text-dh-primary">
                           {formatDate(order.dateCreated)}
                         </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-dh-secondary/15 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
+                          Expected delivery
+                        </p>
+                        <p className="mt-1 font-semibold text-dh-primary">
+                          {deliveryDetails.label}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-dh-light-gray bg-white p-4">
+                      <div className="flex gap-3">
+                        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
+
+                        <div>
+                          <p className="font-semibold text-dh-primary">
+                            Expected delivery date
+                          </p>
+
+                          <p className="mt-1 text-sm text-dh-dark-gray">
+                            {deliveryDetails.label}
+                          </p>
+
+                          <p className="mt-1 text-xs text-dh-dark-gray">
+                            {deliveryDetails.window}
+                          </p>
+
+                          <p className="mt-2 text-xs text-dh-dark-gray">
+                            Delivery business days are counted Monday to Saturday.
+                            Sundays are skipped automatically.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -564,6 +785,26 @@ export default function TrackOrderPage() {
                               Delivery details are being prepared.
                             </p>
                           )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
+
+                        <div>
+                          <p className="font-semibold text-dh-primary">
+                            Expected delivery
+                          </p>
+
+                          <p className="text-dh-dark-gray">
+                            {deliveryDetails.label}
+                          </p>
+
+                          <p className="mt-1 text-xs text-dh-dark-gray">
+                            {deliveryDetails.isLusaka
+                              ? 'Lusaka same-day delivery runs Monday to Saturday.'
+                              : 'Outside Lusaka deliveries are counted Monday to Saturday.'}
+                          </p>
                         </div>
                       </div>
                     </div>
