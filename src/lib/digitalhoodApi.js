@@ -1,3 +1,5 @@
+import { getAccountToken } from "@/api/account";
+
 const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL || "https://payments.digitalhood.info";
 
@@ -18,14 +20,29 @@ async function parseJsonResponse(response) {
   }
 
   if (!response.ok) {
-    const message = data?.details || data?.error || `Request failed with ${response.status}`;
+    const message =
+      data?.details ||
+      data?.error ||
+      data?.message ||
+      `Request failed with ${response.status}`;
+
     const customError = new Error(message);
     customError.status = response.status;
     customError.data = data;
+
     throw customError;
   }
 
   return data;
+}
+
+function getAuthHeaders() {
+  const accountToken = getAccountToken();
+
+  return {
+    "Content-Type": "application/json",
+    ...(accountToken ? { Authorization: `Bearer ${accountToken}` } : {}),
+  };
 }
 
 export async function getProducts(params = {}) {
@@ -38,25 +55,26 @@ export async function getProducts(params = {}) {
   });
 
   const response = await fetch(`${PAYMENTS_API_URL}/api/products?${query.toString()}`);
+
   return parseJsonResponse(response);
 }
 
 export async function getProduct(productId) {
   const response = await fetch(`${PAYMENTS_API_URL}/api/products/${productId}`);
+
   return parseJsonResponse(response);
 }
 
 export async function getProductVariations(productId) {
   const response = await fetch(`${PAYMENTS_API_URL}/api/products/${productId}/variations`);
+
   return parseJsonResponse(response);
 }
 
 export async function createWooCommerceOrder(payload) {
   const response = await fetch(`${PAYMENTS_API_URL}/api/create-order`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
 
@@ -66,9 +84,7 @@ export async function createWooCommerceOrder(payload) {
 export async function createStripePaymentIntent(payload) {
   const response = await fetch(`${PAYMENTS_API_URL}/create-payment-intent`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
 
@@ -78,9 +94,7 @@ export async function createStripePaymentIntent(payload) {
 export async function verifyStripePayment(paymentIntentId) {
   const response = await fetch(`${PAYMENTS_API_URL}/verify-stripe-payment`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ paymentIntentId }),
   });
 

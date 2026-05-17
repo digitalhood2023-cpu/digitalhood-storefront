@@ -1,3 +1,5 @@
+import { getAccountToken } from '@/api/account'
+
 const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL ||
   'https://payments.digitalhood.info'
@@ -78,10 +80,13 @@ async function paymentsFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const accountToken = getAccountToken()
+
   const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(accountToken ? { Authorization: `Bearer ${accountToken}` } : {}),
       ...(options.headers || {}),
     },
   })
