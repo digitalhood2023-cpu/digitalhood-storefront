@@ -1,0 +1,570 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  AlertCircle,
+  ArrowRight,
+  CalendarDays,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Eye,
+  Loader2,
+  PackageCheck,
+  Search,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react'
+
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+import { useAccount } from '@/context/AccountContext'
+
+import {
+  getCustomerOrders,
+  type AccountOrder,
+} from '@/api/account'
+
+function formatPrice(amount?: string | number, currency = 'ZMW') {
+  const value = Number(amount || 0)
+
+  if (currency === 'ZMW') {
+    return `K${value.toLocaleString('en-ZM', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+  }
+
+  return `${currency} ${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function formatDate(date?: string | null) {
+  if (!date) return 'Not available'
+
+  try {
+    return new Intl.DateTimeFormat('en-ZM', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(date))
+  } catch {
+    return date
+  }
+}
+
+function normalizeStatus(status?: string) {
+  return String(status || '')
+    .toLowerCase()
+    .replace(/^wc-/, '')
+    .replace(/_/g, '-')
+    .replace(/\s+/g, '-')
+}
+
+function getStatusStyle(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'processing') {
+    return 'bg-blue-50 text-blue-700 border-blue-100'
+  }
+
+  if (value === 'shipped') {
+    return 'bg-purple-50 text-purple-700 border-purple-100'
+  }
+
+  if (value === 'out-for-delivery' || value === 'outfordelivery') {
+    return 'bg-orange-50 text-orange-700 border-orange-100'
+  }
+
+  if (value === 'delivered' || value === 'completed') {
+    return 'bg-green-50 text-green-700 border-green-100'
+  }
+
+  if (value === 'pending' || value === 'on-hold') {
+    return 'bg-yellow-50 text-yellow-700 border-yellow-100'
+  }
+
+  if (value === 'failed' || value === 'cancelled' || value === 'refunded') {
+    return 'bg-red-50 text-red-700 border-red-100'
+  }
+
+  return 'bg-gray-50 text-gray-700 border-gray-100'
+}
+
+function getStatusIcon(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'shipped' || value === 'out-for-delivery' || value === 'outfordelivery') {
+    return <Truck className="h-4 w-4" />
+  }
+
+  if (value === 'delivered' || value === 'completed') {
+    return <PackageCheck className="h-4 w-4" />
+  }
+
+  if (value === 'pending' || value === 'on-hold') {
+    return <Clock className="h-4 w-4" />
+  }
+
+  return <PackageCheck className="h-4 w-4" />
+}
+
+function getOrderItemPreview(order: AccountOrder) {
+  const items = order.items || []
+
+  if (items.length === 0) return 'No item details available'
+
+  if (items.length === 1) {
+    return items[0]?.name || '1 item'
+  }
+
+  return `${items[0]?.name || 'Item'} + ${items.length - 1} more`
+}
+
+function OrderCard({ order }: { order: AccountOrder }) {
+  return (
+    <article className="rounded-3xl bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-dh-dark-gray">Order #{order.number || order.id}</p>
+
+          <h2 className="mt-1 line-clamp-2 font-display text-xl font-bold text-dh-primary">
+            {getOrderItemPreview(order)}
+          </h2>
+
+          <p className="mt-2 text-sm text-dh-dark-gray">
+            Placed {formatDate(order.dateCreated)}
+          </p>
+        </div>
+
+        <span
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
+            order.status
+          )}`}
+        >
+          {getStatusIcon(order.status)}
+          {order.statusLabel || order.status}
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl bg-dh-gray p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
+            <CreditCard className="h-4 w-4" />
+            Total
+          </div>
+
+          <p className="font-display text-lg font-bold text-dh-primary">
+            {formatPrice(order.total, order.currency)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-dh-gray p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
+            <ShoppingBag className="h-4 w-4" />
+            Items
+          </div>
+
+          <p className="font-display text-lg font-bold text-dh-primary">
+            {order.items?.length || 0}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-dh-gray p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
+            <CalendarDays className="h-4 w-4" />
+            Expected
+          </div>
+
+          <p className="line-clamp-1 font-semibold text-dh-primary">
+            {order.deliveryEstimate?.label || 'Not available'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-dh-dark-gray">
+          <p>
+            Payment:{' '}
+            <span className="font-semibold text-dh-primary">
+              {order.paymentMethodTitle || 'Not specified'}
+            </span>
+          </p>
+
+          {order.shipping?.city && (
+            <p>
+              Delivery city:{' '}
+              <span className="font-semibold text-dh-primary">
+                {order.shipping.city}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <Link
+          to={`/orders/${order.id}`}
+          className="inline-flex items-center justify-center rounded-full bg-dh-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-dh-secondary"
+        >
+          View details
+          <Eye className="ml-2 h-4 w-4" />
+        </Link>
+      </div>
+    </article>
+  )
+}
+
+export default function OrdersPage() {
+  const navigate = useNavigate()
+  const { isAuthenticated, isLoading } = useAccount()
+
+  const [orders, setOrders] = useState<AccountOrder[]>([])
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login?redirect=/orders')
+    }
+  }, [isAuthenticated, isLoading, navigate])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    let mounted = true
+
+    async function loadOrders() {
+      setIsOrdersLoading(true)
+      setErrorMessage('')
+
+      try {
+        const response = await getCustomerOrders()
+
+        if (mounted) {
+          setOrders(response.orders || [])
+        }
+      } catch (error) {
+        if (mounted) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load your orders right now.'
+          )
+        }
+      } finally {
+        if (mounted) {
+          setIsOrdersLoading(false)
+        }
+      }
+    }
+
+    loadOrders()
+
+    return () => {
+      mounted = false
+    }
+  }, [isAuthenticated])
+
+  const filteredOrders = useMemo(() => {
+    const cleanedQuery = searchQuery.trim().toLowerCase()
+
+    return orders.filter((order) => {
+      const status = normalizeStatus(order.status)
+
+      const matchesStatus =
+        statusFilter === 'all' ||
+        status === statusFilter ||
+        (statusFilter === 'delivered' && status === 'completed') ||
+        (statusFilter === 'out-for-delivery' && status === 'outfordelivery')
+
+      const matchesSearch =
+        !cleanedQuery ||
+        String(order.number || order.id).toLowerCase().includes(cleanedQuery) ||
+        String(order.id).toLowerCase().includes(cleanedQuery) ||
+        (order.items || []).some((item) =>
+          String(item.name || '').toLowerCase().includes(cleanedQuery)
+        )
+
+      return matchesStatus && matchesSearch
+    })
+  }, [orders, searchQuery, statusFilter])
+
+  const orderCounts = useMemo(() => {
+    return {
+      total: orders.length,
+      active: orders.filter((order) =>
+        ['processing', 'shipped', 'out-for-delivery', 'outfordelivery'].includes(
+          normalizeStatus(order.status)
+        )
+      ).length,
+      delivered: orders.filter((order) =>
+        ['delivered', 'completed'].includes(normalizeStatus(order.status))
+      ).length,
+      pending: orders.filter((order) =>
+        ['pending', 'on-hold'].includes(normalizeStatus(order.status))
+      ).length,
+    }
+  }, [orders])
+
+  if (isLoading || (!isAuthenticated && !isLoading)) {
+    return (
+      <div className="min-h-screen bg-dh-gray">
+        <Header />
+
+        <main className="flex min-h-[60vh] items-center justify-center px-4">
+          <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-dh-primary" />
+
+            <h1 className="font-display text-xl font-bold text-dh-primary">
+              Loading your orders
+            </h1>
+
+            <p className="mt-2 text-sm text-dh-dark-gray">
+              Please wait while we prepare your order history.
+            </p>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-dh-gray">
+      <Header />
+
+      <main className="py-8 lg:py-12">
+        <div className="container mx-auto px-4">
+          <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
+            <Link to="/" className="hover:text-dh-primary">
+              Home
+            </Link>
+
+            <ChevronRight className="h-4 w-4" />
+
+            <Link to="/account" className="hover:text-dh-primary">
+              My Account
+            </Link>
+
+            <ChevronRight className="h-4 w-4" />
+
+            <span className="font-medium text-dh-primary">My Orders</span>
+          </nav>
+
+          <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+            <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="p-6 sm:p-8 lg:p-10">
+                <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                  <ShoppingBag className="h-4 w-4" />
+                  My Orders
+                </div>
+
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary lg:text-5xl">
+                  Your order history
+                </h1>
+
+                <p className="mt-4 max-w-2xl text-dh-dark-gray">
+                  View your purchases, payment status, shipping progress, and
+                  expected delivery dates.
+                </p>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-4">
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Total
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.total}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Active
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.active}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Delivered
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.delivered}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Pending
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.pending}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-dh-primary p-6 text-white sm:p-8 lg:p-10">
+                <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                  <PackageCheck className="mb-5 h-12 w-12 text-dh-secondary" />
+
+                  <h2 className="font-display text-2xl font-bold">
+                    Order tracking made simple
+                  </h2>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/80">
+                    Follow each order from payment confirmation to processing,
+                    shipped, out for delivery, and delivered.
+                  </p>
+
+                  <Link
+                    to="/track-order"
+                    className="mt-6 inline-flex items-center justify-center rounded-full bg-dh-secondary px-5 py-3 text-sm font-semibold text-dh-primary hover:bg-white"
+                  >
+                    Track by order number
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-8 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
+
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by order number or product name..."
+                  className="h-12 rounded-full pl-12"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 'all', label: 'All' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'processing', label: 'Processing' },
+                  { value: 'shipped', label: 'Shipped' },
+                  { value: 'out-for-delivery', label: 'Out for delivery' },
+                  { value: 'delivered', label: 'Delivered' },
+                ].map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.value)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                      statusFilter === filter.value
+                        ? 'bg-dh-primary text-white'
+                        : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {errorMessage && (
+            <section className="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+              <div className="flex gap-2">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{errorMessage}</p>
+              </div>
+            </section>
+          )}
+
+          <section className="mt-8">
+            {isOrdersLoading ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+                <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-dh-primary" />
+
+                <h2 className="font-display text-xl font-bold text-dh-primary">
+                  Loading orders
+                </h2>
+
+                <p className="mt-2 text-sm text-dh-dark-gray">
+                  Please wait while we fetch your order history.
+                </p>
+              </div>
+            ) : filteredOrders.length > 0 ? (
+              <div className="grid gap-5">
+                {filteredOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
+              </div>
+            ) : orders.length > 0 ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+                <Search className="mx-auto mb-4 h-10 w-10 text-dh-primary" />
+
+                <h2 className="font-display text-xl font-bold text-dh-primary">
+                  No orders match your search
+                </h2>
+
+                <p className="mt-2 text-sm text-dh-dark-gray">
+                  Try another order number, product name, or status filter.
+                </p>
+
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setStatusFilter('all')
+                  }}
+                  className="mt-5 rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
+                >
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+                <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
+
+                <h2 className="font-display text-2xl font-bold text-dh-primary">
+                  No orders yet
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-lg text-dh-dark-gray">
+                  Your purchases will appear here after checkout. Start shopping
+                  and your order history will be saved to your account.
+                </p>
+
+                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                  <Link to="/shop">
+                    <Button className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
+                      Start shopping
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+
+                  <Link to="/track-order">
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                    >
+                      Track an order
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  )
+}

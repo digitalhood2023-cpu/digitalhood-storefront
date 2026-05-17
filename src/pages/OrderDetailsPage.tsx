@@ -1,0 +1,702 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Loader2,
+  MapPin,
+  PackageCheck,
+  ReceiptText,
+  ShieldCheck,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react'
+
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
+
+import { Button } from '@/components/ui/button'
+
+import { useAccount } from '@/context/AccountContext'
+
+import {
+  getCustomerOrder,
+  type AccountOrder,
+  type AccountOrderItem,
+} from '@/api/account'
+
+function formatPrice(amount?: string | number, currency = 'ZMW') {
+  const value = Number(amount || 0)
+
+  if (currency === 'ZMW') {
+    return `K${value.toLocaleString('en-ZM', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+  }
+
+  return `${currency} ${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function formatDate(date?: string | null) {
+  if (!date) return 'Not available'
+
+  try {
+    return new Intl.DateTimeFormat('en-ZM', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(date))
+  } catch {
+    return date
+  }
+}
+
+function normalizeStatus(status?: string) {
+  return String(status || '')
+    .toLowerCase()
+    .replace(/^wc-/, '')
+    .replace(/_/g, '-')
+    .replace(/\s+/g, '-')
+}
+
+function getStatusStyle(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'processing') {
+    return 'bg-blue-50 text-blue-700 border-blue-100'
+  }
+
+  if (value === 'shipped') {
+    return 'bg-purple-50 text-purple-700 border-purple-100'
+  }
+
+  if (value === 'out-for-delivery' || value === 'outfordelivery') {
+    return 'bg-orange-50 text-orange-700 border-orange-100'
+  }
+
+  if (value === 'delivered' || value === 'completed') {
+    return 'bg-green-50 text-green-700 border-green-100'
+  }
+
+  if (value === 'pending' || value === 'on-hold') {
+    return 'bg-yellow-50 text-yellow-700 border-yellow-100'
+  }
+
+  if (value === 'failed' || value === 'cancelled' || value === 'refunded') {
+    return 'bg-red-50 text-red-700 border-red-100'
+  }
+
+  return 'bg-gray-50 text-gray-700 border-gray-100'
+}
+
+function getStatusTitle(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'pending') return 'Awaiting payment'
+  if (value === 'on-hold') return 'On hold'
+  if (value === 'processing') return 'Your order is being processed'
+  if (value === 'shipped') return 'Your order has been shipped'
+  if (value === 'out-for-delivery' || value === 'outfordelivery') {
+    return 'Your order is out for delivery'
+  }
+  if (value === 'delivered' || value === 'completed') {
+    return 'Your order has been delivered'
+  }
+  if (value === 'failed') return 'Payment failed'
+  if (value === 'cancelled') return 'Order cancelled'
+  if (value === 'refunded') return 'Order refunded'
+
+  return 'Order details'
+}
+
+function getProgressSteps(order: AccountOrder) {
+  const status = normalizeStatus(order.status)
+
+  const statusRank: Record<string, number> = {
+    pending: 1,
+    'on-hold': 1,
+    processing: 2,
+    shipped: 3,
+    'out-for-delivery': 4,
+    outfordelivery: 4,
+    delivered: 5,
+    completed: 5,
+  }
+
+  const currentRank = statusRank[status] || 1
+
+  const paid =
+    Boolean(order.datePaid) ||
+    [
+      'processing',
+      'shipped',
+      'out-for-delivery',
+      'outfordelivery',
+      'delivered',
+      'completed',
+    ].includes(status)
+
+  return [
+    {
+      label: 'Order placed',
+      description: 'We received your order.',
+      done: true,
+    },
+    {
+      label: 'Payment confirmed',
+      description: paid
+        ? 'Payment is confirmed or your order is approved.'
+        : 'Waiting for payment confirmation.',
+      done: paid,
+    },
+    {
+      label: 'Processing',
+      description:
+        currentRank >= 2
+          ? 'Your order is being prepared.'
+          : 'Your order will move here after confirmation.',
+      done: currentRank >= 2,
+    },
+    {
+      label: 'Shipped',
+      description:
+        currentRank >= 3
+          ? 'Your order has left the dispatch point.'
+          : 'Your order has not been shipped yet.',
+      done: currentRank >= 3,
+    },
+    {
+      label: 'Out for delivery',
+      description:
+        currentRank >= 4
+          ? 'Your order is on the way to your delivery address.'
+          : 'Delivery will start after the order is shipped.',
+      done: currentRank >= 4,
+    },
+    {
+      label: 'Delivered',
+      description:
+        currentRank >= 5
+          ? 'Your order has been delivered successfully.'
+          : 'Delivery confirmation will appear here.',
+      done: currentRank >= 5,
+    },
+  ]
+}
+
+function getItemMetaText(item: AccountOrderItem) {
+  const meta = item.meta || []
+
+  return meta
+    .filter((entry) => {
+      const key = String(entry.displayKey || entry.key || '').toLowerCase()
+
+      if (!key) return false
+      if (key.startsWith('_')) return false
+      if (key.includes('reduced stock')) return false
+
+      return true
+    })
+    .map((entry) => {
+      const label = entry.displayKey || entry.key || 'Option'
+      const value = entry.displayValue || String(entry.value || '')
+
+      return `${label}: ${value}`
+    })
+}
+
+function DetailCard({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="rounded-3xl bg-white p-6 shadow-sm">
+      <div className="mb-5 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+          {icon}
+        </div>
+
+        <h2 className="font-display text-xl font-bold text-dh-primary">
+          {title}
+        </h2>
+      </div>
+
+      {children}
+    </section>
+  )
+}
+
+export default function OrderDetailsPage() {
+  const navigate = useNavigate()
+  const { orderId } = useParams()
+  const { isAuthenticated, isLoading } = useAccount()
+
+  const [order, setOrder] = useState<AccountOrder | null>(null)
+  const [isOrderLoading, setIsOrderLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate(`/login?redirect=/orders/${orderId || ''}`)
+    }
+  }, [isAuthenticated, isLoading, navigate, orderId])
+
+  useEffect(() => {
+    if (!isAuthenticated || !orderId) return
+
+    let mounted = true
+
+    async function loadOrder() {
+      setIsOrderLoading(true)
+      setErrorMessage('')
+
+      try {
+        const response = await getCustomerOrder(orderId as string)
+
+        if (mounted) {
+          setOrder(response.order)
+        }
+      } catch (error) {
+        if (mounted) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load this order right now.'
+          )
+        }
+      } finally {
+        if (mounted) {
+          setIsOrderLoading(false)
+        }
+      }
+    }
+
+    loadOrder()
+
+    return () => {
+      mounted = false
+    }
+  }, [isAuthenticated, orderId])
+
+  const progressSteps = useMemo(() => {
+    return order ? getProgressSteps(order) : []
+  }, [order])
+
+  const itemCount = useMemo(() => {
+    return (order?.items || []).reduce((total, item) => {
+      return total + Number(item.quantity || 0)
+    }, 0)
+  }, [order])
+
+  if (isLoading || isOrderLoading) {
+    return (
+      <div className="min-h-screen bg-dh-gray">
+        <Header />
+
+        <main className="flex min-h-[60vh] items-center justify-center px-4">
+          <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-dh-primary" />
+
+            <h1 className="font-display text-xl font-bold text-dh-primary">
+              Loading order details
+            </h1>
+
+            <p className="mt-2 text-sm text-dh-dark-gray">
+              Please wait while we prepare your order information.
+            </p>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    )
+  }
+
+  if (errorMessage || !order) {
+    return (
+      <div className="min-h-screen bg-dh-gray">
+        <Header />
+
+        <main className="py-12">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-xl rounded-3xl bg-white p-8 text-center shadow-sm">
+              <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-600" />
+
+              <h1 className="font-display text-2xl font-bold text-dh-primary">
+                Order not available
+              </h1>
+
+              <p className="mt-3 text-dh-dark-gray">
+                {errorMessage || 'We could not load this order.'}
+              </p>
+
+              <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link to="/orders">
+                  <Button className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to orders
+                  </Button>
+                </Link>
+
+                <Link to="/track-order">
+                  <Button
+                    variant="outline"
+                    className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                  >
+                    Track by order number
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-dh-gray">
+      <Header />
+
+      <main className="py-8 lg:py-12">
+        <div className="container mx-auto px-4">
+          <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
+            <Link to="/" className="hover:text-dh-primary">
+              Home
+            </Link>
+
+            <ChevronRight className="h-4 w-4" />
+
+            <Link to="/account" className="hover:text-dh-primary">
+              My Account
+            </Link>
+
+            <ChevronRight className="h-4 w-4" />
+
+            <Link to="/orders" className="hover:text-dh-primary">
+              My Orders
+            </Link>
+
+            <ChevronRight className="h-4 w-4" />
+
+            <span className="font-medium text-dh-primary">
+              #{order.number || order.id}
+            </span>
+          </nav>
+
+          <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+            <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="p-6 sm:p-8 lg:p-10">
+                <Link
+                  to="/orders"
+                  className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to orders
+                </Link>
+
+                <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                  <ReceiptText className="h-4 w-4" />
+                  Order #{order.number || order.id}
+                </div>
+
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary lg:text-5xl">
+                  {getStatusTitle(order.status)}
+                </h1>
+
+                <p className="mt-4 max-w-2xl text-dh-dark-gray">
+                  Placed on {formatDate(order.dateCreated)}. You can review your
+                  items, payment, delivery details, and current progress below.
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${getStatusStyle(
+                      order.status
+                    )}`}
+                  >
+                    <PackageCheck className="h-4 w-4" />
+                    {order.statusLabel || order.status}
+                  </span>
+
+                  <span className="inline-flex items-center gap-2 rounded-full border border-dh-light-gray bg-white px-4 py-2 text-sm font-semibold text-dh-primary">
+                    <ShoppingBag className="h-4 w-4" />
+                    {itemCount} item(s)
+                  </span>
+
+                  <span className="inline-flex items-center gap-2 rounded-full border border-dh-light-gray bg-white px-4 py-2 text-sm font-semibold text-dh-primary">
+                    <CreditCard className="h-4 w-4" />
+                    {formatPrice(order.total, order.currency)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-dh-primary p-6 text-white sm:p-8 lg:p-10">
+                <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                  <Truck className="mb-5 h-12 w-12 text-dh-secondary" />
+
+                  <h2 className="font-display text-2xl font-bold">
+                    Delivery estimate
+                  </h2>
+
+                  <p className="mt-3 text-white/80">
+                    {order.deliveryEstimate?.label || 'Not available yet'}
+                  </p>
+
+                  <p className="mt-2 text-sm text-white/70">
+                    {order.deliveryEstimate?.window ||
+                      'Delivery details will update as your order progresses.'}
+                  </p>
+
+                  <div className="mt-6 rounded-2xl bg-white/10 p-4 text-sm">
+                    <p className="font-semibold">Delivery days</p>
+
+                    <p className="mt-1 text-white/70">
+                      Monday to Saturday. Sundays are skipped automatically.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-6">
+              <DetailCard
+                icon={<PackageCheck className="h-6 w-6" />}
+                title="Order progress"
+              >
+                <div className="space-y-4">
+                  {progressSteps.map((step, index) => (
+                    <div key={step.label} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`flex h-9 w-9 items-center justify-center rounded-full border-2 ${
+                            step.done
+                              ? 'border-green-600 bg-green-600 text-white'
+                              : 'border-gray-300 bg-white text-gray-400'
+                          }`}
+                        >
+                          {step.done ? (
+                            <CheckCircle2 className="h-5 w-5" />
+                          ) : (
+                            <Clock className="h-4 w-4" />
+                          )}
+                        </div>
+
+                        {index < progressSteps.length - 1 && (
+                          <div
+                            className={`mt-2 h-8 w-0.5 ${
+                              progressSteps[index + 1].done
+                                ? 'bg-green-600'
+                                : 'bg-gray-200'
+                            }`}
+                          />
+                        )}
+                      </div>
+
+                      <div className="pb-4">
+                        <p className="font-semibold text-dh-primary">
+                          {step.label}
+                        </p>
+
+                        <p className="text-sm text-dh-dark-gray">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </DetailCard>
+
+              <DetailCard
+                icon={<ShoppingBag className="h-6 w-6" />}
+                title="Items in this order"
+              >
+                <div className="space-y-4">
+                  {(order.items || []).map((item) => {
+                    const metaLines = getItemMetaText(item)
+
+                    return (
+                      <article
+                        key={item.id}
+                        className="rounded-2xl border border-dh-light-gray p-4"
+                      >
+                        <div className="flex gap-4">
+                          <img
+                            src={item.image || '/logo.jpg'}
+                            alt={item.name}
+                            className="h-20 w-20 shrink-0 rounded-xl bg-dh-gray object-cover"
+                            onError={(event) => {
+                              event.currentTarget.src = '/logo.jpg'
+                            }}
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 font-semibold text-dh-primary">
+                              {item.name}
+                            </p>
+
+                            {metaLines.length > 0 && (
+                              <div className="mt-1 space-y-0.5">
+                                {metaLines.map((line) => (
+                                  <p
+                                    key={line}
+                                    className="text-xs text-dh-dark-gray"
+                                  >
+                                    {line}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                              <p className="text-sm text-dh-dark-gray">
+                                Qty: {item.quantity}
+                              </p>
+
+                              <p className="font-semibold text-dh-primary">
+                                {formatPrice(item.total, order.currency)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </DetailCard>
+            </div>
+
+            <aside className="space-y-6">
+              <DetailCard icon={<CreditCard className="h-6 w-6" />} title="Payment">
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-dh-gray p-4">
+                    <span className="text-dh-dark-gray">Method</span>
+                    <span className="font-semibold text-dh-primary">
+                      {order.paymentMethodTitle || 'Not specified'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-dh-gray p-4">
+                    <span className="text-dh-dark-gray">Total</span>
+                    <span className="font-semibold text-dh-primary">
+                      {formatPrice(order.total, order.currency)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-dh-gray p-4">
+                    <span className="text-dh-dark-gray">Paid</span>
+                    <span className="font-semibold text-dh-primary">
+                      {order.datePaid ? formatDate(order.datePaid) : 'Not confirmed yet'}
+                    </span>
+                  </div>
+                </div>
+              </DetailCard>
+
+              <DetailCard
+                icon={<MapPin className="h-6 w-6" />}
+                title="Delivery address"
+              >
+                <div className="space-y-2 text-sm text-dh-dark-gray">
+                  <p className="font-semibold text-dh-primary">
+                    {[order.shipping?.firstName, order.shipping?.lastName]
+                      .filter(Boolean)
+                      .join(' ') || 'Customer'}
+                  </p>
+
+                  <p>{order.shipping?.address1 || 'Address not available'}</p>
+
+                  {order.shipping?.address2 && <p>{order.shipping.address2}</p>}
+
+                  <p>
+                    {[order.shipping?.city, order.shipping?.province]
+                      .filter(Boolean)
+                      .join(', ') || 'Location not available'}
+                  </p>
+
+                  {order.shipping?.postcode && <p>{order.shipping.postcode}</p>}
+                </div>
+
+                <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
+                  <p className="font-semibold text-dh-primary">
+                    Expected delivery
+                  </p>
+
+                  <p className="mt-1 text-dh-dark-gray">
+                    {order.deliveryEstimate?.label || 'Not available yet'}
+                  </p>
+                </div>
+              </DetailCard>
+
+              <DetailCard
+                icon={<CalendarDays className="h-6 w-6" />}
+                title="Order dates"
+              >
+                <div className="space-y-3 text-sm">
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-dh-dark-gray">Placed</p>
+                    <p className="mt-1 font-semibold text-dh-primary">
+                      {formatDate(order.dateCreated)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-dh-dark-gray">Payment confirmed</p>
+                    <p className="mt-1 font-semibold text-dh-primary">
+                      {formatDate(order.datePaid)}
+                    </p>
+                  </div>
+                </div>
+              </DetailCard>
+
+              <DetailCard
+                icon={<ShieldCheck className="h-6 w-6" />}
+                title="Need help?"
+              >
+                <p className="text-sm text-dh-dark-gray">
+                  Contact DigitalHood support with your order number if you need
+                  help with payment, product availability, or delivery.
+                </p>
+
+                <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
+                  <p className="font-semibold text-dh-primary">
+                    Order reference
+                  </p>
+
+                  <p className="mt-1 text-dh-dark-gray">
+                    #{order.number || order.id}
+                  </p>
+                </div>
+
+                <Link
+                  to="/contact"
+                  className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
+                >
+                  Contact Support
+                </Link>
+              </DetailCard>
+            </aside>
+          </section>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  )
+}
