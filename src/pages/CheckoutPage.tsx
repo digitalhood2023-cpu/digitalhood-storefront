@@ -1,20 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 
 import {
-  ChevronLeft,
-  CreditCard,
-  Truck,
-  Shield,
-  Check,
-  Smartphone,
   AlertCircle,
+  BadgeCheck,
+  Check,
+  ChevronLeft,
   Clock,
-  MapPin,
-  ShoppingBag,
+  CreditCard,
+  Home,
   Loader2,
+  LogIn,
+  MapPin,
+  Shield,
+  ShoppingBag,
+  Smartphone,
+  Truck,
+  UserRound,
 } from 'lucide-react'
 
 import {
@@ -29,6 +33,7 @@ import {
   verifyLencoMobileMoney,
 } from '@/api/lenco'
 
+import { useAccount } from '@/context/AccountContext'
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
 
@@ -134,10 +139,52 @@ function isLencoPaidStatus(status: unknown) {
   ].includes(normalizedStatus)
 }
 
+function splitFullName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+
+  if (parts.length === 0) {
+    return {
+      firstName: '',
+      lastName: '',
+    }
+  }
+
+  if (parts.length === 1) {
+    return {
+      firstName: parts[0],
+      lastName: parts[0],
+    }
+  }
+
+  return {
+    firstName: parts.slice(0, -1).join(' '),
+    lastName: parts[parts.length - 1],
+  }
+}
+
+function getFullName(customer?: {
+  firstName?: string
+  lastName?: string
+  email?: string
+}) {
+  if (!customer) return ''
+
+  const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+
+  return fullName || customer.email || ''
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const pageRef = useRef<HTMLDivElement>(null)
   const lencoPollingRef = useRef<number | null>(null)
+  const hasPrefilledAccountRef = useRef(false)
+
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: isAccountLoading,
+  } = useAccount()
 
   const items = useCartStore((state) => state.items)
   const clearCart = useCartStore((state) => state.clearCart)
@@ -146,6 +193,18 @@ export default function CheckoutPage() {
   const subtotal = getSubtotal()
   const checkoutItems = items as CheckoutCartItem[]
   const hasUnavailableItems = checkoutItems.some(isUnavailable)
+
+  const savedAddresses = customer?.savedAddresses || []
+  const defaultSavedAddress = useMemo(() => {
+    return (
+      savedAddresses.find((address) => address.id === customer?.defaultAddressId) ||
+      savedAddresses.find((address) => address.isDefault) ||
+      savedAddresses[0] ||
+      null
+    )
+  }, [customer?.defaultAddressId, savedAddresses])
+
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('')
 
   const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'card' | 'cod'>(
     'mobile'
@@ -177,8 +236,10 @@ export default function CheckoutPage() {
     email: '',
     phone: '',
     address: '',
+    address2: '',
     city: 'Lusaka',
     province: 'Lusaka',
+    postcode: DEFAULT_POSTCODE,
     paymentPhone: '',
   })
 
@@ -212,6 +273,126 @@ export default function CheckoutPage() {
     }
   }, [])
 
+  const applySavedAddressToForm = (address: NonNullable<typeof defaultSavedAddress>) => {
+    setSelectedSavedAddressId(address.id)
+
+    setFormData((current) => ({
+      ...current,
+      fullName: address.fullName || current.fullName,
+      email: isAuthenticated ? customer?.email || current.email : current.email,
+      phone: address.phone || current.phone,
+      address: address.address1 || current.address,
+      address2: address.address2 || current.address2,
+      city: address.city || current.city || 'Lusaka',
+      province: address.province || current.province || 'Lusaka',
+      postcode: address.postcode || current.postcode || DEFAULT_POSTCODE,
+      paymentPhone: current.paymentPhone || address.phone || current.phone,
+    }))
+
+    setCardClientSecret('')
+    setCardPaymentIntentId('')
+    setCreatedOrderId(null)
+  }
+
+  useEffect(() => {
+    if (!isAuthenticated || !customer || hasPrefilledAccountRef.current) {
+      return
+    }
+
+    hasPrefilledAccountRef.current = true
+
+    const fullName = getFullName(customer)
+    const legacyShipping = customer.shipping || {}
+    const legacyBilling = customer.billing || {}
+
+    if (defaultSavedAddress) {
+      setSelectedSavedAddressId(defaultSavedAddress.id)
+      setFormData((current) => ({
+        ...current,
+        fullName: current.fullName || defaultSavedAddress.fullName || fullName,
+        email: customer.email || current.email,
+        phone:
+          current.phone ||
+          defaultSavedAddress.phone ||
+          legacyBilling.phone ||
+          '',
+        address:
+          current.address ||
+          defaultSavedAddress.address1 ||
+          legacyShipping.address1 ||
+          legacyBilling.address1 ||
+          '',
+        address2:
+          current.address2 ||
+          defaultSavedAddress.address2 ||
+          legacyShipping.address2 ||
+          legacyBilling.address2 ||
+          '',
+        city:
+          current.city ||
+          defaultSavedAddress.city ||
+          legacyShipping.city ||
+          legacyBilling.city ||
+          'Lusaka',
+        province:
+          current.province ||
+          defaultSavedAddress.province ||
+          legacyShipping.province ||
+          legacyBilling.province ||
+          'Lusaka',
+        postcode:
+          current.postcode ||
+          defaultSavedAddress.postcode ||
+          legacyShipping.postcode ||
+          legacyBilling.postcode ||
+          DEFAULT_POSTCODE,
+        paymentPhone:
+          current.paymentPhone ||
+          defaultSavedAddress.phone ||
+          legacyBilling.phone ||
+          '',
+      }))
+
+      return
+    }
+
+    setFormData((current) => ({
+      ...current,
+      fullName:
+        current.fullName ||
+        fullName ||
+        `${legacyBilling.firstName || ''} ${legacyBilling.lastName || ''}`.trim(),
+      email: customer.email || current.email,
+      phone: current.phone || legacyBilling.phone || '',
+      address:
+        current.address ||
+        legacyShipping.address1 ||
+        legacyBilling.address1 ||
+        '',
+      address2:
+        current.address2 ||
+        legacyShipping.address2 ||
+        legacyBilling.address2 ||
+        '',
+      city:
+        current.city ||
+        legacyShipping.city ||
+        legacyBilling.city ||
+        'Lusaka',
+      province:
+        current.province ||
+        legacyShipping.province ||
+        legacyBilling.province ||
+        'Lusaka',
+      postcode:
+        current.postcode ||
+        legacyShipping.postcode ||
+        legacyBilling.postcode ||
+        DEFAULT_POSTCODE,
+      paymentPhone: current.paymentPhone || legacyBilling.phone || '',
+    }))
+  }, [customer, defaultSavedAddress, isAuthenticated])
+
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((current) => ({
       ...current,
@@ -219,25 +400,10 @@ export default function CheckoutPage() {
     }))
 
     if (field !== 'paymentPhone') {
+      setSelectedSavedAddressId('')
       setCardClientSecret('')
       setCardPaymentIntentId('')
       setCreatedOrderId(null)
-    }
-  }
-
-  const splitFullName = (name: string) => {
-    const parts = name.trim().split(/\s+/)
-
-    if (parts.length === 1) {
-      return {
-        firstName: parts[0],
-        lastName: parts[0],
-      }
-    }
-
-    return {
-      firstName: parts.slice(0, -1).join(' '),
-      lastName: parts[parts.length - 1],
     }
   }
 
@@ -249,7 +415,15 @@ export default function CheckoutPage() {
     }
 
     if (!formData.fullName.trim()) return 'Full name is required.'
-    if (!formData.email.trim()) return 'Email is required.'
+
+    if (!isAuthenticated && !formData.email.trim()) {
+      return 'Email is required.'
+    }
+
+    if (isAuthenticated && !customer?.email) {
+      return 'Your account email could not be loaded. Please sign in again.'
+    }
+
     if (!formData.phone.trim()) return 'Contact phone number is required.'
     if (!formData.address.trim()) return 'Delivery address is required.'
     if (!formData.city.trim()) return 'City is required.'
@@ -262,6 +436,10 @@ export default function CheckoutPage() {
     return ''
   }
 
+  const getCheckoutEmail = () => {
+    return isAuthenticated ? customer?.email || '' : formData.email.trim()
+  }
+
   const buildAddressPayload = () => {
     const { firstName, lastName } = splitFullName(formData.fullName)
 
@@ -269,14 +447,14 @@ export default function CheckoutPage() {
       first_name: firstName,
       last_name: lastName,
       company: '',
-      address_1: formData.address,
-      address_2: '',
-      city: formData.city,
-      state: formData.province,
-      postcode: DEFAULT_POSTCODE,
+      address_1: formData.address.trim(),
+      address_2: formData.address2.trim(),
+      city: formData.city.trim(),
+      state: formData.province.trim(),
+      postcode: formData.postcode.trim() || DEFAULT_POSTCODE,
       country: 'ZM',
-      email: formData.email,
-      phone: formData.phone,
+      email: getCheckoutEmail(),
+      phone: formData.phone.trim(),
     }
   }
 
@@ -303,6 +481,14 @@ export default function CheckoutPage() {
       'Created from DigitalHood React storefront.',
       `Delivery: ${deliveryTitle} - ${deliveryEstimate}.`,
     ]
+
+    if (isAuthenticated && customer?.id) {
+      notes.push(`Customer account: ${customer.id}.`)
+    }
+
+    if (selectedSavedAddressId) {
+      notes.push(`Saved address used: ${selectedSavedAddressId}.`)
+    }
 
     if (variationLines.length > 0) {
       notes.push(`Selected options: ${variationLines.join(' | ')}`)
@@ -476,7 +662,7 @@ export default function CheckoutPage() {
         amount: finalTotal,
         currency: 'zmw',
         orderId: order.orderId,
-        customerEmail: formData.email,
+        customerEmail: getCheckoutEmail(),
         customerName: formData.fullName,
       })
 
@@ -564,7 +750,7 @@ export default function CheckoutPage() {
           reference,
           orderId: order.orderId,
           customerName: formData.fullName,
-          customerEmail: formData.email,
+          customerEmail: getCheckoutEmail(),
         })
 
         const paymentReference = response.reference || reference
@@ -726,12 +912,37 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <Button
-                onClick={() => navigate('/')}
-                className="bg-dh-primary hover:bg-dh-secondary text-white rounded-full px-8"
-              >
-                Continue Shopping
-              </Button>
+              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                {isAuthenticated && createdOrderId && (
+                  <Button
+                    onClick={() => navigate(`/orders/${createdOrderId}`)}
+                    className="bg-dh-primary hover:bg-dh-secondary text-white rounded-full px-8"
+                  >
+                    View Order
+                  </Button>
+                )}
+
+                {isAuthenticated && !createdOrderId && (
+                  <Button
+                    onClick={() => navigate('/orders')}
+                    className="bg-dh-primary hover:bg-dh-secondary text-white rounded-full px-8"
+                  >
+                    My Orders
+                  </Button>
+                )}
+
+                <Button
+                  onClick={() => navigate('/')}
+                  variant={isAuthenticated ? 'outline' : 'default'}
+                  className={
+                    isAuthenticated
+                      ? 'rounded-full px-8 border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white'
+                      : 'bg-dh-primary hover:bg-dh-secondary text-white rounded-full px-8'
+                  }
+                >
+                  Continue Shopping
+                </Button>
+              </div>
             </div>
           </div>
         </main>
@@ -758,6 +969,75 @@ export default function CheckoutPage() {
           <h1 className="font-display font-bold text-2xl lg:text-3xl text-dh-primary mb-8">
             Checkout
           </h1>
+
+          {!isAccountLoading && isAuthenticated && customer && (
+            <div className="mb-6 rounded-2xl border border-green-100 bg-green-50 p-4 text-green-800">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                    <UserRound className="h-5 w-5 text-green-700" />
+                  </div>
+
+                  <div>
+                    <p className="font-semibold">
+                      Checking out as {getFullName(customer)}
+                    </p>
+
+                    <p className="text-sm text-green-700">
+                      Your account email is attached automatically and this order
+                      will appear in your account.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  to="/account"
+                  className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-green-800 hover:bg-green-100"
+                >
+                  Manage account
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {!isAccountLoading && !isAuthenticated && (
+            <div className="mb-6 rounded-2xl border border-dh-light-gray bg-white p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-dh-secondary/15">
+                    <LogIn className="h-5 w-5 text-dh-primary" />
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dh-primary">
+                      Sign in for faster checkout
+                    </p>
+
+                    <p className="text-sm text-dh-dark-gray">
+                      Save orders to your account, reuse delivery addresses, and
+                      track purchases easily.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Link
+                    to="/login?redirect=/checkout"
+                    className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white hover:bg-dh-secondary"
+                  >
+                    Sign in
+                  </Link>
+
+                  <Link
+                    to="/register?redirect=/checkout"
+                    className="inline-flex items-center justify-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
+                  >
+                    Create account
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
 
           {checkoutError && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 flex gap-3">
@@ -795,6 +1075,84 @@ export default function CheckoutPage() {
                   </h2>
                 </div>
 
+                {isAuthenticated && (
+                  <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                    <div className="flex gap-2">
+                      <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>
+                        We filled checkout using your default saved address. You
+                        can edit the delivery details for this order.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isAuthenticated && savedAddresses.length > 0 && (
+                  <div className="mb-6">
+                    <Label>Use saved address</Label>
+
+                    <div className="mt-3 grid gap-3">
+                      {savedAddresses.map((address) => {
+                        const selected =
+                          selectedSavedAddressId === address.id ||
+                          (!selectedSavedAddressId &&
+                            defaultSavedAddress?.id === address.id)
+
+                        return (
+                          <button
+                            key={address.id}
+                            type="button"
+                            onClick={() => applySavedAddressToForm(address)}
+                            className={`rounded-2xl border p-4 text-left transition-all ${
+                              selected
+                                ? 'border-dh-primary bg-dh-secondary/10'
+                                : 'border-dh-light-gray hover:border-dh-primary'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-semibold text-dh-primary">
+                                {address.label}
+                              </p>
+
+                              {(address.isDefault ||
+                                customer?.defaultAddressId === address.id) && (
+                                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-sm text-dh-dark-gray">
+                              {address.fullName} · {address.phone}
+                            </p>
+
+                            <p className="mt-1 text-sm text-dh-dark-gray">
+                              {[address.address1, address.address2, address.city, address.province]
+                                .filter(Boolean)
+                                .join(', ')}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {isAuthenticated && savedAddresses.length === 0 && (
+                  <div className="mb-6 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-yellow-800">
+                    <div className="flex gap-2">
+                      <Home className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <p className="font-semibold">No saved address yet</p>
+                        <p>
+                          You can still complete checkout. Add saved addresses
+                          later from your account page for faster checkout.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <Label htmlFor="fullName">Full Name</Label>
@@ -809,19 +1167,37 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(event) =>
-                        updateField('email', event.target.value)
-                      }
-                      placeholder="john@example.com"
-                      className="mt-1"
-                    />
-                  </div>
+                  {!isAuthenticated && (
+                    <div className="sm:col-span-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(event) =>
+                          updateField('email', event.target.value)
+                        }
+                        placeholder="john@example.com"
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+
+                  {isAuthenticated && (
+                    <div className="sm:col-span-2 rounded-xl bg-dh-gray p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                        Account email
+                      </p>
+
+                      <p className="mt-1 break-all font-semibold text-dh-primary">
+                        {customer?.email}
+                      </p>
+
+                      <p className="mt-1 text-xs text-dh-dark-gray">
+                        Used automatically for receipts and order history.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="sm:col-span-2">
                     <Label htmlFor="phone">Delivery Contact Number</Label>
@@ -845,6 +1221,19 @@ export default function CheckoutPage() {
                         updateField('address', event.target.value)
                       }
                       placeholder="House number, road, area"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="address2">Apartment, landmark or extra directions</Label>
+                    <Input
+                      id="address2"
+                      value={formData.address2}
+                      onChange={(event) =>
+                        updateField('address2', event.target.value)
+                      }
+                      placeholder="Apartment, suite, landmark"
                       className="mt-1"
                     />
                   </div>
@@ -1139,6 +1528,12 @@ export default function CheckoutPage() {
                 {hasUnavailableItems && (
                   <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
                     Remove unavailable items before checkout.
+                  </div>
+                )}
+
+                {isAuthenticated && (
+                  <div className="mt-5 rounded-xl border border-green-100 bg-green-50 p-3 text-sm text-green-700">
+                    This order will be saved to your account.
                   </div>
                 )}
 
