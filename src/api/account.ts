@@ -18,6 +18,22 @@ export type AccountAddress = {
   phone?: string
 }
 
+export type SavedCustomerAddress = {
+  id: string
+  label: string
+  fullName: string
+  phone: string
+  address1: string
+  address2?: string
+  city: string
+  province: string
+  postcode?: string
+  country?: string
+  isDefault?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
 export type AccountCustomer = {
   id: number
   email: string
@@ -30,6 +46,8 @@ export type AccountCustomer = {
   billing?: AccountAddress
   shipping?: AccountAddress
   wishlistProductIds?: number[]
+  savedAddresses?: SavedCustomerAddress[]
+  defaultAddressId?: string
 }
 
 export type AccountDeliveryEstimate = {
@@ -139,6 +157,13 @@ export type WishlistResponse = {
   success: boolean
   productIds: number[]
   products: AccountProduct[]
+}
+
+export type SavedAddressesResponse = {
+  success: boolean
+  addresses: SavedCustomerAddress[]
+  defaultAddressId?: string
+  customer?: AccountCustomer
 }
 
 export function getAccountToken() {
@@ -264,6 +289,50 @@ export async function updateCustomerAddresses(payload: {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
+}
+
+export async function getCustomerSavedAddresses() {
+  return accountFetch<SavedAddressesResponse>('/api/account/addresses')
+}
+
+export async function addCustomerSavedAddress(
+  address: Omit<SavedCustomerAddress, 'id' | 'createdAt' | 'updatedAt'>
+) {
+  return accountFetch<SavedAddressesResponse>('/api/account/addresses', {
+    method: 'POST',
+    body: JSON.stringify(address),
+  })
+}
+
+export async function updateCustomerSavedAddress(
+  addressId: string,
+  address: Partial<SavedCustomerAddress>
+) {
+  return accountFetch<SavedAddressesResponse>(
+    `/api/account/addresses/${encodeURIComponent(addressId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(address),
+    }
+  )
+}
+
+export async function setDefaultCustomerSavedAddress(addressId: string) {
+  return accountFetch<SavedAddressesResponse>(
+    `/api/account/addresses/${encodeURIComponent(addressId)}/default`,
+    {
+      method: 'PUT',
+    }
+  )
+}
+
+export async function deleteCustomerSavedAddress(addressId: string) {
+  return accountFetch<SavedAddressesResponse>(
+    `/api/account/addresses/${encodeURIComponent(addressId)}`,
+    {
+      method: 'DELETE',
+    }
+  )
 }
 
 export async function getCustomerOrders() {
