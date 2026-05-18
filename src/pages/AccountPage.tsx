@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 import { useAccount } from '@/context/AccountContext'
+import { useWishlist } from '@/context/WishlistContext'
 
 import {
   addCustomerSavedAddress,
@@ -279,9 +280,7 @@ function AddressCard({
 
         {address.address2 && <p>{address.address2}</p>}
 
-        <p>
-          {[address.city, address.province].filter(Boolean).join(', ')}
-        </p>
+        <p>{[address.city, address.province].filter(Boolean).join(', ')}</p>
 
         <p>
           {[address.postcode, address.country || 'ZM'].filter(Boolean).join(', ')}
@@ -306,6 +305,7 @@ function AddressCard({
 
 export default function AccountPage() {
   const navigate = useNavigate()
+
   const {
     customer,
     isAuthenticated,
@@ -313,6 +313,8 @@ export default function AccountPage() {
     updateCustomerInState,
     logout,
   } = useAccount()
+
+  const { items: wishlistItems } = useWishlist()
 
   const [orders, setOrders] = useState<AccountOrder[]>([])
   const [savedAddresses, setSavedAddresses] = useState<SavedCustomerAddress[]>([])
@@ -337,6 +339,19 @@ export default function AccountPage() {
 
   const [addressForm, setAddressForm] =
     useState<AddressFormData>(emptyAddressForm)
+
+  const refreshSavedAddresses = useCallback(async () => {
+    const response = await getCustomerSavedAddresses()
+
+    setSavedAddresses(response.addresses || [])
+    setDefaultAddressId(response.defaultAddressId || '')
+
+    if (response.customer) {
+      updateCustomerInState(response.customer)
+    }
+
+    return response
+  }, [updateCustomerInState])
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -428,7 +443,7 @@ export default function AccountPage() {
   }, [customer])
 
   const recentOrders = orders.slice(0, 3)
-  const wishlistCount = customer?.wishlistProductIds?.length || 0
+  const wishlistCount = wishlistItems.length
 
   const defaultAddress = useMemo(() => {
     return (
@@ -596,6 +611,8 @@ export default function AccountPage() {
         updateCustomerInState(response.customer)
       }
 
+      await refreshSavedAddresses()
+
       setSuccessMessage(
         editingAddressId
           ? 'Address updated successfully.'
@@ -629,6 +646,8 @@ export default function AccountPage() {
         updateCustomerInState(response.customer)
       }
 
+      await refreshSavedAddresses()
+
       setSuccessMessage('Default address updated. Checkout will use this address.')
     } catch (error) {
       setErrorMessage(
@@ -661,6 +680,8 @@ export default function AccountPage() {
       if (response.customer) {
         updateCustomerInState(response.customer)
       }
+
+      await refreshSavedAddresses()
 
       setSuccessMessage('Address deleted successfully.')
     } catch (error) {
