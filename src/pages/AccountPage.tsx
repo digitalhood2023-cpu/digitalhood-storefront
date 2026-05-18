@@ -5,18 +5,24 @@ import {
   ArrowRight,
   BadgeCheck,
   ChevronRight,
+  Edit3,
   Heart,
+  Home,
   Loader2,
   LockKeyhole,
   Mail,
   MapPin,
   PackageCheck,
   Phone,
+  Plus,
   Save,
   ShieldCheck,
   ShoppingBag,
+  Star,
+  Trash2,
   Truck,
   UserRound,
+  X,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -29,10 +35,42 @@ import { Label } from '@/components/ui/label'
 import { useAccount } from '@/context/AccountContext'
 
 import {
+  addCustomerSavedAddress,
+  deleteCustomerSavedAddress,
   getCustomerOrders,
+  getCustomerSavedAddresses,
+  setDefaultCustomerSavedAddress,
   updateCustomerProfile,
+  updateCustomerSavedAddress,
   type AccountOrder,
+  type SavedCustomerAddress,
 } from '@/api/account'
+
+type AddressFormData = {
+  label: string
+  fullName: string
+  phone: string
+  address1: string
+  address2: string
+  city: string
+  province: string
+  postcode: string
+  country: string
+  isDefault: boolean
+}
+
+const emptyAddressForm: AddressFormData = {
+  label: 'Delivery Address',
+  fullName: '',
+  phone: '',
+  address1: '',
+  address2: '',
+  city: 'Lusaka',
+  province: 'Lusaka',
+  postcode: '10101',
+  country: 'ZM',
+  isDefault: false,
+}
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
@@ -97,6 +135,41 @@ function getStatusStyle(status?: string) {
   return 'bg-gray-50 text-gray-700 border-gray-100'
 }
 
+function getCustomerFullName(customer?: {
+  firstName?: string
+  lastName?: string
+  email?: string
+}) {
+  if (!customer) return ''
+
+  const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+
+  return fullName || customer.email || ''
+}
+
+function addressToForm(address: SavedCustomerAddress): AddressFormData {
+  return {
+    label: address.label || 'Delivery Address',
+    fullName: address.fullName || '',
+    phone: address.phone || '',
+    address1: address.address1 || '',
+    address2: address.address2 || '',
+    city: address.city || 'Lusaka',
+    province: address.province || 'Lusaka',
+    postcode: address.postcode || '10101',
+    country: address.country || 'ZM',
+    isDefault: Boolean(address.isDefault),
+  }
+}
+
+function getAddressLine(address?: SavedCustomerAddress | null) {
+  if (!address) return 'No default address yet'
+
+  return [address.address1, address.address2, address.city, address.province]
+    .filter(Boolean)
+    .join(', ')
+}
+
 function DashboardCard({
   icon,
   label,
@@ -118,7 +191,7 @@ function DashboardCard({
 
       <p className="text-sm font-medium text-dh-dark-gray">{label}</p>
 
-      <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+      <p className="mt-1 line-clamp-1 font-display text-2xl font-bold text-dh-primary">
         {value}
       </p>
 
@@ -133,6 +206,104 @@ function DashboardCard({
   return content
 }
 
+function AddressCard({
+  address,
+  isDefault,
+  isBusy,
+  onEdit,
+  onSetDefault,
+  onDelete,
+}: {
+  address: SavedCustomerAddress
+  isDefault: boolean
+  isBusy: boolean
+  onEdit: () => void
+  onSetDefault: () => void
+  onDelete: () => void
+}) {
+  return (
+    <article
+      className={`rounded-3xl border bg-white p-5 shadow-sm transition-all ${
+        isDefault
+          ? 'border-dh-primary ring-2 ring-dh-secondary/30'
+          : 'border-dh-light-gray hover:border-dh-primary'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-display text-lg font-bold text-dh-primary">
+              {address.label || 'Delivery Address'}
+            </h3>
+
+            {isDefault && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                <Star className="h-3.5 w-3.5 fill-current" />
+                Default
+              </span>
+            )}
+          </div>
+
+          <p className="mt-1 font-semibold text-dh-primary">
+            {address.fullName}
+          </p>
+
+          <p className="mt-1 text-sm text-dh-dark-gray">{address.phone}</p>
+        </div>
+
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={isBusy}
+            className="rounded-full bg-dh-gray p-2 text-dh-primary hover:bg-dh-secondary/20 disabled:opacity-50"
+            aria-label="Edit address"
+          >
+            <Edit3 className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isBusy}
+            className="rounded-full bg-red-50 p-2 text-red-600 hover:bg-red-100 disabled:opacity-50"
+            aria-label="Delete address"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm text-dh-dark-gray">
+        <p>{address.address1}</p>
+
+        {address.address2 && <p>{address.address2}</p>}
+
+        <p>
+          {[address.city, address.province].filter(Boolean).join(', ')}
+        </p>
+
+        <p>
+          {[address.postcode, address.country || 'ZM'].filter(Boolean).join(', ')}
+        </p>
+      </div>
+
+      {!isDefault && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onSetDefault}
+          disabled={isBusy}
+          className="mt-4 h-10 rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white disabled:opacity-50"
+        >
+          <Star className="mr-2 h-4 w-4" />
+          Use as default
+        </Button>
+      )}
+    </article>
+  )
+}
+
 export default function AccountPage() {
   const navigate = useNavigate()
   const {
@@ -144,27 +315,28 @@ export default function AccountPage() {
   } = useAccount()
 
   const [orders, setOrders] = useState<AccountOrder[]>([])
+  const [savedAddresses, setSavedAddresses] = useState<SavedCustomerAddress[]>([])
+  const [defaultAddressId, setDefaultAddressId] = useState('')
   const [isOrdersLoading, setIsOrdersLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [isAddressesLoading, setIsAddressesLoading] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [busyAddressId, setBusyAddressId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState('')
 
-  const [formData, setFormData] = useState({
+  const [profileForm, setProfileForm] = useState({
     firstName: '',
     lastName: '',
     phone: '',
-    billingAddress1: '',
-    billingAddress2: '',
-    billingCity: '',
-    billingProvince: '',
-    billingPostcode: '',
-    shippingAddress1: '',
-    shippingAddress2: '',
-    shippingCity: '',
-    shippingProvince: '',
-    shippingPostcode: '',
   })
+
+  const [addressForm, setAddressForm] =
+    useState<AddressFormData>(emptyAddressForm)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -175,21 +347,14 @@ export default function AccountPage() {
   useEffect(() => {
     if (!customer) return
 
-    setFormData({
+    setProfileForm({
       firstName: customer.firstName || '',
       lastName: customer.lastName || '',
       phone: customer.billing?.phone || '',
-      billingAddress1: customer.billing?.address1 || '',
-      billingAddress2: customer.billing?.address2 || '',
-      billingCity: customer.billing?.city || '',
-      billingProvince: customer.billing?.province || '',
-      billingPostcode: customer.billing?.postcode || '',
-      shippingAddress1: customer.shipping?.address1 || '',
-      shippingAddress2: customer.shipping?.address2 || '',
-      shippingCity: customer.shipping?.city || '',
-      shippingProvince: customer.shipping?.province || '',
-      shippingPostcode: customer.shipping?.postcode || '',
     })
+
+    setSavedAddresses(customer.savedAddresses || [])
+    setDefaultAddressId(customer.defaultAddressId || '')
   }, [customer])
 
   useEffect(() => {
@@ -221,29 +386,123 @@ export default function AccountPage() {
       }
     }
 
+    async function loadAddresses() {
+      setIsAddressesLoading(true)
+
+      try {
+        const response = await getCustomerSavedAddresses()
+
+        if (mounted) {
+          setSavedAddresses(response.addresses || [])
+          setDefaultAddressId(response.defaultAddressId || '')
+
+          if (response.customer) {
+            updateCustomerInState(response.customer)
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load your saved addresses right now.'
+          )
+        }
+      } finally {
+        if (mounted) {
+          setIsAddressesLoading(false)
+        }
+      }
+    }
+
     loadOrders()
+    loadAddresses()
 
     return () => {
       mounted = false
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, updateCustomerInState])
 
   const displayName = useMemo(() => {
-    if (!customer) return ''
-
-    const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
-
-    return fullName || customer.email
+    return getCustomerFullName(customer || undefined)
   }, [customer])
 
   const recentOrders = orders.slice(0, 3)
   const wishlistCount = customer?.wishlistProductIds?.length || 0
 
-  const updateField = (field: keyof typeof formData, value: string) => {
-    setFormData((current) => ({
+  const defaultAddress = useMemo(() => {
+    return (
+      savedAddresses.find((address) => address.id === defaultAddressId) ||
+      savedAddresses.find((address) => address.isDefault) ||
+      savedAddresses[0] ||
+      null
+    )
+  }, [defaultAddressId, savedAddresses])
+
+  const canAddAddress = savedAddresses.length < 5
+
+  const updateProfileField = (
+    field: keyof typeof profileForm,
+    value: string
+  ) => {
+    setProfileForm((current) => ({
       ...current,
       [field]: value,
     }))
+  }
+
+  const updateAddressField = (
+    field: keyof AddressFormData,
+    value: string | boolean
+  ) => {
+    setAddressForm((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  const resetAddressForm = () => {
+    const fullName = getCustomerFullName(customer || undefined)
+
+    setAddressForm({
+      ...emptyAddressForm,
+      fullName,
+      phone: customer?.billing?.phone || '',
+      isDefault: savedAddresses.length === 0,
+    })
+    setEditingAddressId('')
+  }
+
+  const openNewAddressForm = () => {
+    setErrorMessage('')
+    setSuccessMessage('')
+    resetAddressForm()
+    setIsAddressFormOpen(true)
+  }
+
+  const openEditAddressForm = (address: SavedCustomerAddress) => {
+    setErrorMessage('')
+    setSuccessMessage('')
+    setEditingAddressId(address.id)
+    setAddressForm(addressToForm(address))
+    setIsAddressFormOpen(true)
+  }
+
+  const closeAddressForm = () => {
+    setIsAddressFormOpen(false)
+    setEditingAddressId('')
+    setAddressForm(emptyAddressForm)
+  }
+
+  const validateAddressForm = () => {
+    if (!addressForm.label.trim()) return 'Address label is required.'
+    if (!addressForm.fullName.trim()) return 'Full name is required.'
+    if (!addressForm.phone.trim()) return 'Phone number is required.'
+    if (!addressForm.address1.trim()) return 'Address line 1 is required.'
+    if (!addressForm.city.trim()) return 'City is required.'
+    if (!addressForm.province.trim()) return 'Province is required.'
+
+    return ''
   }
 
   const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -252,49 +511,40 @@ export default function AccountPage() {
     setErrorMessage('')
     setSuccessMessage('')
 
-    if (!formData.firstName.trim()) {
+    if (!profileForm.firstName.trim()) {
       setErrorMessage('First name is required.')
       return
     }
 
-    if (!formData.lastName.trim()) {
+    if (!profileForm.lastName.trim()) {
       setErrorMessage('Last name is required.')
       return
     }
 
-    setIsSaving(true)
+    setIsSavingProfile(true)
 
     try {
       const response = await updateCustomerProfile({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        phone: formData.phone.trim(),
+        firstName: profileForm.firstName.trim(),
+        lastName: profileForm.lastName.trim(),
+        phone: profileForm.phone.trim(),
         billing: {
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
+          firstName: profileForm.firstName.trim(),
+          lastName: profileForm.lastName.trim(),
           email: customer?.email || '',
-          phone: formData.phone.trim(),
-          address1: formData.billingAddress1.trim(),
-          address2: formData.billingAddress2.trim(),
-          city: formData.billingCity.trim(),
-          province: formData.billingProvince.trim(),
-          postcode: formData.billingPostcode.trim(),
+          phone: profileForm.phone.trim(),
           country: 'ZM',
         },
         shipping: {
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          address1: formData.shippingAddress1.trim(),
-          address2: formData.shippingAddress2.trim(),
-          city: formData.shippingCity.trim(),
-          province: formData.shippingProvince.trim(),
-          postcode: formData.shippingPostcode.trim(),
+          firstName: profileForm.firstName.trim(),
+          lastName: profileForm.lastName.trim(),
           country: 'ZM',
         },
       })
 
       updateCustomerInState(response.customer)
       setSuccessMessage('Your account details have been updated.')
+      setIsProfileOpen(false)
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -302,19 +552,126 @@ export default function AccountPage() {
           : 'Unable to update your account details.'
       )
     } finally {
-      setIsSaving(false)
+      setIsSavingProfile(false)
     }
   }
 
-  const handleCopyBillingToShipping = () => {
-    setFormData((current) => ({
-      ...current,
-      shippingAddress1: current.billingAddress1,
-      shippingAddress2: current.billingAddress2,
-      shippingCity: current.billingCity,
-      shippingProvince: current.billingProvince,
-      shippingPostcode: current.billingPostcode,
-    }))
+  const handleSaveAddress = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    const validationError = validateAddressForm()
+
+    if (validationError) {
+      setErrorMessage(validationError)
+      return
+    }
+
+    setIsSavingAddress(true)
+
+    const payload = {
+      label: addressForm.label.trim(),
+      fullName: addressForm.fullName.trim(),
+      phone: addressForm.phone.trim(),
+      address1: addressForm.address1.trim(),
+      address2: addressForm.address2.trim(),
+      city: addressForm.city.trim(),
+      province: addressForm.province.trim(),
+      postcode: addressForm.postcode.trim() || '10101',
+      country: addressForm.country.trim() || 'ZM',
+      isDefault: Boolean(addressForm.isDefault || savedAddresses.length === 0),
+    }
+
+    try {
+      const response = editingAddressId
+        ? await updateCustomerSavedAddress(editingAddressId, payload)
+        : await addCustomerSavedAddress(payload)
+
+      setSavedAddresses(response.addresses || [])
+      setDefaultAddressId(response.defaultAddressId || '')
+
+      if (response.customer) {
+        updateCustomerInState(response.customer)
+      }
+
+      setSuccessMessage(
+        editingAddressId
+          ? 'Address updated successfully.'
+          : 'Address saved successfully.'
+      )
+
+      closeAddressForm()
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to save address.'
+      )
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
+
+  const handleSetDefaultAddress = async (addressId: string) => {
+    setErrorMessage('')
+    setSuccessMessage('')
+    setBusyAddressId(addressId)
+
+    try {
+      const response = await setDefaultCustomerSavedAddress(addressId)
+
+      setSavedAddresses(response.addresses || [])
+      setDefaultAddressId(response.defaultAddressId || addressId)
+
+      if (response.customer) {
+        updateCustomerInState(response.customer)
+      }
+
+      setSuccessMessage('Default address updated. Checkout will use this address.')
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to set default address.'
+      )
+    } finally {
+      setBusyAddressId('')
+    }
+  }
+
+  const handleDeleteAddress = async (addressId: string) => {
+    const confirmed = window.confirm(
+      'Delete this saved address? This cannot be undone.'
+    )
+
+    if (!confirmed) return
+
+    setErrorMessage('')
+    setSuccessMessage('')
+    setBusyAddressId(addressId)
+
+    try {
+      const response = await deleteCustomerSavedAddress(addressId)
+
+      setSavedAddresses(response.addresses || [])
+      setDefaultAddressId(response.defaultAddressId || '')
+
+      if (response.customer) {
+        updateCustomerInState(response.customer)
+      }
+
+      setSuccessMessage('Address deleted successfully.')
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to delete address.'
+      )
+    } finally {
+      setBusyAddressId('')
+    }
   }
 
   const handleLogout = async () => {
@@ -381,7 +738,7 @@ export default function AccountPage() {
                 </h1>
 
                 <p className="mt-4 max-w-2xl text-dh-dark-gray">
-                  Manage your orders, wishlist, delivery information, and account
+                  Manage your orders, wishlist, saved addresses, and account
                   details from one place.
                 </p>
 
@@ -425,8 +782,8 @@ export default function AccountPage() {
                   </h2>
 
                   <p className="mt-3 text-sm leading-relaxed text-white/80">
-                    Keep your details updated so checkout is faster and delivery
-                    information stays accurate.
+                    Your default address is automatically used during checkout
+                    when you are signed in.
                   </p>
 
                   <div className="mt-7 grid gap-4 text-sm">
@@ -443,7 +800,7 @@ export default function AccountPage() {
                       <div>
                         <p className="font-semibold">Phone</p>
                         <p className="text-white/70">
-                          {customer.billing?.phone || 'Not added yet'}
+                          {customer.billing?.phone || profileForm.phone || 'Not added yet'}
                         </p>
                       </div>
                     </div>
@@ -451,11 +808,11 @@ export default function AccountPage() {
                     <div className="flex gap-3">
                       <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
                       <div>
-                        <p className="font-semibold">Delivery city</p>
+                        <p className="font-semibold">Default address</p>
                         <p className="text-white/70">
-                          {customer.shipping?.city ||
-                            customer.billing?.city ||
-                            'Not added yet'}
+                          {defaultAddress
+                            ? `${defaultAddress.city}, ${defaultAddress.province}`
+                            : 'Not added yet'}
                         </p>
                       </div>
                     </div>
@@ -491,46 +848,24 @@ export default function AccountPage() {
             />
 
             <DashboardCard
-              icon={<Truck className="h-6 w-6" />}
-              label="Delivery"
-              value={customer.shipping?.city || customer.billing?.city || 'Set up'}
-              helper="Saved delivery location."
+              icon={<Home className="h-6 w-6" />}
+              label="Saved Addresses"
+              value={`${savedAddresses.length}/5`}
+              helper="Manage delivery locations."
             />
 
             <DashboardCard
-              icon={<PackageCheck className="h-6 w-6" />}
-              label="Tracking"
-              value="Ready"
-              helper="Track any order anytime."
-              href="/track-order"
+              icon={<Truck className="h-6 w-6" />}
+              label="Default Delivery"
+              value={defaultAddress?.city || 'Set up'}
+              helper={defaultAddress ? getAddressLine(defaultAddress) : 'Add a default address.'}
             />
           </section>
 
-          <section className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-2xl font-bold text-dh-primary">
-                    Account details
-                  </h2>
-
-                  <p className="mt-1 text-sm text-dh-dark-gray">
-                    Update your profile and saved delivery information.
-                  </p>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCopyBillingToShipping}
-                  className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                >
-                  Copy billing to delivery
-                </Button>
-              </div>
-
+          {(errorMessage || successMessage) && (
+            <section className="mt-8">
               {errorMessage && (
-                <div className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
                   <div className="flex gap-2">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>{errorMessage}</p>
@@ -539,231 +874,407 @@ export default function AccountPage() {
               )}
 
               {successMessage && (
-                <div className="mb-5 rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
+                <div className="rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
                   <div className="flex gap-2">
                     <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>{successMessage}</p>
                   </div>
                 </div>
               )}
+            </section>
+          )}
 
-              <form onSubmit={handleSaveProfile} className="grid gap-6">
-                <div>
-                  <h3 className="mb-4 font-display text-lg font-bold text-dh-primary">
-                    Personal information
-                  </h3>
+          <section className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-8">
+              <section className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-2xl font-bold text-dh-primary">
+                      Account details
+                    </h2>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label htmlFor="firstName">First name</Label>
-                      <Input
-                        id="firstName"
-                        value={formData.firstName}
-                        onChange={(event) =>
-                          updateField('firstName', event.target.value)
-                        }
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="lastName">Last name</Label>
-                      <Input
-                        id="lastName"
-                        value={formData.lastName}
-                        onChange={(event) =>
-                          updateField('lastName', event.target.value)
-                        }
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        value={customer.email}
-                        disabled
-                        className="mt-1 bg-gray-100"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(event) =>
-                          updateField('phone', event.target.value)
-                        }
-                        placeholder="+260 97X XXX XXX"
-                        className="mt-1"
-                      />
-                    </div>
+                    <p className="mt-1 text-sm text-dh-dark-gray">
+                      View and update your name and phone number.
+                    </p>
                   </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsProfileOpen((current) => !current)}
+                    className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                  >
+                    {isProfileOpen ? (
+                      <>
+                        <X className="mr-2 h-4 w-4" />
+                        Close
+                      </>
+                    ) : (
+                      <>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Edit details
+                      </>
+                    )}
+                  </Button>
                 </div>
 
-                <div>
-                  <h3 className="mb-4 font-display text-lg font-bold text-dh-primary">
-                    Billing address
-                  </h3>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <Label htmlFor="billingAddress1">Address line 1</Label>
-                      <Input
-                        id="billingAddress1"
-                        value={formData.billingAddress1}
-                        onChange={(event) =>
-                          updateField('billingAddress1', event.target.value)
-                        }
-                        placeholder="House number, road, area"
-                        className="mt-1"
-                      />
+                {!isProfileOpen && (
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-dh-gray p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                        Name
+                      </p>
+                      <p className="mt-1 font-semibold text-dh-primary">
+                        {displayName}
+                      </p>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <Label htmlFor="billingAddress2">Address line 2</Label>
-                      <Input
-                        id="billingAddress2"
-                        value={formData.billingAddress2}
-                        onChange={(event) =>
-                          updateField('billingAddress2', event.target.value)
-                        }
-                        placeholder="Apartment, suite, landmark"
-                        className="mt-1"
-                      />
+                    <div className="rounded-2xl bg-dh-gray p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                        Email
+                      </p>
+                      <p className="mt-1 break-all font-semibold text-dh-primary">
+                        {customer.email}
+                      </p>
                     </div>
 
-                    <div>
-                      <Label htmlFor="billingCity">City</Label>
-                      <Input
-                        id="billingCity"
-                        value={formData.billingCity}
-                        onChange={(event) =>
-                          updateField('billingCity', event.target.value)
-                        }
-                        placeholder="Lusaka"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="billingProvince">Province</Label>
-                      <Input
-                        id="billingProvince"
-                        value={formData.billingProvince}
-                        onChange={(event) =>
-                          updateField('billingProvince', event.target.value)
-                        }
-                        placeholder="Lusaka"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="billingPostcode">Postcode</Label>
-                      <Input
-                        id="billingPostcode"
-                        value={formData.billingPostcode}
-                        onChange={(event) =>
-                          updateField('billingPostcode', event.target.value)
-                        }
-                        placeholder="10101"
-                        className="mt-1"
-                      />
+                    <div className="rounded-2xl bg-dh-gray p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                        Phone
+                      </p>
+                      <p className="mt-1 font-semibold text-dh-primary">
+                        {profileForm.phone || 'Not added yet'}
+                      </p>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <h3 className="mb-4 font-display text-lg font-bold text-dh-primary">
-                    Delivery address
-                  </h3>
+                {isProfileOpen && (
+                  <form onSubmit={handleSaveProfile} className="mt-6 grid gap-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="firstName">First name</Label>
+                        <Input
+                          id="firstName"
+                          value={profileForm.firstName}
+                          onChange={(event) =>
+                            updateProfileField('firstName', event.target.value)
+                          }
+                          className="mt-1"
+                        />
+                      </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <Label htmlFor="shippingAddress1">Address line 1</Label>
-                      <Input
-                        id="shippingAddress1"
-                        value={formData.shippingAddress1}
-                        onChange={(event) =>
-                          updateField('shippingAddress1', event.target.value)
-                        }
-                        placeholder="House number, road, area"
-                        className="mt-1"
-                      />
+                      <div>
+                        <Label htmlFor="lastName">Last name</Label>
+                        <Input
+                          id="lastName"
+                          value={profileForm.lastName}
+                          onChange={(event) =>
+                            updateProfileField('lastName', event.target.value)
+                          }
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          value={customer.email}
+                          disabled
+                          className="mt-1 bg-gray-100"
+                        />
+                        <p className="mt-1 text-xs text-dh-dark-gray">
+                          Your email is used for login and order receipts.
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={profileForm.phone}
+                          onChange={(event) =>
+                            updateProfileField('phone', event.target.value)
+                          }
+                          placeholder="+260 97X XXX XXX"
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <Label htmlFor="shippingAddress2">Address line 2</Label>
-                      <Input
-                        id="shippingAddress2"
-                        value={formData.shippingAddress2}
-                        onChange={(event) =>
-                          updateField('shippingAddress2', event.target.value)
-                        }
-                        placeholder="Apartment, suite, landmark"
-                        className="mt-1"
-                      />
-                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isSavingProfile}
+                      className="h-12 rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      {isSavingProfile ? (
+                        'Saving...'
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-5 w-5" />
+                          Save account details
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                )}
+              </section>
 
-                    <div>
-                      <Label htmlFor="shippingCity">City</Label>
-                      <Input
-                        id="shippingCity"
-                        value={formData.shippingCity}
-                        onChange={(event) =>
-                          updateField('shippingCity', event.target.value)
-                        }
-                        placeholder="Lusaka"
-                        className="mt-1"
-                      />
-                    </div>
+              <section className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-2xl font-bold text-dh-primary">
+                      Saved addresses
+                    </h2>
 
-                    <div>
-                      <Label htmlFor="shippingProvince">Province</Label>
-                      <Input
-                        id="shippingProvince"
-                        value={formData.shippingProvince}
-                        onChange={(event) =>
-                          updateField('shippingProvince', event.target.value)
-                        }
-                        placeholder="Lusaka"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="shippingPostcode">Postcode</Label>
-                      <Input
-                        id="shippingPostcode"
-                        value={formData.shippingPostcode}
-                        onChange={(event) =>
-                          updateField('shippingPostcode', event.target.value)
-                        }
-                        placeholder="10101"
-                        className="mt-1"
-                      />
-                    </div>
+                    <p className="mt-1 text-sm text-dh-dark-gray">
+                      Save up to 5 delivery addresses. Your default address
+                      automatically appears during checkout.
+                    </p>
                   </div>
+
+                  <Button
+                    type="button"
+                    onClick={openNewAddressForm}
+                    disabled={!canAddAddress || isAddressFormOpen}
+                    className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add address
+                  </Button>
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="h-12 rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
-                >
-                  {isSaving ? (
-                    'Saving...'
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-5 w-5" />
-                      Save account details
-                    </>
-                  )}
-                </Button>
-              </form>
+                {!canAddAddress && (
+                  <div className="mb-5 rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-800">
+                    You have reached the limit of 5 saved addresses. Delete one
+                    address before adding another.
+                  </div>
+                )}
+
+                {isAddressesLoading ? (
+                  <div className="rounded-2xl bg-dh-gray p-8 text-center">
+                    <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-dh-primary" />
+                    <p className="text-sm text-dh-dark-gray">
+                      Loading saved addresses...
+                    </p>
+                  </div>
+                ) : savedAddresses.length > 0 ? (
+                  <div className="grid gap-4">
+                    {savedAddresses.map((address) => (
+                      <AddressCard
+                        key={address.id}
+                        address={address}
+                        isDefault={
+                          address.id === defaultAddressId ||
+                          Boolean(address.isDefault)
+                        }
+                        isBusy={busyAddressId === address.id}
+                        onEdit={() => openEditAddressForm(address)}
+                        onSetDefault={() => handleSetDefaultAddress(address.id)}
+                        onDelete={() => handleDeleteAddress(address.id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-3xl bg-dh-gray p-8 text-center">
+                    <MapPin className="mx-auto mb-4 h-10 w-10 text-dh-primary" />
+
+                    <h3 className="font-display text-xl font-bold text-dh-primary">
+                      No saved addresses yet
+                    </h3>
+
+                    <p className="mx-auto mt-2 max-w-md text-sm text-dh-dark-gray">
+                      Add your first delivery address so checkout can fill it
+                      automatically next time.
+                    </p>
+
+                    <Button
+                      type="button"
+                      onClick={openNewAddressForm}
+                      className="mt-5 rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add first address
+                    </Button>
+                  </div>
+                )}
+
+                {isAddressFormOpen && (
+                  <form
+                    onSubmit={handleSaveAddress}
+                    className="mt-6 rounded-3xl border border-dh-light-gray bg-dh-gray p-5 sm:p-6"
+                  >
+                    <div className="mb-5 flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="font-display text-xl font-bold text-dh-primary">
+                          {editingAddressId ? 'Edit address' : 'Add new address'}
+                        </h3>
+
+                        <p className="mt-1 text-sm text-dh-dark-gray">
+                          This address can be selected as your checkout default.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={closeAddressForm}
+                        className="rounded-full bg-white p-2 text-dh-primary hover:bg-red-50 hover:text-red-600"
+                        aria-label="Close address form"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="addressLabel">Address label</Label>
+                        <Input
+                          id="addressLabel"
+                          value={addressForm.label}
+                          onChange={(event) =>
+                            updateAddressField('label', event.target.value)
+                          }
+                          placeholder="Home, Office, Parents..."
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="addressFullName">Full name</Label>
+                        <Input
+                          id="addressFullName"
+                          value={addressForm.fullName}
+                          onChange={(event) =>
+                            updateAddressField('fullName', event.target.value)
+                          }
+                          placeholder="Receiver name"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="addressPhone">Phone number</Label>
+                        <Input
+                          id="addressPhone"
+                          value={addressForm.phone}
+                          onChange={(event) =>
+                            updateAddressField('phone', event.target.value)
+                          }
+                          placeholder="+260 97X XXX XXX"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="addressPostcode">Postcode</Label>
+                        <Input
+                          id="addressPostcode"
+                          value={addressForm.postcode}
+                          onChange={(event) =>
+                            updateAddressField('postcode', event.target.value)
+                          }
+                          placeholder="10101"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label htmlFor="address1">Address line 1</Label>
+                        <Input
+                          id="address1"
+                          value={addressForm.address1}
+                          onChange={(event) =>
+                            updateAddressField('address1', event.target.value)
+                          }
+                          placeholder="House number, road, area"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label htmlFor="address2">Address line 2</Label>
+                        <Input
+                          id="address2"
+                          value={addressForm.address2}
+                          onChange={(event) =>
+                            updateAddressField('address2', event.target.value)
+                          }
+                          placeholder="Apartment, suite, landmark"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="addressCity">City</Label>
+                        <Input
+                          id="addressCity"
+                          value={addressForm.city}
+                          onChange={(event) =>
+                            updateAddressField('city', event.target.value)
+                          }
+                          placeholder="Lusaka"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="addressProvince">Province</Label>
+                        <Input
+                          id="addressProvince"
+                          value={addressForm.province}
+                          onChange={(event) =>
+                            updateAddressField('province', event.target.value)
+                          }
+                          placeholder="Lusaka"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-4 text-sm text-dh-dark-gray">
+                      <input
+                        type="checkbox"
+                        checked={addressForm.isDefault}
+                        onChange={(event) =>
+                          updateAddressField('isDefault', event.target.checked)
+                        }
+                        className="mt-1 h-4 w-4 rounded border-dh-light-gray"
+                      />
+
+                      <span>
+                        Use this as my default delivery address for checkout.
+                      </span>
+                    </label>
+
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <Button
+                        type="submit"
+                        disabled={isSavingAddress}
+                        className="h-12 rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        {isSavingAddress ? (
+                          'Saving address...'
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-5 w-5" />
+                            {editingAddressId ? 'Update address' : 'Save address'}
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={closeAddressForm}
+                        className="h-12 rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
             </div>
 
             <aside className="space-y-6">
@@ -855,6 +1366,49 @@ export default function AccountPage() {
                     </Link>
                   </div>
                 )}
+              </div>
+
+              <div className="rounded-3xl bg-white p-6 shadow-sm">
+                <h2 className="font-display text-xl font-bold text-dh-primary">
+                  Default checkout address
+                </h2>
+
+                <div className="mt-5 rounded-2xl bg-dh-gray p-4">
+                  {defaultAddress ? (
+                    <>
+                      <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        Default
+                      </div>
+
+                      <p className="font-semibold text-dh-primary">
+                        {defaultAddress.label}
+                      </p>
+
+                      <p className="mt-1 text-sm text-dh-dark-gray">
+                        {defaultAddress.fullName}
+                      </p>
+
+                      <p className="text-sm text-dh-dark-gray">
+                        {defaultAddress.phone}
+                      </p>
+
+                      <p className="mt-2 text-sm text-dh-dark-gray">
+                        {getAddressLine(defaultAddress)}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="mb-3 h-8 w-8 text-dh-primary" />
+                      <p className="font-semibold text-dh-primary">
+                        No default address yet
+                      </p>
+                      <p className="mt-1 text-sm text-dh-dark-gray">
+                        Add an address and set it as default for faster checkout.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="rounded-3xl bg-white p-6 shadow-sm">
