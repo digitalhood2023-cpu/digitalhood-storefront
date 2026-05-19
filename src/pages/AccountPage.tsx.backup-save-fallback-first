@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -342,7 +342,6 @@ function AddressCard({
 
 export default function AccountPage() {
   const navigate = useNavigate()
-  const savedAddressesSectionRef = useRef<HTMLElement | null>(null)
 
   const {
     customer,
@@ -507,19 +506,7 @@ export default function AccountPage() {
     )
   }, [defaultAddressId, displayAddresses])
 
-  const canAddAddress = displayAddresses.length < 5
-
-  const scrollToSavedAddresses = () => {
-    savedAddressesSectionRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    })
-  }
-
-  const isFallbackOnlyAddressList =
-    savedAddresses.length === 0 &&
-    displayAddresses.length === 1 &&
-    displayAddresses[0]?.id === 'customer_default_address'
+  const canAddAddress = savedAddresses.length < 5
 
   const updateProfileField = (
     field: keyof typeof profileForm,
@@ -665,23 +652,6 @@ export default function AccountPage() {
     }
 
     try {
-      if (!editingAddressId && isFallbackOnlyAddressList && displayAddresses[0]) {
-        const fallbackAddress = displayAddresses[0]
-
-        await addCustomerSavedAddress({
-          label: fallbackAddress.label || 'Default Address',
-          fullName: fallbackAddress.fullName,
-          phone: fallbackAddress.phone,
-          address1: fallbackAddress.address1,
-          address2: fallbackAddress.address2 || '',
-          city: fallbackAddress.city,
-          province: fallbackAddress.province,
-          postcode: fallbackAddress.postcode || '10101',
-          country: fallbackAddress.country || 'ZM',
-          isDefault: true,
-        })
-      }
-
       const response = editingAddressId
         ? await updateCustomerSavedAddress(editingAddressId, payload)
         : await addCustomerSavedAddress(payload)
@@ -950,14 +920,12 @@ export default function AccountPage() {
               href="/wishlist"
             />
 
-            <button type="button" onClick={scrollToSavedAddresses} className="text-left">
-              <DashboardCard
-                icon={<Home className="h-6 w-6" />}
-                label="Saved Addresses"
-                value={`${displayAddresses.length}/5`}
-                helper="Manage delivery locations."
-              />
-            </button>
+            <DashboardCard
+              icon={<Home className="h-6 w-6" />}
+              label="Saved Addresses"
+              value={`${displayAddresses.length}/5`}
+              helper="Manage delivery locations."
+            />
 
             <DashboardCard
               icon={<Truck className="h-6 w-6" />}
@@ -1126,7 +1094,7 @@ export default function AccountPage() {
                 )}
               </section>
 
-              <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-3xl bg-white p-6 shadow-sm sm:p-8">
+              <section className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-display text-2xl font-bold text-dh-primary">
