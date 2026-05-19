@@ -535,7 +535,7 @@ export default function AccountPage() {
       ...emptyAddressForm,
       fullName,
       phone: customer?.billing?.phone || '',
-      isDefault: displayAddresses.length === 0,
+      isDefault: savedAddresses.length === 0,
     })
     setEditingAddressId('')
   }
@@ -648,7 +648,7 @@ export default function AccountPage() {
       province: addressForm.province.trim(),
       postcode: addressForm.postcode.trim() || '10101',
       country: addressForm.country.trim() || 'ZM',
-      isDefault: Boolean(addressForm.isDefault),
+      isDefault: Boolean(addressForm.isDefault || savedAddresses.length === 0),
     }
 
     try {
