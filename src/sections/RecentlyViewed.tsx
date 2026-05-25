@@ -1,205 +1,86 @@
-import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Heart, ShoppingCart, Star, Eye, Check, X } from 'lucide-react'
-import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
-import { useWishlist } from '@/context/WishlistContext'
-import { useCartStore } from '@/store/cartStore'
-import { Button } from '@/components/ui/button'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { Eye, X } from 'lucide-react'
 
-gsap.registerPlugin(ScrollTrigger)
+import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
+
+function formatPrice(price: number) {
+  return `K${Number(price || 0).toLocaleString('en-ZM', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function getProductUrl(product: { id: string | number; slug?: string }) {
+  return `/product/${product.slug || product.id}`
+}
 
 export default function RecentlyViewed() {
-  const { items, hasItems, clearRecentlyViewed } = useRecentlyViewed()
-  const { toggleWishlist, isInWishlist } = useWishlist()
-  const addItem = useCartStore((state) => state.addItem)
-
-  const [addedToCart, setAddedToCart] = useState<string | null>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!hasItems) return
-
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        '.recently-viewed-title',
-        { y: 30, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.6,
-          ease: 'expo.out',
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: 'top 85%',
-            toggleActions: 'play none none none',
-          },
-        }
-      )
-
-      gsap.fromTo(
-        '.recent-item',
-        { y: 40, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.5,
-          stagger: 0.1,
-          ease: 'expo.out',
-          scrollTrigger: {
-            trigger: '.recently-viewed-grid',
-            start: 'top 80%',
-            toggleActions: 'play none none none',
-          },
-        }
-      )
-    }, sectionRef)
-
-    return () => ctx.revert()
-  }, [hasItems, items])
-
-  const handleAddToCart = (product: typeof items[number]) => {
-    addItem(
-      {
-        id: Number(product.id),
-        name: product.name,
-        slug: product.name.toLowerCase().replace(/\s+/g, '-'),
-        price: product.price,
-        regular_price: product.originalPrice || product.price,
-        image: product.image,
-      },
-      1
-    )
-
-    setAddedToCart(String(product.id))
-
-    setTimeout(() => {
-      setAddedToCart(null)
-    }, 2000)
-  }
-
-  const formatPrice = (price: number) => `K${price.toLocaleString()}`
+  const { items, hasItems, removeRecentlyViewed } = useRecentlyViewed()
 
   if (!hasItems) return null
 
   return (
-    <section
-      ref={sectionRef}
-      className="py-16 lg:py-24 bg-gray-50 border-t border-gray-200"
-    >
+    <section className="bg-white py-8 lg:py-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="recently-viewed-title flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="mb-4 flex items-center justify-between gap-4">
           <div>
-            <h2 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-black mb-2">
-              Recently Viewed
-            </h2>
+            <p className="mb-1 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-dh-primary">
+              <Eye className="h-3.5 w-3.5" />
+              Continue shopping
+            </p>
 
-            <p className="text-gray-600">Pick up where you left off</p>
+            <h2 className="font-display text-2xl font-bold text-dh-primary">
+              Recently viewed
+            </h2>
           </div>
 
-          <button
-            onClick={clearRecentlyViewed}
-            className="flex items-center gap-2 text-gray-500 hover:text-red-500 transition-colors text-sm"
+          <Link
+            to="/recently-viewed"
+            className="rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
           >
-            <X className="w-4 h-4" />
-            Clear History
-          </button>
+            View all
+          </Link>
         </div>
 
-        <div className="recently-viewed-grid overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 min-w-max sm:min-w-0">
-            {items.slice(0, 6).map((product) => (
-              <div
+        <div className="-mx-4 overflow-x-auto px-4 pb-2">
+          <div className="flex gap-4">
+            {items.slice(0, 10).map((product) => (
+              <article
                 key={product.id}
-                className="recent-item group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 w-48 sm:w-auto flex-shrink-0 sm:flex-shrink"
+                className="group relative w-40 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-dh-light-gray transition-all hover:-translate-y-1 hover:shadow-lg sm:w-44"
               >
-                <div className="relative aspect-square overflow-hidden bg-gray-100">
-                  <Link to={`/product/${product.id}`}>
+                <button
+                  type="button"
+                  onClick={() => removeRecentlyViewed(product.id)}
+                  className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-dh-primary shadow-sm transition-colors hover:bg-red-500 hover:text-white"
+                  aria-label={`Remove ${product.name}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <Link to={getProductUrl(product)}>
+                  <div className="aspect-square bg-dh-gray">
                     <img
-                      src={product.image}
+                      src={product.image || '/logo.jpg'}
                       alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={(event) => {
+                        event.currentTarget.src = '/logo.jpg'
+                      }}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                  </Link>
-
-                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <button
-                      onClick={() => toggleWishlist(product)}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
-                        isInWishlist(product.id)
-                          ? 'bg-red-500 text-white'
-                          : 'bg-white text-gray-600 hover:text-red-500'
-                      }`}
-                      aria-label="Add to wishlist"
-                    >
-                      <Heart
-                        className={`w-4 h-4 ${
-                          isInWishlist(product.id) ? 'fill-current' : ''
-                        }`}
-                      />
-                    </button>
-
-                    <Link
-                      to={`/product/${product.id}`}
-                      className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-black transition-all hover:scale-110"
-                      aria-label="View product"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="p-3">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Star className="w-3 h-3 fill-[#ffb54a] text-[#ffb54a]" />
-
-                    <span className="text-xs font-medium">
-                      {product.rating}
-                    </span>
                   </div>
 
-                  <Link to={`/product/${product.id}`}>
-                    <h3 className="text-sm font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2 min-h-[2.5rem]">
+                  <div className="p-3">
+                    <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-dh-primary group-hover:text-dh-secondary">
                       {product.name}
                     </h3>
-                  </Link>
 
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-display font-bold text-sm">
+                    <p className="mt-2 font-display text-sm font-bold text-dh-primary">
                       {formatPrice(product.price)}
-                    </span>
-
-                    {product.originalPrice && (
-                      <span className="text-xs text-gray-400 line-through">
-                        {formatPrice(product.originalPrice)}
-                      </span>
-                    )}
+                    </p>
                   </div>
-
-                  <Button
-                    onClick={() => handleAddToCart(product)}
-                    className={`w-full transition-all text-xs h-8 ${
-                      addedToCart === String(product.id)
-                        ? 'bg-green-500 hover:bg-green-600'
-                        : 'bg-black hover:bg-[#ffb54a] hover:text-black'
-                    } text-white`}
-                    size="sm"
-                  >
-                    {addedToCart === String(product.id) ? (
-                      <>
-                        <Check className="w-3 h-3 mr-1" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCart className="w-3 h-3 mr-1" />
-                        Add
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
+                </Link>
+              </article>
             ))}
           </div>
         </div>

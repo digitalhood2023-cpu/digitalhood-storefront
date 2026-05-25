@@ -45,7 +45,6 @@ import {
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
-import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
 
 import gsap from 'gsap'
 
@@ -153,7 +152,6 @@ export default function ProductPage() {
   const addItem = useCartStore((state) => state.addItem)
   const clearCart = useCartStore((state) => state.clearCart)
   const { toggleWishlist, isInWishlist } = useWishlist()
-  const { addToRecentlyViewed } = useRecentlyViewed()
 
   const pageRef = useRef<HTMLDivElement>(null)
 
@@ -224,22 +222,6 @@ export default function ProductPage() {
       })
       .finally(() => setIsLoading(false))
   }, [slug])
-
-  useEffect(() => {
-    if (!product) return
-
-    addToRecentlyViewed({
-      id: String(product.id),
-      name: product.name,
-      slug: product.slug || String(product.id),
-      price: Number(product.price || 0),
-      image: product.image || product.images?.[0] || '/logo.jpg',
-      rating: Number(product.averageRating || 0),
-      reviews: Number(product.ratingCount || 0),
-      category: product.categories?.[0]?.name || 'Marketplace',
-      inStock: product.stockStatus !== 'outofstock',
-    })
-  }, [product, addToRecentlyViewed])
 
   useEffect(() => {
     if (!product) return

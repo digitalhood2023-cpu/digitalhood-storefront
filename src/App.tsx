@@ -13,6 +13,7 @@ const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const WishlistPage = lazy(() => import('@/pages/WishlistPage'))
+const RecentlyViewedPage = lazy(() => import('@/pages/RecentlyViewedPage'))
 const TrackOrderPage = lazy(() => import('@/pages/TrackOrderPage'))
 const AccountPage = lazy(() => import('@/pages/AccountPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
@@ -64,6 +65,7 @@ function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/recently-viewed" element={<RecentlyViewedPage />} />
               <Route path="/track-order" element={<TrackOrderPage />} />
 
               <Route path="/account" element={<AccountPage />} />

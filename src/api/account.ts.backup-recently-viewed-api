@@ -372,35 +372,3 @@ export async function logoutCustomerAccount() {
     clearAccountToken()
   }
 }
-export type RecentlyViewedResponse = {
-  success: boolean
-  productIds: number[]
-  products: AccountProduct[]
-}
-
-export async function getCustomerRecentlyViewed() {
-  return accountFetch<RecentlyViewedResponse>('/api/account/recently-viewed')
-}
-
-export async function addCustomerRecentlyViewedItem(productId: number) {
-  return accountFetch<RecentlyViewedResponse>('/api/account/recently-viewed', {
-    method: 'POST',
-    body: JSON.stringify({ productId }),
-  })
-}
-
-export async function removeCustomerRecentlyViewedItem(productId: number) {
-  return accountFetch<RecentlyViewedResponse>(
-    `/api/account/recently-viewed/${productId}`,
-    {
-      method: 'DELETE',
-    }
-  )
-}
-
-export async function removeCustomerRecentlyViewedItems(productIds: number[]) {
-  return accountFetch<RecentlyViewedResponse>('/api/account/recently-viewed', {
-    method: 'DELETE',
-    body: JSON.stringify({ productIds }),
-  })
-}

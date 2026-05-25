@@ -239,6 +239,8 @@ export default function Home() {
       <main>
         <Hero />
 
+        <RecentlyViewed />
+
         {isLoadingProducts ? (
           <MarketplaceHomeSkeleton />
         ) : loadError ? (
@@ -290,7 +292,6 @@ export default function Home() {
 
         <Categories />
 
-        <RecentlyViewed />
         <Testimonials />
         <Services />
 
