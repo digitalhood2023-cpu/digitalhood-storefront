@@ -229,8 +229,6 @@ export default function CheckoutPage() {
   const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false)
   const [isAddingCheckoutAddress, setIsAddingCheckoutAddress] = useState(false)
   const [isSavingCheckoutAddress, setIsSavingCheckoutAddress] = useState(false)
-  const [saveCheckoutAddressAsDefault, setSaveCheckoutAddressAsDefault] =
-    useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'card' | 'cod'>(
     'mobile'
@@ -352,7 +350,6 @@ export default function CheckoutPage() {
     setIsAddressPickerOpen(false)
     setIsAddingCheckoutAddress(true)
     setSelectedSavedAddressId('')
-    setSaveCheckoutAddressAsDefault(savedAddresses.length === 0)
 
     setFormData((current) => ({
       ...current,
@@ -373,7 +370,6 @@ export default function CheckoutPage() {
 
   const cancelAddCheckoutAddress = () => {
     setIsAddingCheckoutAddress(false)
-    setSaveCheckoutAddressAsDefault(false)
 
     if (selectedSavedAddress) {
       applySavedAddressToForm(selectedSavedAddress)
@@ -421,7 +417,7 @@ export default function CheckoutPage() {
         province: formData.province.trim(),
         postcode: formData.postcode.trim() || DEFAULT_POSTCODE,
         country: 'ZM',
-        isDefault: savedAddresses.length === 0 || saveCheckoutAddressAsDefault,
+        isDefault: savedAddresses.length === 0,
       })
 
       const addresses = response.addresses || []
@@ -435,8 +431,6 @@ export default function CheckoutPage() {
       if (newAddress) {
         applySavedAddressToForm(newAddress)
       }
-
-      setSaveCheckoutAddressAsDefault(false)
 
       await refreshCheckoutSavedAddresses()
     } catch (error) {
@@ -1550,33 +1544,6 @@ export default function CheckoutPage() {
                         />
                       </div>
                     </div>
-
-
-
-                    {isAuthenticated && (
-                      <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-4 text-sm text-dh-dark-gray">
-                        <input
-                          type="checkbox"
-                          checked={saveCheckoutAddressAsDefault}
-                          disabled={savedAddresses.length === 0}
-                          onChange={(event) =>
-                            setSaveCheckoutAddressAsDefault(event.target.checked)
-                          }
-                          className="mt-1 h-4 w-4 rounded border-dh-light-gray"
-                        />
-
-                        <span>
-                          <span className="block font-semibold text-dh-primary">
-                            Use this as my default delivery address
-                          </span>
-                          <span className="mt-1 block text-dh-dark-gray">
-                            {savedAddresses.length === 0
-                              ? 'Your first saved address will automatically become your default.'
-                              : 'Default addresses appear automatically next time you checkout.'}
-                          </span>
-                        </span>
-                      </label>
-                    )}
 
                     {isAuthenticated && (
                       <Button
