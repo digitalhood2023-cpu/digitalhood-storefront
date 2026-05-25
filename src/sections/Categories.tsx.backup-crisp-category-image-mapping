@@ -16,163 +16,89 @@ function getShopCategoryUrl(slug: string) {
   return `/shop?category=${slug}`
 }
 
-const categoryImageRules: Array<{
-  keywords: string[]
-  image: string
-}> = [
-  {
-    keywords: ['adapter', 'adaptor', 'charger adapter', 'wall charger', 'plug'],
-    image:
-      'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['adhesive', 'glue', 'tape', 'repair adhesive', 'seal'],
-    image:
-      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['battery', 'batteries', 'power cell', 'phone battery'],
-    image:
-      'https://images.unsplash.com/photo-1609592806596-b43bada2f569?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['bluetooth', 'speaker', 'wireless speaker'],
-    image:
-      'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['cable', 'cables', 'usb cable', 'charging cable', 'type c', 'type-c', 'lightning'],
-    image:
-      'https://images.unsplash.com/photo-1619362513491-3d00ec2467bb?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['earphone', 'earphones', 'earbud', 'earbuds', 'headphone', 'headphones', 'audio'],
-    image:
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['screen protector', 'protector', 'tempered glass', 'glass protector'],
-    image:
-      'https://images.unsplash.com/photo-1604671368394-2240d0b1bb6c?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['cover', 'case', 'phone case', 'back cover', 'silicone case'],
-    image:
-      'https://images.unsplash.com/photo-1601593346740-925612772716?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['smartphone', 'smartphones', 'phone', 'phones', 'mobile phone', 'mobile phones'],
-    image:
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['iphone', 'apple'],
-    image:
-      'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['samsung', 'galaxy'],
-    image:
-      'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['laptop', 'laptops', 'computer', 'computers', 'macbook', 'notebook'],
-    image:
-      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['tablet', 'tablets', 'ipad', 'e-reader', 'e reader'],
-    image:
-      'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['camera', 'cameras', 'photography'],
-    image:
-      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['tv', 'television', 'home theater', 'home theatre', 'monitor', 'display'],
-    image:
-      'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['game', 'gaming', 'console', 'playstation', 'xbox'],
-    image:
-      'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['watch', 'smartwatch', 'smart watch', 'wearable'],
-    image:
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['power bank', 'powerbank', 'portable charger'],
-    image:
-      'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['repair', 'spare', 'spares', 'parts', 'replacement', 'tools', 'tool'],
-    image:
-      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['deal', 'deals', 'sale', 'offers', 'discount'],
-    image:
-      'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=900&h=650&fit=crop&q=90',
-  },
-  {
-    keywords: ['service', 'services', 'support'],
-    image:
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&h=650&fit=crop&q=90',
-  },
-]
+const categoryImageFallbacks: Record<string, string> = {
+  smartphones:
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
+  phones:
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
+  'mobile-phones':
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
+  iphone:
+    'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&h=600&fit=crop',
+  samsung:
+    'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&h=600&fit=crop',
+  laptops:
+    'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop',
+  'laptops-computers':
+    'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop',
+  computers:
+    'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop',
+  accessories:
+    'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=800&h=600&fit=crop',
+  'phone-accessories':
+    'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=800&h=600&fit=crop',
+  audio:
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
+  'audio-headphones':
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
+  headphones:
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
+  tablets:
+    'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop',
+  'tablets-e-readers':
+    'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop',
+  cameras:
+    'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop',
+  'cameras-photography':
+    'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop',
+  tv:
+    'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
+  'tv-home-theater':
+    'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
+  gaming:
+    'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
+  deals:
+    'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=800&h=600&fit=crop',
+  services:
+    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=600&fit=crop',
+}
 
 const defaultCategoryImages = [
-  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900&h=650&fit=crop&q=90',
-  'https://images.unsplash.com/photo-1619362513491-3d00ec2467bb?w=900&h=650&fit=crop&q=90',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=650&fit=crop&q=90',
-  'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=900&h=650&fit=crop&q=90',
-  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=900&h=650&fit=crop&q=90',
-  'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
+  'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=800&h=600&fit=crop',
 ]
-
-function normalizeCategoryText(value = '') {
-  return value
-    .toLowerCase()
-    .replace(/&amp;/g, 'and')
-    .replace(/[-_/]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
 
 function getCategoryImage(category: WooCategory, index: number) {
   const currentImage = String(category.image || '')
 
-  if (
-    currentImage &&
-    !currentImage.includes('/logo.jpg') &&
-    !currentImage.endsWith('logo.jpg')
-  ) {
+  if (currentImage && !currentImage.includes('/logo.jpg') && !currentImage.endsWith('logo.jpg')) {
     return currentImage
   }
 
-  const slug = normalizeCategoryText(category.slug || '')
-  const name = normalizeCategoryText(category.name || '')
-  const description = normalizeCategoryText(category.description || '')
-  const searchableText = `${slug} ${name} ${description}`
+  const slug = String(category.slug || '').toLowerCase()
+  const name = String(category.name || '').toLowerCase()
 
-  const matchedRule = categoryImageRules.find((rule) =>
-    rule.keywords.some((keyword) =>
-      searchableText.includes(normalizeCategoryText(keyword))
-    )
-  )
+  if (categoryImageFallbacks[slug]) {
+    return categoryImageFallbacks[slug]
+  }
 
-  if (matchedRule) {
-    return matchedRule.image
+  const matchedKey = Object.keys(categoryImageFallbacks).find((key) => {
+    return slug.includes(key) || name.includes(key.replace(/-/g, ' '))
+  })
+
+  if (matchedKey) {
+    return categoryImageFallbacks[matchedKey]
   }
 
   return defaultCategoryImages[index % defaultCategoryImages.length]
 }
+
 
 function CategorySkeleton() {
   return (
@@ -339,10 +265,10 @@ export default function Categories() {
                     onError={(event) => {
                       event.currentTarget.src = '/logo.jpg'
                     }}
-                    className="w-full h-full object-cover object-center brightness-[0.96] contrast-[1.06] saturate-[1.08] transition-transform duration-700 group-hover:scale-110"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-dh-primary/80 via-dh-primary/25 to-transparent opacity-65 group-hover:opacity-80 transition-opacity duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-dh-primary/85 via-dh-primary/25 to-transparent opacity-70 group-hover:opacity-85 transition-opacity duration-500" />
 
                   <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full">
                     <span className="text-sm font-semibold text-dh-primary">
