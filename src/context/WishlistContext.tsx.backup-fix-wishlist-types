@@ -9,9 +9,9 @@ import React, {
 } from 'react'
 
 import {
-  addCustomerWishlistItem,
+  addCustomerWishlistProduct,
   getCustomerWishlist,
-  removeCustomerWishlistItem,
+  removeCustomerWishlistProduct,
 } from '@/api/account'
 
 import { useAccount } from '@/context/AccountContext'
@@ -79,68 +79,6 @@ function getProductId(product: Product | string | number) {
   return normalizeId(product.id)
 }
 
-function accountProductToWishlistProduct(product: any): Product {
-  const image =
-    product.image ||
-    product.images?.[0]?.src ||
-    product.images?.[0]?.url ||
-    product.images?.[0] ||
-    '/logo.jpg'
-
-  const categories = Array.isArray(product.categories) ? product.categories : []
-  const firstCategory = categories[0]
-
-  return {
-    id: String(product.id),
-    name: product.name || 'Product',
-    price: Number(product.price || 0),
-    originalPrice:
-      product.originalPrice !== undefined
-        ? Number(product.originalPrice)
-        : product.regular_price !== undefined
-          ? Number(product.regular_price)
-          : undefined,
-    image: String(image || '/logo.jpg'),
-    images: Array.isArray(product.images)
-      ? product.images
-          .map((item: any) => {
-            if (typeof item === 'string') return item
-            return item?.src || item?.url || ''
-          })
-          .filter(Boolean)
-      : undefined,
-    rating: Number(product.rating || product.average_rating || 0),
-    reviews: Number(product.reviews || product.review_count || product.rating_count || 0),
-    category:
-      product.category ||
-      firstCategory?.name ||
-      firstCategory?.slug ||
-      '',
-    inStock:
-      product.inStock !== undefined
-        ? Boolean(product.inStock)
-        : product.stockStatus
-          ? product.stockStatus !== 'outofstock'
-          : product.stock_status !== 'outofstock',
-    stockCount:
-      product.stockCount !== undefined
-        ? Number(product.stockCount)
-        : product.stock_quantity !== undefined && product.stock_quantity !== null
-          ? Number(product.stock_quantity)
-          : undefined,
-    badge: product.badge || product.stock_label || undefined,
-    description: product.description || product.short_description || undefined,
-    sku: product.sku || undefined,
-    brand: product.brand || undefined,
-    condition: product.condition || undefined,
-  }
-}
-
-function normalizeBackendWishlistProducts(products: any[]): Product[] {
-  return (products || []).map(accountProductToWishlistProduct)
-}
-
-
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, customer } = useAccount()
 
@@ -164,7 +102,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await getCustomerWishlist()
-      const backendProducts = normalizeBackendWishlistProducts(response.products || [])
+      const backendProducts = response.products || []
 
       setItems((current) => {
         const merged = dedupeProducts([...backendProducts, ...current])
@@ -200,7 +138,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       try {
         const localItems = loadStoredWishlist()
         const response = await getCustomerWishlist()
-        const backendProducts = normalizeBackendWishlistProducts(response.products || [])
+        const backendProducts = response.products || []
         const backendProductIds = new Set(
           (response.productIds || []).map((id) => normalizeId(id))
         )
@@ -210,7 +148,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
             const productId = normalizeId(product.id)
 
             if (!backendProductIds.has(productId)) {
-              await addCustomerWishlistItem(Number(productId))
+              await addCustomerWishlistProduct(Number(productId))
               backendProductIds.add(productId)
             }
           }
@@ -219,7 +157,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
           const updatedResponse = await getCustomerWishlist()
           const mergedProducts = dedupeProducts([
-            ...normalizeBackendWishlistProducts(updatedResponse.products || []),
+            ...(updatedResponse.products || []),
             ...localItems,
           ])
 
@@ -273,7 +211,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (isAuthenticated) {
-        addCustomerWishlistItem(Number(productId)).catch((error: unknown) => {
+        addCustomerWishlistProduct(Number(productId)).catch((error) => {
           console.error(error)
         })
       }
@@ -290,8 +228,8 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       )
 
       if (isAuthenticated) {
-        removeCustomerWishlistItem(Number(normalizedProductId)).catch(
-          (error: unknown) => {
+        removeCustomerWishlistProduct(Number(normalizedProductId)).catch(
+          (error) => {
             console.error(error)
           }
         )
