@@ -16,90 +16,6 @@ function getShopCategoryUrl(slug: string) {
   return `/shop?category=${slug}`
 }
 
-const categoryImageFallbacks: Record<string, string> = {
-  smartphones:
-    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
-  phones:
-    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
-  'mobile-phones':
-    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
-  iphone:
-    'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&h=600&fit=crop',
-  samsung:
-    'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&h=600&fit=crop',
-  laptops:
-    'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop',
-  'laptops-computers':
-    'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop',
-  computers:
-    'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop',
-  accessories:
-    'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=800&h=600&fit=crop',
-  'phone-accessories':
-    'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=800&h=600&fit=crop',
-  audio:
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
-  'audio-headphones':
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
-  headphones:
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
-  tablets:
-    'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop',
-  'tablets-e-readers':
-    'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop',
-  cameras:
-    'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop',
-  'cameras-photography':
-    'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop',
-  tv:
-    'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
-  'tv-home-theater':
-    'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
-  gaming:
-    'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
-  deals:
-    'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=800&h=600&fit=crop',
-  services:
-    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=600&fit=crop',
-}
-
-const defaultCategoryImages = [
-  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=800&h=600&fit=crop',
-]
-
-function getCategoryImage(category: WooCategory, index: number) {
-  const currentImage = String(category.image || '')
-
-  if (currentImage && !currentImage.includes('/logo.jpg') && !currentImage.endsWith('logo.jpg')) {
-    return currentImage
-  }
-
-  const slug = String(category.slug || '').toLowerCase()
-  const name = String(category.name || '').toLowerCase()
-
-  if (categoryImageFallbacks[slug]) {
-    return categoryImageFallbacks[slug]
-  }
-
-  const matchedKey = Object.keys(categoryImageFallbacks).find((key) => {
-    return slug.includes(key) || name.includes(key.replace(/-/g, ' '))
-  })
-
-  if (matchedKey) {
-    return categoryImageFallbacks[matchedKey]
-  }
-
-  return defaultCategoryImages[index % defaultCategoryImages.length]
-}
-
-
 function CategorySkeleton() {
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -252,7 +168,7 @@ export default function Categories() {
             ref={cardsRef}
             className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {categories.map((category, index) => (
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 to={getShopCategoryUrl(category.slug)}
@@ -260,7 +176,7 @@ export default function Categories() {
               >
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={getCategoryImage(category, index)}
+                    src={category.image || '/logo.jpg'}
                     alt={category.name}
                     onError={(event) => {
                       event.currentTarget.src = '/logo.jpg'
