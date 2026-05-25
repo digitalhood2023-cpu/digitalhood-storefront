@@ -441,123 +441,109 @@ export default function OrderDetailsPage() {
             </span>
           </nav>
 
-          <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 flex flex-wrap items-center gap-3">
+          <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+            <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="p-6 sm:p-8 lg:p-10">
                 <Link
                   to="/orders"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
+                  className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to orders
                 </Link>
 
-                <span className="inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
                   <ReceiptText className="h-4 w-4" />
                   Order #{order.number || order.id}
-                </span>
-              </div>
-
-              <div className="rounded-3xl bg-dh-gray p-5">
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-dh-primary">
-                  <PackageCheck className="h-3.5 w-3.5" />
-                  Current status
                 </div>
 
-                <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary sm:text-3xl">
-                  {getStatusTitle(order.status)}
-                </h1>
+                <div className="rounded-3xl bg-dh-gray p-5">
+                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary lg:text-3xl">
+                    {getStatusTitle(order.status)}
+                  </h1>
 
-                <p className="mt-3 text-sm leading-relaxed text-dh-dark-gray">
-                  Placed on {formatDate(order.dateCreated)}.
-                </p>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-dh-light-gray bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Status
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
+                    Placed on {formatDate(order.dateCreated)}. Review your
+                    items, payment, delivery details, and current progress below.
                   </p>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
                   <span
-                    className={`mt-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${getStatusStyle(
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${getStatusStyle(
                       order.status
                     )}`}
                   >
+                    <PackageCheck className="h-4 w-4" />
                     {order.statusLabel || order.status}
                   </span>
-                </div>
 
-                <div className="rounded-2xl border border-dh-light-gray bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Items
-                  </p>
-                  <p className="mt-2 font-display text-xl font-bold text-dh-primary">
-                    {itemCount}
-                  </p>
-                </div>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-dh-light-gray bg-white px-4 py-2 text-sm font-semibold text-dh-primary">
+                    <ShoppingBag className="h-4 w-4" />
+                    {itemCount} item(s)
+                  </span>
 
-                <div className="rounded-2xl border border-dh-light-gray bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Total
-                  </p>
-                  <p className="mt-2 font-display text-xl font-bold text-dh-primary">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-dh-light-gray bg-white px-4 py-2 text-sm font-semibold text-dh-primary">
+                    <CreditCard className="h-4 w-4" />
                     {formatPrice(order.total, order.currency)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-                  <Truck className="h-6 w-6" />
-                </div>
-
-                <div>
-                  <h2 className="font-display text-2xl font-bold text-dh-primary">
-                    Delivery summary
-                  </h2>
-
-                  <p className="mt-1 text-sm text-dh-dark-gray">
-                    Estimated delivery and next steps for this order.
-                  </p>
+                  </span>
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl bg-dh-gray p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Expected delivery
-                  </p>
+              <div className="border-t border-dh-light-gray bg-dh-gray p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-10">
+                <div className="rounded-3xl bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+                      <Truck className="h-6 w-6" />
+                    </div>
 
-                  <p className="mt-1 font-display text-lg font-bold text-dh-primary">
-                    {order.deliveryEstimate?.label || 'Not available yet'}
-                  </p>
+                    <div>
+                      <h2 className="font-display text-2xl font-bold text-dh-primary">
+                        Delivery summary
+                      </h2>
 
-                  <p className="mt-1 text-sm text-dh-dark-gray">
-                    {order.deliveryEstimate?.window ||
-                      'Delivery details will update as your order progresses.'}
-                  </p>
+                      <p className="mt-1 text-sm text-dh-dark-gray">
+                        Estimated delivery and next steps for this order.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <div className="rounded-2xl bg-dh-gray p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                        Expected delivery
+                      </p>
+
+                      <p className="mt-1 font-display text-lg font-bold text-dh-primary">
+                        {order.deliveryEstimate?.label || 'Not available yet'}
+                      </p>
+
+                      <p className="mt-1 text-sm text-dh-dark-gray">
+                        {order.deliveryEstimate?.window ||
+                          'Delivery details will update as your order progresses.'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-green-50 p-4 text-green-800">
+                      <p className="text-sm font-semibold">What happens next</p>
+
+                      <p className="mt-1 text-sm text-green-700">
+                        {getNextStepMessage(order.status)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-dh-gray p-4 text-sm text-dh-dark-gray">
+                      <p className="font-semibold text-dh-primary">
+                        Delivery days
+                      </p>
+
+                      <p className="mt-1">
+                        Deliveries are handled Monday to Saturday, depending on
+                        your location and order confirmation time.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="rounded-2xl bg-green-50 p-4 text-green-800">
-                  <p className="text-sm font-semibold">What happens next</p>
-
-                  <p className="mt-1 text-sm text-green-700">
-                    {getNextStepMessage(order.status)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-2xl bg-dh-gray p-4 text-sm text-dh-dark-gray">
-                <p className="font-semibold text-dh-primary">
-                  Delivery schedule
-                </p>
-
-                <p className="mt-1">
-                  Deliveries are handled Monday to Saturday, depending on your
-                  location and order confirmation time.
-                </p>
               </div>
             </div>
           </section>
