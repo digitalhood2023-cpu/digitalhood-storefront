@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
+  Boxes,
   ChevronRight,
   Grid3X3,
   Search,
   ShoppingBag,
+  Sparkles,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -207,19 +209,28 @@ function CategoryCard({
           className="h-full w-full object-cover object-center brightness-[0.96] contrast-[1.06] saturate-[1.08] transition-transform duration-700 group-hover:scale-110"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-dh-primary/80 via-dh-primary/20 to-transparent opacity-70 transition-opacity duration-500 group-hover:opacity-85" />
+        <div className="absolute inset-0 bg-gradient-to-t from-dh-primary/85 via-dh-primary/25 to-transparent opacity-75 transition-opacity duration-500 group-hover:opacity-90" />
 
         <div className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-dh-primary backdrop-blur">
           {category.productCount} items
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-          <h2 className="font-display text-2xl font-bold leading-tight">
+          <p className="mb-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
+            Category
+          </p>
+
+          <h2 className="font-display text-2xl font-bold">
             {category.name}
           </h2>
 
-          <div className="mt-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-bold text-dh-primary shadow-sm transition-all group-hover:bg-dh-secondary group-hover:text-white">
-            Browse products
+          <p className="mt-2 line-clamp-2 text-sm text-white/80">
+            {category.description ||
+              `Explore ${category.name.toLowerCase()} products available on DigitalHood.`}
+          </p>
+
+          <div className="mt-4 inline-flex items-center text-sm font-semibold">
+            Shop category
             <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
           </div>
         </div>
@@ -311,6 +322,11 @@ export default function CategoriesPage() {
 
   const featuredCategories = filteredCategories.slice(0, 2)
   const regularCategories = filteredCategories.slice(2)
+  const totalProducts = categories.reduce(
+    (total, category) => total + category.productCount,
+    0
+  )
+
   return (
     <div className="min-h-screen bg-dh-gray">
       <SEO
@@ -350,30 +366,34 @@ export default function CategoriesPage() {
                 </p>
               </div>
 
-              <div className="rounded-3xl bg-dh-gray p-5">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-dh-primary shadow-sm">
-                    <ShoppingBag className="h-6 w-6" />
-                  </div>
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                <div className="rounded-2xl bg-dh-gray p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                    Live categories
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                    {categories.length}
+                  </p>
+                </div>
 
-                  <div>
-                    <h2 className="font-display text-xl font-bold text-dh-primary">
-                      Start with a category
-                    </h2>
-
-                    <p className="mt-2 text-sm leading-relaxed text-dh-dark-gray">
-                      Choose a department below, then filter and compare products
-                      inside the shop.
-                    </p>
-                  </div>
+                <div className="rounded-2xl bg-dh-gray p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                    Products indexed
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                    {totalProducts}
+                  </p>
                 </div>
 
                 <Link
                   to="/shop"
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-dh-secondary"
+                  className="rounded-2xl bg-dh-primary p-4 text-white transition-colors hover:bg-dh-secondary"
                 >
-                  Open full shop
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ShoppingBag className="mb-2 h-5 w-5" />
+                  <p className="font-semibold">Go to full shop</p>
+                  <p className="mt-1 text-xs text-white/75">
+                    View all products
+                  </p>
                 </Link>
               </div>
             </div>
@@ -469,7 +489,7 @@ export default function CategoriesPage() {
               </div>
             ) : (
               <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
-                <Grid3X3 className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
+                <Boxes className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
 
                 <h2 className="font-display text-2xl font-bold text-dh-primary">
                   Categories are being prepared
@@ -487,7 +507,7 @@ export default function CategoriesPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-                  <Search className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" />
                 </div>
 
                 <div>
