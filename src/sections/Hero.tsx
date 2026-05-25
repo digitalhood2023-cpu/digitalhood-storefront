@@ -1,17 +1,131 @@
-import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Truck, Shield, CreditCard, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import gsap from 'gsap';
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  ArrowRight,
+  CreditCard,
+  PackageCheck,
+  Shield,
+  ShoppingBag,
+  Star,
+  Truck,
+  Zap,
+} from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+
+import {
+  fetchWooProducts,
+  type WooProduct,
+} from '@/lib/woocommerce'
+
+import gsap from 'gsap'
+
+function safeNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value)
+
+  return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
+function formatPrice(price: number) {
+  return `K${safeNumber(price).toLocaleString('en-ZM', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function getProductUrl(product?: WooProduct | null) {
+  if (!product) return '/shop'
+
+  return `/product/${product.slug || product.id}`
+}
+
+function getDealProducts(products: WooProduct[]) {
+  return products.filter((product) => {
+    const priceHtml = String(product.priceHtml || '').toLowerCase()
+    const stockLabel = String(product.stockLabel || '').toLowerCase()
+
+    return (
+      priceHtml.includes('del') ||
+      priceHtml.includes('sale') ||
+      stockLabel.includes('sale') ||
+      stockLabel.includes('deal')
+    )
+  })
+}
 
 export default function Hero() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const headlineRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null)
+  const headlineRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLDivElement>(null)
+
+  const [products, setProducts] = useState<WooProduct[]>([])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadHeroProducts() {
+      try {
+        const response = await fetchWooProducts(12, 1)
+
+        if (!mounted) return
+
+        setProducts((response.products || []).filter((product) => product.price > 0))
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    loadHeroProducts()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const heroData = useMemo(() => {
+    const availableProducts = products.filter((product) => product.price > 0)
+
+    const newestProducts = [...availableProducts]
+      .sort((a, b) => safeNumber(b.id) - safeNumber(a.id))
+
+    const bestSellerProducts = [...availableProducts]
+      .sort((a, b) => safeNumber(b.totalSales) - safeNumber(a.totalSales))
+
+    const dealProducts = getDealProducts(availableProducts)
+
+    const featuredProduct =
+      dealProducts[0] ||
+      bestSellerProducts[0] ||
+      newestProducts[0] ||
+      availableProducts[0] ||
+      null
+
+    const previewProducts = [
+      featuredProduct,
+      newestProducts.find((product) => product.id !== featuredProduct?.id),
+      bestSellerProducts.find((product) => product.id !== featuredProduct?.id),
+    ].filter(Boolean) as WooProduct[]
+
+    return {
+      featuredProduct,
+      previewProducts,
+      productCount: availableProducts.length,
+      dealCount: dealProducts.length,
+      newArrivalCount: newestProducts.length,
+      bestSeller:
+        bestSellerProducts.find((product) => safeNumber(product.totalSales) > 0) ||
+        bestSellerProducts[0] ||
+        null,
+    }
+  }, [products])
+
+  const featuredImage =
+    heroData.featuredProduct?.image ||
+    heroData.featuredProduct?.images?.[0] ||
+    '/logo.jpg'
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Headline animation
       gsap.fromTo(
         '.hero-line',
         { y: 40, opacity: 0, clipPath: 'inset(100% 0 0 0)' },
@@ -24,9 +138,8 @@ export default function Hero() {
           ease: 'expo.out',
           delay: 0.3,
         }
-      );
+      )
 
-      // Subheadline animation
       gsap.fromTo(
         '.hero-subheadline',
         { y: 20, opacity: 0, filter: 'blur(10px)' },
@@ -38,9 +151,8 @@ export default function Hero() {
           ease: 'power2.out',
           delay: 0.9,
         }
-      );
+      )
 
-      // CTA buttons animation
       gsap.fromTo(
         '.hero-cta',
         { scale: 0.9, opacity: 0 },
@@ -52,9 +164,8 @@ export default function Hero() {
           ease: 'back.out(1.7)',
           delay: 1.1,
         }
-      );
+      )
 
-      // Hero image animation
       gsap.fromTo(
         imageRef.current,
         { opacity: 0, rotateY: 15, z: -100 },
@@ -66,9 +177,8 @@ export default function Hero() {
           ease: 'expo.out',
           delay: 0.5,
         }
-      );
+      )
 
-      // Trust indicators animation
       gsap.fromTo(
         '.trust-item',
         { scale: 0.8, opacity: 0 },
@@ -80,9 +190,8 @@ export default function Hero() {
           ease: 'back.out(1.7)',
           delay: 1.4,
         }
-      );
+      )
 
-      // Floating orbs animation
       gsap.to('.orb-1', {
         x: 30,
         y: -20,
@@ -90,7 +199,7 @@ export default function Hero() {
         repeat: -1,
         yoyo: true,
         ease: 'sine.inOut',
-      });
+      })
 
       gsap.to('.orb-2', {
         x: -20,
@@ -100,7 +209,7 @@ export default function Hero() {
         yoyo: true,
         ease: 'sine.inOut',
         delay: 2,
-      });
+      })
 
       gsap.to('.orb-3', {
         x: 15,
@@ -110,150 +219,261 @@ export default function Hero() {
         yoyo: true,
         ease: 'sine.inOut',
         delay: 4,
-      });
+      })
 
-      // Hero image micro-float
       gsap.to(imageRef.current, {
         y: -8,
         duration: 5,
         repeat: -1,
         yoyo: true,
         ease: 'sine.inOut',
-      });
-    }, heroRef);
+      })
+    }, heroRef)
 
-    return () => ctx.revert();
-  }, []);
+    return () => ctx.revert()
+  }, [])
 
   return (
     <section
       ref={heroRef}
-      className="relative min-h-[90vh] lg:min-h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-[#ffb54a]/10"
+      className="relative min-h-[90vh] overflow-hidden bg-gradient-to-br from-gray-50 via-white to-[#ffb54a]/10 lg:min-h-screen"
     >
-      {/* Floating Orbs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="orb-1 absolute top-20 left-10 w-64 h-64 bg-black/5 rounded-full blur-3xl" />
-        <div className="orb-2 absolute bottom-20 right-20 w-80 h-80 bg-[#ffb54a]/20 rounded-full blur-3xl" />
-        <div className="orb-3 absolute top-1/2 left-1/3 w-48 h-48 bg-black/5 rounded-full blur-2xl" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="orb-1 absolute left-10 top-20 h-64 w-64 rounded-full bg-black/5 blur-3xl" />
+        <div className="orb-2 absolute bottom-20 right-20 h-80 w-80 rounded-full bg-[#ffb54a]/20 blur-3xl" />
+        <div className="orb-3 absolute left-1/3 top-1/2 h-48 w-48 rounded-full bg-black/5 blur-2xl" />
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-12 lg:py-20 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center min-h-[70vh]">
-          {/* Content */}
-          <div className="order-2 lg:order-1 text-center lg:text-left">
-            {/* Slogan Badge */}
-            <div className="inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-full mb-6">
-              <Zap className="w-4 h-4 text-[#ffb54a]" />
-              <span className="text-sm font-medium tracking-wide">FIXING TOMORROW TODAY</span>
+      <div className="container relative z-10 mx-auto px-4 py-12 sm:px-6 lg:px-8 lg:py-20 xl:px-12">
+        <div className="grid min-h-[70vh] items-center gap-8 lg:grid-cols-2 lg:gap-12">
+          <div className="order-2 text-center lg:order-1 lg:text-left">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-white">
+              <Zap className="h-4 w-4 text-[#ffb54a]" />
+              <span className="text-sm font-medium tracking-wide">
+                FIXING TOMORROW TODAY
+              </span>
             </div>
 
             <div ref={headlineRef} className="mb-6">
-              <h1 className="font-display font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight">
+              <h1 className="font-display text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl xl:text-7xl">
                 <span className="hero-line block text-black">Premium Tech</span>
                 <span className="hero-line block text-black">For Zambia</span>
                 <span className="hero-line block text-[#ffb54a]">Delivered</span>
               </h1>
             </div>
 
-            <p className="hero-subheadline text-lg sm:text-xl text-gray-600 max-w-xl mx-auto lg:mx-0 mb-8">
-              Discover quality smartphones, accessories, and gadgets at unbeatable prices. 
-              Fast delivery across Zambia.
+            <p className="hero-subheadline mx-auto mb-8 max-w-xl text-lg text-gray-600 sm:text-xl lg:mx-0">
+              Shop real products from the DigitalHood marketplace. Discover
+              phones, accessories, gadgets, and everyday tech with secure
+              checkout and delivery across Zambia.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-10">
+            <div className="mb-8 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
               <Link to="/shop" className="hero-cta">
-                <Button 
-                  size="lg" 
-                  className="bg-black hover:bg-[#ffb54a] hover:text-black text-white px-8 py-6 text-lg rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 group"
+                <Button
+                  size="lg"
+                  className="group rounded-full bg-black px-8 py-6 text-lg text-white shadow-lg transition-all hover:scale-105 hover:bg-[#ffb54a] hover:text-black hover:shadow-xl"
                 >
-                  Shop Now
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  Shop marketplace
+                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
-              <Link to="/deals" className="hero-cta">
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className="border-2 border-black text-black hover:bg-black hover:text-white px-8 py-6 text-lg rounded-full transition-all"
+
+              <Link to="/shop?sort=newest" className="hero-cta">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full border-2 border-black px-8 py-6 text-lg text-black transition-all hover:bg-black hover:text-white"
                 >
-                  Explore Deals
+                  New arrivals
                 </Button>
               </Link>
             </div>
 
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap justify-center lg:justify-start gap-4 lg:gap-6">
-              <div className="trust-item flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
-                <div className="w-8 h-8 bg-[#ffb54a]/20 rounded-full flex items-center justify-center">
-                  <Truck className="w-4 h-4 text-black" />
+            <div className="mb-10 grid gap-3 sm:grid-cols-3">
+              <Link
+                to="/shop?sort=newest"
+                className="hero-cta rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  New arrivals
+                </p>
+                <p className="mt-1 font-display text-2xl font-bold text-black">
+                  {heroData.newArrivalCount || 'Live'}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Fresh products</p>
+              </Link>
+
+              <Link
+                to="/shop"
+                className="hero-cta rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Verified store
+                </p>
+                <p className="mt-1 font-display text-2xl font-bold text-black">
+                  {heroData.productCount || 'Ready'}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Products loaded</p>
+              </Link>
+
+              <Link
+                to="/shop?sort=best-selling"
+                className="hero-cta rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Best sellers
+                </p>
+                <p className="mt-1 line-clamp-1 font-display text-lg font-bold text-black">
+                  {heroData.bestSeller?.name || 'Popular picks'}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Customer favourites</p>
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4 lg:justify-start lg:gap-6">
+              <div className="trust-item flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-gray-600 shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ffb54a]/20">
+                  <Truck className="h-4 w-4 text-black" />
                 </div>
-                <span>Free Delivery</span>
+                <span>Zambia delivery</span>
               </div>
-              <div className="trust-item flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
-                <div className="w-8 h-8 bg-[#ffb54a]/20 rounded-full flex items-center justify-center">
-                  <Shield className="w-4 h-4 text-black" />
+
+              <div className="trust-item flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-gray-600 shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ffb54a]/20">
+                  <Shield className="h-4 w-4 text-black" />
                 </div>
-                <span>Quality Guaranteed</span>
+                <span>Verified checkout</span>
               </div>
-              <div className="trust-item flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
-                <div className="w-8 h-8 bg-[#ffb54a]/20 rounded-full flex items-center justify-center">
-                  <CreditCard className="w-4 h-4 text-black" />
+
+              <div className="trust-item flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-gray-600 shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ffb54a]/20">
+                  <CreditCard className="h-4 w-4 text-black" />
                 </div>
-                <span>Secure Payment</span>
+                <span>Card & mobile money</span>
               </div>
             </div>
           </div>
 
-          {/* Hero Image */}
-          <div className="order-1 lg:order-2 flex justify-center lg:justify-end" style={{ perspective: '1000px' }}>
+          <div
+            className="order-1 flex justify-center lg:order-2 lg:justify-end"
+            style={{ perspective: '1000px' }}
+          >
             <div
               ref={imageRef}
-              className="relative"
+              className="relative w-full max-w-md lg:max-w-lg xl:max-w-xl"
               style={{ transformStyle: 'preserve-3d' }}
             >
-              {/* Main Image */}
-              <div className="relative z-10">
-                <img
-                  src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&h=700&fit=crop"
-                  alt="Premium Tech Products"
-                  className="w-full max-w-md lg:max-w-lg xl:max-w-xl rounded-3xl shadow-2xl"
-                />
-              </div>
+              <Link to={getProductUrl(heroData.featuredProduct)} className="relative z-10 block">
+                <div className="overflow-hidden rounded-3xl bg-white p-3 shadow-2xl">
+                  <img
+                    src={featuredImage}
+                    alt={heroData.featuredProduct?.name || 'DigitalHood marketplace product'}
+                    onError={(event) => {
+                      event.currentTarget.src = '/logo.jpg'
+                    }}
+                    className="aspect-[5/5.7] w-full rounded-2xl object-cover"
+                  />
 
-              {/* Floating Cards */}
-              <div className="absolute -left-4 lg:-left-8 top-1/4 bg-white rounded-2xl shadow-lg p-3 lg:p-4 animate-float z-20">
-                <div className="flex items-center gap-2 lg:gap-3">
-                  <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#ffb54a]/20 rounded-xl flex items-center justify-center">
-                    <span className="text-xl lg:text-2xl">📱</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-black text-sm lg:text-base">New Arrivals</p>
-                    <p className="text-xs text-gray-500">Latest Models</p>
+                  <div className="mt-3 rounded-2xl bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Featured product
+                        </p>
+                        <p className="mt-1 line-clamp-1 font-display text-lg font-bold text-black">
+                          {heroData.featuredProduct?.name || 'DigitalHood Marketplace'}
+                        </p>
+                      </div>
+
+                      {heroData.featuredProduct && (
+                        <p className="shrink-0 rounded-full bg-[#ffb54a]/20 px-3 py-1 text-sm font-bold text-black">
+                          {formatPrice(heroData.featuredProduct.price)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Link>
 
-              <div className="absolute -right-2 lg:-right-4 bottom-1/4 bg-white rounded-2xl shadow-lg p-3 lg:p-4 animate-float z-20" style={{ animationDelay: '1s' }}>
+              <Link
+                to="/shop?sort=newest"
+                className="absolute -left-4 top-1/4 z-20 rounded-2xl bg-white p-3 shadow-lg transition-transform hover:-translate-y-1 lg:-left-8 lg:p-4"
+              >
                 <div className="flex items-center gap-2 lg:gap-3">
-                  <div className="w-10 h-10 lg:w-12 lg:h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                    <span className="text-xl lg:text-2xl">✓</span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ffb54a]/20 lg:h-12 lg:w-12">
+                    <ShoppingBag className="h-5 w-5 text-black" />
                   </div>
                   <div>
-                    <p className="font-semibold text-green-600 text-sm lg:text-base">Verified</p>
-                    <p className="text-xs text-gray-500">Authentic Products</p>
+                    <p className="text-sm font-semibold text-black lg:text-base">
+                      New arrivals
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {heroData.newArrivalCount
+                        ? `${heroData.newArrivalCount} live products`
+                        : 'Live store'}
+                    </p>
                   </div>
                 </div>
-              </div>
+              </Link>
 
-              {/* Decorative Elements */}
-              <div className="absolute -z-10 -bottom-4 lg:-bottom-6 -right-4 lg:-right-6 w-full h-full bg-black/5 rounded-3xl" />
-              <div className="absolute -z-20 -bottom-8 lg:-bottom-12 -right-8 lg:-right-12 w-full h-full bg-[#ffb54a]/10 rounded-3xl" />
+              <Link
+                to="/shop"
+                className="absolute -right-2 bottom-1/4 z-20 rounded-2xl bg-white p-3 shadow-lg transition-transform hover:-translate-y-1 lg:-right-4 lg:p-4"
+                style={{ animationDelay: '1s' }}
+              >
+                <div className="flex items-center gap-2 lg:gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 lg:h-12 lg:w-12">
+                    <PackageCheck className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-green-600 lg:text-base">
+                      Verified
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Real store products
+                    </p>
+                  </div>
+                </div>
+              </Link>
+
+              {heroData.previewProducts.length > 0 && (
+                <div className="absolute -bottom-6 left-4 right-4 z-20 hidden rounded-3xl bg-white/95 p-3 shadow-xl backdrop-blur md:block">
+                  <div className="grid grid-cols-3 gap-2">
+                    {heroData.previewProducts.slice(0, 3).map((product) => (
+                      <Link
+                        key={product.id}
+                        to={getProductUrl(product)}
+                        className="group rounded-2xl p-2 transition-colors hover:bg-gray-50"
+                      >
+                        <img
+                          src={product.image || product.images?.[0] || '/logo.jpg'}
+                          alt={product.name}
+                          onError={(event) => {
+                            event.currentTarget.src = '/logo.jpg'
+                          }}
+                          className="mb-2 aspect-square w-full rounded-xl object-cover"
+                        />
+                        <p className="line-clamp-1 text-xs font-semibold text-black group-hover:text-[#ffb54a]">
+                          {product.name}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
+                          <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
+                          {safeNumber(product.averageRating).toFixed(1)}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="absolute -bottom-4 -right-4 -z-10 h-full w-full rounded-3xl bg-black/5 lg:-bottom-6 lg:-right-6" />
+              <div className="absolute -bottom-8 -right-8 -z-20 h-full w-full rounded-3xl bg-[#ffb54a]/10 lg:-bottom-12 lg:-right-12" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Wave */}
       <div className="absolute bottom-0 left-0 right-0">
         <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
@@ -263,5 +483,5 @@ export default function Hero() {
         </svg>
       </div>
     </section>
-  );
+  )
 }
