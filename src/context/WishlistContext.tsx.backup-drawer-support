@@ -25,9 +25,6 @@ interface WishlistContextType {
   toggleWishlist: (product: Product) => void
   refreshWishlist: () => Promise<void>
   isSyncing: boolean
-  isWishlistDrawerOpen: boolean
-  openWishlistDrawer: () => void
-  closeWishlistDrawer: () => void
 }
 
 const WISHLIST_STORAGE_KEY = 'digitalhood-wishlist'
@@ -149,7 +146,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
   const [items, setItems] = useState<Product[]>(() => loadStoredWishlist())
   const [isSyncing, setIsSyncing] = useState(false)
-  const [isWishlistDrawerOpen, setIsWishlistDrawerOpen] = useState(false)
 
   const hasMergedLocalWishlistRef = useRef(false)
   const previousCustomerIdRef = useRef<string>('')
@@ -304,14 +300,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     [isAuthenticated]
   )
 
-  const openWishlistDrawer = useCallback(() => {
-    setIsWishlistDrawerOpen(true)
-  }, [])
-
-  const closeWishlistDrawer = useCallback(() => {
-    setIsWishlistDrawerOpen(false)
-  }, [])
-
   const itemIds = useMemo(() => {
     return new Set(items.map((item) => normalizeId(item.id)))
   }, [items])
@@ -346,9 +334,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         toggleWishlist,
         refreshWishlist,
         isSyncing,
-        isWishlistDrawerOpen,
-        openWishlistDrawer,
-        closeWishlistDrawer,
       }}
     >
       {children}

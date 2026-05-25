@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  ArrowLeft,
+  Grid3X3,
   Heart,
+  List,
+  ShoppingBag,
   ShoppingCart,
   Trash2,
-  ArrowLeft,
-  ShoppingBag,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -72,15 +75,15 @@ function canBuyDirectly(product: WishlistProduct) {
 }
 
 export default function WishlistPage() {
-  const { items, removeFromWishlist } = useWishlist()
+  const { items, removeFromWishlist, isSyncing, openWishlistDrawer } = useWishlist()
   const addItem = useCartStore((state) => state.addItem)
+
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const wishlistItems = items as unknown as WishlistProduct[]
 
   const handleAddToCart = (product: WishlistProduct) => {
-    if (!canBuyDirectly(product)) {
-      return
-    }
+    if (!canBuyDirectly(product)) return
 
     addItem(
       {
@@ -90,8 +93,8 @@ export default function WishlistPage() {
         name: product.name,
         slug: product.slug,
         type: product.type,
-        price: product.price,
-        regular_price: product.regular_price || product.price,
+        price: normalizePrice(product.price),
+        regular_price: normalizePrice(product.regular_price || product.price),
         image: getProductImage(product),
         stock_status: product.stockStatus || product.stock_status,
         stock_quantity: product.stockQuantity ?? product.stock_quantity,
@@ -105,90 +108,123 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dh-gray">
       <SEO
-        title="Wishlist"
+        title="Wishlist | DigitalHood Marketplace"
         description="View your saved DigitalHood Marketplace products."
         path="/wishlist"
       />
 
       <Header />
 
-      <main className="py-8">
+      <main className="py-5 lg:py-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <div className="mb-8">
-            <Link
-              to="/shop"
-              className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-black"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Continue shopping
-            </Link>
+          <Link
+            to="/shop"
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Continue shopping
+          </Link>
 
-            <div className="rounded-3xl bg-black p-6 text-white md:p-8">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">
-                    <Heart className="h-4 w-4 text-[#ffb54a]" />
-                    Saved products
-                  </div>
+          <section className="mb-5 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                  <Heart className="h-4 w-4" />
+                  Saved products
+                </p>
 
-                  <h1 className="font-display text-3xl font-bold md:text-4xl">
-                    Your Wishlist
-                  </h1>
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl">
+                  Your wishlist
+                </h1>
 
-                  <p className="mt-2 max-w-2xl text-white/70">
-                    Keep track of products you like and come back when you are ready to buy.
-                  </p>
+                <p className="mt-2 text-sm text-dh-dark-gray">
+                  {wishlistItems.length === 0
+                    ? 'Products you save will appear here.'
+                    : `${wishlistItems.length} saved product${wishlistItems.length === 1 ? '' : 's'}.`}
+                  {isSyncing ? ' Syncing...' : ''}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <div className="flex overflow-hidden rounded-full border border-dh-light-gray">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`flex h-10 w-11 items-center justify-center transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-dh-primary text-white'
+                        : 'bg-white text-dh-primary hover:bg-dh-gray'
+                    }`}
+                    aria-label="Grid view"
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`flex h-10 w-11 items-center justify-center transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-dh-primary text-white'
+                        : 'bg-white text-dh-primary hover:bg-dh-gray'
+                    }`}
+                    aria-label="List view"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
                 </div>
 
-                <div className="rounded-2xl bg-white/10 px-5 py-4 text-center">
-                  <p className="text-3xl font-bold">{wishlistItems.length}</p>
-                  <p className="text-sm text-white/70">
-                    {wishlistItems.length === 1 ? 'item saved' : 'items saved'}
-                  </p>
-                </div>
+                <Button
+                  type="button"
+                  onClick={openWishlistDrawer}
+                  variant="outline"
+                  className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                >
+                  Open drawer
+                </Button>
               </div>
             </div>
-          </div>
+          </section>
 
           {wishlistItems.length === 0 ? (
-            <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-                <Heart className="h-10 w-10 text-gray-400" />
+            <section className="rounded-3xl bg-white p-10 text-center shadow-sm">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-dh-gray text-dh-primary">
+                <Heart className="h-10 w-10" />
               </div>
 
-              <h2 className="mb-2 text-2xl font-bold text-black">
+              <h2 className="font-display text-2xl font-bold text-dh-primary">
                 Your wishlist is empty
               </h2>
 
-              <p className="mx-auto mb-6 max-w-md text-gray-600">
-                Save products you like by tapping the heart icon. They will appear here for quick access.
+              <p className="mx-auto mt-2 max-w-md text-sm text-dh-dark-gray">
+                Save products you like by tapping the heart icon.
               </p>
 
               <Link to="/shop">
-                <Button className="rounded-full bg-black px-6 text-white hover:bg-[#ffb54a] hover:text-black">
+                <Button className="mt-6 rounded-full bg-dh-primary px-6 text-white hover:bg-dh-secondary">
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   Start shopping
                 </Button>
               </Link>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            </section>
+          ) : viewMode === 'grid' ? (
+            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
               {wishlistItems.map((product) => {
                 const directBuy = canBuyDirectly(product)
 
                 return (
-                  <div
+                  <article
                     key={String(product.id)}
-                    className="overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                    className="group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-transparent transition-all hover:-translate-y-1 hover:ring-dh-primary/20 hover:shadow-xl"
                   >
-                    <div className="relative aspect-square bg-gray-100">
+                    <div className="relative aspect-square bg-dh-gray">
                       <Link to={`/product/${getProductSlug(product)}`}>
                         <img
                           src={getProductImage(product)}
                           alt={product.name}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           loading="lazy"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
@@ -203,7 +239,7 @@ export default function WishlistPage() {
                       <button
                         type="button"
                         onClick={() => removeFromWishlist(String(product.id))}
-                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-red-500 shadow-sm transition hover:scale-105 hover:bg-red-500 hover:text-white"
+                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-red-500 shadow-sm transition hover:bg-red-500 hover:text-white"
                         aria-label={`Remove ${product.name} from wishlist`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -212,49 +248,128 @@ export default function WishlistPage() {
 
                     <div className="p-4">
                       <Link to={`/product/${getProductSlug(product)}`}>
-                        <h2 className="mb-2 line-clamp-2 font-semibold text-black transition hover:text-[#ffb54a]">
+                        <h2 className="line-clamp-2 min-h-[2.75rem] font-semibold leading-snug text-dh-primary transition hover:text-dh-secondary">
                           {product.name}
                         </h2>
                       </Link>
 
-                      <div className="mb-4 flex items-center justify-between gap-3">
-                        <p className="font-display text-lg font-bold text-black">
-                          {formatPrice(product.price)}
-                        </p>
-                      </div>
+                      <p className="mt-3 font-display text-xl font-bold text-dh-primary">
+                        {formatPrice(product.price)}
+                      </p>
 
-                      <div className="grid gap-2">
+                      <div className="mt-4 grid gap-2">
+                        {directBuy ? (
+                          <Button
+                            type="button"
+                            onClick={() => handleAddToCart(product)}
+                            className="w-full rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
+                          >
+                            <ShoppingCart className="mr-2 h-4 w-4" />
+                            Add to cart
+                          </Button>
+                        ) : (
+                          <Link to={`/product/${getProductSlug(product)}`}>
+                            <Button className="w-full rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
+                              Choose options
+                            </Button>
+                          </Link>
+                        )}
+
                         <Link to={`/product/${getProductSlug(product)}`}>
                           <Button
                             variant="outline"
-                            className="w-full rounded-xl border-black text-black hover:bg-black hover:text-white"
+                            className="w-full rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
                           >
                             View product
                           </Button>
                         </Link>
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </section>
+          ) : (
+            <section className="grid gap-4">
+              {wishlistItems.map((product) => {
+                const directBuy = canBuyDirectly(product)
+
+                return (
+                  <article
+                    key={String(product.id)}
+                    className="group overflow-hidden rounded-3xl bg-white shadow-sm transition-all hover:shadow-xl"
+                  >
+                    <div className="grid gap-0 sm:grid-cols-[180px_minmax(0,1fr)_240px]">
+                      <Link
+                        to={`/product/${getProductSlug(product)}`}
+                        className="block aspect-[4/3] overflow-hidden bg-dh-gray sm:aspect-auto"
+                      >
+                        <img
+                          src={getProductImage(product)}
+                          alt={product.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.src = '/logo.jpg'
+                          }}
+                        />
+                      </Link>
+
+                      <div className="min-w-0 p-4 sm:p-5">
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          <StockBadge item={product as any} />
+                          <span className="rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold text-dh-primary">
+                            Saved
+                          </span>
+                        </div>
+
+                        <Link to={`/product/${getProductSlug(product)}`}>
+                          <h2 className="line-clamp-2 font-display text-xl font-bold leading-snug text-dh-primary hover:text-dh-secondary">
+                            {product.name}
+                          </h2>
+                        </Link>
+
+                        <p className="mt-2 text-sm text-dh-dark-gray">
+                          Saved to your wishlist for quick access.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col justify-center gap-3 bg-dh-gray p-4 sm:p-5">
+                        <p className="font-display text-2xl font-bold text-dh-primary">
+                          {formatPrice(product.price)}
+                        </p>
 
                         {directBuy ? (
                           <Button
                             type="button"
                             onClick={() => handleAddToCart(product)}
-                            className="w-full rounded-xl bg-black text-white hover:bg-[#ffb54a] hover:text-black"
+                            className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
                           >
                             <ShoppingCart className="mr-2 h-4 w-4" />
-                            Add to Cart
+                            Add to cart
                           </Button>
                         ) : (
                           <Link to={`/product/${getProductSlug(product)}`}>
-                            <Button className="w-full rounded-xl bg-black text-white hover:bg-[#ffb54a] hover:text-black">
+                            <Button className="w-full rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
                               Choose options
                             </Button>
                           </Link>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => removeFromWishlist(String(product.id))}
+                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 )
               })}
-            </div>
+            </section>
           )}
         </div>
       </main>
