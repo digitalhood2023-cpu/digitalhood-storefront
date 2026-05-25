@@ -6,7 +6,6 @@ import {
   Grid3X3,
   Search,
   ShoppingBag,
-  TrendingUp,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -20,11 +19,163 @@ import {
   type WooCategory,
 } from '@/lib/woocommerce'
 
-import {
-  getCategoryInsightLabel,
-  getCategoryVisual,
-  sortCategoriesForMarketplace,
-} from '@/lib/categoryIntelligence'
+const categoryImageRules: Array<{
+  keywords: string[]
+  image: string
+}> = [
+  {
+    keywords: ['adapter', 'adaptor', 'charger adapter', 'wall charger', 'plug'],
+    image:
+      'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['adhesive', 'glue', 'tape', 'repair adhesive', 'seal'],
+    image:
+      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['battery', 'batteries', 'phone battery', 'replacement battery'],
+    image:
+      'https://images.unsplash.com/photo-1609592806596-b43bada2f569?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['bluetooth', 'speaker', 'wireless speaker'],
+    image:
+      'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['cable', 'cables', 'usb cable', 'charging cable', 'type c', 'type-c', 'lightning'],
+    image:
+      'https://images.unsplash.com/photo-1619362513491-3d00ec2467bb?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['earphone', 'earphones', 'earbud', 'earbuds', 'headphone', 'headphones', 'audio'],
+    image:
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['screen protector', 'protector', 'tempered glass', 'glass protector'],
+    image:
+      'https://images.unsplash.com/photo-1604671368394-2240d0b1bb6c?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['cover', 'case', 'phone case', 'back cover', 'silicone case'],
+    image:
+      'https://images.unsplash.com/photo-1601593346740-925612772716?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['smartphone', 'smartphones', 'phone', 'phones', 'mobile phone', 'mobile phones'],
+    image:
+      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['iphone', 'apple'],
+    image:
+      'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['samsung', 'galaxy'],
+    image:
+      'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['laptop', 'laptops', 'computer', 'computers', 'macbook', 'notebook'],
+    image:
+      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['tablet', 'tablets', 'ipad', 'e-reader', 'e reader'],
+    image:
+      'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['camera', 'cameras', 'photography'],
+    image:
+      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['tv', 'television', 'home theater', 'home theatre', 'monitor', 'display'],
+    image:
+      'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['game', 'gaming', 'console', 'playstation', 'xbox'],
+    image:
+      'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['watch', 'smartwatch', 'smart watch', 'wearable'],
+    image:
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['power bank', 'powerbank', 'portable charger'],
+    image:
+      'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['repair', 'spare', 'spares', 'parts', 'replacement', 'tools', 'tool'],
+    image:
+      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['deal', 'deals', 'sale', 'offers', 'discount'],
+    image:
+      'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['service', 'services', 'support'],
+    image:
+      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&h=650&fit=crop&q=90',
+  },
+]
+
+const defaultCategoryImages = [
+  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1619362513491-3d00ec2467bb?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=900&h=650&fit=crop&q=90',
+]
+
+function normalizeCategoryText(value = '') {
+  return value
+    .toLowerCase()
+    .replace(/&amp;/g, 'and')
+    .replace(/[-_/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getCategoryImage(category: WooCategory, index: number) {
+  const currentImage = String(category.image || '')
+
+  if (
+    currentImage &&
+    !currentImage.includes('/logo.jpg') &&
+    !currentImage.endsWith('logo.jpg')
+  ) {
+    return currentImage
+  }
+
+  const slug = normalizeCategoryText(category.slug || '')
+  const name = normalizeCategoryText(category.name || '')
+  const description = normalizeCategoryText(category.description || '')
+  const searchableText = `${slug} ${name} ${description}`
+
+  const matchedRule = categoryImageRules.find((rule) =>
+    rule.keywords.some((keyword) =>
+      searchableText.includes(normalizeCategoryText(keyword))
+    )
+  )
+
+  if (matchedRule) {
+    return matchedRule.image
+  }
+
+  return defaultCategoryImages[index % defaultCategoryImages.length]
+}
 
 function getShopCategoryUrl(slug: string) {
   return `/shop?category=${slug}`
@@ -39,9 +190,6 @@ function CategoryCard({
   index: number
   featured?: boolean
 }) {
-  const visual = getCategoryVisual(category, index)
-  const insight = getCategoryInsightLabel(category, index)
-
   return (
     <Link
       to={getShopCategoryUrl(category.slug)}
@@ -49,39 +197,28 @@ function CategoryCard({
         featured ? 'lg:col-span-2' : ''
       }`}
     >
-      <div className={`relative overflow-hidden ${featured ? 'h-80' : 'h-60'}`}>
+      <div className={`relative overflow-hidden ${featured ? 'h-72' : 'h-56'}`}>
         <img
-          src={visual.image}
+          src={getCategoryImage(category, index)}
           alt={category.name}
           onError={(event) => {
-            event.currentTarget.src = visual.image
+            event.currentTarget.src = defaultCategoryImages[index % defaultCategoryImages.length]
           }}
-          className="h-full w-full object-cover object-center brightness-[0.97] contrast-[1.08] saturate-[1.12] transition-transform duration-700 group-hover:scale-110"
+          className="h-full w-full object-cover object-center brightness-[0.96] contrast-[1.06] saturate-[1.08] transition-transform duration-700 group-hover:scale-110"
         />
 
-        <div
-          className={`absolute inset-0 bg-gradient-to-t ${visual.tone} opacity-90 transition-opacity duration-500 group-hover:opacity-95`}
-        />
+        <div className="absolute inset-0 bg-gradient-to-t from-dh-primary/80 via-dh-primary/20 to-transparent opacity-70 transition-opacity duration-500 group-hover:opacity-85" />
 
-        <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-dh-primary shadow-sm backdrop-blur">
-          {insight}
-        </div>
-
-        <div className="absolute right-4 top-4 rounded-full bg-dh-secondary px-3 py-1 text-xs font-bold text-dh-primary shadow-sm">
+        <div className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-dh-primary backdrop-blur">
           {category.productCount} items
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-          <h2 className={`font-display font-bold leading-tight ${featured ? 'text-3xl' : 'text-2xl'}`}>
+          <h2 className="font-display text-2xl font-bold leading-tight">
             {category.name}
           </h2>
 
-          <p className="mt-2 line-clamp-2 max-w-lg text-sm text-white/80">
-            {category.description ||
-              `Browse ${category.name.toLowerCase()} products available on DigitalHood.`}
-          </p>
-
-          <div className="mt-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-bold text-dh-primary shadow-sm transition-all group-hover:bg-dh-secondary">
+          <div className="mt-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-bold text-dh-primary shadow-sm transition-all group-hover:bg-dh-secondary group-hover:text-white">
             Browse products
             <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
           </div>
@@ -99,7 +236,7 @@ function CategorySkeleton() {
           key={index}
           className="overflow-hidden rounded-3xl bg-white shadow-sm"
         >
-          <div className="h-60 animate-pulse bg-gray-200" />
+          <div className="h-56 animate-pulse bg-gray-200" />
           <div className="space-y-3 p-5">
             <div className="h-5 w-2/3 animate-pulse rounded-full bg-gray-200" />
             <div className="h-4 w-full animate-pulse rounded-full bg-gray-200" />
@@ -130,9 +267,9 @@ export default function CategoriesPage() {
         if (!mounted) return
 
         setCategories(
-          sortCategoriesForMarketplace(
-            response.filter((category) => category.productCount > 0)
-          )
+          response
+            .filter((category) => category.productCount > 0)
+            .sort((a, b) => b.productCount - a.productCount)
         )
       } catch (error) {
         console.error(error)
@@ -174,9 +311,8 @@ export default function CategoriesPage() {
 
   const featuredCategories = filteredCategories.slice(0, 2)
   const regularCategories = filteredCategories.slice(2)
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-dh-gray to-white">
+    <div className="min-h-screen bg-dh-gray">
       <SEO
         title="Shop Categories | DigitalHood Marketplace Zambia"
         description="Browse DigitalHood marketplace categories including phones, accessories, repair parts, batteries, cables, adapters, audio, laptops, and more."
@@ -196,70 +332,49 @@ export default function CategoriesPage() {
             <span className="font-medium text-dh-primary">Categories</span>
           </nav>
 
-          <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
-            <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="p-6 sm:p-8 lg:p-10">
+          <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6 lg:p-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_0.55fr] lg:items-center">
+              <div>
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
-                  <TrendingUp className="h-4 w-4" />
-                  Smart category browsing
+                  <Grid3X3 className="h-4 w-4" />
+                  Marketplace categories
                 </div>
 
                 <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl lg:text-5xl">
-                  Explore departments matched to real marketplace demand
+                  Browse every category on DigitalHood
                 </h1>
 
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-dh-dark-gray sm:text-base">
-                  Browse high-demand categories first, influenced by live product
-                  availability, marketplace activity, and customer interest.
+                  Find the right products faster. Browse live categories from the
+                  DigitalHood store, then open any category to shop its products.
                 </p>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link
-                    to="/shop"
-                    className="inline-flex items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-dh-secondary"
-                  >
-                    Open full shop
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-
-                  <a
-                    href="#category-grid"
-                    className="inline-flex items-center justify-center rounded-full border border-dh-primary px-5 py-3 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                  >
-                    Browse categories
-                  </a>
-                </div>
               </div>
 
-              <div className="bg-gradient-to-br from-dh-primary via-dh-primary to-[#1f1b7a] p-6 text-white sm:p-8 lg:p-10">
-                <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur">
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-dh-secondary text-dh-primary">
-                    <ShoppingBag className="h-7 w-7" />
+              <div className="rounded-3xl bg-dh-gray p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-dh-primary shadow-sm">
+                    <ShoppingBag className="h-6 w-6" />
                   </div>
 
-                  <h2 className="font-display text-2xl font-bold">
-                    Find products faster
-                  </h2>
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-dh-primary">
+                      Start with a category
+                    </h2>
 
-                  <p className="mt-3 text-sm leading-relaxed text-white/80">
-                    Start with a category, then use the shop filters to compare
-                    products, prices, stock, and delivery options.
-                  </p>
-
-                  <div className="mt-6 grid gap-3">
-                    <div className="rounded-2xl bg-white/10 p-4">
-                      <p className="text-sm font-semibold">
-                        High-demand categories appear first.
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-white/10 p-4">
-                      <p className="text-sm font-semibold">
-                        Customer interest helps shape what you see.
-                      </p>
-                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-dh-dark-gray">
+                      Choose a department below, then filter and compare products
+                      inside the shop.
+                    </p>
                   </div>
                 </div>
+
+                <Link
+                  to="/shop"
+                  className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-dh-secondary"
+                >
+                  Open full shop
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </div>
             </div>
           </section>
@@ -297,7 +412,7 @@ export default function CategoriesPage() {
             </div>
           </section>
 
-          <section id="category-grid" className="mt-8">
+          <section className="mt-8">
             {isLoading ? (
               <CategorySkeleton />
             ) : loadError ? (
