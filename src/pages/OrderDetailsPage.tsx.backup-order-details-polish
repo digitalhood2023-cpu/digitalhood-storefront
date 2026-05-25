@@ -117,48 +117,6 @@ function getStatusTitle(status?: string) {
   return 'Order details'
 }
 
-function getNextStepMessage(status?: string) {
-  const value = normalizeStatus(status)
-
-  if (value === 'pending') {
-    return 'We are waiting for payment confirmation. Once payment is confirmed, your order will move to processing.'
-  }
-
-  if (value === 'on-hold') {
-    return 'Your order is on hold while we confirm payment, stock, or delivery details.'
-  }
-
-  if (value === 'processing') {
-    return 'Our team is preparing your order. We will update the progress once it is shipped.'
-  }
-
-  if (value === 'shipped') {
-    return 'Your order has left dispatch. The next update will show when it is out for delivery.'
-  }
-
-  if (value === 'out-for-delivery' || value === 'outfordelivery') {
-    return 'Your order is on the way. Please keep your delivery phone available.'
-  }
-
-  if (value === 'delivered' || value === 'completed') {
-    return 'Your order has been delivered. Thank you for shopping with DigitalHood.'
-  }
-
-  if (value === 'failed') {
-    return 'Payment failed. You can contact support if money was deducted or if you need help placing the order again.'
-  }
-
-  if (value === 'cancelled') {
-    return 'This order was cancelled. Contact support if you believe this was a mistake.'
-  }
-
-  if (value === 'refunded') {
-    return 'This order has been refunded. Contact support if you need more information.'
-  }
-
-  return 'We will update this page as your order progresses.'
-}
-
 function getProgressSteps(order: AccountOrder) {
   const status = normalizeStatus(order.status)
 
@@ -488,57 +446,29 @@ export default function OrderDetailsPage() {
                 </div>
               </div>
 
-              <div className="border-t border-dh-light-gray bg-dh-gray p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-10">
-                <div className="rounded-3xl bg-white p-6 shadow-sm">
-                  <div className="mb-5 flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-                      <Truck className="h-6 w-6" />
-                    </div>
+              <div className="bg-dh-primary p-6 text-white sm:p-8 lg:p-10">
+                <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                  <Truck className="mb-5 h-12 w-12 text-dh-secondary" />
 
-                    <div>
-                      <h2 className="font-display text-2xl font-bold text-dh-primary">
-                        Delivery summary
-                      </h2>
+                  <h2 className="font-display text-2xl font-bold">
+                    Delivery estimate
+                  </h2>
 
-                      <p className="mt-1 text-sm text-dh-dark-gray">
-                        Estimated delivery and next steps for this order.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="mt-3 text-white/80">
+                    {order.deliveryEstimate?.label || 'Not available yet'}
+                  </p>
 
-                  <div className="grid gap-3">
-                    <div className="rounded-2xl bg-dh-gray p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                        Expected delivery
-                      </p>
+                  <p className="mt-2 text-sm text-white/70">
+                    {order.deliveryEstimate?.window ||
+                      'Delivery details will update as your order progresses.'}
+                  </p>
 
-                      <p className="mt-1 font-display text-lg font-bold text-dh-primary">
-                        {order.deliveryEstimate?.label || 'Not available yet'}
-                      </p>
+                  <div className="mt-6 rounded-2xl bg-white/10 p-4 text-sm">
+                    <p className="font-semibold">Delivery days</p>
 
-                      <p className="mt-1 text-sm text-dh-dark-gray">
-                        {order.deliveryEstimate?.window ||
-                          'Delivery details will update as your order progresses.'}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-green-50 p-4 text-green-800">
-                      <p className="text-sm font-semibold">What happens next</p>
-
-                      <p className="mt-1 text-sm text-green-700">
-                        {getNextStepMessage(order.status)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-dh-gray p-4 text-sm text-dh-dark-gray">
-                      <p className="font-semibold text-dh-primary">
-                        Delivery days
-                      </p>
-
-                      <p className="mt-1">
-                        Monday to Saturday. Sundays are skipped automatically.
-                      </p>
-                    </div>
+                    <p className="mt-1 text-white/70">
+                      Monday to Saturday. Sundays are skipped automatically.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -671,13 +601,9 @@ export default function OrderDetailsPage() {
                   </div>
 
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-dh-gray p-4">
-                    <span className="text-dh-dark-gray">Payment status</span>
-                    <span className="text-right font-semibold text-dh-primary">
-                      {order.datePaid
-                        ? `Confirmed · ${formatDate(order.datePaid)}`
-                        : normalizeStatus(order.status) === 'processing'
-                          ? 'Approved for processing'
-                          : 'Not confirmed yet'}
+                    <span className="text-dh-dark-gray">Paid</span>
+                    <span className="font-semibold text-dh-primary">
+                      {order.datePaid ? formatDate(order.datePaid) : 'Not confirmed yet'}
                     </span>
                   </div>
                 </div>
@@ -693,10 +619,6 @@ export default function OrderDetailsPage() {
                       .filter(Boolean)
                       .join(' ') || 'Customer'}
                   </p>
-
-                  {order.billing?.phone && (
-                    <p>{order.billing.phone}</p>
-                  )}
 
                   <p>{order.shipping?.address1 || 'Address not available'}</p>
 
@@ -719,12 +641,6 @@ export default function OrderDetailsPage() {
                   <p className="mt-1 text-dh-dark-gray">
                     {order.deliveryEstimate?.label || 'Not available yet'}
                   </p>
-
-                  {order.deliveryEstimate?.window && (
-                    <p className="mt-1 text-xs text-dh-dark-gray">
-                      {order.deliveryEstimate.window}
-                    </p>
-                  )}
                 </div>
               </DetailCard>
 
