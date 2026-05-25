@@ -301,10 +301,10 @@ export default function Categories() {
           </div>
 
           <Link
-            to="/shop"
+            to="/categories"
             className="inline-flex items-center justify-center rounded-full border border-dh-primary px-5 py-3 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
           >
-            View all products
+            View all categories
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </div>

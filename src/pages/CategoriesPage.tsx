@@ -1,0 +1,538 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  ArrowRight,
+  Boxes,
+  ChevronRight,
+  Grid3X3,
+  Search,
+  ShoppingBag,
+  Sparkles,
+} from 'lucide-react'
+
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
+import SEO from '@/components/SEO'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+
+import {
+  fetchWooCategories,
+  type WooCategory,
+} from '@/lib/woocommerce'
+
+const categoryImageRules: Array<{
+  keywords: string[]
+  image: string
+}> = [
+  {
+    keywords: ['adapter', 'adaptor', 'charger adapter', 'wall charger', 'plug'],
+    image:
+      'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['adhesive', 'glue', 'tape', 'repair adhesive', 'seal'],
+    image:
+      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['battery', 'batteries', 'phone battery', 'replacement battery'],
+    image:
+      'https://images.unsplash.com/photo-1609592806596-b43bada2f569?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['bluetooth', 'speaker', 'wireless speaker'],
+    image:
+      'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['cable', 'cables', 'usb cable', 'charging cable', 'type c', 'type-c', 'lightning'],
+    image:
+      'https://images.unsplash.com/photo-1619362513491-3d00ec2467bb?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['earphone', 'earphones', 'earbud', 'earbuds', 'headphone', 'headphones', 'audio'],
+    image:
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['screen protector', 'protector', 'tempered glass', 'glass protector'],
+    image:
+      'https://images.unsplash.com/photo-1604671368394-2240d0b1bb6c?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['cover', 'case', 'phone case', 'back cover', 'silicone case'],
+    image:
+      'https://images.unsplash.com/photo-1601593346740-925612772716?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['smartphone', 'smartphones', 'phone', 'phones', 'mobile phone', 'mobile phones'],
+    image:
+      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['iphone', 'apple'],
+    image:
+      'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['samsung', 'galaxy'],
+    image:
+      'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['laptop', 'laptops', 'computer', 'computers', 'macbook', 'notebook'],
+    image:
+      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['tablet', 'tablets', 'ipad', 'e-reader', 'e reader'],
+    image:
+      'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['camera', 'cameras', 'photography'],
+    image:
+      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['tv', 'television', 'home theater', 'home theatre', 'monitor', 'display'],
+    image:
+      'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['game', 'gaming', 'console', 'playstation', 'xbox'],
+    image:
+      'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['watch', 'smartwatch', 'smart watch', 'wearable'],
+    image:
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['power bank', 'powerbank', 'portable charger'],
+    image:
+      'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['repair', 'spare', 'spares', 'parts', 'replacement', 'tools', 'tool'],
+    image:
+      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['deal', 'deals', 'sale', 'offers', 'discount'],
+    image:
+      'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=900&h=650&fit=crop&q=90',
+  },
+  {
+    keywords: ['service', 'services', 'support'],
+    image:
+      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&h=650&fit=crop&q=90',
+  },
+]
+
+const defaultCategoryImages = [
+  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1619362513491-3d00ec2467bb?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=900&h=650&fit=crop&q=90',
+  'https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=900&h=650&fit=crop&q=90',
+]
+
+function normalizeCategoryText(value = '') {
+  return value
+    .toLowerCase()
+    .replace(/&amp;/g, 'and')
+    .replace(/[-_/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getCategoryImage(category: WooCategory, index: number) {
+  const currentImage = String(category.image || '')
+
+  if (
+    currentImage &&
+    !currentImage.includes('/logo.jpg') &&
+    !currentImage.endsWith('logo.jpg')
+  ) {
+    return currentImage
+  }
+
+  const slug = normalizeCategoryText(category.slug || '')
+  const name = normalizeCategoryText(category.name || '')
+  const description = normalizeCategoryText(category.description || '')
+  const searchableText = `${slug} ${name} ${description}`
+
+  const matchedRule = categoryImageRules.find((rule) =>
+    rule.keywords.some((keyword) =>
+      searchableText.includes(normalizeCategoryText(keyword))
+    )
+  )
+
+  if (matchedRule) {
+    return matchedRule.image
+  }
+
+  return defaultCategoryImages[index % defaultCategoryImages.length]
+}
+
+function getShopCategoryUrl(slug: string) {
+  return `/shop?category=${slug}`
+}
+
+function CategoryCard({
+  category,
+  index,
+  featured = false,
+}: {
+  category: WooCategory
+  index: number
+  featured?: boolean
+}) {
+  return (
+    <Link
+      to={getShopCategoryUrl(category.slug)}
+      className={`group relative overflow-hidden rounded-3xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+        featured ? 'lg:col-span-2' : ''
+      }`}
+    >
+      <div className={`relative overflow-hidden ${featured ? 'h-72' : 'h-56'}`}>
+        <img
+          src={getCategoryImage(category, index)}
+          alt={category.name}
+          onError={(event) => {
+            event.currentTarget.src = defaultCategoryImages[index % defaultCategoryImages.length]
+          }}
+          className="h-full w-full object-cover object-center brightness-[0.96] contrast-[1.06] saturate-[1.08] transition-transform duration-700 group-hover:scale-110"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-t from-dh-primary/85 via-dh-primary/25 to-transparent opacity-75 transition-opacity duration-500 group-hover:opacity-90" />
+
+        <div className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-dh-primary backdrop-blur">
+          {category.productCount} items
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+          <p className="mb-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
+            Category
+          </p>
+
+          <h2 className="font-display text-2xl font-bold">
+            {category.name}
+          </h2>
+
+          <p className="mt-2 line-clamp-2 text-sm text-white/80">
+            {category.description ||
+              `Explore ${category.name.toLowerCase()} products available on DigitalHood.`}
+          </p>
+
+          <div className="mt-4 inline-flex items-center text-sm font-semibold">
+            Shop category
+            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function CategorySkeleton() {
+  return (
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <div
+          key={index}
+          className="overflow-hidden rounded-3xl bg-white shadow-sm"
+        >
+          <div className="h-56 animate-pulse bg-gray-200" />
+          <div className="space-y-3 p-5">
+            <div className="h-5 w-2/3 animate-pulse rounded-full bg-gray-200" />
+            <div className="h-4 w-full animate-pulse rounded-full bg-gray-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded-full bg-gray-200" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default function CategoriesPage() {
+  const [categories, setCategories] = useState<WooCategory[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadCategories() {
+      setIsLoading(true)
+      setLoadError('')
+
+      try {
+        const response = await fetchWooCategories()
+
+        if (!mounted) return
+
+        setCategories(
+          response
+            .filter((category) => category.productCount > 0)
+            .sort((a, b) => b.productCount - a.productCount)
+        )
+      } catch (error) {
+        console.error(error)
+
+        if (mounted) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : 'We could not load categories right now.'
+          )
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadCategories()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const filteredCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+
+    if (!query) return categories
+
+    return categories.filter((category) => {
+      return (
+        category.name.toLowerCase().includes(query) ||
+        category.slug.toLowerCase().includes(query) ||
+        category.description.toLowerCase().includes(query)
+      )
+    })
+  }, [categories, searchQuery])
+
+  const featuredCategories = filteredCategories.slice(0, 2)
+  const regularCategories = filteredCategories.slice(2)
+  const totalProducts = categories.reduce(
+    (total, category) => total + category.productCount,
+    0
+  )
+
+  return (
+    <div className="min-h-screen bg-dh-gray">
+      <SEO
+        title="Shop Categories | DigitalHood Marketplace Zambia"
+        description="Browse DigitalHood marketplace categories including phones, accessories, repair parts, batteries, cables, adapters, audio, laptops, and more."
+      />
+
+      <Header />
+
+      <main className="py-8 lg:py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+          <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
+            <Link to="/" className="hover:text-dh-primary">
+              Home
+            </Link>
+
+            <ChevronRight className="h-4 w-4" />
+
+            <span className="font-medium text-dh-primary">Categories</span>
+          </nav>
+
+          <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6 lg:p-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_0.55fr] lg:items-center">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                  <Grid3X3 className="h-4 w-4" />
+                  Marketplace categories
+                </div>
+
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl lg:text-5xl">
+                  Browse every category on DigitalHood
+                </h1>
+
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-dh-dark-gray sm:text-base">
+                  Find the right products faster. Browse live categories from the
+                  DigitalHood store, then open any category to shop its products.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                <div className="rounded-2xl bg-dh-gray p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                    Live categories
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                    {categories.length}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-dh-gray p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                    Products indexed
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                    {totalProducts}
+                  </p>
+                </div>
+
+                <Link
+                  to="/shop"
+                  className="rounded-2xl bg-dh-primary p-4 text-white transition-colors hover:bg-dh-secondary"
+                >
+                  <ShoppingBag className="mb-2 h-5 w-5" />
+                  <p className="font-semibold">Go to full shop</p>
+                  <p className="mt-1 text-xs text-white/75">
+                    View all products
+                  </p>
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
+
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search categories like battery, cable, adapter..."
+                  className="h-12 rounded-full pl-12"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSearchQuery('')}
+                  className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                >
+                  Clear search
+                </Button>
+
+                <Link to="/shop">
+                  <Button className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
+                    Shop all products
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-8">
+            {isLoading ? (
+              <CategorySkeleton />
+            ) : loadError ? (
+              <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-6 text-yellow-800">
+                <p className="font-semibold">Categories could not load.</p>
+                <p className="mt-1 text-sm">{loadError}</p>
+              </div>
+            ) : filteredCategories.length > 0 ? (
+              <>
+                {featuredCategories.length > 0 && (
+                  <div className="mb-5 grid gap-5 lg:grid-cols-4">
+                    {featuredCategories.map((category, index) => (
+                      <CategoryCard
+                        key={category.id}
+                        category={category}
+                        index={index}
+                        featured
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {regularCategories.length > 0 && (
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                    {regularCategories.map((category, index) => (
+                      <CategoryCard
+                        key={category.id}
+                        category={category}
+                        index={index + featuredCategories.length}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : categories.length > 0 ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+                <Search className="mx-auto mb-4 h-10 w-10 text-dh-primary" />
+
+                <h2 className="font-display text-xl font-bold text-dh-primary">
+                  No categories match your search
+                </h2>
+
+                <p className="mt-2 text-sm text-dh-dark-gray">
+                  Try another keyword or clear the search to see every category.
+                </p>
+
+                <Button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-5 rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
+                >
+                  Clear search
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+                <Boxes className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
+
+                <h2 className="font-display text-2xl font-bold text-dh-primary">
+                  Categories are being prepared
+                </h2>
+
+                <p className="mx-auto mt-2 max-w-lg text-dh-dark-gray">
+                  Product categories will appear here once they are available in
+                  the marketplace.
+                </p>
+              </div>
+            )}
+          </section>
+
+          <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h2 className="font-display text-xl font-bold text-dh-primary">
+                    Looking for something specific?
+                  </h2>
+
+                  <p className="mt-1 text-sm text-dh-dark-gray">
+                    Use the shop search to find products across all categories.
+                  </p>
+                </div>
+              </div>
+
+              <Link to="/shop">
+                <Button className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
+                  Search the shop
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  )
+}
