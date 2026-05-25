@@ -610,6 +610,12 @@ export default function ShopPage() {
                             </h3>
                           </Link>
 
+                          <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-dh-dark-gray">
+                            {product.shortDescription ||
+                              product.description ||
+                              'DigitalHood marketplace product'}
+                          </p>
+
                           <div className="mb-3 flex flex-wrap items-center gap-2">
                             <StockBadge item={product as any} />
 
