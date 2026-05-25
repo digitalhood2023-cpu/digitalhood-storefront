@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Grid3X3,
   List,
@@ -180,7 +180,6 @@ export default function ShopPage() {
 
   const categorySlugFromUrl = searchParams.get('category');
   const searchFromUrl = searchParams.get('search') || '';
-  const pageFromUrl = Math.max(1, Number(searchParams.get('page') || '1') || 1);
 
   const [products, setProducts] = useState<WooProduct[]>([]);
   const [categories, setCategories] = useState<WooCategory[]>([]);
@@ -195,17 +194,14 @@ export default function ShopPage() {
   const [selectedColor, setSelectedColor] = useState('');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
-  const [page, setPage] = useState(pageFromUrl);
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [addedToCart, setAddedToCart] = useState<number | null>(null);
 
   const addItem = useCartStore((state) => state.addItem);
   const { toggleWishlist, isInWishlist } = useWishlist();
-  const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
-  const hasCompletedInitialPageSyncRef = useRef(false);
-  const shouldRestoreShopScrollRef = useRef(false);
 
   useEffect(() => {
     fetchWooCategories()
@@ -245,28 +241,6 @@ export default function ShopPage() {
   }, [categories, categorySlugFromUrl, searchFromUrl]);
 
   useEffect(() => {
-    if (pageFromUrl !== page) {
-      setPage(pageFromUrl);
-    }
-  }, [pageFromUrl]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const stored = JSON.parse(
-        window.sessionStorage.getItem('digitalhood-shop-return-state') || '{}'
-      );
-
-      if (stored.url === `${location.pathname}${location.search}`) {
-        shouldRestoreShopScrollRef.current = true;
-      }
-    } catch {
-      shouldRestoreShopScrollRef.current = false;
-    }
-  }, [location.pathname, location.search]);
-
-  useEffect(() => {
     setIsLoading(true);
 
     fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery, selectedCategoryId)
@@ -276,6 +250,9 @@ export default function ShopPage() {
         setTotalPages(totalPages || 1);
         setLoadError('');
 
+        if (page > 1) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       })
       .catch((error) => {
         console.error(error);
@@ -299,37 +276,8 @@ export default function ShopPage() {
   }, []);
 
   useEffect(() => {
-    if (!hasCompletedInitialPageSyncRef.current) {
-      hasCompletedInitialPageSyncRef.current = true;
-      return;
-    }
-
     setPage(1);
   }, [searchQuery, selectedCategoryId]);
-
-  useEffect(() => {
-    if (isLoading || !shouldRestoreShopScrollRef.current) return;
-
-    try {
-      const stored = JSON.parse(
-        window.sessionStorage.getItem('digitalhood-shop-return-state') || '{}'
-      );
-
-      if (stored.url === `${location.pathname}${location.search}`) {
-        window.requestAnimationFrame(() => {
-          window.scrollTo({
-            top: Number(stored.scrollY || 0),
-            behavior: 'auto',
-          });
-        });
-      }
-    } catch {
-      // Ignore restore errors.
-    } finally {
-      shouldRestoreShopScrollRef.current = false;
-      window.sessionStorage.removeItem('digitalhood-shop-return-state');
-    }
-  }, [isLoading, location.pathname, location.search, products.length]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -399,11 +347,7 @@ export default function ShopPage() {
       : null,
   ].filter(Boolean) as Array<{ key: string; label: string }>;
 
-  const updateShopUrl = (
-    categorySlug?: string | null,
-    search?: string,
-    nextPage = 1
-  ) => {
+  const updateShopUrl = (categorySlug?: string | null, search?: string) => {
     const params: Record<string, string> = {};
 
     if (categorySlug) {
@@ -412,10 +356,6 @@ export default function ShopPage() {
 
     if (search?.trim()) {
       params.search = search.trim();
-    }
-
-    if (nextPage > 1) {
-      params.page = String(nextPage);
     }
 
     setSearchParams(params);
@@ -535,33 +475,13 @@ export default function ShopPage() {
     })}`;
 
   const goToPreviousPage = () => {
-    const nextPage = Math.max(1, page - 1);
-
-    setPage(nextPage);
-    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setPage((current) => Math.max(1, current - 1));
   };
 
   const goToNextPage = () => {
     if (page < totalPages) {
-      const nextPage = page + 1;
-
-      setPage(nextPage);
-      updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setPage((current) => current + 1);
     }
-  };
-
-  const saveShopReturnState = () => {
-    if (typeof window === 'undefined') return;
-
-    window.sessionStorage.setItem(
-      'digitalhood-shop-return-state',
-      JSON.stringify({
-        url: `${location.pathname}${location.search}`,
-        scrollY: window.scrollY,
-      })
-    );
   };
 
   const handleAddToCart = (product: WooProduct) => {
@@ -1177,7 +1097,6 @@ export default function ShopPage() {
 
                             <Link
                               to={`/product/${product.slug}`}
-                              onClick={saveShopReturnState}
                               className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm transition-all hover:scale-110 hover:text-dh-primary"
                               aria-label={`View ${product.name}`}
                             >

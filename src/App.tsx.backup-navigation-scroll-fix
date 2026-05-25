@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Routes, Route } from 'react-router-dom'
 
 import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
@@ -48,61 +48,12 @@ function PageLoader() {
   )
 }
 
-function NavigationScrollManager() {
-  const location = useLocation()
-  const navigationType = useNavigationType()
-
-  useEffect(() => {
-    const handleLinkClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null
-      const link = target?.closest('a')
-
-      if (!link) return
-      if (link.target && link.target !== '_self') return
-      if (link.hasAttribute('download')) return
-
-      const href = link.getAttribute('href')
-      if (!href || href.startsWith('#')) return
-
-      try {
-        const nextUrl = new URL(href, window.location.href)
-
-        if (nextUrl.origin !== window.location.origin) return
-
-        const isDifferentPage =
-          nextUrl.pathname !== window.location.pathname
-
-        if (isDifferentPage) {
-          window.scrollTo({ top: 0, behavior: 'auto' })
-        }
-      } catch {
-        // Ignore unusual href values.
-      }
-    }
-
-    document.addEventListener('click', handleLinkClick, true)
-
-    return () => {
-      document.removeEventListener('click', handleLinkClick, true)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (navigationType !== 'POP') {
-      window.scrollTo({ top: 0, behavior: 'auto' })
-    }
-  }, [location.pathname, navigationType])
-
-  return null
-}
-
 function App() {
   return (
     <AccountProvider>
       <WishlistProvider>
         <RecentlyViewedProvider>
           <SEO />
-          <NavigationScrollManager />
 
           <Suspense fallback={<PageLoader />}>
             <Routes>
