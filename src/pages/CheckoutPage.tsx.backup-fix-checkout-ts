@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js'
 
 import {
   AlertCircle,
+  BadgeCheck,
   Check,
   ChevronLeft,
   Clock,
@@ -458,7 +459,7 @@ export default function CheckoutPage() {
         if (!mounted) return
 
         const defaultAddress =
-          addresses.find((address) => address.id === customer?.defaultAddressId) ||
+          addresses.find((address) => address.id === customer.defaultAddressId) ||
           addresses.find((address) => address.isDefault) ||
           addresses[0]
 

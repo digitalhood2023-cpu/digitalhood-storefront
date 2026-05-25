@@ -5,23 +5,20 @@ import { loadStripe } from '@stripe/stripe-js'
 
 import {
   AlertCircle,
+  BadgeCheck,
   Check,
   ChevronLeft,
   Clock,
   CreditCard,
   Home,
-  Edit3,
   Loader2,
   LogIn,
   MapPin,
-  Plus,
-  Save,
   Shield,
   ShoppingBag,
   Smartphone,
   Truck,
   UserRound,
-  X,
 } from 'lucide-react'
 
 import {
@@ -37,11 +34,6 @@ import {
 } from '@/api/lenco'
 
 import { useAccount } from '@/context/AccountContext'
-import {
-  addCustomerSavedAddress,
-  getCustomerSavedAddresses,
-  type SavedCustomerAddress,
-} from '@/api/account'
 import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
 
@@ -182,14 +174,6 @@ function getFullName(customer?: {
   return fullName || customer.email || ''
 }
 
-function getAddressLine(address?: SavedCustomerAddress | null) {
-  if (!address) return ''
-
-  return [address.address1, address.address2, address.city, address.province]
-    .filter(Boolean)
-    .join(', ')
-}
-
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const pageRef = useRef<HTMLDivElement>(null)
@@ -210,12 +194,7 @@ export default function CheckoutPage() {
   const checkoutItems = items as CheckoutCartItem[]
   const hasUnavailableItems = checkoutItems.some(isUnavailable)
 
-  const accountSavedAddresses = customer?.savedAddresses || []
-  const [checkoutSavedAddresses, setCheckoutSavedAddresses] =
-    useState<SavedCustomerAddress[]>([])
-  const savedAddresses =
-    checkoutSavedAddresses.length > 0 ? checkoutSavedAddresses : accountSavedAddresses
-
+  const savedAddresses = customer?.savedAddresses || []
   const defaultSavedAddress = useMemo(() => {
     return (
       savedAddresses.find((address) => address.id === customer?.defaultAddressId) ||
@@ -226,9 +205,6 @@ export default function CheckoutPage() {
   }, [customer?.defaultAddressId, savedAddresses])
 
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('')
-  const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false)
-  const [isAddingCheckoutAddress, setIsAddingCheckoutAddress] = useState(false)
-  const [isSavingCheckoutAddress, setIsSavingCheckoutAddress] = useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState<'mobile' | 'card' | 'cod'>(
     'mobile'
@@ -267,20 +243,6 @@ export default function CheckoutPage() {
     paymentPhone: '',
   })
 
-  const selectedSavedAddress = useMemo(() => {
-    return (
-      savedAddresses.find((address) => address.id === selectedSavedAddressId) ||
-      defaultSavedAddress ||
-      savedAddresses[0] ||
-      null
-    )
-  }, [defaultSavedAddress, savedAddresses, selectedSavedAddressId])
-
-  const showDeliveryFields =
-    !isAuthenticated ||
-    savedAddresses.length === 0 ||
-    isAddingCheckoutAddress
-
   const shipping = getShippingDetails({
     subtotal,
     city: formData.city,
@@ -311,21 +273,8 @@ export default function CheckoutPage() {
     }
   }, [])
 
-  async function refreshCheckoutSavedAddresses() {
-    if (!isAuthenticated) return []
-
-    const response = await getCustomerSavedAddresses()
-    const addresses = response.addresses || []
-
-    setCheckoutSavedAddresses(addresses)
-
-    return addresses
-  }
-
-  const applySavedAddressToForm = (address: SavedCustomerAddress) => {
+  const applySavedAddressToForm = (address: NonNullable<typeof defaultSavedAddress>) => {
     setSelectedSavedAddressId(address.id)
-    setIsAddressPickerOpen(false)
-    setIsAddingCheckoutAddress(false)
 
     setFormData((current) => ({
       ...current,
@@ -344,138 +293,6 @@ export default function CheckoutPage() {
     setCardPaymentIntentId('')
     setCreatedOrderId(null)
   }
-
-  const openAddCheckoutAddress = () => {
-    setCheckoutError('')
-    setIsAddressPickerOpen(false)
-    setIsAddingCheckoutAddress(true)
-    setSelectedSavedAddressId('')
-
-    setFormData((current) => ({
-      ...current,
-      fullName: current.fullName || getFullName(customer || undefined),
-      email: isAuthenticated ? customer?.email || current.email : current.email,
-      phone: current.phone || customer?.billing?.phone || '',
-      address: '',
-      address2: '',
-      city: current.city || 'Lusaka',
-      province: current.province || 'Lusaka',
-      postcode: current.postcode || DEFAULT_POSTCODE,
-    }))
-
-    setCardClientSecret('')
-    setCardPaymentIntentId('')
-    setCreatedOrderId(null)
-  }
-
-  const cancelAddCheckoutAddress = () => {
-    setIsAddingCheckoutAddress(false)
-
-    if (selectedSavedAddress) {
-      applySavedAddressToForm(selectedSavedAddress)
-    }
-  }
-
-  const handleSaveCheckoutAddress = async () => {
-    setCheckoutError('')
-
-    if (!formData.fullName.trim()) {
-      setCheckoutError('Full name is required.')
-      return
-    }
-
-    if (!formData.phone.trim()) {
-      setCheckoutError('Delivery contact number is required.')
-      return
-    }
-
-    if (!formData.address.trim()) {
-      setCheckoutError('Delivery address is required.')
-      return
-    }
-
-    if (!formData.city.trim()) {
-      setCheckoutError('City is required.')
-      return
-    }
-
-    if (!formData.province.trim()) {
-      setCheckoutError('Province is required.')
-      return
-    }
-
-    setIsSavingCheckoutAddress(true)
-
-    try {
-      const response = await addCustomerSavedAddress({
-        label: savedAddresses.length === 0 ? 'Default Address' : 'Checkout Address',
-        fullName: formData.fullName.trim(),
-        phone: formData.phone.trim(),
-        address1: formData.address.trim(),
-        address2: formData.address2.trim(),
-        city: formData.city.trim(),
-        province: formData.province.trim(),
-        postcode: formData.postcode.trim() || DEFAULT_POSTCODE,
-        country: 'ZM',
-        isDefault: savedAddresses.length === 0,
-      })
-
-      const addresses = response.addresses || []
-      setCheckoutSavedAddresses(addresses)
-
-      const newAddress =
-        addresses[addresses.length - 1] ||
-        addresses.find((address) => address.isDefault) ||
-        addresses[0]
-
-      if (newAddress) {
-        applySavedAddressToForm(newAddress)
-      }
-
-      await refreshCheckoutSavedAddresses()
-    } catch (error) {
-      setCheckoutError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to save this delivery address.'
-      )
-    } finally {
-      setIsSavingCheckoutAddress(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!isAuthenticated || !customer) {
-      return
-    }
-
-    let mounted = true
-
-    async function loadCheckoutAddresses() {
-      try {
-        const addresses = await refreshCheckoutSavedAddresses()
-
-        if (!mounted) return
-
-        const defaultAddress =
-          addresses.find((address) => address.id === customer?.defaultAddressId) ||
-          addresses.find((address) => address.isDefault) ||
-          addresses[0]
-
-        if (defaultAddress && !selectedSavedAddressId) {
-          applySavedAddressToForm(defaultAddress)
-        }
-      } catch (error) {
-        console.error(error)
-      }
-    }
-
-    loadCheckoutAddresses()
-
-    return () => {
-      mounted = false
-    }
-  }, [isAuthenticated, customer?.id])
 
   useEffect(() => {
     if (!isAuthenticated || !customer || hasPrefilledAccountRef.current) {
@@ -1253,103 +1070,33 @@ export default function CheckoutPage() {
                     1
                   </div>
 
-                  <div>
-                    <h2 className="font-display font-semibold text-xl">
-                      Delivery Address
-                    </h2>
-                    <p className="text-sm text-dh-dark-gray">
-                      Choose where your order should be delivered.
-                    </p>
-                  </div>
+                  <h2 className="font-display font-semibold text-xl">
+                    Shipping Information
+                  </h2>
                 </div>
 
-                {isAuthenticated && selectedSavedAddress && !showDeliveryFields && (
-                  <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/20 text-dh-primary">
-                          <MapPin className="h-6 w-6" />
-                        </div>
-
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-display text-lg font-bold text-dh-primary">
-                              {selectedSavedAddress.label || 'Delivery Address'}
-                            </p>
-
-                            {(selectedSavedAddress.isDefault ||
-                              selectedSavedAddress.id === customer?.defaultAddressId) && (
-                              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                                Default
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="mt-1 font-semibold text-dh-primary">
-                            {selectedSavedAddress.fullName}
-                          </p>
-
-                          <p className="mt-1 text-sm text-dh-dark-gray">
-                            {selectedSavedAddress.phone}
-                          </p>
-
-                          <p className="mt-2 text-sm text-dh-dark-gray">
-                            {getAddressLine(selectedSavedAddress)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {savedAddresses.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsAddressPickerOpen((current) => !current)}
-                            className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                          >
-                            <Edit3 className="mr-2 h-4 w-4" />
-                            Change
-                          </Button>
-                        )}
-
-                        <Button
-                          type="button"
-                          onClick={openAddCheckoutAddress}
-                          className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add new
-                        </Button>
-                      </div>
+                {isAuthenticated && (
+                  <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                    <div className="flex gap-2">
+                      <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>
+                        We filled checkout using your default saved address. You
+                        can edit the delivery details for this order.
+                      </p>
                     </div>
                   </div>
                 )}
 
-                {isAuthenticated && isAddressPickerOpen && savedAddresses.length > 1 && (
-                  <div className="mt-5 rounded-2xl border border-dh-light-gray bg-white p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-dh-primary">
-                          Select delivery address
-                        </p>
-                        <p className="text-sm text-dh-dark-gray">
-                          Pick the address you want to use for this order.
-                        </p>
-                      </div>
+                {isAuthenticated && savedAddresses.length > 0 && (
+                  <div className="mb-6">
+                    <Label>Use saved address</Label>
 
-                      <button
-                        type="button"
-                        onClick={() => setIsAddressPickerOpen(false)}
-                        className="rounded-full bg-dh-gray p-2 text-dh-primary hover:bg-red-50 hover:text-red-600"
-                        aria-label="Close address selector"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid gap-3">
+                    <div className="mt-3 grid gap-3">
                       {savedAddresses.map((address) => {
-                        const selected = selectedSavedAddress?.id === address.id
+                        const selected =
+                          selectedSavedAddressId === address.id ||
+                          (!selectedSavedAddressId &&
+                            defaultSavedAddress?.id === address.id)
 
                         return (
                           <button
@@ -1364,12 +1111,13 @@ export default function CheckoutPage() {
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="font-semibold text-dh-primary">
-                                {address.label || 'Delivery Address'}
+                                {address.label}
                               </p>
 
-                              {selected && (
-                                <span className="rounded-full bg-dh-primary px-3 py-1 text-xs font-semibold text-white">
-                                  Selected
+                              {(address.isDefault ||
+                                customer?.defaultAddressId === address.id) && (
+                                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                                  Default
                                 </span>
                               )}
                             </div>
@@ -1379,7 +1127,9 @@ export default function CheckoutPage() {
                             </p>
 
                             <p className="mt-1 text-sm text-dh-dark-gray">
-                              {getAddressLine(address)}
+                              {[address.address1, address.address2, address.city, address.province]
+                                .filter(Boolean)
+                                .join(', ')}
                             </p>
                           </button>
                         )
@@ -1388,182 +1138,132 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {isAuthenticated && savedAddresses.length === 0 && !isAddingCheckoutAddress && (
-                  <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
-                    <div className="flex gap-3">
-                      <Home className="mt-0.5 h-5 w-5 shrink-0" />
+                {isAuthenticated && savedAddresses.length === 0 && (
+                  <div className="mb-6 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-yellow-800">
+                    <div className="flex gap-2">
+                      <Home className="mt-0.5 h-4 w-4 shrink-0" />
                       <div>
-                        <p className="font-semibold">Add your first delivery address</p>
-                        <p className="mt-1 text-sm">
-                          Save a delivery address once and checkout faster next time.
+                        <p className="font-semibold">No saved address yet</p>
+                        <p>
+                          You can still complete checkout. Add saved addresses
+                          later from your account page for faster checkout.
                         </p>
-
-                        <Button
-                          type="button"
-                          onClick={openAddCheckoutAddress}
-                          className="mt-4 rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add delivery address
-                        </Button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {showDeliveryFields && (
-                  <div className="mt-5 rounded-2xl border border-dh-light-gray bg-dh-gray p-5">
-                    <div className="mb-5 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-dh-primary">
-                          {isAuthenticated ? 'New delivery address' : 'Delivery details'}
-                        </p>
-                        <p className="text-sm text-dh-dark-gray">
-                          {isAuthenticated
-                            ? 'Enter and save a new address for this order.'
-                            : 'Enter your delivery information to complete checkout.'}
-                        </p>
-                      </div>
-
-                      {isAuthenticated && savedAddresses.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={cancelAddCheckoutAddress}
-                          className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="fullName">Full Name</Label>
-                        <Input
-                          id="fullName"
-                          value={formData.fullName}
-                          onChange={(event) =>
-                            updateField('fullName', event.target.value)
-                          }
-                          placeholder="e.g. Caster Williams"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      {!isAuthenticated && (
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="email">Email</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(event) =>
-                              updateField('email', event.target.value)
-                            }
-                            placeholder="john@example.com"
-                            className="mt-1 bg-white"
-                          />
-                        </div>
-                      )}
-
-                      {isAuthenticated && (
-                        <div className="sm:col-span-2 rounded-xl bg-white p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                            Account email
-                          </p>
-
-                          <p className="mt-1 break-all font-semibold text-dh-primary">
-                            {customer?.email}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="phone">Delivery Contact Number</Label>
-                        <Input
-                          id="phone"
-                          value={formData.phone}
-                          onChange={(event) =>
-                            updateField('phone', event.target.value)
-                          }
-                          placeholder="+260 97X XXX XXX"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="address">Delivery Address</Label>
-                        <Input
-                          id="address"
-                          value={formData.address}
-                          onChange={(event) =>
-                            updateField('address', event.target.value)
-                          }
-                          placeholder="House number, road, area"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="address2">Apartment, landmark or extra directions</Label>
-                        <Input
-                          id="address2"
-                          value={formData.address2}
-                          onChange={(event) =>
-                            updateField('address2', event.target.value)
-                          }
-                          placeholder="Apartment, suite, landmark"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="city">City</Label>
-                        <Input
-                          id="city"
-                          value={formData.city}
-                          onChange={(event) =>
-                            updateField('city', event.target.value)
-                          }
-                          placeholder="Lusaka"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="province">Province</Label>
-                        <Input
-                          id="province"
-                          value={formData.province}
-                          onChange={(event) =>
-                            updateField('province', event.target.value)
-                          }
-                          placeholder="Lusaka"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {isAuthenticated && (
-                      <Button
-                        type="button"
-                        onClick={handleSaveCheckoutAddress}
-                        disabled={isSavingCheckoutAddress}
-                        className="mt-5 rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
-                      >
-                        {isSavingCheckoutAddress ? (
-                          'Saving address...'
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save and use this address
-                          </>
-                        )}
-                      </Button>
-                    )}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input
+                      id="fullName"
+                      value={formData.fullName}
+                      onChange={(event) =>
+                        updateField('fullName', event.target.value)
+                      }
+                      placeholder="e.g. Caster Williams"
+                      className="mt-1"
+                    />
                   </div>
-                )}
+
+                  {!isAuthenticated && (
+                    <div className="sm:col-span-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(event) =>
+                          updateField('email', event.target.value)
+                        }
+                        placeholder="john@example.com"
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+
+                  {isAuthenticated && (
+                    <div className="sm:col-span-2 rounded-xl bg-dh-gray p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                        Account email
+                      </p>
+
+                      <p className="mt-1 break-all font-semibold text-dh-primary">
+                        {customer?.email}
+                      </p>
+
+                      <p className="mt-1 text-xs text-dh-dark-gray">
+                        Used automatically for receipts and order history.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="phone">Delivery Contact Number</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(event) =>
+                        updateField('phone', event.target.value)
+                      }
+                      placeholder="+260 97X XXX XXX"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="address">Delivery Address</Label>
+                    <Input
+                      id="address"
+                      value={formData.address}
+                      onChange={(event) =>
+                        updateField('address', event.target.value)
+                      }
+                      placeholder="House number, road, area"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="address2">Apartment, landmark or extra directions</Label>
+                    <Input
+                      id="address2"
+                      value={formData.address2}
+                      onChange={(event) =>
+                        updateField('address2', event.target.value)
+                      }
+                      placeholder="Apartment, suite, landmark"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={(event) =>
+                        updateField('city', event.target.value)
+                      }
+                      placeholder="Lusaka"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="province">Province</Label>
+                    <Input
+                      id="province"
+                      value={formData.province}
+                      onChange={(event) =>
+                        updateField('province', event.target.value)
+                      }
+                      placeholder="Lusaka"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
 
                 <div className="mt-6 rounded-2xl bg-green-50 border border-green-100 p-4">
                   <div className="flex items-start gap-2">
@@ -1594,7 +1294,7 @@ export default function CheckoutPage() {
                     <MapPin className="w-4 h-4 text-green-700 mt-0.5" />
 
                     <p className="text-sm text-green-700">
-                      Shipping updates automatically based on your selected delivery address.
+                      Shipping updates automatically based on your city and province.
                     </p>
                   </div>
                 </div>
