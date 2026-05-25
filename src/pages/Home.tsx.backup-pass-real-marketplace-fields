@@ -20,35 +20,13 @@ import {
 type HomeProduct = {
   id: string
   name: string
-  slug?: string
   price: number
   originalPrice?: number
   image: string
-  images?: string[]
   rating: number
   reviews: number
   badge?: string
   category: string
-  type?: string
-  hasOptions?: boolean
-  stockStatus?: string
-  stockLabel?: string
-  stockTone?: 'success' | 'warning' | 'danger' | 'muted'
-  canAddToCart?: boolean
-  inStock?: boolean
-}
-
-function getOriginalPriceFromHtml(product: WooProduct) {
-  const priceHtml = String(product.priceHtml || '')
-  const delMatch = priceHtml.match(/<del[^>]*>[\s\S]*?([0-9][0-9,.\s]*)[\s\S]*?<\/del>/i)
-
-  if (!delMatch?.[1]) return undefined
-
-  const value = Number(delMatch[1].replace(/[^0-9.]/g, ''))
-
-  if (!Number.isFinite(value) || value <= product.price) return undefined
-
-  return value
 }
 
 function toHomeProduct(product: WooProduct, badge?: string): HomeProduct {
@@ -57,22 +35,16 @@ function toHomeProduct(product: WooProduct, badge?: string): HomeProduct {
   return {
     id: String(product.id),
     name: product.name,
-    slug: product.slug,
     price: Number(product.price || 0),
-    originalPrice: getOriginalPriceFromHtml(product),
+    originalPrice:
+      product.price && product.price < Number(product.priceHtml || 0)
+        ? Number(product.priceHtml)
+        : undefined,
     image: product.image || product.images?.[0] || '/logo.jpg',
-    images: product.images || [],
     rating: Number(product.averageRating || 0),
     reviews: Number(product.reviewCount || product.ratingCount || 0),
     badge,
     category,
-    type: product.type,
-    hasOptions: product.hasOptions,
-    stockStatus: product.stockStatus,
-    stockLabel: product.stockLabel,
-    stockTone: product.stockTone,
-    canAddToCart: product.canAddToCart,
-    inStock: product.inStock,
   }
 }
 
@@ -82,9 +54,8 @@ function hasDiscount(product: WooProduct) {
   return (
     html.includes('del') ||
     html.includes('sale') ||
-    html.includes('del') ||
-    product.stockLabel?.toLowerCase().includes('sale') ||
-    product.stockLabel?.toLowerCase().includes('deal')
+    html.includes('woocommerce-price-amount') ||
+    product.stockLabel?.toLowerCase().includes('sale')
   )
 }
 
