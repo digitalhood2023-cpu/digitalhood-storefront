@@ -279,20 +279,6 @@ export default function ShopPage() {
     setPage(1);
   }, [searchQuery, selectedCategoryId]);
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-
-    if (showMobileFilters) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [showMobileFilters]);
-
   const selectedCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId),
     [categories, selectedCategoryId]
@@ -310,42 +296,6 @@ export default function ShopPage() {
       searchQuery.trim() ||
       activeSidebarFilterCount > 0
   );
-  const selectedPriceRange = PRICE_FILTERS.find(
-    (range) => range.key === priceRange
-  );
-
-  const activeFilterChips = [
-    selectedCategory
-      ? {
-          key: 'category',
-          label: selectedCategory.name,
-        }
-      : null,
-    searchQuery.trim()
-      ? {
-          key: 'search',
-          label: `Search: ${searchQuery.trim()}`,
-        }
-      : null,
-    selectedPriceRange && selectedPriceRange.key !== 'all'
-      ? {
-          key: 'price',
-          label: selectedPriceRange.label,
-        }
-      : null,
-    selectedStorage
-      ? {
-          key: 'storage',
-          label: selectedStorage,
-        }
-      : null,
-    selectedColor
-      ? {
-          key: 'color',
-          label: selectedColor,
-        }
-      : null,
-  ].filter(Boolean) as Array<{ key: string; label: string }>;
 
   const updateShopUrl = (categorySlug?: string | null, search?: string) => {
     const params: Record<string, string> = {};
@@ -364,21 +314,6 @@ export default function ShopPage() {
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     updateShopUrl(selectedCategorySlug || categorySlugFromUrl, value);
-
-    if (typeof window !== 'undefined' && value.trim().length >= 2) {
-      try {
-        const key = 'digitalhood-shop-searches';
-        const previous = JSON.parse(window.localStorage.getItem(key) || '[]');
-        const next = [
-          value.trim(),
-          ...previous.filter((item: string) => item !== value.trim()),
-        ].slice(0, 20);
-
-        window.localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // Ignore local storage issues.
-      }
-    }
   };
 
   const handleAllProductsClick = () => {
@@ -415,30 +350,6 @@ export default function ShopPage() {
         .getElementById('shop-results')
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
-  };
-
-  const removeFilterChip = (key: string) => {
-    if (key === 'category') {
-      setSelectedCategoryId(null);
-      updateShopUrl(null, searchQuery);
-    }
-
-    if (key === 'search') {
-      setSearchQuery('');
-      updateShopUrl(selectedCategorySlug || categorySlugFromUrl, '');
-    }
-
-    if (key === 'price') {
-      setPriceRange('all');
-    }
-
-    if (key === 'storage') {
-      setSelectedStorage('');
-    }
-
-    if (key === 'color') {
-      setSelectedColor('');
-    }
   };
 
   const sortedProducts = useMemo(() => {
@@ -878,46 +789,12 @@ export default function ShopPage() {
 
           <div id="shop-results" className="shop-content grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 [scrollbar-width:thin]">
+              <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
                 {FilterPanel}
               </div>
             </aside>
 
             <div className="min-w-0">
-            {activeFilterChips.length > 0 && (
-              <div className="mb-4 rounded-3xl bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Active filters
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {activeFilterChips.map((chip) => (
-                        <button
-                          key={chip.key}
-                          type="button"
-                          onClick={() => removeFilterChip(chip.key)}
-                          className="inline-flex items-center rounded-full bg-dh-gray px-3 py-2 text-xs font-bold text-dh-primary transition-colors hover:bg-dh-secondary/25"
-                        >
-                          {chip.label}
-                          <X className="ml-2 h-3.5 w-3.5" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="inline-flex items-center justify-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              </div>
-            )}
-
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-4 shadow-sm">
               <div>
                 <p className="text-sm text-dh-dark-gray">
@@ -932,13 +809,7 @@ export default function ShopPage() {
                   {selectedCategory ? selectedCategory.name : 'products'}
                 </p>
 
-                {activeSidebarFilterCount > 0 && (
-                  <p className="mt-1 text-xs text-dh-dark-gray">
-                    Refined by price, storage, or colour. Showing matching products from this page.
-                  </p>
-                )}
-
-                {hasActiveFilters && activeSidebarFilterCount === 0 && (
+                {hasActiveFilters && (
                   <p className="mt-1 text-xs text-dh-dark-gray">
                     Filters are active. Clear them anytime to return to the full marketplace.
                   </p>
