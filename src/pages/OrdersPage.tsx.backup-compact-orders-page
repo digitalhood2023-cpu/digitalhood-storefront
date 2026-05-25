@@ -127,7 +127,7 @@ function getOrderItemPreview(order: AccountOrder) {
 
 function OrderCard({ order }: { order: AccountOrder }) {
   return (
-    <article className="rounded-3xl border border-transparent bg-white p-5 shadow-sm transition-all hover:border-dh-primary/20 hover:shadow-lg sm:p-6">
+    <article className="rounded-3xl bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-dh-dark-gray">Order #{order.number || order.id}</p>
@@ -209,7 +209,7 @@ function OrderCard({ order }: { order: AccountOrder }) {
           to={`/orders/${order.id}`}
           className="inline-flex items-center justify-center rounded-full bg-dh-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-dh-secondary"
         >
-          View order
+          View details
           <Eye className="ml-2 h-4 w-4" />
         </Link>
       </div>
@@ -357,73 +357,83 @@ export default function OrdersPage() {
             <span className="font-medium text-dh-primary">My Orders</span>
           </nav>
 
-          <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6 lg:p-7">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-dh-secondary/15 text-dh-primary">
-                  <ShoppingBag className="h-7 w-7" />
+          <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+            <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="p-6 sm:p-8 lg:p-10">
+                <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                  <ShoppingBag className="h-4 w-4" />
+                  My Orders
                 </div>
 
-                <div>
-                  <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-dh-primary">
-                    My orders
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary lg:text-5xl">
+                  Your order history
+                </h1>
+
+                <p className="mt-4 max-w-2xl text-dh-dark-gray">
+                  View your purchases, payment status, shipping progress, and
+                  expected delivery dates.
+                </p>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-4">
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Total
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.total}
+                    </p>
                   </div>
 
-                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary sm:text-3xl">
-                    Your order history
-                  </h1>
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Active
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.active}
+                    </p>
+                  </div>
 
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
-                    View purchases, payment status, shipping progress, and
-                    expected delivery dates in one place.
-                  </p>
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Delivered
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.delivered}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-dh-gray p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                      Pending
+                    </p>
+                    <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                      {orderCounts.pending}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <Link
-                to="/track-order"
-                className="inline-flex items-center justify-center rounded-full border border-dh-primary px-5 py-3 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-              >
-                Track by order number
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </div>
+              <div className="bg-dh-primary p-6 text-white sm:p-8 lg:p-10">
+                <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                  <PackageCheck className="mb-5 h-12 w-12 text-dh-secondary" />
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-dh-gray p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Total orders
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
-                  {orderCounts.total}
-                </p>
-              </div>
+                  <h2 className="font-display text-2xl font-bold">
+                    Order tracking made simple
+                  </h2>
 
-              <div className="rounded-2xl bg-dh-gray p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Active
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
-                  {orderCounts.active}
-                </p>
-              </div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/80">
+                    Follow each order from payment confirmation to processing,
+                    shipped, out for delivery, and delivered.
+                  </p>
 
-              <div className="rounded-2xl bg-dh-gray p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Delivered
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
-                  {orderCounts.delivered}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-dh-gray p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Awaiting action
-                </p>
-                <p className="mt-1 font-display text-2xl font-bold text-dh-primary">
-                  {orderCounts.pending}
-                </p>
+                  <Link
+                    to="/track-order"
+                    className="mt-6 inline-flex items-center justify-center rounded-full bg-dh-secondary px-5 py-3 text-sm font-semibold text-dh-primary hover:bg-white"
+                  >
+                    Track by order number
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
               </div>
             </div>
           </section>
