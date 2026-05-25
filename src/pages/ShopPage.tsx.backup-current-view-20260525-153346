@@ -1,0 +1,753 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  Grid3X3,
+  List,
+  ArrowRight,
+  SlidersHorizontal,
+  TrendingUp,
+  X,
+  Heart,
+  ShoppingCart,
+  Star,
+  CheckCircle,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+
+import Header from '@/sections/Header';
+import Footer from '@/sections/Footer';
+import SEO from '@/components/SEO';
+import StockBadge from '@/components/StockBadge';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { useCartStore } from '@/store/cartStore';
+import {
+  fetchWooCategories,
+  fetchWooProducts,
+  type WooCategory,
+  type WooProduct,
+} from '@/lib/woocommerce';
+import {
+  getCategoryInsightLabel,
+  sortCategoriesForMarketplace,
+} from '@/lib/categoryIntelligence';
+
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
+
+type SortOption =
+  | 'featured'
+  | 'price-low'
+  | 'price-high'
+  | 'newest'
+  | 'best-selling'
+  | 'rating';
+
+const PRODUCTS_PER_PAGE = 24;
+
+function safeNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function getRatingText(product: WooProduct) {
+  const averageRating = safeNumber(product.averageRating);
+  const ratingCount = safeNumber(product.ratingCount);
+
+  if (!averageRating || ratingCount <= 0) {
+    return 'No verified ratings yet';
+  }
+
+  return `${averageRating.toFixed(1)} · ${ratingCount} verified ${
+    ratingCount === 1 ? 'rating' : 'ratings'
+  }`;
+}
+
+function getSoldText(product: WooProduct) {
+  const totalSales = safeNumber(product.totalSales);
+
+  if (totalSales <= 0) {
+    return '';
+  }
+
+  return `${totalSales.toLocaleString()} sold`;
+}
+
+function getProductPrice(product: WooProduct) {
+  return safeNumber(product.price);
+}
+
+export default function ShopPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const categorySlugFromUrl = searchParams.get('category');
+  const searchFromUrl = searchParams.get('search') || '';
+
+  const [products, setProducts] = useState<WooProduct[]>([]);
+  const [categories, setCategories] = useState<WooCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [sortBy, setSortBy] = useState<SortOption>('featured');
+  const [searchQuery, setSearchQuery] = useState(searchFromUrl);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [addedToCart, setAddedToCart] = useState<number | null>(null);
+
+  const addItem = useCartStore((state) => state.addItem);
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchWooCategories()
+      .then((items) =>
+        setCategories(
+          sortCategoriesForMarketplace(
+            items.filter((category) => category.productCount > 0)
+          )
+        )
+      )
+      .catch((error) => {
+        console.error(error);
+        setCategories([]);
+      })
+      .finally(() => setCategoriesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!categories.length) return;
+
+    if (searchFromUrl !== searchQuery) {
+      setSearchQuery(searchFromUrl);
+    }
+
+    if (!categorySlugFromUrl) {
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    const matchedCategory = categories.find(
+      (category) => category.slug === categorySlugFromUrl
+    );
+
+    if (matchedCategory) {
+      setSelectedCategoryId(matchedCategory.id);
+    }
+  }, [categories, categorySlugFromUrl, searchFromUrl]);
+
+  useEffect(() => {
+    setIsLoading(true);
+
+    fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery, selectedCategoryId)
+      .then(({ products, total, totalPages }) => {
+        setProducts(products);
+        setTotalProducts(total);
+        setTotalPages(totalPages || 1);
+        setLoadError('');
+
+        if (page > 1) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        setLoadError(
+          error?.message || 'We could not load products right now. Please try again.'
+        );
+      })
+      .finally(() => setIsLoading(false));
+  }, [page, searchQuery, selectedCategoryId]);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        '.shop-content',
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.5, ease: 'expo.out' }
+      );
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedCategoryId]);
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId),
+    [categories, selectedCategoryId]
+  );
+
+  const selectedCategorySlug = selectedCategory?.slug;
+  const popularCategories = categories.slice(0, 10);
+  const hasActiveFilters = Boolean(selectedCategoryId || searchQuery.trim());
+
+  const updateShopUrl = (categorySlug?: string | null, search?: string) => {
+    const params: Record<string, string> = {};
+
+    if (categorySlug) {
+      params.category = categorySlug;
+    }
+
+    if (search?.trim()) {
+      params.search = search.trim();
+    }
+
+    setSearchParams(params);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, value);
+  };
+
+  const handleAllProductsClick = () => {
+    setSelectedCategoryId(null);
+    updateShopUrl(null, searchQuery);
+  };
+
+  const handleCategoryClick = (category: WooCategory) => {
+    setSelectedCategoryId(category.id);
+    updateShopUrl(category.slug, searchQuery);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategoryId(null);
+    setSearchParams({});
+  };
+
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return getProductPrice(a) - getProductPrice(b);
+        case 'price-high':
+          return getProductPrice(b) - getProductPrice(a);
+        case 'newest':
+          return safeNumber(b.id) - safeNumber(a.id);
+        case 'best-selling':
+          return safeNumber(b.totalSales) - safeNumber(a.totalSales);
+        case 'rating':
+          return safeNumber(b.averageRating) - safeNumber(a.averageRating);
+        default:
+          return 0;
+      }
+    });
+  }, [products, sortBy]);
+
+  const formatPrice = (price: number) =>
+    `K${safeNumber(price).toLocaleString('en-ZM', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const goToPreviousPage = () => {
+    setPage((current) => Math.max(1, current - 1));
+  };
+
+  const goToNextPage = () => {
+    if (page < totalPages) {
+      setPage((current) => current + 1);
+    }
+  };
+
+  const handleAddToCart = (product: WooProduct) => {
+    if (product.hasOptions || product.type === 'variable') {
+      return;
+    }
+
+    if (!product.canAddToCart) {
+      alert(product.stockLabel || 'This product is currently unavailable.');
+      return;
+    }
+
+    const added = addItem(
+      {
+        id: Number(product.id),
+        productId: Number(product.id),
+        name: product.name,
+        slug: product.slug,
+        type: product.type,
+        price: product.price,
+        regular_price: product.price,
+        image: product.image,
+        stock_status: product.stockStatus || product.stock_status,
+        stock_quantity: product.stockQuantity ?? product.stock_quantity,
+        manage_stock: product.manageStock ?? product.manage_stock,
+        stock_label: product.stockLabel || product.stock_label,
+        stock_tone: product.stockTone || product.stock_tone,
+        can_add_to_cart: product.canAddToCart ?? product.can_add_to_cart,
+      },
+      1
+    );
+
+    if (!added) {
+      return;
+    }
+
+    setAddedToCart(product.id);
+    setTimeout(() => setAddedToCart(null), 2000);
+  };
+
+  return (
+    <div ref={pageRef} className="min-h-screen bg-gray-50">
+      <SEO
+        title="Shop"
+        description="Shop phones, laptops, accessories, services and trusted products on DigitalHood Marketplace Zambia."
+        path="/shop"
+      />
+
+      <Header />
+
+      <main className="py-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+          <section className="mb-6 overflow-hidden rounded-3xl bg-white shadow-sm">
+            <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="p-5 sm:p-6 lg:p-8">
+                <Badge className="mb-4 bg-[#ffb54a] text-black hover:bg-[#ffb54a]">
+                  DigitalHood Marketplace
+                </Badge>
+
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary lg:text-5xl">
+                  {selectedCategory
+                    ? selectedCategory.name
+                    : searchQuery
+                      ? 'Search marketplace products'
+                      : 'Shop trusted products in Zambia'}
+                </h1>
+
+                <p className="mt-4 max-w-3xl text-sm leading-relaxed text-dh-dark-gray sm:text-base">
+                  {selectedCategory
+                    ? selectedCategory.description ||
+                      `Browse ${selectedCategory.name.toLowerCase()} products available on DigitalHood.`
+                    : 'Discover phones, accessories, repair parts, gadgets, services and verified products from the DigitalHood marketplace.'}
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {selectedCategory && (
+                    <span className="inline-flex items-center rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      {getCategoryInsightLabel(selectedCategory, 0)}
+                    </span>
+                  )}
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
+                    >
+                      Clear filters
+                      <X className="ml-2 h-4 w-4" />
+                    </button>
+                  )}
+
+                  <Link
+                    to="/categories"
+                    className="inline-flex items-center rounded-full border border-dh-light-gray bg-white px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:border-dh-primary"
+                  >
+                    Browse categories
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-dh-primary via-dh-primary to-[#1f1b7a] p-5 text-white sm:p-6 lg:p-8">
+                <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-dh-secondary text-dh-primary">
+                    <SlidersHorizontal className="h-6 w-6" />
+                  </div>
+
+                  <h2 className="font-display text-2xl font-bold">
+                    Filter, compare, checkout
+                  </h2>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/80">
+                    Use category chips, search and sorting to find the right
+                    product quickly.
+                  </p>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-2xl bg-white/10 p-4">
+                      <p className="text-xs uppercase tracking-wide text-white/60">
+                        Showing
+                      </p>
+                      <p className="mt-1 font-display text-2xl font-bold">
+                        {totalProducts}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-white/10 p-4">
+                      <p className="text-xs uppercase tracking-wide text-white/60">
+                        View
+                      </p>
+                      <p className="mt-1 font-semibold">
+                        {selectedCategory ? selectedCategory.name : 'All products'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search products, brands, parts, accessories..."
+                  value={searchQuery}
+                  onChange={(event) => handleSearchChange(event.target.value)}
+                  className="h-12 w-full rounded-full pl-12 pr-4"
+                />
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:max-w-xl">
+                <button
+                  type="button"
+                  onClick={handleAllProductsClick}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                    selectedCategoryId === null
+                      ? 'bg-dh-primary text-white shadow-sm'
+                      : 'border border-dh-light-gray bg-white text-dh-primary hover:border-dh-primary'
+                  }`}
+                >
+                  All products
+                </button>
+
+                {categoriesLoading ? (
+                  <>
+                    <div className="h-10 w-24 shrink-0 animate-pulse rounded-full bg-dh-gray" />
+                    <div className="h-10 w-28 shrink-0 animate-pulse rounded-full bg-dh-gray" />
+                    <div className="h-10 w-20 shrink-0 animate-pulse rounded-full bg-dh-gray" />
+                  </>
+                ) : (
+                  popularCategories.map((category, index) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => handleCategoryClick(category)}
+                      title={getCategoryInsightLabel(category, index)}
+                      className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                        selectedCategoryId === category.id
+                          ? 'bg-dh-primary text-white shadow-sm'
+                          : 'border border-dh-light-gray bg-white text-dh-primary hover:border-dh-primary'
+                      }`}
+                    >
+                      {category.name}
+                      <span className="ml-2 text-xs opacity-70">
+                        {category.productCount}
+                      </span>
+                    </button>
+                  ))
+                )}
+
+                <Link
+                  to="/categories"
+                  className="shrink-0 rounded-full border border-dh-light-gray bg-dh-gray px-4 py-2 text-sm font-semibold text-dh-primary hover:border-dh-primary"
+                >
+                  More
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <div className="shop-content">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-4 shadow-sm">
+              <div>
+                <p className="text-sm text-dh-dark-gray">
+                  Showing{' '}
+                  <span className="font-semibold text-dh-primary">
+                    {sortedProducts.length}
+                  </span>{' '}
+                  of{' '}
+                  <span className="font-semibold text-dh-primary">
+                    {totalProducts}
+                  </span>{' '}
+                  {selectedCategory ? selectedCategory.name : 'products'}
+                </p>
+
+                {hasActiveFilters && (
+                  <p className="mt-1 text-xs text-dh-dark-gray">
+                    Filters are active. Clear them anytime to return to the full marketplace.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 hidden sm:inline">
+                    Sort by:
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(event) => setSortBy(event.target.value as SortOption)}
+                    className="rounded-full border border-dh-light-gray bg-white px-3 py-2 text-sm focus:border-dh-primary focus:outline-none"
+                  >
+                    <option value="featured">Featured</option>
+                    <option value="best-selling">Best Selling</option>
+                    <option value="rating">Highest Rated</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="newest">Newest Arrivals</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center overflow-hidden rounded-full border border-dh-light-gray">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-dh-primary text-white'
+                        : 'text-dh-dark-gray hover:bg-dh-gray'
+                    }`}
+                    aria-label="Grid view"
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-dh-primary text-white'
+                        : 'text-dh-dark-gray hover:bg-dh-gray'
+                    }`}
+                    aria-label="List view"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div key={index} className="bg-white rounded-xl p-4 animate-pulse">
+                    <div className="aspect-square bg-gray-100 rounded-lg mb-4" />
+                    <div className="h-4 bg-gray-100 rounded mb-2" />
+                    <div className="h-4 bg-gray-100 rounded w-2/3" />
+                  </div>
+                ))}
+              </div>
+            ) : loadError ? (
+              <div className="text-center py-16 bg-white rounded-2xl">
+                <h3 className="text-xl font-semibold text-black mb-2">
+                  Could not load products
+                </h3>
+                <p className="text-gray-500 mb-6">{loadError}</p>
+                <Button onClick={() => window.location.reload()} variant="outline">
+                  Try again
+                </Button>
+              </div>
+            ) : sortedProducts.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-black mb-2">
+                  No products found
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  Try another search or choose a different category.
+                </p>
+                <Button onClick={clearFilters} variant="outline">
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`grid ${
+                    viewMode === 'grid'
+                      ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
+                      : 'grid-cols-1 gap-4'
+                  }`}
+                >
+                  {sortedProducts.map((product) => {
+                    const soldText = getSoldText(product);
+                    const ratingText = getRatingText(product);
+                    const shouldViewOptions =
+                      product.hasOptions || product.type === 'variable';
+                    const canBuyDirectly = !shouldViewOptions && product.canAddToCart;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
+                          viewMode === 'list' ? 'flex' : ''
+                        }`}
+                      >
+                        <div
+                          className={`relative overflow-hidden bg-gray-100 ${
+                            viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
+                          }`}
+                        >
+                          <Link to={`/product/${product.slug}`}>
+                            <img
+                              src={product.image || '/logo.jpg'}
+                              alt={product.name}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                              onError={(event) => {
+                                event.currentTarget.src = '/logo.jpg';
+                              }}
+                            />
+                          </Link>
+
+                          <div className="absolute top-2 left-2">
+                            <StockBadge item={product as any} />
+                          </div>
+
+                          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              className="w-8 h-8 rounded-full bg-white text-gray-600 hover:text-red-500 flex items-center justify-center transition-all hover:scale-110"
+                              aria-label={`Save ${product.name}`}
+                            >
+                              <Heart className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex-1">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
+                            <span className="text-sm font-medium">{ratingText}</span>
+                          </div>
+
+                          <Link to={`/product/${product.slug}`}>
+                            <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
+                              {product.name}
+                            </h3>
+                          </Link>
+
+                          <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+                            {product.shortDescription ||
+                              product.description ||
+                              'DigitalHood marketplace product'}
+                          </p>
+
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <StockBadge item={product as any} />
+
+                            {soldText && (
+                              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                                {soldText}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="font-display font-bold text-lg">
+                              {formatPrice(product.price)}
+                            </span>
+                          </div>
+
+                          {shouldViewOptions ? (
+                            <Link to={`/product/${product.slug}`}>
+                              <Button
+                                className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
+                                size="sm"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                View Options
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Button
+                              type="button"
+                              disabled={!canBuyDirectly}
+                              onClick={() => handleAddToCart(product)}
+                              className={`w-full transition-all ${
+                                addedToCart === product.id
+                                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                                  : canBuyDirectly
+                                    ? 'bg-black hover:bg-[#ffb54a] hover:text-black text-white'
+                                    : 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
+                              }`}
+                              size="sm"
+                            >
+                              {addedToCart === product.id ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Added
+                                </>
+                              ) : canBuyDirectly ? (
+                                <>
+                                  <ShoppingCart className="w-4 h-4 mr-2" />
+                                  Add to Cart
+                                </>
+                              ) : (
+                                <>
+                                  <ShoppingCart className="w-4 h-4 mr-2" />
+                                  {product.stockLabel || 'Unavailable'}
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+                  <Button
+                    variant="outline"
+                    disabled={page === 1 || isLoading}
+                    onClick={goToPreviousPage}
+                    className="w-full sm:w-auto"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+
+                  <span className="text-sm font-medium text-gray-600">
+                    Page {page} of {totalPages}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    disabled={page >= totalPages || isLoading}
+                    onClick={goToNextPage}
+                    className="w-full sm:w-auto"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="mt-10 rounded-2xl bg-black text-white p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold mb-2">
+              Safe shopping starts with trust
+            </h2>
+            <p className="text-white/75 max-w-3xl">
+              DigitalHood is building a safer online marketplace for Zambia — with trusted
+              listings, clear product information, secure checkout and customer support.
+            </p>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
