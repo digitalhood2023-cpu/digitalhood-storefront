@@ -259,13 +259,12 @@ export default function Home() {
 
         <FlashSale />
 
-        <Categories />
-
-        <RecentlyViewed />
-        <Testimonials />
-        <Services />
-
         <Features />
+        <Services />
+        <Testimonials />
+        <RecentlyViewed />
+
+        <Categories />
 
         <Newsletter />
       </main>
