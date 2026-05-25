@@ -246,7 +246,6 @@ export default function CheckoutPage() {
   const [checkoutError, setCheckoutError] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null)
-  const [completedOrderTotal, setCompletedOrderTotal] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [cardClientSecret, setCardClientSecret] = useState('')
@@ -300,7 +299,6 @@ export default function CheckoutPage() {
   const deliveryTitle = shipping.title
   const deliveryEstimate = shipping.estimate
   const finalTotal = subtotal + deliveryFee
-  const successOrderTotal = completedOrderTotal ?? finalTotal
 
   const formatPrice = (price: number) =>
     `K${Number(price || 0).toLocaleString('en-ZM', {
@@ -353,7 +351,6 @@ export default function CheckoutPage() {
     setCardClientSecret('')
     setCardPaymentIntentId('')
     setCreatedOrderId(null)
-    setCompletedOrderTotal(null)
   }
 
   const openAddCheckoutAddress = () => {
@@ -602,7 +599,6 @@ export default function CheckoutPage() {
       setCardClientSecret('')
       setCardPaymentIntentId('')
       setCreatedOrderId(null)
-      setCompletedOrderTotal(null)
     }
   }
 
@@ -811,7 +807,6 @@ export default function CheckoutPage() {
           setSuccessState(getSuccessState('mobile-confirmed'))
           setOrderComplete(true)
           setCreatedOrderId(orderId)
-          setCompletedOrderTotal(finalTotal)
           clearCart()
 
           return
@@ -905,7 +900,6 @@ export default function CheckoutPage() {
 
       setSuccessState(getSuccessState('card'))
       setOrderComplete(true)
-      setCompletedOrderTotal(finalTotal)
       clearCart()
     } catch (error) {
       setCheckoutError(
@@ -963,7 +957,6 @@ export default function CheckoutPage() {
           setSuccessState(getSuccessState('mobile-confirmed'))
           setOrderComplete(true)
           setCreatedOrderId(order.orderId)
-          setCompletedOrderTotal(finalTotal)
           clearCart()
           return
         }
@@ -981,7 +974,6 @@ export default function CheckoutPage() {
 
       setSuccessState(getSuccessState(paymentMethod))
       setOrderComplete(true)
-      setCompletedOrderTotal(finalTotal)
       clearCart()
     } catch (error) {
       setCheckoutError(
@@ -1083,7 +1075,7 @@ export default function CheckoutPage() {
                 </p>
 
                 <p className="font-display font-bold text-2xl text-dh-primary">
-                  {formatPrice(successOrderTotal)}
+                  {formatPrice(finalTotal)}
                 </p>
 
                 <div className="mt-5 grid gap-3 text-left">
