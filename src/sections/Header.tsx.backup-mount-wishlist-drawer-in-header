@@ -23,7 +23,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CartButton } from '@/features/cart/CartButton'
 import { CartDrawer } from '@/features/cart/CartDrawer'
-import WishlistDrawer from '@/components/wishlist/WishlistDrawer'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -577,7 +576,6 @@ export default function Header() {
       </header>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
-      <WishlistDrawer />
     </>
   )
 }
