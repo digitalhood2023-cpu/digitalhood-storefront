@@ -7,7 +7,6 @@ import {
   List,
   ShoppingBag,
   ShoppingCart,
-  Star,
   Trash2,
 } from 'lucide-react'
 
@@ -45,15 +44,6 @@ type WishlistProduct = {
   stockTone?: string
   can_add_to_cart?: boolean
   canAddToCart?: boolean
-  rating?: number | string
-  averageRating?: number | string
-  average_rating?: number | string
-  reviews?: number | string
-  ratingCount?: number | string
-  rating_count?: number | string
-  totalSales?: number | string
-  total_sales?: number | string
-  sold?: number | string
 }
 
 function normalizePrice(price: unknown) {
@@ -66,56 +56,6 @@ function formatPrice(price: unknown) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
-}
-
-function getProductRating(product: WishlistProduct) {
-  return normalizePrice(
-    product.rating ||
-      product.averageRating ||
-      product.average_rating ||
-      0
-  )
-}
-
-function getProductReviews(product: WishlistProduct) {
-  return normalizePrice(
-    product.reviews ||
-      product.ratingCount ||
-      product.rating_count ||
-      0
-  )
-}
-
-function getProductSold(product: WishlistProduct) {
-  return normalizePrice(
-    product.totalSales ||
-      product.total_sales ||
-      product.sold ||
-      0
-  )
-}
-
-function getRatingText(product: WishlistProduct) {
-  const rating = getProductRating(product)
-  const reviews = getProductReviews(product)
-
-  if (rating > 0 && reviews > 0) {
-    return `${rating.toFixed(1)} (${reviews})`
-  }
-
-  if (rating > 0) {
-    return rating.toFixed(1)
-  }
-
-  return 'New'
-}
-
-function getSoldText(product: WishlistProduct) {
-  const sold = getProductSold(product)
-
-  if (sold <= 0) return ''
-
-  return `${sold.toLocaleString('en-ZM')} sold`
 }
 
 function getProductImage(product: WishlistProduct) {
@@ -313,21 +253,6 @@ export default function WishlistPage() {
                         </h2>
                       </Link>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-dh-dark-gray">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 font-semibold text-dh-primary">
-                          <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                          {getRatingText(product)}
-                        </span>
-
-                        {getSoldText(product) && (
-                          <span className="rounded-full bg-dh-gray px-2.5 py-1 font-semibold text-dh-primary">
-                            {getSoldText(product)}
-                          </span>
-                        )}
-
-                        <StockBadge item={product as any} />
-                      </div>
-
                       <p className="mt-3 font-display text-xl font-bold text-dh-primary">
                         {formatPrice(product.price)}
                       </p>
@@ -393,17 +318,9 @@ export default function WishlistPage() {
                       <div className="min-w-0 p-4 sm:p-5">
                         <div className="mb-3 flex flex-wrap gap-2">
                           <StockBadge item={product as any} />
-
-                          <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-3 py-1 text-xs font-bold text-dh-primary">
-                            <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                            {getRatingText(product)}
+                          <span className="rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold text-dh-primary">
+                            Saved
                           </span>
-
-                          {getSoldText(product) && (
-                            <span className="rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold text-dh-primary">
-                              {getSoldText(product)}
-                            </span>
-                          )}
                         </div>
 
                         <Link to={`/product/${getProductSlug(product)}`}>

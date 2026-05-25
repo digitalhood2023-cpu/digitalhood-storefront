@@ -79,7 +79,7 @@ export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const { items: wishlistItems, openWishlistDrawer } = useWishlist()
+  const { items: wishlistItems } = useWishlist()
   const { customer, isAuthenticated, logout } = useAccount()
 
   const customerDisplayName = getCustomerDisplayName(customer)
@@ -256,22 +256,22 @@ export default function Header() {
                 Track Order
               </Link>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={openWishlistDrawer}
-                className="relative hover:bg-gray-100"
-                aria-label="Wishlist"
-              >
-                <Heart className="h-5 w-5" />
+              <Link to="/wishlist">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative hover:bg-gray-100"
+                  aria-label="Wishlist"
+                >
+                  <Heart className="h-5 w-5" />
 
-                {wishlistItems.length > 0 && (
-                  <span className="animate-scale-in absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffb54a] text-xs font-bold text-black">
-                    {wishlistItems.length}
-                  </span>
-                )}
-              </Button>
+                  {wishlistItems.length > 0 && (
+                    <span className="animate-scale-in absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffb54a] text-xs font-bold text-black">
+                      {wishlistItems.length}
+                    </span>
+                  )}
+                </Button>
+              </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -323,12 +323,11 @@ export default function Header() {
                         </Link>
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem
-                        onClick={openWishlistDrawer}
-                        className="cursor-pointer"
-                      >
-                        <Heart className="mr-2 h-4 w-4" />
-                        Wishlist
+                      <DropdownMenuItem asChild>
+                        <Link to="/wishlist" className="cursor-pointer">
+                          <Heart className="mr-2 h-4 w-4" />
+                          Wishlist
+                        </Link>
                       </DropdownMenuItem>
 
                       <DropdownMenuItem
@@ -362,12 +361,11 @@ export default function Header() {
                         </Link>
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem
-                        onClick={openWishlistDrawer}
-                        className="cursor-pointer"
-                      >
-                        <Heart className="mr-2 h-4 w-4" />
-                        Wishlist
+                      <DropdownMenuItem asChild>
+                        <Link to="/wishlist" className="cursor-pointer">
+                          <Heart className="mr-2 h-4 w-4" />
+                          Wishlist
+                        </Link>
                       </DropdownMenuItem>
                     </>
                   )}
@@ -543,13 +541,9 @@ export default function Header() {
                   Deals
                 </Link>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false)
-                    openWishlistDrawer()
-                  }}
-                  className="flex items-center justify-between rounded-lg px-4 py-3 text-left transition-colors hover:bg-gray-100"
+                <Link
+                  to="/wishlist"
+                  className="flex items-center justify-between rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
                 >
                   Wishlist
 
@@ -558,7 +552,7 @@ export default function Header() {
                       {wishlistItems.length}
                     </span>
                   )}
-                </button>
+                </Link>
 
                 {isAuthenticated && (
                   <button
