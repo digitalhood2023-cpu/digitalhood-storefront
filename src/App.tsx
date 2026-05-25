@@ -8,6 +8,7 @@ import SEO from '@/components/SEO'
 
 const Home = lazy(() => import('@/pages/Home'))
 const ShopPage = lazy(() => import('@/pages/ShopPage'))
+const CategoriesPage = lazy(() => import('@/pages/CategoriesPage'))
 const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
@@ -57,6 +58,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/shop" element={<ShopPage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/product/:slug" element={<ProductPage />} />
 
               <Route path="/cart" element={<CartPage />} />
