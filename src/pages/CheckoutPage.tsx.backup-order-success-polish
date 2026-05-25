@@ -182,12 +182,6 @@ function getFullName(customer?: {
   return fullName || customer.email || ''
 }
 
-function getPaymentMethodDisplay(method: 'mobile' | 'card' | 'cod') {
-  if (method === 'mobile') return 'Mobile Money'
-  if (method === 'card') return 'Card Payment'
-  return 'Cash on Delivery'
-}
-
 function getAddressLine(address?: SavedCustomerAddress | null) {
   if (!address) return ''
 
@@ -1078,51 +1072,9 @@ export default function CheckoutPage() {
                   {formatPrice(finalTotal)}
                 </p>
 
-                <div className="mt-5 grid gap-3 text-left">
-                  <div className="rounded-2xl bg-dh-gray p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Payment method
-                    </p>
-
-                    <p className="mt-1 font-semibold text-dh-primary">
-                      {getPaymentMethodDisplay(paymentMethod)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-dh-gray p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Delivery method
-                    </p>
-
-                    <p className="mt-1 font-semibold text-dh-primary">
-                      {deliveryTitle}
-                    </p>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      {deliveryEstimate}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-dh-gray p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Delivery address
-                    </p>
-
-                    <p className="mt-1 font-semibold text-dh-primary">
-                      {formData.fullName}
-                    </p>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      {formData.phone}
-                    </p>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      {[formData.address, formData.address2, formData.city, formData.province]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
-                  </div>
-                </div>
+                <p className="mt-3 text-sm text-dh-dark-gray">
+                  {deliveryTitle} · {deliveryEstimate}
+                </p>
 
                 {!successState.confirmed && (
                   <div className="mt-5 rounded-xl bg-yellow-50 border border-yellow-100 p-4 text-left">
