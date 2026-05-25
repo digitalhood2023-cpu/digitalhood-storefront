@@ -11,7 +11,6 @@ import {
   Star,
   CheckCircle,
   Search,
-  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -50,98 +49,6 @@ type SortOption =
   | 'rating';
 
 const PRODUCTS_PER_PAGE = 24;
-
-type PriceRangeKey =
-  | 'all'
-  | 'under-100'
-  | '100-250'
-  | '250-500'
-  | '500-1000'
-  | '1000-plus';
-
-const PRICE_FILTERS: Array<{
-  key: PriceRangeKey;
-  label: string;
-  min: number | null;
-  max: number | null;
-}> = [
-  { key: 'all', label: 'Any price', min: null, max: null },
-  { key: 'under-100', label: 'Under K100', min: null, max: 100 },
-  { key: '100-250', label: 'K100 - K250', min: 100, max: 250 },
-  { key: '250-500', label: 'K250 - K500', min: 250, max: 500 },
-  { key: '500-1000', label: 'K500 - K1,000', min: 500, max: 1000 },
-  { key: '1000-plus', label: 'K1,000+', min: 1000, max: null },
-];
-
-const STORAGE_FILTERS = ['32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'];
-
-const COLOR_FILTERS = [
-  'Black',
-  'White',
-  'Blue',
-  'Red',
-  'Green',
-  'Gold',
-  'Silver',
-  'Purple',
-  'Grey',
-  'Gray',
-  'Pink',
-  'Clear',
-];
-
-function normalizeFilterText(value = '') {
-  return value
-    .toLowerCase()
-    .replace(/[-_/]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getProductFilterText(product: WooProduct) {
-  const attributeText = Array.isArray(product.attributes)
-    ? product.attributes
-        .map((attribute) => `${attribute.name} ${attribute.options.join(' ')}`)
-        .join(' ')
-    : '';
-
-  const categoryText = Array.isArray(product.categories)
-    ? product.categories.map((category) => category.name).join(' ')
-    : '';
-
-  return normalizeFilterText(
-    [
-      product.name,
-      product.slug,
-      product.shortDescription,
-      product.description,
-      attributeText,
-      categoryText,
-    ]
-      .filter(Boolean)
-      .join(' ')
-  );
-}
-
-function productMatchesPrice(product: WooProduct, rangeKey: PriceRangeKey) {
-  const selectedRange = PRICE_FILTERS.find((range) => range.key === rangeKey);
-
-  if (!selectedRange || selectedRange.key === 'all') return true;
-
-  const price = safeNumber(product.price);
-
-  if (selectedRange.min !== null && price < selectedRange.min) return false;
-  if (selectedRange.max !== null && price > selectedRange.max) return false;
-
-  return true;
-}
-
-function productMatchesTextOption(product: WooProduct, option: string) {
-  if (!option) return true;
-
-  return getProductFilterText(product).includes(normalizeFilterText(option));
-}
-
 
 function safeNumber(value: unknown, fallback = 0) {
   const numberValue = Number(value);
@@ -189,10 +96,6 @@ export default function ShopPage() {
   const [loadError, setLoadError] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
-  const [priceRange, setPriceRange] = useState<PriceRangeKey>('all');
-  const [selectedStorage, setSelectedStorage] = useState('');
-  const [selectedColor, setSelectedColor] = useState('');
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -286,16 +189,7 @@ export default function ShopPage() {
 
   const selectedCategorySlug = selectedCategory?.slug;
   const popularCategories = categories.slice(0, 10);
-  const activeSidebarFilterCount = [
-    priceRange !== 'all',
-    Boolean(selectedStorage),
-    Boolean(selectedColor),
-  ].filter(Boolean).length;
-  const hasActiveFilters = Boolean(
-    selectedCategoryId ||
-      searchQuery.trim() ||
-      activeSidebarFilterCount > 0
-  );
+  const hasActiveFilters = Boolean(selectedCategoryId || searchQuery.trim());
 
   const updateShopUrl = (categorySlug?: string | null, search?: string) => {
     const params: Record<string, string> = {};
@@ -329,29 +223,11 @@ export default function ShopPage() {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedCategoryId(null);
-    setPriceRange('all');
-    setSelectedStorage('');
-    setSelectedColor('');
-    setShowMobileFilters(false);
     setSearchParams({});
   };
 
-  const clearSidebarFilters = () => {
-    setPriceRange('all');
-    setSelectedStorage('');
-    setSelectedColor('');
-  };
-
   const sortedProducts = useMemo(() => {
-    const filteredProducts = products.filter((product) => {
-      return (
-        productMatchesPrice(product, priceRange) &&
-        productMatchesTextOption(product, selectedStorage) &&
-        productMatchesTextOption(product, selectedColor)
-      );
-    });
-
-    return filteredProducts.sort((a, b) => {
+    return [...products].sort((a, b) => {
       switch (sortBy) {
         case 'price-low':
           return getProductPrice(a) - getProductPrice(b);
@@ -367,7 +243,7 @@ export default function ShopPage() {
           return 0;
       }
     });
-  }, [products, sortBy, priceRange, selectedStorage, selectedColor]);
+  }, [products, sortBy]);
 
   const formatPrice = (price: number) =>
     `K${safeNumber(price).toLocaleString('en-ZM', {
@@ -422,162 +298,6 @@ export default function ShopPage() {
     setAddedToCart(product.id);
     setTimeout(() => setAddedToCart(null), 2000);
   };
-
-  const FilterPanel = (
-    <div className="rounded-3xl bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-            <SlidersHorizontal className="h-5 w-5" />
-          </div>
-
-          <h2 className="font-display text-xl font-bold text-dh-primary">
-            Filters
-          </h2>
-
-          <p className="mt-1 text-xs text-dh-dark-gray">
-            Refine products faster.
-          </p>
-        </div>
-
-        {activeSidebarFilterCount > 0 && (
-          <button
-            type="button"
-            onClick={clearSidebarFilters}
-            className="rounded-full border border-dh-light-gray px-3 py-1.5 text-xs font-semibold text-dh-primary hover:border-dh-primary"
-          >
-            Reset
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-6">
-        <div>
-          <h3 className="mb-3 text-sm font-bold text-dh-primary">
-            Categories
-          </h3>
-
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={handleAllProductsClick}
-              className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                selectedCategoryId === null
-                  ? 'bg-dh-primary text-white'
-                  : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-              }`}
-            >
-              <span>All products</span>
-              <span className="text-xs opacity-80">{totalProducts}</span>
-            </button>
-
-            {popularCategories.slice(0, 8).map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => handleCategoryClick(category)}
-                className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                  selectedCategoryId === category.id
-                    ? 'bg-dh-primary text-white'
-                    : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-                }`}
-              >
-                <span className="line-clamp-1">{category.name}</span>
-                <span className="ml-2 text-xs opacity-80">
-                  {category.productCount}
-                </span>
-              </button>
-            ))}
-
-            <Link
-              to="/categories"
-              className="flex w-full items-center justify-center rounded-2xl border border-dh-light-gray px-3 py-2 text-sm font-semibold text-dh-primary hover:border-dh-primary"
-            >
-              More categories
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-
-        <div className="border-t border-dh-light-gray pt-5">
-          <h3 className="mb-3 text-sm font-bold text-dh-primary">
-            Price
-          </h3>
-
-          <div className="space-y-2">
-            {PRICE_FILTERS.map((range) => (
-              <button
-                key={range.key}
-                type="button"
-                onClick={() => setPriceRange(range.key)}
-                className={`flex w-full items-center rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
-                  priceRange === range.key
-                    ? 'bg-dh-primary text-white'
-                    : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-dh-light-gray pt-5">
-          <h3 className="mb-3 text-sm font-bold text-dh-primary">
-            Storage
-          </h3>
-
-          <div className="flex flex-wrap gap-2">
-            {STORAGE_FILTERS.map((storage) => (
-              <button
-                key={storage}
-                type="button"
-                onClick={() =>
-                  setSelectedStorage((current) =>
-                    current === storage ? '' : storage
-                  )
-                }
-                className={`rounded-full px-3 py-2 text-xs font-bold transition-colors ${
-                  selectedStorage === storage
-                    ? 'bg-dh-primary text-white'
-                    : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-                }`}
-              >
-                {storage}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-dh-light-gray pt-5">
-          <h3 className="mb-3 text-sm font-bold text-dh-primary">
-            Colour
-          </h3>
-
-          <div className="flex flex-wrap gap-2">
-            {COLOR_FILTERS.map((color) => (
-              <button
-                key={color}
-                type="button"
-                onClick={() =>
-                  setSelectedColor((current) =>
-                    current === color ? '' : color
-                  )
-                }
-                className={`rounded-full px-3 py-2 text-xs font-bold transition-colors ${
-                  selectedColor === color
-                    ? 'bg-dh-primary text-white'
-                    : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-                }`}
-              >
-                {color}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div ref={pageRef} className="min-h-screen bg-gray-50">
@@ -700,38 +420,7 @@ export default function ShopPage() {
             </div>
           </section>
 
-          <section className="mb-4 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setShowMobileFilters((current) => !current)}
-              className="flex w-full items-center justify-between rounded-3xl bg-white p-4 font-semibold text-dh-primary shadow-sm"
-            >
-              <span className="inline-flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5" />
-                Filters
-                {activeSidebarFilterCount > 0 && (
-                  <span className="rounded-full bg-dh-secondary px-2 py-0.5 text-xs text-dh-primary">
-                    {activeSidebarFilterCount}
-                  </span>
-                )}
-              </span>
-
-              <span className="text-sm">
-                {showMobileFilters ? 'Hide' : 'Show'}
-              </span>
-            </button>
-
-            {showMobileFilters && <div className="mt-3">{FilterPanel}</div>}
-          </section>
-
-          <div className="shop-content grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <aside className="hidden lg:block">
-              <div className="sticky top-24">
-                {FilterPanel}
-              </div>
-            </aside>
-
-            <div className="min-w-0">
+          <div className="shop-content">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-4 shadow-sm">
               <div>
                 <p className="text-sm text-dh-dark-gray">
@@ -1049,7 +738,6 @@ export default function ShopPage() {
               DigitalHood is building a safer online marketplace for Zambia — with trusted
               listings, clear product information, secure checkout and customer support.
             </p>
-            </div>
           </div>
         </div>
       </main>
