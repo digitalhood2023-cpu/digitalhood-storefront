@@ -8,6 +8,7 @@ import {
   TrendingUp,
   X,
   Heart,
+  Eye,
   ShoppingCart,
   Star,
   CheckCircle,
@@ -24,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useCartStore } from '@/store/cartStore';
+import { useWishlist } from '@/context/WishlistContext';
 import {
   fetchWooCategories,
   fetchWooProducts,
@@ -103,6 +105,7 @@ export default function ShopPage() {
   const [addedToCart, setAddedToCart] = useState<number | null>(null);
 
   const addItem = useCartStore((state) => state.addItem);
+  const { toggleWishlist, isInWishlist } = useWishlist();
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -588,13 +591,13 @@ export default function ShopPage() {
                     return (
                       <div
                         key={product.id}
-                        className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
+                        className={`group overflow-hidden rounded-3xl border border-transparent bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-dh-primary/15 hover:shadow-xl ${
                           viewMode === 'list' ? 'flex' : ''
                         }`}
                       >
                         <div
                           className={`relative overflow-hidden bg-gray-100 ${
-                            viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'
+                            viewMode === 'list' ? 'w-40 shrink-0 sm:w-48' : 'aspect-square'
                           }`}
                         >
                           <Link to={`/product/${product.slug}`}>
@@ -609,34 +612,51 @@ export default function ShopPage() {
                             />
                           </Link>
 
-                          <div className="absolute top-2 left-2">
+                          <div className="absolute left-3 top-3">
                             <StockBadge item={product as any} />
                           </div>
 
-                          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             <button
                               type="button"
-                              className="w-8 h-8 rounded-full bg-white text-gray-600 hover:text-red-500 flex items-center justify-center transition-all hover:scale-110"
+                              onClick={() => toggleWishlist(product as any)}
+                              className={`flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm transition-all hover:scale-110 ${
+                                isInWishlist(String(product.id))
+                                  ? 'text-red-500'
+                                  : 'text-gray-600 hover:text-red-500'
+                              }`}
                               aria-label={`Save ${product.name}`}
                             >
-                              <Heart className="w-4 h-4" />
+                              <Heart
+                                className={`h-4 w-4 ${
+                                  isInWishlist(String(product.id)) ? 'fill-current' : ''
+                                }`}
+                              />
                             </button>
+
+                            <Link
+                              to={`/product/${product.slug}`}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm transition-all hover:scale-110 hover:text-dh-primary"
+                              aria-label={`View ${product.name}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Link>
                           </div>
                         </div>
 
-                        <div className="p-4 flex-1">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Star className="w-4 h-4 fill-[#ffb54a] text-[#ffb54a]" />
-                            <span className="text-sm font-medium">{ratingText}</span>
+                        <div className="flex flex-1 flex-col p-4">
+                          <div className="mb-2 flex items-center gap-1 text-xs text-dh-dark-gray">
+                            <Star className="h-4 w-4 fill-[#ffb54a] text-[#ffb54a]" />
+                            <span className="font-medium">{ratingText}</span>
                           </div>
 
                           <Link to={`/product/${product.slug}`}>
-                            <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2">
+                            <h3 className="mb-2 line-clamp-2 min-h-[2.75rem] font-semibold leading-snug text-dh-primary transition-colors hover:text-[#ffb54a]">
                               {product.name}
                             </h3>
                           </Link>
 
-                          <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+                          <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-dh-dark-gray">
                             {product.shortDescription ||
                               product.description ||
                               'DigitalHood marketplace product'}
@@ -646,14 +666,14 @@ export default function ShopPage() {
                             <StockBadge item={product as any} />
 
                             {soldText && (
-                              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                              <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-semibold text-dh-primary">
                                 {soldText}
                               </span>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="font-display font-bold text-lg">
+                          <div className="mt-auto mb-3 flex items-center gap-2">
+                            <span className="font-display text-xl font-bold text-dh-primary">
                               {formatPrice(product.price)}
                             </span>
                           </div>
@@ -677,9 +697,9 @@ export default function ShopPage() {
                                 addedToCart === product.id
                                   ? 'bg-green-500 hover:bg-green-600 text-white'
                                   : canBuyDirectly
-                                    ? 'bg-black hover:bg-[#ffb54a] hover:text-black text-white'
+                                    ? 'bg-dh-primary hover:bg-[#ffb54a] hover:text-black text-white'
                                     : 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
-                              }`}
+                              } rounded-full`}
                               size="sm"
                             >
                               {addedToCart === product.id ? (
