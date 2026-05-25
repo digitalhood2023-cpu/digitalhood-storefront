@@ -1,32 +1,133 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Heart, ShoppingCart, Star, Eye, Check, ArrowRight } from 'lucide-react'
+import {
+  Heart,
+  ShoppingCart,
+  Star,
+  Eye,
+  Check,
+  ArrowRight,
+  PackageCheck,
+  AlertTriangle,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
+
 import { useWishlist } from '@/context/WishlistContext'
 import { useCartStore } from '@/store/cartStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
+type ShowcaseProduct = {
+  id: string
+  name: string
+  slug?: string
+  price: number
+  originalPrice?: number
+  image: string
+  images?: string[]
+  rating: number
+  reviews: number
+  badge?: string
+  category: string
+  type?: string
+  hasOptions?: boolean
+  stockStatus?: string
+  stockLabel?: string
+  stockTone?: 'success' | 'warning' | 'danger' | 'muted'
+  canAddToCart?: boolean
+  inStock?: boolean
+}
+
 interface ProductShowcaseProps {
   title: string
   subtitle: string
-  products: Array<{
-    id: string
-    name: string
-    price: number
-    originalPrice?: number
-    image: string
-    rating: number
-    reviews: number
-    badge?: string
-    category: string
-  }>
+  products: ShowcaseProduct[]
   viewAllLink: string
   bgColor?: 'white' | 'gray'
+}
+
+function safeNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value)
+
+  return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
+function getProductUrl(product: ShowcaseProduct) {
+  return `/product/${product.slug || product.id}`
+}
+
+function getStockInfo(product: ShowcaseProduct) {
+  const stockStatus = String(product.stockStatus || '').toLowerCase()
+  const stockLabel = product.stockLabel || ''
+
+  if (product.canAddToCart === false || product.inStock === false || stockStatus === 'outofstock') {
+    return {
+      label: stockLabel || 'Out of stock',
+      className: 'bg-red-50 text-red-700 border-red-100',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      canAdd: false,
+    }
+  }
+
+  if (stockStatus === 'onbackorder') {
+    return {
+      label: stockLabel || 'Available on backorder',
+      className: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      canAdd: true,
+    }
+  }
+
+  if (
+    product.stockTone === 'warning' ||
+    stockLabel.toLowerCase().includes('left') ||
+    stockLabel.toLowerCase().includes('almost')
+  ) {
+    return {
+      label: stockLabel || 'Limited stock',
+      className: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      canAdd: Boolean(product.canAddToCart ?? true),
+    }
+  }
+
+  return {
+    label: stockLabel || 'In stock',
+    className: 'bg-green-50 text-green-700 border-green-100',
+    icon: <PackageCheck className="h-3.5 w-3.5" />,
+    canAdd: Boolean(product.canAddToCart ?? true),
+  }
+}
+
+function getBadgeClass(badge?: string) {
+  const normalized = String(badge || '').toLowerCase()
+
+  if (normalized.includes('sale') || normalized.includes('deal')) {
+    return 'bg-red-500 text-white'
+  }
+
+  if (normalized.includes('hot')) {
+    return 'bg-orange-500 text-white'
+  }
+
+  if (normalized.includes('new')) {
+    return 'bg-green-500 text-white'
+  }
+
+  if (normalized.includes('best')) {
+    return 'bg-purple-500 text-white'
+  }
+
+  if (normalized.includes('trend')) {
+    return 'bg-blue-500 text-white'
+  }
+
+  return 'bg-[#ffb54a] text-black'
 }
 
 export default function ProductShowcase({
@@ -78,23 +179,36 @@ export default function ProductShowcase({
     }, sectionRef)
 
     return () => ctx.revert()
-  }, [])
+  }, [products.length])
 
   const handleAddToCart = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    product: ProductShowcaseProps['products'][number]
+    event: React.MouseEvent<HTMLButtonElement>,
+    product: ShowcaseProduct
   ) => {
-    e.preventDefault()
-    e.stopPropagation()
+    event.preventDefault()
+    event.stopPropagation()
+
+    const productUrl = getProductUrl(product)
+    const stock = getStockInfo(product)
+
+    if (product.hasOptions || product.type === 'variable') {
+      window.location.href = productUrl
+      return
+    }
+
+    if (!stock.canAdd) {
+      toast.error(stock.label || 'This product is currently unavailable.')
+      return
+    }
 
     addItem(
       {
         id: Number(product.id),
         name: product.name,
-        slug: product.name.toLowerCase().replace(/\s+/g, '-'),
-        price: product.price,
+        slug: product.slug || product.id,
+        price: safeNumber(product.price),
         regular_price: product.originalPrice || product.price,
-        image: product.image,
+        image: product.image || product.images?.[0] || '/logo.jpg',
       },
       1
     )
@@ -107,152 +221,172 @@ export default function ProductShowcase({
     }, 2000)
   }
 
-  const formatPrice = (price: number) => `K${price.toLocaleString()}`
+  const formatPrice = (price: number) =>
+    `K${safeNumber(price).toLocaleString('en-ZM', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
 
   const bgClass = bgColor === 'gray' ? 'bg-gray-50' : 'bg-white'
+
+  if (products.length === 0) {
+    return null
+  }
 
   return (
     <section ref={sectionRef} className={`py-16 lg:py-24 ${bgClass}`}>
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="showcase-header flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10">
+        <div className="showcase-header mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-black mb-2">
+            <h2 className="font-display text-2xl font-bold text-black sm:text-3xl lg:text-4xl">
               {title}
             </h2>
 
-            <p className="text-gray-600">{subtitle}</p>
+            <p className="mt-2 text-gray-600">{subtitle}</p>
           </div>
 
           <Link to={viewAllLink}>
             <Button
               variant="outline"
-              className="border-2 border-black text-black hover:bg-black hover:text-white rounded-full px-6"
+              className="rounded-full border-2 border-black px-6 text-black hover:bg-black hover:text-white"
             >
               View All
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
         </div>
 
-        <div className="showcase-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 lg:gap-6">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="showcase-card group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-            >
-              <div className="relative aspect-square overflow-hidden bg-gray-100">
-                <Link to={`/product/${product.id}`}>
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </Link>
+        <div className="showcase-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 lg:gap-6">
+          {products.map((product) => {
+            const productUrl = getProductUrl(product)
+            const stock = getStockInfo(product)
+            const productImage = product.image || product.images?.[0] || '/logo.jpg'
+            const isVariable = product.hasOptions || product.type === 'variable'
 
-                <div className="absolute top-2 left-2 flex flex-col gap-1">
-                  {product.badge && (
-                    <Badge
-                      className={`${
-                        product.badge === 'Sale'
-                          ? 'bg-red-500'
-                          : product.badge === 'Hot'
-                            ? 'bg-orange-500'
-                            : product.badge === 'New'
-                              ? 'bg-green-500'
-                              : product.badge === 'Best Seller'
-                                ? 'bg-purple-500'
-                                : product.badge === 'Trending'
-                                  ? 'bg-blue-500'
-                                  : 'bg-[#ffb54a] text-black'
-                      } text-white text-xs font-semibold`}
-                    >
-                      {product.badge}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button
-                    onClick={() => toggleWishlist(product as any)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
-                      isInWishlist(product.id)
-                        ? 'bg-red-500 text-white'
-                        : 'bg-white text-gray-600 hover:text-red-500'
-                    }`}
-                    aria-label="Add to wishlist"
-                  >
-                    <Heart
-                      className={`w-4 h-4 ${
-                        isInWishlist(product.id) ? 'fill-current' : ''
-                      }`}
+            return (
+              <div
+                key={product.id}
+                className="showcase-card group overflow-hidden rounded-xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="relative aspect-square overflow-hidden bg-gray-100">
+                  <Link to={productUrl}>
+                    <img
+                      src={productImage}
+                      alt={product.name}
+                      onError={(event) => {
+                        event.currentTarget.src = '/logo.jpg'
+                      }}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                  </button>
-
-                  <Link
-                    to={`/product/${product.id}`}
-                    className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-black transition-all hover:scale-110"
-                    aria-label="View product"
-                  >
-                    <Eye className="w-4 h-4" />
                   </Link>
-                </div>
 
-                <div className="absolute bottom-0 left-0 right-0 p-2 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                  <Button
-                    onClick={(e) => handleAddToCart(e, product)}
-                    className={`w-full rounded-lg text-xs transition-all ${
-                      addedToCart === product.id
-                        ? 'bg-green-500 hover:bg-green-600'
-                        : 'bg-black hover:bg-[#ffb54a] hover:text-black'
-                    } text-white`}
-                    size="sm"
-                  >
-                    {addedToCart === product.id ? (
-                      <>
-                        <Check className="w-3 h-3 mr-1" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCart className="w-3 h-3 mr-1" />
-                        Add to Cart
-                      </>
+                  <div className="absolute left-2 top-2 flex max-w-[80%] flex-col gap-1">
+                    {product.badge && (
+                      <Badge className={`${getBadgeClass(product.badge)} text-xs font-semibold`}>
+                        {product.badge}
+                      </Badge>
                     )}
-                  </Button>
+                  </div>
+
+                  <div className="absolute right-2 top-2 flex flex-col gap-1 opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100">
+                    <button
+                      onClick={() => toggleWishlist(product as any)}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-110 ${
+                        isInWishlist(product.id)
+                          ? 'bg-red-500 text-white'
+                          : 'bg-white text-gray-600 hover:text-red-500'
+                      }`}
+                      aria-label="Toggle wishlist"
+                    >
+                      <Heart
+                        className={`h-4 w-4 ${
+                          isInWishlist(product.id) ? 'fill-current' : ''
+                        }`}
+                      />
+                    </button>
+
+                    <Link
+                      to={productUrl}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-600 transition-all hover:scale-110 hover:text-black"
+                      aria-label="View product"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="absolute bottom-0 left-0 right-0 p-2 translate-y-0 transition-transform duration-300 sm:translate-y-full sm:group-hover:translate-y-0">
+                    <Button
+                      onClick={(event) => handleAddToCart(event, product)}
+                      className={`w-full rounded-lg text-xs transition-all ${
+                        addedToCart === product.id
+                          ? 'bg-green-500 hover:bg-green-600'
+                          : !stock.canAdd
+                            ? 'bg-gray-400 hover:bg-gray-400'
+                            : 'bg-black hover:bg-[#ffb54a] hover:text-black'
+                      } text-white`}
+                      size="sm"
+                    >
+                      {addedToCart === product.id ? (
+                        <>
+                          <Check className="mr-1 h-3 w-3" />
+                          Added
+                        </>
+                      ) : isVariable ? (
+                        <>
+                          <ArrowRight className="mr-1 h-3 w-3" />
+                          Options
+                        </>
+                      ) : !stock.canAdd ? (
+                        'Unavailable'
+                      ) : (
+                        <>
+                          <ShoppingCart className="mr-1 h-3 w-3" />
+                          Add
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-3">
-                <div className="flex items-center gap-1 mb-1">
-                  <Star className="w-3 h-3 fill-[#ffb54a] text-[#ffb54a]" />
-                  <span className="text-xs font-medium">
-                    {product.rating}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    ({product.reviews})
-                  </span>
-                </div>
-
-                <Link to={`/product/${product.id}`}>
-                  <h3 className="text-sm font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2 min-h-[2.5rem]">
-                    {product.name}
-                  </h3>
-                </Link>
-
-                <div className="flex items-center gap-2">
-                  <span className="font-display font-bold text-sm">
-                    {formatPrice(product.price)}
-                  </span>
-
-                  {product.originalPrice && (
-                    <span className="text-xs text-gray-400 line-through">
-                      {formatPrice(product.originalPrice)}
+                <div className="p-3">
+                  <div className="mb-2 flex items-center gap-1">
+                    <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
+                    <span className="text-xs font-medium">
+                      {safeNumber(product.rating).toFixed(1)}
                     </span>
-                  )}
+                    <span className="text-xs text-gray-400">
+                      ({safeNumber(product.reviews)})
+                    </span>
+                  </div>
+
+                  <Link to={productUrl}>
+                    <h3 className="mb-2 line-clamp-2 min-h-[2.5rem] text-sm font-medium text-black transition-colors hover:text-[#ffb54a]">
+                      {product.name}
+                    </h3>
+                  </Link>
+
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="font-display text-sm font-bold">
+                      {formatPrice(product.price)}
+                    </span>
+
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="text-xs text-gray-400 line-through">
+                        {formatPrice(product.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${stock.className}`}
+                  >
+                    {stock.icon}
+                    <span className="truncate">{stock.label}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
