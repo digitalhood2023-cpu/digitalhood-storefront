@@ -342,16 +342,6 @@ export default function ShopPage() {
     setSelectedColor('');
   };
 
-  const applyMobileFilters = () => {
-    setShowMobileFilters(false);
-
-    window.setTimeout(() => {
-      document
-        .getElementById('shop-results')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  };
-
   const sortedProducts = useMemo(() => {
     const filteredProducts = products.filter((product) => {
       return (
@@ -713,7 +703,7 @@ export default function ShopPage() {
           <section className="mb-4 lg:hidden">
             <button
               type="button"
-              onClick={() => setShowMobileFilters(true)}
+              onClick={() => setShowMobileFilters((current) => !current)}
               className="flex w-full items-center justify-between rounded-3xl bg-white p-4 font-semibold text-dh-primary shadow-sm"
             >
               <span className="inline-flex items-center gap-2">
@@ -726,70 +716,17 @@ export default function ShopPage() {
                 )}
               </span>
 
-              <span className="text-sm">Open</span>
+              <span className="text-sm">
+                {showMobileFilters ? 'Hide' : 'Show'}
+              </span>
             </button>
 
-            {showMobileFilters && (
-              <div className="fixed inset-0 z-50 lg:hidden">
-                <button
-                  type="button"
-                  aria-label="Close filters"
-                  onClick={() => setShowMobileFilters(false)}
-                  className="absolute inset-0 bg-black/40"
-                />
-
-                <aside className="absolute right-0 top-0 flex h-full w-[88vw] max-w-sm flex-col bg-dh-gray shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-dh-light-gray bg-white px-4 py-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                        Refine results
-                      </p>
-                      <h2 className="font-display text-xl font-bold text-dh-primary">
-                        Product filters
-                      </h2>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowMobileFilters(false)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-dh-gray text-dh-primary"
-                      aria-label="Close filters"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-4">
-                    {FilterPanel}
-                  </div>
-
-                  <div className="border-t border-dh-light-gray bg-white p-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={clearSidebarFilters}
-                        className="rounded-full border border-dh-primary px-4 py-3 text-sm font-semibold text-dh-primary"
-                      >
-                        Reset
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={applyMobileFilters}
-                        className="rounded-full bg-dh-primary px-4 py-3 text-sm font-semibold text-white"
-                      >
-                        Search products
-                      </button>
-                    </div>
-                  </div>
-                </aside>
-              </div>
-            )}
+            {showMobileFilters && <div className="mt-3">{FilterPanel}</div>}
           </section>
 
-          <div id="shop-results" className="shop-content grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="shop-content grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
+              <div className="sticky top-24">
                 {FilterPanel}
               </div>
             </aside>
@@ -921,14 +858,14 @@ export default function ShopPage() {
                         key={product.id}
                         className={`group overflow-hidden rounded-3xl border border-transparent bg-white shadow-sm transition-all duration-300 hover:border-dh-primary/15 hover:shadow-xl ${
                           viewMode === 'list'
-                            ? 'flex flex-col min-h-[220px] items-stretch hover:-translate-y-0 sm:flex-row'
+                            ? 'flex min-h-[220px] items-stretch hover:-translate-y-0'
                             : 'hover:-translate-y-1'
                         }`}
                       >
                         <div
                           className={`relative overflow-hidden bg-gray-100 ${
                             viewMode === 'list'
-                              ? 'aspect-[4/3] w-full shrink-0 sm:aspect-auto sm:w-48 lg:w-64'
+                              ? 'w-32 shrink-0 sm:w-48 lg:w-64'
                               : 'aspect-square'
                           }`}
                         >
