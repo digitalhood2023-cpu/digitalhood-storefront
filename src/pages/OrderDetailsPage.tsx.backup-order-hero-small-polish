@@ -457,16 +457,14 @@ export default function OrderDetailsPage() {
                   Order #{order.number || order.id}
                 </div>
 
-                <div className="rounded-3xl bg-dh-gray p-5">
-                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary lg:text-3xl">
-                    {getStatusTitle(order.status)}
-                  </h1>
+                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary lg:text-5xl">
+                  {getStatusTitle(order.status)}
+                </h1>
 
-                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
-                    Placed on {formatDate(order.dateCreated)}. Review your
-                    items, payment, delivery details, and current progress below.
-                  </p>
-                </div>
+                <p className="mt-4 max-w-2xl text-dh-dark-gray">
+                  Placed on {formatDate(order.dateCreated)}. You can review your
+                  items, payment, delivery details, and current progress below.
+                </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
                   <span
@@ -538,8 +536,7 @@ export default function OrderDetailsPage() {
                       </p>
 
                       <p className="mt-1">
-                        Deliveries are handled Monday to Saturday, depending on
-                        your location and order confirmation time.
+                        Monday to Saturday. Sundays are skipped automatically.
                       </p>
                     </div>
                   </div>
