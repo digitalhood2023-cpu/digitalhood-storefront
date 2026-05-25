@@ -543,42 +543,9 @@ export async function fetchWooProductVariations(
   return variations.map(mapWooVariation);
 }
 
-export async function fetchWooProductById(
-  productId: number
-): Promise<WooProduct | null> {
-  if (!productId) return null;
-
-  const detailResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}/${productId}`);
-  const detailData = await parseJsonResponse(detailResponse);
-
-  const foundProduct = detailData.product || detailData;
-
-  if (!foundProduct || !foundProduct.id) {
-    return null;
-  }
-
-  const product = mapWooProduct(foundProduct);
-
-  const variations = Array.isArray(detailData.variations)
-    ? detailData.variations.map(mapWooVariation)
-    : [];
-
-  return {
-    ...product,
-    variations,
-    hasOptions: product.hasOptions || product.type === 'variable' || variations.length > 0,
-  };
-}
-
 export async function fetchWooProductBySlug(
   slug: string
 ): Promise<WooProduct | null> {
-  const numericProductId = Number(slug);
-
-  if (Number.isFinite(numericProductId) && numericProductId > 0) {
-    return fetchWooProductById(numericProductId);
-  }
-
   const params = new URLSearchParams({
     slug,
     per_page: '1',
@@ -595,7 +562,20 @@ export async function fetchWooProductBySlug(
     return null;
   }
 
-  return fetchWooProductById(Number(foundProduct.id));
+  const detailResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}/${foundProduct.id}`);
+  const detailData = await parseJsonResponse(detailResponse);
+
+  const product = mapWooProduct(detailData.product || foundProduct);
+
+  const variations = Array.isArray(detailData.variations)
+    ? detailData.variations.map(mapWooVariation)
+    : [];
+
+  return {
+    ...product,
+    variations,
+    hasOptions: product.hasOptions || product.type === 'variable' || variations.length > 0,
+  };
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {
