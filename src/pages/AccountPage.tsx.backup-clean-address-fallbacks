@@ -171,6 +171,42 @@ function getAddressLine(address?: SavedCustomerAddress | null) {
     .join(', ')
 }
 
+function createFallbackAddressFromCustomer(customer?: any): SavedCustomerAddress | null {
+  if (!customer) return null
+
+  const shipping = customer.shipping || {}
+  const billing = customer.billing || {}
+
+  const address1 = shipping.address1 || billing.address1 || ''
+  const address2 = shipping.address2 || billing.address2 || ''
+  const city = shipping.city || billing.city || ''
+  const province = shipping.province || billing.province || ''
+
+  if (!address1 || !city || !province) {
+    return null
+  }
+
+  const fullName =
+    `${shipping.firstName || billing.firstName || customer.firstName || ''} ${shipping.lastName || billing.lastName || customer.lastName || ''}`.trim() ||
+    customer.email ||
+    'Customer'
+
+  return {
+    id: 'customer_default_address',
+    label: 'Default Address',
+    fullName,
+    phone: billing.phone || '',
+    address1,
+    address2,
+    city,
+    province,
+    postcode: shipping.postcode || billing.postcode || '10101',
+    country: shipping.country || billing.country || 'ZM',
+    isDefault: true,
+    createdAt: customer.dateCreated,
+    updatedAt: customer.dateModified,
+  }
+}
 
 function DashboardCard({
   icon,
@@ -372,7 +408,12 @@ export default function AccountPage() {
     })
 
     setSavedAddresses(customer.savedAddresses || [])
-    setDefaultAddressId(customer.defaultAddressId || customer.savedAddresses?.[0]?.id || '')
+
+    const fallbackAddress = createFallbackAddressFromCustomer(customer)
+
+    setDefaultAddressId(
+      customer.defaultAddressId || customer.savedAddresses?.[0]?.id || fallbackAddress?.id || ''
+    )
   }, [customer])
 
   useEffect(() => {
@@ -449,8 +490,14 @@ export default function AccountPage() {
   const wishlistCount = wishlistItems.length
 
   const displayAddresses = useMemo(() => {
-    return savedAddresses
-  }, [savedAddresses])
+    if (savedAddresses.length > 0) {
+      return savedAddresses
+    }
+
+    const fallbackAddress = createFallbackAddressFromCustomer(customer)
+
+    return fallbackAddress ? [fallbackAddress] : []
+  }, [customer, savedAddresses])
 
   const defaultAddress = useMemo(() => {
     return (
@@ -470,6 +517,10 @@ export default function AccountPage() {
     })
   }
 
+  const isFallbackOnlyAddressList =
+    savedAddresses.length === 0 &&
+    displayAddresses.length === 1 &&
+    displayAddresses[0]?.id === 'customer_default_address'
 
   const updateProfileField = (
     field: keyof typeof profileForm,
@@ -617,6 +668,23 @@ export default function AccountPage() {
     }
 
     try {
+      if (!editingAddressId && isFallbackOnlyAddressList && displayAddresses[0]) {
+        const fallbackAddress = displayAddresses[0]
+
+        await addCustomerSavedAddress({
+          label: fallbackAddress.label || 'Default Address',
+          fullName: fallbackAddress.fullName,
+          phone: fallbackAddress.phone,
+          address1: fallbackAddress.address1,
+          address2: fallbackAddress.address2 || '',
+          city: fallbackAddress.city,
+          province: fallbackAddress.province,
+          postcode: fallbackAddress.postcode || '10101',
+          country: fallbackAddress.country || 'ZM',
+          isDefault: true,
+        })
+      }
+
       const response = editingAddressId
         ? await updateCustomerSavedAddress(editingAddressId, payload)
         : await addCustomerSavedAddress(payload)
@@ -1198,10 +1266,10 @@ export default function AccountPage() {
                           address.id === defaultAddressId ||
                           Boolean(address.isDefault)
                         }
-                        isBusy={busyAddressId === address.id}
-                        onEdit={() => openEditAddressForm(address)}
-                        onSetDefault={() => handleSetDefaultAddress(address.id)}
-                        onDelete={() => handleDeleteAddress(address.id)}
+                        isBusy={busyAddressId === address.id || address.id === 'customer_default_address'}
+                        onEdit={() => address.id === 'customer_default_address' ? setIsProfileOpen(true) : openEditAddressForm(address)}
+                        onSetDefault={() => address.id === 'customer_default_address' ? undefined : handleSetDefaultAddress(address.id)}
+                        onDelete={() => address.id === 'customer_default_address' ? undefined : handleDeleteAddress(address.id)}
                       />
                     ))}
                   </div>
