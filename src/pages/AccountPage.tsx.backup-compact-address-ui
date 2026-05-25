@@ -367,7 +367,6 @@ export default function AccountPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
-  const [isAddressManagerOpen, setIsAddressManagerOpen] = useState(false)
   const [editingAddressId, setEditingAddressId] = useState('')
 
   const [profileForm, setProfileForm] = useState({
@@ -558,7 +557,6 @@ export default function AccountPage() {
     setErrorMessage('')
     setSuccessMessage('')
     resetAddressForm()
-    setIsAddressManagerOpen(true)
     setIsAddressFormOpen(true)
   }
 
@@ -567,7 +565,6 @@ export default function AccountPage() {
     setSuccessMessage('')
     setEditingAddressId(address.id)
     setAddressForm(addressToForm(address))
-    setIsAddressManagerOpen(true)
     setIsAddressFormOpen(true)
   }
 
@@ -1133,96 +1130,24 @@ export default function AccountPage() {
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-display text-2xl font-bold text-dh-primary">
-                      Delivery addresses
+                      Saved addresses
                     </h2>
 
                     <p className="mt-1 text-sm text-dh-dark-gray">
-                      Your default delivery address is used automatically at checkout.
+                      Save up to 5 delivery addresses. Your default address
+                      automatically appears during checkout.
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAddressManagerOpen((current) => !current)}
-                      className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                    >
-                      {isAddressManagerOpen ? (
-                        <>
-                          <X className="mr-2 h-4 w-4" />
-                          Close manager
-                        </>
-                      ) : (
-                        <>
-                          <Edit3 className="mr-2 h-4 w-4" />
-                          Manage addresses
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      onClick={openNewAddressForm}
-                      disabled={!canAddAddress}
-                      className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add address
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-dh-light-gray bg-dh-gray p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/20 text-dh-primary">
-                        <MapPin className="h-6 w-6" />
-                      </div>
-
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-display text-lg font-bold text-dh-primary">
-                            {defaultAddress?.label || 'No default address'}
-                          </p>
-
-                          {defaultAddress && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                              <Star className="h-3.5 w-3.5 fill-current" />
-                              Default
-                            </span>
-                          )}
-                        </div>
-
-                        {defaultAddress ? (
-                          <>
-                            <p className="mt-1 font-semibold text-dh-primary">
-                              {defaultAddress.fullName}
-                            </p>
-
-                            <p className="mt-1 text-sm text-dh-dark-gray">
-                              {defaultAddress.phone}
-                            </p>
-
-                            <p className="mt-2 max-w-xl text-sm text-dh-dark-gray">
-                              {getAddressLine(defaultAddress)}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="mt-1 text-sm text-dh-dark-gray">
-                            Add an address to make checkout faster.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-white px-4 py-3 text-sm text-dh-dark-gray shadow-sm">
-                      <p className="font-semibold text-dh-primary">
-                        {displayAddresses.length}/5 saved
-                      </p>
-                      <p>Address book</p>
-                    </div>
-                  </div>
+                  <Button
+                    type="button"
+                    onClick={openNewAddressForm}
+                    disabled={!canAddAddress || isAddressFormOpen}
+                    className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add address
+                  </Button>
                 </div>
 
                 {!canAddAddress && (
@@ -1232,24 +1157,7 @@ export default function AccountPage() {
                   </div>
                 )}
 
-                {isAddressManagerOpen && (
-                  <div className="mt-6 rounded-3xl border border-dh-light-gray bg-white p-4 sm:p-5">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h3 className="font-display text-xl font-bold text-dh-primary">
-                          Address book
-                        </h3>
-                        <p className="text-sm text-dh-dark-gray">
-                          Choose your default address, edit saved addresses, or add a new one.
-                        </p>
-                      </div>
-
-                      <span className="rounded-full bg-dh-gray px-4 py-2 text-sm font-semibold text-dh-primary">
-                        {displayAddresses.length}/5 saved
-                      </span>
-                    </div>
-
-                    {isAddressesLoading ? (
+                {isAddressesLoading ? (
                   <div className="rounded-2xl bg-dh-gray p-8 text-center">
                     <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-dh-primary" />
                     <p className="text-sm text-dh-dark-gray">
@@ -1257,7 +1165,7 @@ export default function AccountPage() {
                     </p>
                   </div>
                 ) : displayAddresses.length > 0 ? (
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {displayAddresses.map((address) => (
                       <AddressCard
                         key={address.id}
@@ -1294,8 +1202,6 @@ export default function AccountPage() {
                       <Plus className="mr-2 h-4 w-4" />
                       Add first address
                     </Button>
-                  </div>
-                )}
                   </div>
                 )}
 
