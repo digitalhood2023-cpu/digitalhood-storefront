@@ -111,7 +111,7 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
           <div>
             <Link to="/" className="mb-5 flex items-center gap-3">
-              <img src="/logo.jpg" alt="DigitalHood" className="h-12 w-12 object-contain" />
+              <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white p-1 shadow-sm"><img src="/logo.jpg" alt="DigitalHood" className="h-full w-full object-contain" /></span>
               <div>
                 <p className="font-display text-2xl font-bold">
                   Digital<span className="text-dh-secondary">Hood</span>
