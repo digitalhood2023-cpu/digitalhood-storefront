@@ -50,10 +50,10 @@ const companyLinks = [
 ]
 
 const socialLinks = [
-  { name: 'Facebook', icon: Facebook, href: 'https://facebook.com' },
-  { name: 'Twitter', icon: Twitter, href: 'https://twitter.com' },
-  { name: 'Instagram', icon: Instagram, href: 'https://instagram.com' },
-  { name: 'YouTube', icon: Youtube, href: 'https://youtube.com' },
+  { name: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/share/1AE1FSXZ6b/' },
+  { name: 'X', icon: Twitter, href: 'https://x.com/Digitalhood_Ltd' },
+  { name: 'Instagram', icon: Instagram, href: 'https://www.instagram.com/digitalhood_zm' },
+  { name: 'YouTube', icon: Youtube, href: 'https://www.youtube.com/@DigitalhoodZM' },
 ]
 
 function FooterLink({ link }: { link: { name: string; href: string; external?: boolean } }) {
