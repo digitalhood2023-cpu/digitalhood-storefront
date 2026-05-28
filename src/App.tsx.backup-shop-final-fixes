@@ -20,7 +20,6 @@ const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
 const OrderDetailsPage = lazy(() => import('@/pages/OrderDetailsPage'))
-const InfoPage = lazy(() => import('@/pages/InfoPage'))
 
 const PhoneAccessoriesPage = lazy(() => import('@/pages/seo/PhoneAccessoriesPage'))
 const IPhonePage = lazy(() => import('@/pages/seo/IPhonePage'))
@@ -92,7 +91,7 @@ function NavigationScrollManager() {
     if (navigationType !== 'POP') {
       window.scrollTo({ top: 0, behavior: 'auto' })
     }
-  }, [location.pathname, location.search, location.hash, navigationType])
+  }, [location.pathname, navigationType])
 
   return null
 }
@@ -123,17 +122,6 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
-
-              <Route path="/help" element={<InfoPage />} />
-              <Route path="/faqs" element={<InfoPage />} />
-              <Route path="/shipping" element={<InfoPage />} />
-              <Route path="/returns" element={<InfoPage />} />
-              <Route path="/warranty" element={<InfoPage />} />
-              <Route path="/terms" element={<InfoPage />} />
-              <Route path="/privacy" element={<InfoPage />} />
-              <Route path="/cookies" element={<InfoPage />} />
-              <Route path="/sitemap" element={<InfoPage />} />
-              <Route path="/blog" element={<InfoPage />} />
 
               <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
               <Route path="/iphone-zambia" element={<IPhonePage />} />

@@ -138,12 +138,12 @@ export default function Header() {
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-[#ffb54a]" />
-              +260971047570
+              +260 971 047 570
             </span>
 
             <span className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-[#ffb54a]" />
-              contact@digitalhood.info
+              Free delivery on orders over K500
             </span>
 
             <span className="flex items-center gap-2 text-[#ffb54a]">
@@ -221,34 +221,6 @@ export default function Header() {
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
-              <Link
-                to="/shop"
-                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
-              >
-                Shop
-              </Link>
-
-              <Link
-                to="/categories"
-                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
-              >
-                Categories
-              </Link>
-
-              <Link
-                to="/shop?category=deals"
-                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
-              >
-                Deals
-              </Link>
-
-              <a
-                href="https://seller.digitalhood.info"
-                className="hidden items-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-black xl:inline-flex"
-              >
-                Sell
-              </a>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -546,27 +518,6 @@ export default function Header() {
                   <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
                   Track Order
                 </Link>
-
-                <Link
-                  to="/categories"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
-                >
-                  Categories
-                </Link>
-
-                <Link
-                  to="/contact"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
-                >
-                  Contact
-                </Link>
-
-                <a
-                  href="https://seller.digitalhood.info"
-                  className="rounded-lg px-4 py-3 font-semibold text-dh-primary transition-colors hover:bg-gray-100"
-                >
-                  Sell on DigitalHood
-                </a>
 
                 <div className="px-4 py-2">
                   <span className="mb-2 block text-sm text-gray-500">

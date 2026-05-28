@@ -24,7 +24,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useCartStore } from '@/store/cartStore';
-import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import { useWishlist } from '@/context/WishlistContext';
 import {
   fetchWooCategories,
@@ -50,7 +49,7 @@ type SortOption =
   | 'best-selling'
   | 'rating';
 
-const PRODUCTS_PER_PAGE = 48;
+const PRODUCTS_PER_PAGE = 24;
 
 type PriceRangeKey =
   | 'all'
@@ -172,36 +171,6 @@ function getSoldText(product: WooProduct) {
   return `${totalSales.toLocaleString()} sold`;
 }
 
-function getPaginationItems(currentPage: number, pageCount: number) {
-  const pages: Array<number | 'ellipsis-left' | 'ellipsis-right'> = [];
-
-  if (pageCount <= 1) return [1];
-
-  const addPage = (value: number) => {
-    if (value >= 1 && value <= pageCount && !pages.includes(value)) {
-      pages.push(value);
-    }
-  };
-
-  addPage(1);
-
-  if (currentPage > 4) {
-    pages.push('ellipsis-left');
-  }
-
-  for (let pageNumber = currentPage - 1; pageNumber <= currentPage + 1; pageNumber += 1) {
-    addPage(pageNumber);
-  }
-
-  if (currentPage < pageCount - 3) {
-    pages.push('ellipsis-right');
-  }
-
-  addPage(pageCount);
-
-  return pages;
-}
-
 function getProductPrice(product: WooProduct) {
   return safeNumber(product.price);
 }
@@ -233,7 +202,6 @@ export default function ShopPage() {
 
   const addItem = useCartStore((state) => state.addItem);
   const { toggleWishlist, isInWishlist } = useWishlist();
-  const { items: recentlyViewedItems, hasItems: hasRecentlyViewedItems } = useRecentlyViewed();
   const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
   const hasCompletedInitialPageSyncRef = useRef(false);
@@ -582,14 +550,6 @@ export default function ShopPage() {
       updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  };
-
-  const goToPage = (nextPage: number) => {
-    if (nextPage === page || nextPage < 1 || nextPage > totalPages || isLoading) return;
-
-    setPage(nextPage);
-    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const saveShopReturnState = () => {
@@ -1193,6 +1153,10 @@ export default function ShopPage() {
                             />
                           </Link>
 
+                          <div className="absolute left-3 top-3">
+                            <StockBadge item={product as any} />
+                          </div>
+
                           <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             <button
                               type="button"
@@ -1321,121 +1285,44 @@ export default function ShopPage() {
                   })}
                 </div>
 
-                <div className="mt-8 rounded-3xl bg-white p-4 shadow-sm">
-                  <div className="flex flex-col items-center justify-between gap-4 lg:flex-row">
-                    <p className="text-sm font-semibold text-dh-dark-gray">
-                      Page <span className="text-dh-primary">{page}</span> of{' '}
-                      <span className="text-dh-primary">{totalPages}</span>
-                    </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+                  <Button
+                    variant="outline"
+                    disabled={page === 1 || isLoading}
+                    onClick={goToPreviousPage}
+                    className="w-full sm:w-auto"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
 
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={page === 1 || isLoading}
-                        onClick={goToPreviousPage}
-                        className="rounded-full"
-                      >
-                        <ChevronLeft className="mr-2 h-4 w-4" />
-                        Previous
-                      </Button>
+                  <span className="text-sm font-medium text-gray-600">
+                    Page {page} of {totalPages}
+                  </span>
 
-                      {getPaginationItems(page, totalPages).map((item) =>
-                        typeof item === 'number' ? (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => goToPage(item)}
-                            disabled={isLoading}
-                            className={`flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-bold transition-colors ${
-                              item === page
-                                ? 'bg-dh-primary text-white'
-                                : 'border border-dh-light-gray bg-white text-dh-primary hover:border-dh-primary'
-                            }`}
-                            aria-current={item === page ? 'page' : undefined}
-                          >
-                            {item}
-                          </button>
-                        ) : (
-                          <span
-                            key={item}
-                            className="flex h-10 min-w-10 items-center justify-center rounded-full px-2 text-sm font-bold text-dh-dark-gray"
-                          >
-                            ...
-                          </span>
-                        )
-                      )}
-
-                      <Button
-                        variant="outline"
-                        disabled={page >= totalPages || isLoading}
-                        onClick={goToNextPage}
-                        className="rounded-full"
-                      >
-                        Next
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={page >= totalPages || isLoading}
+                    onClick={goToNextPage}
+                    className="w-full sm:w-auto"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
                 </div>
               </>
             )}
           </div>
 
-          {hasRecentlyViewedItems && (
-            <section className="mt-10 rounded-3xl bg-white p-5 shadow-sm md:p-6">
-              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Continue shopping
-                  </p>
-                  <h2 className="font-display text-2xl font-bold text-dh-primary">
-                    Recently viewed
-                  </h2>
-                  <p className="mt-1 text-sm text-dh-dark-gray">
-                    Pick up from products you checked earlier.
-                  </p>
-                </div>
-
-                <Link
-                  to="/recently-viewed"
-                  className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                >
-                  View all
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </div>
-
-              <div className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:thin]">
-                {recentlyViewedItems.slice(0, 10).map((item) => (
-                  <Link
-                    key={item.id}
-                    to={`/product/${item.slug || item.id}`}
-                    className="group w-40 shrink-0 rounded-3xl border border-dh-light-gray bg-white p-3 transition-all hover:-translate-y-1 hover:border-dh-primary/20 hover:shadow-lg sm:w-44"
-                  >
-                    <div className="aspect-square overflow-hidden rounded-2xl bg-dh-gray">
-                      <img
-                        src={item.image || '/logo.jpg'}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.src = '/logo.jpg';
-                        }}
-                      />
-                    </div>
-
-                    <h3 className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-dh-primary">
-                      {item.name}
-                    </h3>
-
-                    <p className="mt-2 font-display text-base font-bold text-dh-primary">
-                      {formatPrice(Number(item.price || 0))}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
+          <div className="mt-10 rounded-2xl bg-black text-white p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold mb-2">
+              Safe shopping starts with trust
+            </h2>
+            <p className="text-white/75 max-w-3xl">
+              DigitalHood is building a safer online marketplace for Zambia — with trusted
+              listings, clear product information, secure checkout and customer support.
+            </p>
+            </div>
           </div>
         </div>
       </main>
