@@ -701,3 +701,32 @@ export async function fetchSearchSuggestions(
     suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
   };
 }
+
+export async function searchProductsByImage(
+  imageFile: File,
+  hint = ''
+): Promise<SearchSuggestionsResponse & { imageSearchMode?: string; message?: string }> {
+  const formData = new FormData();
+
+  formData.append('image', imageFile);
+  if (hint.trim()) {
+    formData.append('hint', hint.trim());
+  }
+
+  const response = await fetch(`${PAYMENTS_API_URL}/api/search/image`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await parseJsonResponse(response);
+
+  return {
+    success: Boolean(data.success),
+    query: data.query || hint,
+    correctedQuery: data.correctedQuery || '',
+    didYouMean: data.didYouMean || '',
+    suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+    imageSearchMode: data.imageSearchMode || '',
+    message: data.message || '',
+  };
+}
