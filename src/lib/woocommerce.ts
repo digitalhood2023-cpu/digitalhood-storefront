@@ -652,3 +652,52 @@ export async function fetchWooProductsDirectFromStoreApi(
     totalPages: Number(response.headers.get('X-WP-TotalPages') || 1),
   };
 }
+
+export type SearchSuggestionProduct = {
+  id: number;
+  name: string;
+  slug: string;
+  sku: string;
+  price: string | number;
+  regular_price: string;
+  sale_price: string;
+  image: string;
+  stock_status: string;
+  stock_label: string;
+  stock_tone: MarketplaceStockTone;
+  can_add_to_cart: boolean;
+  category: {
+    id: number;
+    name: string;
+    slug: string;
+  } | null;
+};
+
+export type SearchSuggestionsResponse = {
+  success: boolean;
+  query: string;
+  correctedQuery: string;
+  didYouMean: string;
+  suggestions: SearchSuggestionProduct[];
+};
+
+export async function fetchSearchSuggestions(
+  query: string,
+  limit = 8
+): Promise<SearchSuggestionsResponse> {
+  const params = new URLSearchParams({
+    q: query.trim(),
+    limit: String(limit),
+  });
+
+  const response = await fetch(`${PAYMENTS_API_URL}/api/search/suggestions?${params.toString()}`);
+  const data = await parseJsonResponse(response);
+
+  return {
+    success: Boolean(data.success),
+    query: data.query || query,
+    correctedQuery: data.correctedQuery || '',
+    didYouMean: data.didYouMean || '',
+    suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+  };
+}

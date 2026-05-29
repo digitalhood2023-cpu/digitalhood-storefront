@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -20,10 +20,10 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useAccount } from '@/context/AccountContext'
 import { navCategories } from '@/data/products'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { CartButton } from '@/features/cart/CartButton'
 import { CartDrawer } from '@/features/cart/CartDrawer'
 import WishlistDrawer from '@/components/wishlist/WishlistDrawer'
+import SearchAutocomplete from '@/components/search/SearchAutocomplete'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,11 +72,9 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
 
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -105,26 +103,9 @@ export default function Header() {
   }, [lastScrollY])
 
   useEffect(() => {
-    if (isSearchOpen && searchInputRef.current) {
-      searchInputRef.current.focus()
-    }
-  }, [isSearchOpen])
-
-  useEffect(() => {
     setIsMobileMenuOpen(false)
     setIsSearchOpen(false)
   }, [location])
-
-  const handleSearchSubmit = (event: React.FormEvent) => {
-    event.preventDefault()
-
-    const query = searchQuery.trim()
-
-    if (query) {
-      navigate(`/shop?search=${encodeURIComponent(query)}`)
-      setSearchQuery('')
-    }
-  }
 
   const handleLogout = async () => {
     await logout()
@@ -200,24 +181,8 @@ export default function Header() {
               </div>
             </Link>
 
-            <div className="mx-8 hidden max-w-2xl flex-1 lg:flex">
-              <form onSubmit={handleSearchSubmit} className="relative w-full">
-                <Input
-                  type="text"
-                  placeholder="Search for products, brands, categories..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-full rounded-full border-2 border-gray-200 py-3 pl-4 pr-12 transition-colors focus:border-black"
-                />
-
-                <button
-                  type="submit"
-                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black text-white transition-colors hover:bg-[#ffb54a] hover:text-black"
-                  aria-label="Search products"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
-              </form>
+            <div className="mx-8 hidden max-w-2xl flex-1 lg:block">
+              <SearchAutocomplete />
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
@@ -453,24 +418,7 @@ export default function Header() {
 
           {isSearchOpen && (
             <div className="animate-slide-up mt-4 md:hidden">
-              <form onSubmit={handleSearchSubmit} className="relative">
-                <Input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-full pr-12"
-                />
-
-                <button
-                  type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2"
-                  aria-label="Search products"
-                >
-                  <Search className="h-5 w-5 text-black" />
-                </button>
-              </form>
+              <SearchAutocomplete compact placeholder="Search products..." />
             </div>
           )}
         </div>

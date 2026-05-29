@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
+  Search,
   Grid3X3,
   List,
   ArrowRight,
@@ -10,7 +11,6 @@ import {
   ShoppingCart,
   Star,
   CheckCircle,
-  Search,
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
@@ -20,9 +20,9 @@ import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
 import SEO from '@/components/SEO';
 import StockBadge from '@/components/StockBadge';
+import SearchAutocomplete from '@/components/search/SearchAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { useCartStore } from '@/store/cartStore';
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -482,10 +482,6 @@ export default function ShopPage() {
     saveSearchHistory(cleanedValue);
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-  };
-
   const handleAllProductsClick = () => {
     setSelectedCategoryId(null);
     updateShopUrl(null, searchQuery);
@@ -871,28 +867,11 @@ export default function ShopPage() {
 
           <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search products, brands, parts, accessories..."
-                  value={searchQuery}
-                  onChange={(event) => handleSearchChange(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      submitShopSearch();
-                    }
-                  }}
-                  className="h-12 w-full rounded-full pl-12 pr-4"
-                />
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
-                <button
-                  type="button"
-                  onClick={() => submitShopSearch()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary"
-                >
-                  Search
-                </button>
-              </div>
+              <SearchAutocomplete
+                initialValue={searchQuery}
+                placeholder="Search products, brands, parts, accessories..."
+                onSearch={(value) => submitShopSearch(value)}
+              />
 
               <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:max-w-xl">
                 <button
