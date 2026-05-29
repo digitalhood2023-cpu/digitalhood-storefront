@@ -226,6 +226,7 @@ export default function ShopPage() {
   const [selectedColor, setSelectedColor] = useState('');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
+  const [submittedSearchQuery, setSubmittedSearchQuery] = useState(searchFromUrl);
   const [page, setPage] = useState(pageFromUrl);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -260,6 +261,7 @@ export default function ShopPage() {
 
     if (searchFromUrl !== searchQuery) {
       setSearchQuery(searchFromUrl);
+      setSubmittedSearchQuery(searchFromUrl);
     }
 
     if (!categorySlugFromUrl) {
@@ -301,7 +303,7 @@ export default function ShopPage() {
   useEffect(() => {
     setIsLoading(true);
 
-    fetchWooProducts(PRODUCTS_PER_PAGE, page, searchQuery, selectedCategoryId)
+    fetchWooProducts(PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId)
       .then(({ products, total, totalPages }) => {
         setProducts(products);
         setTotalProducts(total);
@@ -316,7 +318,7 @@ export default function ShopPage() {
         );
       })
       .finally(() => setIsLoading(false));
-  }, [page, searchQuery, selectedCategoryId]);
+  }, [page, submittedSearchQuery, selectedCategoryId]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -453,24 +455,35 @@ export default function ShopPage() {
     setSearchParams(params);
   };
 
+  const saveSearchHistory = (value: string) => {
+    if (typeof window === 'undefined' || value.trim().length < 2) return;
+
+    try {
+      const key = 'digitalhood-shop-searches';
+      const previous = JSON.parse(window.localStorage.getItem(key) || '[]');
+      const next = [
+        value.trim(),
+        ...previous.filter((item: string) => item !== value.trim()),
+      ].slice(0, 20);
+
+      window.localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      // Ignore local storage issues.
+    }
+  };
+
+  const submitShopSearch = (value = searchQuery) => {
+    const cleanedValue = value.trim();
+
+    setSearchQuery(cleanedValue);
+    setSubmittedSearchQuery(cleanedValue);
+    setPage(1);
+    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, cleanedValue);
+    saveSearchHistory(cleanedValue);
+  };
+
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, value);
-
-    if (typeof window !== 'undefined' && value.trim().length >= 2) {
-      try {
-        const key = 'digitalhood-shop-searches';
-        const previous = JSON.parse(window.localStorage.getItem(key) || '[]');
-        const next = [
-          value.trim(),
-          ...previous.filter((item: string) => item !== value.trim()),
-        ].slice(0, 20);
-
-        window.localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // Ignore local storage issues.
-      }
-    }
   };
 
   const handleAllProductsClick = () => {
@@ -799,7 +812,7 @@ export default function ShopPage() {
   );
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-gray-50">
+    <div ref={pageRef} className="min-h-screen overflow-x-hidden bg-gray-50">
       <SEO
         title="Shop"
         description="Shop phones, laptops, accessories, services and trusted products on DigitalHood Marketplace Zambia."
@@ -808,8 +821,8 @@ export default function ShopPage() {
 
       <Header />
 
-      <main className="py-4 lg:py-6">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+      <main className="overflow-x-hidden py-4 lg:py-6">
+        <div className="container mx-auto max-w-full px-4 sm:px-6 lg:px-8 xl:px-12">
                     <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -864,9 +877,21 @@ export default function ShopPage() {
                   placeholder="Search products, brands, parts, accessories..."
                   value={searchQuery}
                   onChange={(event) => handleSearchChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      submitShopSearch();
+                    }
+                  }}
                   className="h-12 w-full rounded-full pl-12 pr-4"
                 />
                 <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
+                <button
+                  type="button"
+                  onClick={() => submitShopSearch()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary"
+                >
+                  Search
+                </button>
               </div>
 
               <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:max-w-xl">
@@ -996,7 +1021,7 @@ export default function ShopPage() {
             )}
           </section>
 
-          <div id="shop-results" className="shop-content grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div id="shop-results" className="shop-content grid max-w-full gap-5 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 [scrollbar-width:thin]">
                 {FilterPanel}
@@ -1377,65 +1402,66 @@ export default function ShopPage() {
                     </div>
                   </div>
                 </div>
+
+                {hasRecentlyViewedItems && (
+                  <section className="mt-8 max-w-full overflow-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-5 md:p-6">
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                          Continue shopping
+                        </p>
+                        <h2 className="font-display text-2xl font-bold text-dh-primary">
+                          Recently viewed
+                        </h2>
+                        <p className="mt-1 text-sm text-dh-dark-gray">
+                          Pick up from products you checked earlier.
+                        </p>
+                      </div>
+
+                      <Link
+                        to="/recently-viewed"
+                        className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
+                      >
+                        View all
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </div>
+
+                    <div className="-mx-1 flex max-w-full snap-x gap-3 overflow-x-auto overscroll-x-contain px-1 pb-3 [scrollbar-width:thin] sm:gap-4">
+                      {recentlyViewedItems.slice(0, 10).map((item) => (
+                        <Link
+                          key={item.id}
+                          to={`/product/${item.slug || item.id}`}
+                          className="group w-[38vw] min-w-[132px] max-w-[158px] shrink-0 snap-start rounded-3xl border border-dh-light-gray bg-white p-2.5 transition-all hover:-translate-y-1 hover:border-dh-primary/20 hover:shadow-lg sm:w-44 sm:min-w-[176px] sm:max-w-[176px] sm:p-3"
+                        >
+                          <div className="aspect-square overflow-hidden rounded-2xl bg-dh-gray">
+                            <img
+                              src={item.image || '/logo.jpg'}
+                              alt={item.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                              onError={(event) => {
+                                event.currentTarget.src = '/logo.jpg';
+                              }}
+                            />
+                          </div>
+
+                          <h3 className="mt-3 line-clamp-2 break-words text-xs font-semibold leading-snug text-dh-primary sm:text-sm">
+                            {item.name}
+                          </h3>
+
+                          <p className="mt-2 font-display text-base font-bold text-dh-primary">
+                            {formatPrice(Number(item.price || 0))}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </>
             )}
           </div>
 
-          {hasRecentlyViewedItems && (
-            <section className="mt-10 rounded-3xl bg-white p-5 shadow-sm md:p-6">
-              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Continue shopping
-                  </p>
-                  <h2 className="font-display text-2xl font-bold text-dh-primary">
-                    Recently viewed
-                  </h2>
-                  <p className="mt-1 text-sm text-dh-dark-gray">
-                    Pick up from products you checked earlier.
-                  </p>
-                </div>
-
-                <Link
-                  to="/recently-viewed"
-                  className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                >
-                  View all
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </div>
-
-              <div className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:thin]">
-                {recentlyViewedItems.slice(0, 10).map((item) => (
-                  <Link
-                    key={item.id}
-                    to={`/product/${item.slug || item.id}`}
-                    className="group w-40 shrink-0 rounded-3xl border border-dh-light-gray bg-white p-3 transition-all hover:-translate-y-1 hover:border-dh-primary/20 hover:shadow-lg sm:w-44"
-                  >
-                    <div className="aspect-square overflow-hidden rounded-2xl bg-dh-gray">
-                      <img
-                        src={item.image || '/logo.jpg'}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.src = '/logo.jpg';
-                        }}
-                      />
-                    </div>
-
-                    <h3 className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-dh-primary">
-                      {item.name}
-                    </h3>
-
-                    <p className="mt-2 font-display text-base font-bold text-dh-primary">
-                      {formatPrice(Number(item.price || 0))}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
           </div>
         </div>
       </main>
