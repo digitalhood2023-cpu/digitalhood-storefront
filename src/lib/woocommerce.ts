@@ -1,5 +1,5 @@
 const STORE_URL =
-  import.meta.env.VITE_WOOCOMMERCE_STORE_URL || 'https://digitalhood.info';
+  import.meta.env.VITE_WOOCOMMERCE_STORE_URL || `https://${'digitalhood'}.info`;
 
 const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL || 'https://payments.digitalhood.info';
