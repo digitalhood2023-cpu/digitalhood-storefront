@@ -107,7 +107,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-dh-gray">
       <Header />
 
-      <main className="py-5 lg:py-8">
+      <main className="py-4 lg:py-6">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <Link
             to="/shop"
@@ -117,7 +117,7 @@ export default function CartPage() {
             Continue shopping
           </Link>
 
-          <section className="mb-5 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
@@ -125,7 +125,7 @@ export default function CartPage() {
                   Shopping cart
                 </p>
 
-                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl">
+                <h1 className="font-display text-2xl font-black leading-tight text-dh-primary sm:text-3xl">
                   Review your cart
                 </h1>
 
@@ -155,7 +155,7 @@ export default function CartPage() {
                 <ShoppingBag className="h-10 w-10" />
               </div>
 
-              <h2 className="font-display text-2xl font-bold text-dh-primary">
+              <h2 className="font-display text-xl font-black text-dh-primary">
                 Your cart is empty
               </h2>
 
@@ -171,7 +171,7 @@ export default function CartPage() {
               </Button>
             </section>
           ) : (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_400px]">
               <section className="grid gap-4">
                 {hasUnavailableItems && (
                   <div className="rounded-3xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
@@ -197,11 +197,11 @@ export default function CartPage() {
                   return (
                     <article
                       key={item.id}
-                      className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ${
+                      className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ${
                         unavailable ? 'ring-red-200' : 'ring-transparent'
                       }`}
                     >
-                      <div className="grid gap-0 sm:grid-cols-[160px_minmax(0,1fr)_190px]">
+                      <div className="grid gap-0 sm:grid-cols-[150px_minmax(0,1fr)_180px] xl:grid-cols-[160px_minmax(0,1fr)_190px]">
                         <Link
                           to={item.slug ? `/product/${item.slug}` : '/shop'}
                           className="block aspect-[4/3] overflow-hidden bg-dh-gray sm:aspect-auto"
@@ -216,7 +216,7 @@ export default function CartPage() {
                           />
                         </Link>
 
-                        <div className="min-w-0 p-4 sm:p-5">
+                        <div className="min-w-0 p-4">
                           <div className="mb-3 flex flex-wrap gap-2">
                             <StockBadge item={getCartItemStockObject(item)} />
 
@@ -229,7 +229,7 @@ export default function CartPage() {
                           </div>
 
                           <Link to={item.slug ? `/product/${item.slug}` : '/shop'}>
-                            <h2 className="line-clamp-2 font-display text-xl font-bold leading-snug text-dh-primary hover:text-dh-secondary">
+                            <h2 className="line-clamp-2 font-display text-lg font-black leading-snug text-dh-primary hover:text-dh-secondary">
                               {item.name}
                             </h2>
                           </Link>
@@ -240,7 +240,7 @@ export default function CartPage() {
                             </p>
                           )}
 
-                          <p className="mt-3 font-display text-xl font-bold text-dh-primary">
+                          <p className="mt-3 font-display text-lg font-black text-dh-primary">
                             {formatPrice(item.price)}
                           </p>
 
@@ -251,7 +251,7 @@ export default function CartPage() {
                           )}
                         </div>
 
-                        <div className="flex flex-col justify-center gap-4 bg-dh-gray p-4 sm:p-5">
+                        <div className="flex flex-col justify-center gap-3 bg-dh-gray p-4">
                           <div>
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
                               Quantity
@@ -291,7 +291,7 @@ export default function CartPage() {
                             <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
                               Item total
                             </p>
-                            <p className="font-display text-2xl font-bold text-dh-primary">
+                            <p className="font-display text-xl font-black text-dh-primary">
                               {formatPrice(item.price * item.quantity)}
                             </p>
                           </div>
@@ -299,7 +299,7 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() => removeItem(item.id)}
-                            className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                            className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Remove
@@ -312,12 +312,12 @@ export default function CartPage() {
               </section>
 
               <aside>
-                <div className="sticky top-24 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                  <h2 className="font-display text-2xl font-bold text-dh-primary">
+                <div className="sticky top-24 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
+                  <h2 className="font-display text-xl font-black text-dh-primary">
                     Order summary
                   </h2>
 
-                  <div className="mt-5 space-y-3 border-b border-dh-light-gray pb-4">
+                  <div className="mt-4 space-y-3 border-b border-dh-light-gray pb-4">
                     <div className="flex justify-between text-sm text-dh-dark-gray">
                       <span>Subtotal</span>
                       <span className="font-semibold text-dh-primary">
@@ -331,7 +331,7 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <div className="font-display flex justify-between pt-4 text-xl font-bold text-dh-primary">
+                  <div className="font-display flex justify-between pt-4 text-lg font-black text-dh-primary">
                     <span>Total</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
@@ -345,7 +345,7 @@ export default function CartPage() {
                   <Button
                     onClick={handleCheckout}
                     disabled={hasUnavailableItems}
-                    className={`mt-6 h-12 w-full rounded-full font-semibold ${
+                    className={`mt-5 h-11 w-full rounded-full font-semibold ${
                       hasUnavailableItems
                         ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
                         : 'bg-dh-primary text-white hover:bg-dh-secondary'
@@ -359,7 +359,7 @@ export default function CartPage() {
                   <Link to="/shop">
                     <Button
                       variant="outline"
-                      className="mt-3 h-12 w-full rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                      className="mt-3 h-11 w-full rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
                     >
                       Continue shopping
                     </Button>
