@@ -659,7 +659,7 @@ export default function ShopPage() {
             <SlidersHorizontal className="h-5 w-5" />
           </div>
 
-          <h2 className="font-display text-xl font-bold text-dh-primary">
+          <h2 className="font-display text-base font-black text-dh-primary sm:text-lg">
             Filters
           </h2>
 
@@ -957,7 +957,7 @@ export default function ShopPage() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
                         Refine results
                       </p>
-                      <h2 className="font-display text-xl font-bold text-dh-primary">
+                      <h2 className="font-display text-base font-black text-dh-primary sm:text-lg">
                         Product filters
                       </h2>
                     </div>
@@ -1000,7 +1000,7 @@ export default function ShopPage() {
             )}
           </section>
 
-          <div id="shop-results" className="shop-content grid max-w-full gap-5 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div id="shop-results" className="shop-content grid max-w-full gap-5 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 [scrollbar-width:thin]">
                 {FilterPanel}
@@ -1119,7 +1119,7 @@ export default function ShopPage() {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
                 {Array.from({ length: 8 }).map((_, index) => (
                   <div key={index} className="bg-white rounded-xl p-4 animate-pulse">
                     <div className="aspect-square bg-gray-100 rounded-lg mb-4" />
@@ -1158,7 +1158,7 @@ export default function ShopPage() {
                 <div
                   className={`grid ${
                     viewMode === 'grid'
-                      ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
+                      ? 'grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4 xl:grid-cols-4 2xl:grid-cols-5'
                       : 'grid-cols-1 gap-4'
                   }`}
                 >
@@ -1172,7 +1172,7 @@ export default function ShopPage() {
                     return (
                       <div
                         key={product.id}
-                        className={`group overflow-hidden rounded-3xl border border-transparent bg-white shadow-sm transition-all duration-300 hover:border-dh-primary/15 hover:shadow-xl ${
+                        className={`group overflow-hidden rounded-2xl border border-transparent bg-white shadow-sm transition-all duration-300 hover:border-dh-primary/15 hover:shadow-lg ${
                           viewMode === 'list'
                             ? 'flex flex-col min-h-[220px] items-stretch hover:-translate-y-0 sm:flex-row'
                             : 'hover:-translate-y-1'
@@ -1181,15 +1181,15 @@ export default function ShopPage() {
                         <div
                           className={`relative overflow-hidden bg-gray-100 ${
                             viewMode === 'list'
-                              ? 'aspect-[4/3] w-full shrink-0 sm:aspect-auto sm:w-48 lg:w-64'
-                              : 'aspect-square'
+                              ? 'aspect-[4/3] w-full shrink-0 sm:aspect-auto sm:w-48 lg:w-60'
+                              : 'aspect-[4/3]'
                           }`}
                         >
                           <Link to={`/product/${product.slug}`}>
                             <img
                               src={product.image || '/logo.jpg'}
                               alt={product.name}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               loading="lazy"
                               onError={(event) => {
                                 event.currentTarget.src = '/logo.jpg';
@@ -1197,11 +1197,11 @@ export default function ShopPage() {
                             />
                           </Link>
 
-                          <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                          <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             <button
                               type="button"
                               onClick={() => toggleWishlist(product as any)}
-                              className={`flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm transition-all hover:scale-110 ${
+                              className={`flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm transition-all hover:scale-110 ${
                                 isInWishlist(String(product.id))
                                   ? 'text-red-500'
                                   : 'text-gray-600 hover:text-red-500'
@@ -1218,7 +1218,7 @@ export default function ShopPage() {
                             <Link
                               to={`/product/${product.slug}`}
                               onClick={saveShopReturnState}
-                              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm transition-all hover:scale-110 hover:text-dh-primary"
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm transition-all hover:scale-110 hover:text-dh-primary"
                               aria-label={`View ${product.name}`}
                             >
                               <Eye className="h-4 w-4" />
@@ -1227,9 +1227,9 @@ export default function ShopPage() {
                         </div>
 
                         <div
-                          className={`flex flex-1 flex-col p-4 ${
+                          className={`flex flex-1 flex-col p-3 sm:p-4 ${
                             viewMode === 'list'
-                              ? 'sm:p-5 lg:grid lg:grid-cols-[1fr_260px] lg:items-center lg:gap-6'
+                              ? 'sm:p-5 lg:grid lg:grid-cols-[1fr_240px] lg:items-center lg:gap-6'
                               : ''
                           }`}
                         >
@@ -1240,7 +1240,7 @@ export default function ShopPage() {
                           </div>
 
                           <Link to={`/product/${product.slug}`}>
-                            <h3 className="mb-2 line-clamp-2 min-h-[2.75rem] font-semibold leading-snug text-dh-primary transition-colors hover:text-[#ffb54a]">
+                            <h3 className="mb-2 line-clamp-2 min-h-[2.4rem] text-sm font-black leading-5 text-dh-primary transition-colors hover:text-[#ffb54a]">
                               {product.name}
                             </h3>
                           </Link>
@@ -1260,12 +1260,12 @@ export default function ShopPage() {
                           <div
                             className={`mt-auto ${
                               viewMode === 'list'
-                                ? 'rounded-3xl bg-dh-gray p-4 lg:mt-0'
+                                ? 'rounded-2xl bg-dh-gray p-4 lg:mt-0'
                                 : ''
                             }`}
                           >
                             <div className="mb-3 flex items-center justify-between gap-2">
-                              <span className="font-display text-xl font-bold text-dh-primary">
+                              <span className="font-display text-base font-black text-dh-primary sm:text-lg">
                                 {formatPrice(product.price)}
                               </span>
 
