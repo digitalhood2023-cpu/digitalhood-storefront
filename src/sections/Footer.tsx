@@ -114,7 +114,7 @@ export default function Footer() {
   return (
     <>
       <section className="bg-gray-50 px-4 py-5 sm:px-6 lg:px-8 xl:px-12">
-        <div className="mx-auto grid max-w-6xl gap-3 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-[1500px] gap-3 sm:grid-cols-3">
           {trustItems.map((item) => {
             const Icon = item.icon
 
@@ -142,8 +142,8 @@ export default function Footer() {
       </section>
 
       <footer className="bg-[#16145f] text-white">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-9">
-          <div className="grid gap-8 text-center lg:grid-cols-[1.35fr_0.8fr_0.8fr_0.9fr] lg:text-left">
+        <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-9">
+          <div className="grid gap-8 text-center lg:grid-cols-[1.5fr_0.8fr_0.8fr_0.9fr] lg:text-left">
             <div className="mx-auto max-w-md lg:mx-0">
               <Link to="/" className="inline-flex items-center justify-center gap-3 lg:justify-start">
                 <img
