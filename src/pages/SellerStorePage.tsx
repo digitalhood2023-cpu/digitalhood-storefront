@@ -180,7 +180,7 @@ export default function SellerStorePage() {
             </div>
           </section>
         ) : error || !store || !seller ? (
-          <section className="container mx-auto px-4 py-16">
+          <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
             <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
               <Store className="mx-auto h-12 w-12 text-dh-primary" />
               <h1 className="mt-4 font-display text-3xl font-bold text-dh-primary">
@@ -200,8 +200,8 @@ export default function SellerStorePage() {
           </section>
         ) : (
           <>
-            <section className="bg-gray-50 px-4 pt-5 sm:px-6 lg:px-8 xl:px-12">
-              <div className="container mx-auto overflow-hidden rounded-[2rem] bg-white shadow-sm">
+            <section className="bg-gray-50 px-4 pt-5 sm:px-6 lg:px-8">
+              <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-white shadow-sm">
                 <div
                   className="h-28 bg-dh-primary sm:h-36"
                   style={{
@@ -275,7 +275,7 @@ export default function SellerStorePage() {
               </div>
             </section>
 
-            <section className="container mx-auto px-4 pt-4 sm:px-6 lg:px-8 xl:px-12">
+            <section className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
               <div className="flex flex-col gap-3 rounded-[1.5rem] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ffb54a]/15 text-[#b87500]">
@@ -326,8 +326,8 @@ export default function SellerStorePage() {
               </div>
             </section>
 
-            <section className="container mx-auto grid gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[320px_1fr] lg:px-8 xl:px-12">
-              <aside className="space-y-4">
+            <section className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:px-8">
+              <aside className="space-y-4 text-center lg:text-left">
                 <div className="rounded-[2rem] bg-white p-6 shadow-sm">
                   <h2 className="font-display text-2xl font-black text-dh-primary">
                     About this store
@@ -368,8 +368,8 @@ export default function SellerStorePage() {
                 )}
               </aside>
 
-              <section>
-                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <section className="min-w-0">
+                <div className="mb-5 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
                   <div>
                     <h2 className="font-display text-3xl font-black text-dh-primary">
                       Products by {seller.storeName}
@@ -403,7 +403,7 @@ export default function SellerStorePage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  <div className="mx-auto grid max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-3 xl:grid-cols-4">
                     {featuredProducts.map((product) => {
                       const image = product.image || product.images?.[0] || '/logo.jpg'
                       const productUrl = getProductUrl(product)
