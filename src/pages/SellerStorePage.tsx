@@ -275,49 +275,53 @@ export default function SellerStorePage() {
               </div>
             </section>
 
-            <section className="container mx-auto px-4 pt-5 sm:px-6 lg:px-8 xl:px-12">
-              <div className="grid gap-4 rounded-[2rem] bg-white p-4 shadow-sm md:grid-cols-4">
-                <div className="rounded-3xl bg-gray-50 p-5">
-                  <Star className="h-5 w-5 text-[#ffb54a]" />
-                  <p className="mt-3 text-xs font-black uppercase tracking-wide text-gray-400">
-                    Rating
-                  </p>
-                  <p className="mt-1 font-display text-2xl font-black text-dh-primary">
-                    {getRatingLabel(store)}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-gray-500">
-                    {getRatingSubtext(store)}
-                  </p>
+            <section className="container mx-auto px-4 pt-4 sm:px-6 lg:px-8 xl:px-12">
+              <div className="flex flex-col gap-3 rounded-[1.5rem] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ffb54a]/15 text-[#b87500]">
+                    <Star className="h-5 w-5 fill-[#ffb54a] text-[#ffb54a]" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-black text-dh-primary">
+                      {getRatingLabel(store)}
+                    </p>
+                    <p className="text-xs font-semibold text-gray-500">
+                      {getRatingSubtext(store)}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-3xl bg-green-50 p-5">
-                  <ThumbsUp className="h-5 w-5 text-green-700" />
-                  <p className="mt-3 text-xs font-black uppercase tracking-wide text-green-700/70">
-                    Positive
-                  </p>
-                  <p className="mt-1 font-display text-2xl font-black text-green-800">
-                    {store.stats.feedback.positive.toLocaleString('en-ZM')}
-                  </p>
-                </div>
+                <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
+                  <div className="flex items-center justify-between rounded-2xl bg-green-50 px-3 py-2">
+                    <span className="inline-flex items-center gap-1 text-xs font-black text-green-700">
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                      Positive
+                    </span>
+                    <span className="font-display text-sm font-black text-green-800">
+                      {store.stats.feedback.positive.toLocaleString('en-ZM')}
+                    </span>
+                  </div>
 
-                <div className="rounded-3xl bg-amber-50 p-5">
-                  <MinusCircle className="h-5 w-5 text-amber-700" />
-                  <p className="mt-3 text-xs font-black uppercase tracking-wide text-amber-700/70">
-                    Neutral
-                  </p>
-                  <p className="mt-1 font-display text-2xl font-black text-amber-800">
-                    {store.stats.feedback.neutral.toLocaleString('en-ZM')}
-                  </p>
-                </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-3 py-2">
+                    <span className="inline-flex items-center gap-1 text-xs font-black text-amber-700">
+                      <MinusCircle className="h-3.5 w-3.5" />
+                      Neutral
+                    </span>
+                    <span className="font-display text-sm font-black text-amber-800">
+                      {store.stats.feedback.neutral.toLocaleString('en-ZM')}
+                    </span>
+                  </div>
 
-                <div className="rounded-3xl bg-red-50 p-5">
-                  <ThumbsDown className="h-5 w-5 text-red-700" />
-                  <p className="mt-3 text-xs font-black uppercase tracking-wide text-red-700/70">
-                    Negative
-                  </p>
-                  <p className="mt-1 font-display text-2xl font-black text-red-800">
-                    {store.stats.feedback.negative.toLocaleString('en-ZM')}
-                  </p>
+                  <div className="flex items-center justify-between rounded-2xl bg-red-50 px-3 py-2">
+                    <span className="inline-flex items-center gap-1 text-xs font-black text-red-700">
+                      <ThumbsDown className="h-3.5 w-3.5" />
+                      Negative
+                    </span>
+                    <span className="font-display text-sm font-black text-red-800">
+                      {store.stats.feedback.negative.toLocaleString('en-ZM')}
+                    </span>
+                  </div>
                 </div>
               </div>
             </section>
