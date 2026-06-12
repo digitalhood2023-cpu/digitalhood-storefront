@@ -778,10 +778,10 @@ export default function ProductPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid min-w-0 gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-6">
-              <div className="product-image min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:gap-6 xl:grid-cols-[0.82fr_1.18fr] xl:gap-8">
+              <div className="product-image min-w-0 rounded-3xl bg-white p-3 shadow-sm sm:p-4 lg:self-start">
                 <div
-                  className="relative w-full aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4"
+                  className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
@@ -850,9 +850,9 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-24 lg:self-start">
+              <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-24 lg:self-start xl:p-6">
                 <div className="mb-4">
-                  <h1 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-black mb-3 leading-tight break-words">
+                  <h1 className="mb-3 break-words font-display text-2xl font-black leading-tight text-black sm:text-3xl xl:text-[2.35rem]">
                     {product.name}
                   </h1>
 
@@ -874,15 +874,15 @@ export default function ProductPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 mb-5">
-                  <span className="font-display font-bold text-3xl lg:text-4xl text-black">
+                  <span className="font-display text-3xl font-black text-black xl:text-[2.35rem]">
                     {formatProductPrice(activePrice)}
                   </span>
 
                   <StockBadge item={activeStockItem as any} />
                 </div>
 
-                <div className="mb-6 overflow-hidden rounded-2xl border border-green-100 bg-green-50">
-                  <div className="flex animate-[pulse_3s_ease-in-out_infinite] flex-col gap-3 p-4">
+                <div className="mb-5 overflow-hidden rounded-2xl border border-green-100 bg-green-50">
+                  <div className="flex animate-[pulse_3s_ease-in-out_infinite] flex-col gap-2.5 p-3.5 sm:p-4">
                     <div className="flex items-start gap-3">
                       <Truck className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
 
@@ -1157,7 +1157,7 @@ export default function ProductPage() {
                   </Button>
                 </div>
 
-                <div className="mb-8 grid gap-3 rounded-3xl bg-dh-gray p-4 sm:grid-cols-3">
+                <div className="mb-6 grid gap-3 rounded-2xl bg-dh-gray p-3 sm:grid-cols-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-dh-primary shadow-sm">
                       <Truck className="h-5 w-5" />
@@ -1189,7 +1189,7 @@ export default function ProductPage() {
                 <Tabs
                   value={activeTab}
                   onValueChange={setActiveTab}
-                  className="rounded-3xl bg-dh-gray p-3"
+                  className="rounded-2xl bg-dh-gray p-2.5"
                 >
                   <TabsList className="grid w-full grid-cols-3 overflow-hidden rounded-2xl bg-white p-1">
                     <TabsTrigger value="description">
@@ -1205,7 +1205,7 @@ export default function ProductPage() {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="description" className="mt-4 rounded-2xl bg-white p-4">
+                  <TabsContent value="description" className="mt-3 rounded-2xl bg-white p-4">
                     {descriptionHtml ? (
                       <div>
                         <div
@@ -1236,7 +1236,7 @@ export default function ProductPage() {
                     )}
                   </TabsContent>
 
-                  <TabsContent value="details" className="mt-4 rounded-2xl bg-white p-4">
+                  <TabsContent value="details" className="mt-3 rounded-2xl bg-white p-4">
                     <div className="space-y-3">
                       <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
                         <span className="text-sm font-semibold text-dh-dark-gray">
@@ -1282,7 +1282,7 @@ export default function ProductPage() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="trust" className="mt-4 rounded-2xl bg-white p-4">
+                  <TabsContent value="trust" className="mt-3 rounded-2xl bg-white p-4">
                     <div className="grid gap-3">
                       <div className="flex items-start gap-3 rounded-2xl bg-green-50 p-4">
                         <Check className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
@@ -1334,7 +1334,7 @@ export default function ProductPage() {
 
       {product && !isLoading && !loadError && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-dh-light-gray bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
-          <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-12">
+          <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-dh-dark-gray">
                 {product.name}
