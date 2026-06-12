@@ -403,7 +403,7 @@ export default function SellerStorePage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                     {featuredProducts.map((product) => {
                       const image = product.image || product.images?.[0] || '/logo.jpg'
                       const productUrl = getProductUrl(product)
@@ -415,9 +415,9 @@ export default function SellerStorePage() {
                       return (
                         <article
                           key={product.id}
-                          className="group overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                          className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-0.5 hover:shadow-md"
                         >
-                          <div className="relative aspect-square overflow-hidden bg-gray-100">
+                          <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                             <Link to={productUrl}>
                               <img
                                 src={image}
@@ -429,56 +429,63 @@ export default function SellerStorePage() {
                               />
                             </Link>
 
+                            <div className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-dh-primary shadow-sm">
+                              {getStockText(product)}
+                            </div>
+
                             <button
                               type="button"
                               onClick={() => toggleWishlist(product as any)}
-                              className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full shadow-sm ${
+                              className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full shadow-sm ${
                                 isInWishlist(String(product.id))
                                   ? 'bg-red-500 text-white'
-                                  : 'bg-white text-gray-600'
+                                  : 'bg-white/95 text-gray-600'
                               }`}
                               aria-label="Toggle wishlist"
                             >
                               <Heart
-                                className={`h-4 w-4 ${
+                                className={`h-3.5 w-3.5 ${
                                   isInWishlist(String(product.id)) ? 'fill-current' : ''
                                 }`}
                               />
                             </button>
                           </div>
 
-                          <div className="p-4">
-                            <div className="mb-2 flex items-center gap-1 text-xs text-gray-500">
-                              <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                              <span>
+                          <div className="p-3">
+                            <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-gray-500">
+                              <span className="inline-flex items-center gap-1">
+                                <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
                                 {safeNumber(product.averageRating).toFixed(1)}
+                                <span className="text-gray-400">
+                                  ({safeNumber(product.ratingCount)})
+                                </span>
                               </span>
-                              <span>
-                                ({safeNumber(product.ratingCount)})
-                              </span>
-                            </div>
 
-                            <Link to={productUrl}>
-                              <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold text-dh-primary hover:text-[#ffb54a]">
-                                {product.name}
-                              </h3>
-                            </Link>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <span className="font-display text-base font-black text-dh-primary">
-                                {formatPrice(product.price)}
-                              </span>
-                              {safeNumber(product.regularPrice) > safeNumber(product.price) && (
-                                <span className="text-xs text-gray-400 line-through">
-                                  {formatPrice(product.regularPrice)}
+                              {safeNumber(product.totalSales) > 0 && (
+                                <span className="truncate font-bold text-gray-400">
+                                  {safeNumber(product.totalSales).toLocaleString('en-ZM')} sold
                                 </span>
                               )}
                             </div>
 
-                            <div className="mt-3 flex items-center justify-between gap-2">
-                              <span className="truncate rounded-full bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-500">
-                                {getStockText(product)}
-                              </span>
+                            <Link to={productUrl}>
+                              <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-5 text-dh-primary hover:text-[#ffb54a]">
+                                {product.name}
+                              </h3>
+                            </Link>
+
+                            <div className="mt-2 flex items-end justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-display text-sm font-black text-dh-primary">
+                                  {formatPrice(product.price)}
+                                </p>
+
+                                {safeNumber(product.regularPrice) > safeNumber(product.price) && (
+                                  <p className="truncate text-[11px] text-gray-400 line-through">
+                                    {formatPrice(product.regularPrice)}
+                                  </p>
+                                )}
+                              </div>
 
                               <Button
                                 type="button"
@@ -488,13 +495,13 @@ export default function SellerStorePage() {
                                     ? handleAddToCart(product)
                                     : (window.location.href = productUrl)
                                 }
-                                className="rounded-full bg-dh-primary text-xs text-white hover:bg-[#ffb54a] hover:text-dh-primary"
+                                className="h-8 shrink-0 rounded-full bg-dh-primary px-3 text-[11px] font-black text-white hover:bg-[#ffb54a] hover:text-dh-primary"
                               >
                                 {addedProductId === product.id ? (
                                   'Added'
                                 ) : canAdd ? (
                                   <>
-                                    <ShoppingCart className="mr-1 h-3.5 w-3.5" />
+                                    <ShoppingCart className="mr-1 h-3 w-3" />
                                     Add
                                   </>
                                 ) : (
