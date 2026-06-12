@@ -27,27 +27,19 @@ const supportLinks = [
 const companyLinks = [
   { name: 'About', href: '/about' },
   { name: 'Contact', href: '/contact' },
-  { name: 'Sell on DigitalHood', href: 'https://seller.digitalhood.info', external: true },
-  { name: 'Terms', href: '/terms' },
+  { name: 'Sell', href: 'https://seller.digitalhood.info', external: true },
   { name: 'Privacy', href: '/privacy' },
 ]
 
+const socialLinks = [
+  { name: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/share/1AE1FSXZ6b/' },
+  { name: 'Instagram', icon: Instagram, href: 'https://www.instagram.com/digitalhood_zm' },
+]
+
 const trustItems = [
-  {
-    icon: ShieldCheck,
-    title: 'Verified sellers',
-    text: 'Approved marketplace stores.',
-  },
-  {
-    icon: Truck,
-    title: 'Zambia delivery',
-    text: 'Local fulfilment support.',
-  },
-  {
-    icon: Store,
-    title: 'Seller marketplace',
-    text: 'Built for trusted commerce.',
-  },
+  { icon: ShieldCheck, text: 'Secure checkout' },
+  { icon: Truck, text: 'Zambia delivery' },
+  { icon: Store, text: 'Verified sellers' },
 ]
 
 function FooterLink({
@@ -60,7 +52,7 @@ function FooterLink({
   external?: boolean
 }) {
   const className =
-    'text-sm font-semibold text-white/65 transition-colors hover:text-[#ffb54a]'
+    'text-xs font-bold text-white/65 transition hover:text-[#ffb54a]'
 
   if (external) {
     return (
@@ -86,11 +78,11 @@ function LinkGroup({
 }) {
   return (
     <div>
-      <h3 className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#ffb54a]">
+      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#ffb54a]">
         {title}
-      </h3>
+      </p>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:block sm:space-y-2">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:block sm:space-y-1.5">
         {links.map((link) => (
           <FooterLink key={link.name} href={link.href} external={link.external}>
             {link.name}
@@ -103,50 +95,71 @@ function LinkGroup({
 
 export default function Footer() {
   return (
-    <footer className="bg-[#16145f] text-white">
-      <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8 lg:py-10 xl:px-12">
-        <div className="grid gap-7 lg:grid-cols-[1.25fr_1fr_1fr_1fr]">
+    <footer className="bg-dh-primary text-white">
+      <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8 xl:px-12">
+        <div className="grid gap-5 lg:grid-cols-[1.35fr_0.8fr_0.8fr_0.8fr] lg:items-start">
           <div>
-            <Link to="/" className="inline-flex items-center gap-3">
-              <img
-                src="/logo.jpg"
-                alt="DigitalHood"
-                className="h-11 w-11 rounded-2xl object-contain"
-              />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:block">
+              <Link to="/" className="inline-flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white p-1">
+                  <img
+                    src="/logo.jpg"
+                    alt="DigitalHood"
+                    className="h-full w-full object-contain"
+                  />
+                </span>
 
-              <div>
-                <p className="font-display text-xl font-black leading-none">
-                  DigitalHood
-                </p>
-                <p className="mt-1 text-xs font-bold text-[#ffb54a]">
-                  Marketplace Zambia
-                </p>
+                <div>
+                  <p className="font-display text-xl font-black leading-none">
+                    Digital<span className="text-[#ffb54a]">Hood</span>
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-white/45">
+                    Fixing tomorrow today
+                  </p>
+                </div>
+              </Link>
+
+              <div className="flex gap-2 lg:mt-4">
+                {socialLinks.map((social) => {
+                  const Icon = social.icon
+
+                  return (
+                    <a
+                      key={social.name}
+                      href={social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-white/70 transition hover:bg-[#ffb54a] hover:text-dh-primary"
+                      aria-label={social.name}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </a>
+                  )
+                })}
               </div>
-            </Link>
-
-            <p className="mt-4 max-w-md text-sm leading-6 text-white/65">
-              Shop trusted phones, laptops, accessories, services and seller
-              products across Zambia.
-            </p>
+            </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {[
-                { icon: Phone, text: '+260 97 000 0000' },
-                { icon: Mail, text: 'support@digitalhood.info' },
-                { icon: MapPin, text: 'Lusaka, Zambia' },
-              ].map((item) => {
-                const Icon = item.icon
+              <a
+                href="tel:+260971047570"
+                className="inline-flex items-center gap-2 rounded-full bg-white/7 px-3 py-1.5 text-xs font-bold text-white/65 hover:text-[#ffb54a]"
+              >
+                <Phone className="h-3.5 w-3.5 text-[#ffb54a]" />
+                +260971047570
+              </a>
 
-                return (
-                  <span
-                    key={item.text}
-                    className="inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-2 text-xs font-bold text-white/70"
-                  >
-                    <Icon className="h-3.5 w-3.5 text-[#ffb54a]" />
-                    {item.text}
-                  </span>
-                )
-              })}
+              <a
+                href="mailto:contact@digitalhood.info"
+                className="inline-flex items-center gap-2 rounded-full bg-white/7 px-3 py-1.5 text-xs font-bold text-white/65 hover:text-[#ffb54a]"
+              >
+                <Mail className="h-3.5 w-3.5 text-[#ffb54a]" />
+                contact@digitalhood.info
+              </a>
+
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/7 px-3 py-1.5 text-xs font-bold text-white/65">
+                <MapPin className="h-3.5 w-3.5 text-[#ffb54a]" />
+                Lusaka, Zambia
+              </span>
             </div>
           </div>
 
@@ -155,62 +168,34 @@ export default function Footer() {
           <LinkGroup title="Company" links={companyLinks} />
         </div>
 
-        <div className="mt-7 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
+        <div className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4">
           {trustItems.map((item) => {
             const Icon = item.icon
 
             return (
-              <div
-                key={item.title}
-                className="flex items-center gap-3 rounded-2xl bg-white/6 px-4 py-3"
+              <span
+                key={item.text}
+                className="inline-flex items-center gap-2 rounded-full bg-white/7 px-3 py-1.5 text-xs font-black text-white/65"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ffb54a]/15 text-[#ffb54a]">
-                  <Icon className="h-4 w-4" />
-                </span>
-
-                <div className="min-w-0">
-                  <p className="text-sm font-black">{item.title}</p>
-                  <p className="truncate text-xs font-semibold text-white/55">
-                    {item.text}
-                  </p>
-                </div>
-              </div>
+                <Icon className="h-3.5 w-3.5 text-[#ffb54a]" />
+                {item.text}
+              </span>
             )
           })}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-5 text-xs font-semibold text-white/45 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {new Date().getFullYear()} DigitalHood. All rights reserved.
-          </p>
+        <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 text-xs font-semibold text-white/45 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} DigitalHood. All rights reserved.</p>
 
-          <div className="flex items-center gap-3">
-            <a
-              href="https://facebook.com"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-white/8 p-2 text-white/60 transition hover:text-[#ffb54a]"
-              aria-label="DigitalHood on Facebook"
-            >
-              <Facebook className="h-4 w-4" />
-            </a>
-
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-white/8 p-2 text-white/60 transition hover:text-[#ffb54a]"
-              aria-label="DigitalHood on Instagram"
-            >
-              <Instagram className="h-4 w-4" />
-            </a>
-
+          <div className="flex flex-wrap gap-4">
+            <Link to="/terms" className="hover:text-[#ffb54a]">
+              Terms
+            </Link>
             <Link to="/privacy" className="hover:text-[#ffb54a]">
               Privacy
             </Link>
-
-            <Link to="/terms" className="hover:text-[#ffb54a]">
-              Terms
+            <Link to="/sitemap" className="hover:text-[#ffb54a]">
+              Sitemap
             </Link>
           </div>
         </div>
