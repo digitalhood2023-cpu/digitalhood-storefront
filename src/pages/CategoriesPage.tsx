@@ -186,7 +186,7 @@ export default function CategoriesPage() {
       <Header />
 
       <main className="py-4 lg:py-6">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
             <Link to="/" className="hover:text-dh-primary">
               Home

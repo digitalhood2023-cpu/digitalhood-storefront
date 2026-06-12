@@ -708,7 +708,7 @@ export default function ProductPage() {
       <Header />
 
       <main className="overflow-x-hidden pb-28 pt-4 lg:pb-16 lg:pt-6">
-        <div className="mx-auto mb-4 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-4 w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <nav className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
             <Link
               to="/"
@@ -748,7 +748,7 @@ export default function ProductPage() {
           </nav>
         </div>
 
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           {isLoading ? (
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 animate-pulse">
               <div className="aspect-square bg-gray-100 rounded-2xl" />
@@ -1334,7 +1334,7 @@ export default function ProductPage() {
 
       {product && !isLoading && !loadError && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-dh-light-gray bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-12">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-dh-dark-gray">
                 {product.name}

@@ -235,7 +235,7 @@ export default function ProductShowcase({
 
   return (
     <section ref={sectionRef} className={`py-16 lg:py-24 ${bgClass}`}>
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="showcase-header mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold text-black sm:text-3xl lg:text-4xl">

@@ -102,7 +102,7 @@ function uniqueProducts(products: WooProduct[]) {
 function MarketplaceHomeSkeleton() {
   return (
     <section className="bg-white py-12">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <div
@@ -245,7 +245,7 @@ export default function Home() {
           <MarketplaceHomeSkeleton />
         ) : loadError ? (
           <section className="bg-white py-12">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+            <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
               <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-6 text-yellow-800">
                 <p className="font-semibold">Marketplace products could not load.</p>
                 <p className="mt-1 text-sm">{loadError}</p>

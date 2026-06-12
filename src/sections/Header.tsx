@@ -159,7 +159,7 @@ export default function Header() {
           isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
         } ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}
       >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center justify-between gap-4">
             <Link to="/" className="group flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center">

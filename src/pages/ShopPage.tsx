@@ -818,7 +818,7 @@ export default function ShopPage() {
       <Header />
 
       <main className="overflow-x-hidden py-4 lg:py-6">
-        <div className="container mx-auto max-w-full px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
                     <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>

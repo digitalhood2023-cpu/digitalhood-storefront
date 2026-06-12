@@ -21,7 +21,7 @@ export default function RecentlyViewed() {
 
   return (
     <section className="bg-gradient-to-b from-white via-dh-gray/60 to-white py-8 lg:py-10">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-dh-primary">

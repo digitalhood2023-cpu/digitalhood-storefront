@@ -84,7 +84,7 @@ export default function RecentlyViewedPage() {
       <Header />
 
       <main className="py-5 lg:py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <Link
             to="/"
             className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"

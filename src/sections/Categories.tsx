@@ -132,7 +132,7 @@ export default function Categories() {
 
   return (
     <section ref={sectionRef} className="bg-gradient-to-b from-white via-orange-50/40 to-white py-16 lg:py-24">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="category-title mb-12 flex flex-col gap-4 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
           <div>
             <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
