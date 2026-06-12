@@ -44,7 +44,7 @@ function CategoryCard({
   return (
     <Link
       to={getShopCategoryUrl(category.slug)}
-      className={`group relative overflow-hidden rounded-3xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+      className={`group relative overflow-hidden rounded-2xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
         featured ? 'lg:col-span-2' : ''
       }`}
     >
@@ -94,11 +94,11 @@ function CategoryCard({
 
 function CategorySkeleton() {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
       {Array.from({ length: 12 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-3xl bg-white shadow-sm"
+          className="overflow-hidden rounded-2xl bg-white shadow-sm"
         >
           <div className="h-60 animate-pulse bg-gray-200" />
           <div className="space-y-3 p-5">
@@ -197,7 +197,7 @@ export default function CategoriesPage() {
             <span className="font-medium text-dh-primary">Categories</span>
           </nav>
 
-                    <section className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+                    <section className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
@@ -224,7 +224,7 @@ export default function CategoriesPage() {
             </div>
           </section>
 
-          <section className="mt-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+          <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
@@ -261,14 +261,14 @@ export default function CategoriesPage() {
             {isLoading ? (
               <CategorySkeleton />
             ) : loadError ? (
-              <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-6 text-yellow-800">
+              <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
                 <p className="font-semibold">Categories could not load.</p>
                 <p className="mt-1 text-sm">{loadError}</p>
               </div>
             ) : filteredCategories.length > 0 ? (
               <>
                 {featuredCategories.length > 0 && (
-                  <div className="mb-5 grid gap-5 lg:grid-cols-4">
+                  <div className="mb-4 grid gap-4 lg:grid-cols-4">
                     {featuredCategories.map((category, index) => (
                       <CategoryCard
                         key={category.id}
@@ -281,7 +281,7 @@ export default function CategoriesPage() {
                 )}
 
                 {regularCategories.length > 0 && (
-                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                     {regularCategories.map((category, index) => (
                       <CategoryCard
                         key={category.id}
@@ -293,7 +293,7 @@ export default function CategoriesPage() {
                 )}
               </>
             ) : categories.length > 0 ? (
-              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+              <div className="rounded-2xl bg-white p-8 text-center shadow-sm sm:p-10">
                 <Search className="mx-auto mb-4 h-10 w-10 text-dh-primary" />
 
                 <h2 className="font-display text-xl font-bold text-dh-primary">
@@ -313,7 +313,7 @@ export default function CategoriesPage() {
                 </Button>
               </div>
             ) : (
-              <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+              <div className="rounded-2xl bg-white p-8 text-center shadow-sm sm:p-10">
                 <Grid3X3 className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
 
                 <h2 className="font-display text-2xl font-bold text-dh-primary">
@@ -328,7 +328,7 @@ export default function CategoriesPage() {
             )}
           </section>
 
-          <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm">
+          <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">

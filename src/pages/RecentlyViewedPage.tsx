@@ -83,7 +83,7 @@ export default function RecentlyViewedPage() {
 
       <Header />
 
-      <main className="py-5 lg:py-8">
+      <main className="py-4 lg:py-6">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <Link
             to="/"
@@ -93,7 +93,7 @@ export default function RecentlyViewedPage() {
             Back to home
           </Link>
 
-          <section className="mb-5 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
@@ -101,7 +101,7 @@ export default function RecentlyViewedPage() {
                   Recently viewed
                 </p>
 
-                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl">
+                <h1 className="font-display text-2xl font-black leading-tight text-dh-primary sm:text-3xl">
                   Pick up where you left off
                 </h1>
 
@@ -175,7 +175,7 @@ export default function RecentlyViewedPage() {
           </section>
 
           {selectedCount > 0 && (
-            <section className="mb-5 rounded-3xl bg-white p-4 shadow-sm">
+            <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-semibold text-dh-primary">
                   {selectedCount} product{selectedCount === 1 ? '' : 's'} selected
@@ -194,7 +194,7 @@ export default function RecentlyViewedPage() {
           )}
 
           {!hasItems ? (
-            <section className="rounded-3xl bg-white p-10 text-center shadow-sm">
+            <section className="rounded-2xl bg-white p-8 text-center shadow-sm sm:p-10">
               <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
 
               <h2 className="font-display text-2xl font-bold text-dh-primary">
@@ -212,18 +212,18 @@ export default function RecentlyViewedPage() {
               </Link>
             </section>
           ) : viewMode === 'grid' ? (
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {items.map((product) => {
                 const selected = selectedIds.includes(String(product.id))
 
                 return (
                   <article
                     key={product.id}
-                    className={`group overflow-hidden rounded-3xl bg-white shadow-sm ring-2 transition-all hover:-translate-y-1 hover:shadow-xl ${
+                    className={`group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all hover:-translate-y-1 hover:shadow-lg ${
                       selected ? 'ring-dh-secondary' : 'ring-transparent'
                     }`}
                   >
-                    <div className="relative aspect-square bg-dh-gray">
+                    <div className="relative aspect-[4/3] bg-dh-gray">
                       <Link to={getProductUrl(product)}>
                         <img
                           src={product.image || '/logo.jpg'}
@@ -257,7 +257,7 @@ export default function RecentlyViewedPage() {
                       </button>
                     </div>
 
-                    <div className="p-4">
+                    <div className="p-3 sm:p-4">
                       <Link to={getProductUrl(product)}>
                         <h3 className="line-clamp-2 min-h-[2.75rem] font-semibold text-dh-primary hover:text-dh-secondary">
                           {product.name}
@@ -265,7 +265,7 @@ export default function RecentlyViewedPage() {
                       </Link>
 
                       <div className="mt-3 flex items-center justify-between gap-3">
-                        <p className="font-display text-xl font-bold text-dh-primary">
+                        <p className="font-display text-lg font-black text-dh-primary">
                           {formatPrice(product.price)}
                         </p>
 
@@ -289,11 +289,11 @@ export default function RecentlyViewedPage() {
                 return (
                   <article
                     key={product.id}
-                    className={`group overflow-hidden rounded-3xl bg-white shadow-sm ring-2 transition-all hover:shadow-xl ${
+                    className={`group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all hover:shadow-lg ${
                       selected ? 'ring-dh-secondary' : 'ring-transparent'
                     }`}
                   >
-                    <div className="grid gap-0 sm:grid-cols-[180px_minmax(0,1fr)_220px]">
+                    <div className="grid gap-0 sm:grid-cols-[160px_minmax(0,1fr)_210px] xl:grid-cols-[170px_minmax(0,1fr)_220px]">
                       <Link
                         to={getProductUrl(product)}
                         className="block aspect-[4/3] overflow-hidden bg-dh-gray sm:aspect-auto"
@@ -328,7 +328,7 @@ export default function RecentlyViewedPage() {
                         </div>
 
                         <Link to={getProductUrl(product)}>
-                          <h3 className="line-clamp-2 font-display text-xl font-bold leading-snug text-dh-primary hover:text-dh-secondary">
+                          <h3 className="line-clamp-2 font-display text-lg font-black leading-snug text-dh-primary hover:text-dh-secondary">
                             {product.name}
                           </h3>
                         </Link>
@@ -339,13 +339,13 @@ export default function RecentlyViewedPage() {
                       </div>
 
                       <div className="flex flex-col justify-center gap-3 bg-dh-gray p-4 sm:p-5">
-                        <p className="font-display text-2xl font-bold text-dh-primary">
+                        <p className="font-display text-xl font-black text-dh-primary">
                           {formatPrice(product.price)}
                         </p>
 
                         <Link
                           to={getProductUrl(product)}
-                          className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
+                          className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-dh-secondary"
                         >
                           View product
                         </Link>
@@ -353,7 +353,7 @@ export default function RecentlyViewedPage() {
                         <button
                           type="button"
                           onClick={() => removeOne(product.id)}
-                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Remove

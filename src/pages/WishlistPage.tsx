@@ -177,7 +177,7 @@ export default function WishlistPage() {
 
       <Header />
 
-      <main className="py-5 lg:py-8">
+      <main className="py-4 lg:py-6">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <Link
             to="/shop"
@@ -187,7 +187,7 @@ export default function WishlistPage() {
             Continue shopping
           </Link>
 
-          <section className="mb-5 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
@@ -195,7 +195,7 @@ export default function WishlistPage() {
                   Saved products
                 </p>
 
-                <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl">
+                <h1 className="font-display text-2xl font-black leading-tight text-dh-primary sm:text-3xl">
                   Your wishlist
                 </h1>
 
@@ -249,7 +249,7 @@ export default function WishlistPage() {
           </section>
 
           {wishlistItems.length === 0 ? (
-            <section className="rounded-3xl bg-white p-10 text-center shadow-sm">
+            <section className="rounded-2xl bg-white p-8 text-center shadow-sm sm:p-10">
               <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-dh-gray text-dh-primary">
                 <Heart className="h-10 w-10" />
               </div>
@@ -270,16 +270,16 @@ export default function WishlistPage() {
               </Link>
             </section>
           ) : viewMode === 'grid' ? (
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {wishlistItems.map((product) => {
                 const directBuy = canBuyDirectly(product)
 
                 return (
                   <article
                     key={String(product.id)}
-                    className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-transparent transition-all hover:-translate-y-1 hover:ring-dh-primary/20 hover:shadow-xl sm:rounded-3xl"
+                    className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-transparent transition-all hover:-translate-y-1 hover:ring-dh-primary/20 hover:shadow-lg"
                   >
-                    <div className="relative aspect-square bg-dh-gray">
+                    <div className="relative aspect-[4/3] bg-dh-gray">
                       <Link to={`/product/${getProductSlug(product)}`}>
                         <img
                           src={getProductImage(product)}
@@ -328,7 +328,7 @@ export default function WishlistPage() {
                         <StockBadge item={product as any} />
                       </div>
 
-                      <p className="mt-3 font-display text-base font-bold text-dh-primary sm:text-xl">
+                      <p className="mt-3 font-display text-base font-black text-dh-primary sm:text-lg">
                         {formatPrice(product.price)}
                       </p>
 
@@ -372,9 +372,9 @@ export default function WishlistPage() {
                 return (
                   <article
                     key={String(product.id)}
-                    className="group overflow-hidden rounded-3xl bg-white shadow-sm transition-all hover:shadow-xl"
+                    className="group overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:shadow-lg"
                   >
-                    <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-0 sm:grid-cols-[180px_minmax(0,1fr)_240px]">
+                    <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-0 sm:grid-cols-[160px_minmax(0,1fr)_220px] xl:grid-cols-[170px_minmax(0,1fr)_230px]">
                       <Link
                         to={`/product/${getProductSlug(product)}`}
                         className="block aspect-square overflow-hidden bg-dh-gray sm:aspect-auto"
@@ -442,7 +442,7 @@ export default function WishlistPage() {
                         <button
                           type="button"
                           onClick={() => removeFromWishlist(String(product.id))}
-                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Remove
