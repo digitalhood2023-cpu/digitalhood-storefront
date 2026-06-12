@@ -303,14 +303,23 @@ export default function CartPage() {
                   return (
                     <article
                       key={item.id}
-                      className={`overflow-hidden rounded-xl bg-white ring-1 transition ${
+                      className={`relative overflow-hidden rounded-xl bg-white ring-1 transition ${
                         unavailable ? 'ring-red-200' : 'ring-dh-light-gray/80'
                       }`}
                     >
-                      <div className="grid gap-0 sm:grid-cols-[108px_minmax(0,1fr)_150px] xl:grid-cols-[116px_minmax(0,1fr)_160px]">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-red-100 bg-white text-red-500 shadow-sm transition hover:bg-red-50"
+                        aria-label="Remove item"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+
+                      <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-0 sm:grid-cols-[88px_minmax(0,1fr)_132px] xl:grid-cols-[92px_minmax(0,1fr)_140px]">
                         <Link
                           to={item.slug ? `/product/${item.slug}` : '/shop'}
-                          className="block aspect-[4/3] overflow-hidden bg-dh-gray sm:aspect-square"
+                          className="block h-full min-h-[92px] overflow-hidden bg-dh-gray sm:min-h-[104px]"
                         >
                           <img
                             src={item.image || '/logo.jpg'}
@@ -322,33 +331,39 @@ export default function CartPage() {
                           />
                         </Link>
 
-                        <div className="min-w-0 p-3 sm:p-3.5">
-                          <div className="mb-2 flex flex-wrap gap-1.5">
+                        <div className="min-w-0 p-3 pr-10 sm:p-3 sm:pr-4">
+                          <div className="mb-1.5 flex flex-wrap gap-1.5">
                             <StockBadge item={getCartItemStockObject(item)} />
 
                             {unavailable && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
                                 <AlertTriangle className="h-3 w-3" />
-                                Review item
+                                Review
                               </span>
                             )}
                           </div>
 
                           <Link to={item.slug ? `/product/${item.slug}` : '/shop'}>
-                            <h2 className="line-clamp-2 font-display text-sm font-black leading-snug text-dh-primary hover:text-dh-secondary sm:text-base">
+                            <h2 className="line-clamp-2 max-w-[42rem] font-display text-sm font-black leading-tight text-dh-primary hover:text-dh-secondary">
                               {item.name}
                             </h2>
                           </Link>
 
                           {variationText && (
-                            <p className="mt-1.5 line-clamp-1 text-xs font-medium text-dh-dark-gray">
-                              Selected: {variationText}
+                            <p className="mt-1 line-clamp-1 text-[11px] font-medium text-dh-dark-gray">
+                              {variationText}
                             </p>
                           )}
 
-                          <p className="mt-2 font-display text-base font-black text-dh-primary">
-                            {formatPrice(item.price)}
-                          </p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                            <p className="font-display text-sm font-black text-dh-primary">
+                              {formatPrice(item.price)}
+                            </p>
+
+                            <span className="text-[11px] font-semibold text-dh-dark-gray">
+                              each
+                            </span>
+                          </div>
 
                           {unavailable && (
                             <div className="mt-2 rounded-xl border border-red-100 bg-red-50 p-2 text-xs text-red-700">
@@ -357,9 +372,9 @@ export default function CartPage() {
                           )}
                         </div>
 
-                        <div className="flex flex-row items-center justify-between gap-3 border-t border-dh-light-gray bg-dh-gray p-3 sm:flex-col sm:items-stretch sm:justify-center sm:border-l sm:border-t-0">
-                          <div className="flex items-center gap-2 sm:block">
-                            <p className="hidden text-[11px] font-black uppercase tracking-wide text-dh-dark-gray sm:mb-1.5 sm:block">
+                        <div className="col-span-2 flex items-center justify-between gap-3 border-t border-dh-light-gray bg-dh-gray px-3 py-2 sm:col-span-1 sm:flex-col sm:items-stretch sm:justify-center sm:border-l sm:border-t-0 sm:px-3">
+                          <div>
+                            <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-dh-dark-gray">
                               Qty
                             </p>
 
@@ -367,13 +382,13 @@ export default function CartPage() {
                               <button
                                 type="button"
                                 onClick={() => decreaseQuantity(item.id)}
-                                className="flex h-8 w-8 items-center justify-center hover:bg-dh-gray"
+                                className="flex h-7 w-7 items-center justify-center hover:bg-dh-gray"
                                 aria-label="Decrease quantity"
                               >
-                                <Minus className="h-3.5 w-3.5" />
+                                <Minus className="h-3 w-3" />
                               </button>
 
-                              <span className="w-8 text-center text-sm font-black">
+                              <span className="w-7 text-center text-sm font-black">
                                 {item.quantity}
                               </span>
 
@@ -381,35 +396,26 @@ export default function CartPage() {
                                 type="button"
                                 onClick={() => increaseQuantity(item.id)}
                                 disabled={unavailable}
-                                className={`flex h-8 w-8 items-center justify-center ${
+                                className={`flex h-7 w-7 items-center justify-center ${
                                   unavailable
                                     ? 'cursor-not-allowed text-gray-300'
                                     : 'hover:bg-dh-gray'
                                 }`}
                                 aria-label="Increase quantity"
                               >
-                                <Plus className="h-3.5 w-3.5" />
+                                <Plus className="h-3 w-3" />
                               </button>
                             </div>
                           </div>
 
                           <div className="text-right sm:text-left">
-                            <p className="text-[11px] font-black uppercase tracking-wide text-dh-dark-gray">
+                            <p className="text-[10px] font-black uppercase tracking-wide text-dh-dark-gray">
                               Total
                             </p>
-                            <p className="font-display text-base font-black text-dh-primary">
+                            <p className="font-display text-sm font-black text-dh-primary sm:text-base">
                               {formatPrice(item.price * item.quantity)}
                             </p>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeItem(item.id)}
-                            className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                            Remove
-                          </button>
                         </div>
                       </div>
                     </article>
