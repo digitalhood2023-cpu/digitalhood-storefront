@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
-  ChevronRight,
   Check,
   Clock,
   Heart,
@@ -22,6 +21,7 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  MessageCircle,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -113,11 +113,19 @@ function getProductSellerDisplay(product: WooProduct) {
         ? 100
         : null
 
+  const sellerAvatarUrl =
+    product.sellerAvatarUrl ||
+    product.sellerProfilePhotoUrl ||
+    product.seller?.avatarUrl ||
+    product.seller?.profilePhotoUrl ||
+    product.seller?.logoUrl ||
+    ''
+
   return {
     storeName,
     sellerUrl,
-    verified: Boolean(product.sellerVerified || product.seller?.verified),
-    avatarUrl: isOfficialDigitalHood ? '/logo.jpg' : '',
+    verified: Boolean(product.sellerVerified || product.seller?.verified || isOfficialDigitalHood),
+    avatarUrl: sellerAvatarUrl || (isOfficialDigitalHood ? '/logo.jpg' : ''),
     initials: getSellerInitials(storeName),
     feedbackText:
       positivePercent !== null
@@ -198,6 +206,8 @@ export default function ProductPage() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [galleryScale, setGalleryScale] = useState(1)
   const [galleryTouchStartX, setGalleryTouchStartX] = useState<number | null>(null)
+  const [galleryTouchStartY, setGalleryTouchStartY] = useState<number | null>(null)
+  const [galleryPinchDistance, setGalleryPinchDistance] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [activeTab, setActiveTab] = useState('description')
@@ -226,6 +236,10 @@ export default function ProductPage() {
     setIsGalleryOpen(false)
     setGalleryScale(1)
     setGalleryTouchStartX(null)
+    setGalleryTouchStartY(null)
+    setGalleryPinchDistance(null)
+    setGalleryTouchStartY(null)
+    setGalleryPinchDistance(null)
     setSelectedAttributes({})
     setQuantity(1)
     setShowFullDescription(false)
@@ -422,19 +436,77 @@ export default function ProductPage() {
     setGalleryScale((current) => Math.max(1, Number((current - 0.5).toFixed(1))))
   }
 
+  const getTouchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return null
+
+    const first = touches[0]
+    const second = touches[1]
+    const deltaX = first.clientX - second.clientX
+    const deltaY = first.clientY - second.clientY
+
+    return Math.hypot(deltaX, deltaY)
+  }
+
   const handleGalleryTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length >= 2) {
+      setGalleryPinchDistance(getTouchDistance(event.touches))
+      setGalleryTouchStartX(null)
+      setGalleryTouchStartY(null)
+      return
+    }
+
     setGalleryTouchStartX(event.touches[0]?.clientX ?? null)
+    setGalleryTouchStartY(event.touches[0]?.clientY ?? null)
+    setGalleryPinchDistance(null)
+  }
+
+  const handleGalleryTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length < 2) return
+
+    const currentDistance = getTouchDistance(event.touches)
+
+    if (!currentDistance || !galleryPinchDistance) {
+      setGalleryPinchDistance(currentDistance)
+      return
+    }
+
+    event.preventDefault()
+
+    const distanceDelta = currentDistance - galleryPinchDistance
+
+    if (Math.abs(distanceDelta) < 8) return
+
+    setGalleryScale((current) =>
+      Math.min(3, Math.max(1, Number((current + distanceDelta / 180).toFixed(2))))
+    )
+    setGalleryPinchDistance(currentDistance)
   }
 
   const handleGalleryTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (galleryTouchStartX === null) return
+    if (galleryPinchDistance !== null || event.changedTouches.length > 1) {
+      setGalleryPinchDistance(null)
+      setGalleryTouchStartX(null)
+      setGalleryTouchStartY(null)
+      return
+    }
+
+    if (galleryTouchStartX === null || galleryTouchStartY === null) return
 
     const endX = event.changedTouches[0]?.clientX ?? galleryTouchStartX
+    const endY = event.changedTouches[0]?.clientY ?? galleryTouchStartY
     const deltaX = galleryTouchStartX - endX
+    const deltaY = galleryTouchStartY - endY
 
     setGalleryTouchStartX(null)
+    setGalleryTouchStartY(null)
 
-    if (Math.abs(deltaX) < 45 || galleryScale > 1) return
+    if (
+      galleryScale > 1 ||
+      Math.abs(deltaX) < 70 ||
+      Math.abs(deltaX) < Math.abs(deltaY) * 1.5
+    ) {
+      return
+    }
 
     if (deltaX > 0) {
       goToNextImage()
@@ -830,45 +902,6 @@ export default function ProductPage() {
       <Header />
 
       <main className="overflow-x-hidden pb-28 pt-4 lg:pb-16 lg:pt-6">
-        <div className="mx-auto mb-4 w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-          <nav className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
-            <Link
-              to="/"
-              className="hover:text-black transition-colors shrink-0"
-            >
-              Home
-            </Link>
-
-            <ChevronRight className="w-4 h-4 shrink-0" />
-
-            <Link
-              to="/shop"
-              className="hover:text-black transition-colors shrink-0"
-            >
-              Shop
-            </Link>
-
-            {product?.categories?.[0] && (
-              <>
-                <ChevronRight className="w-4 h-4 shrink-0" />
-
-                <span className="truncate max-w-[120px] sm:max-w-none">
-                  {product.categories[0].name}
-                </span>
-              </>
-            )}
-
-            {product && (
-              <>
-                <ChevronRight className="w-4 h-4 shrink-0" />
-
-                <span className="text-black truncate max-w-[160px] sm:max-w-[320px]">
-                  {product.name}
-                </span>
-              </>
-            )}
-          </nav>
-        </div>
 
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           {isLoading ? (
@@ -902,6 +935,31 @@ export default function ProductPage() {
           ) : (
             <div className="grid min-w-0 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:gap-6 xl:grid-cols-[0.82fr_1.18fr] xl:gap-8">
               <div className="product-image min-w-0 rounded-3xl bg-white p-3 shadow-sm sm:p-4 lg:self-start">
+                <div className="mb-3">
+                  <h1 className="break-words font-display text-lg font-black leading-snug text-black sm:text-xl lg:text-2xl">
+                    {product.name}
+                  </h1>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="font-display text-xl font-black text-dh-primary sm:text-2xl">
+                      {formatProductPrice(activePrice)}
+                    </span>
+
+                    <StockBadge item={activeStockItem as any} />
+
+                    <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary">
+                      <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
+                      {product.averageRating ? product.averageRating.toFixed(1) : 'No ratings'}
+                    </span>
+
+                    {soldText && (
+                      <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-dark-gray">
+                        {soldText}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div
                   className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
                   onTouchStart={handleTouchStart}
@@ -919,7 +977,7 @@ export default function ProductPage() {
                     onClick={() => openGallery(selectedImage)}
                     className="absolute bottom-3 right-3 rounded-full bg-black/65 px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-black/80"
                   >
-                    Tap to zoom
+                    Tap to view
                   </button>
 
                   <div className="absolute top-4 left-4">
@@ -983,61 +1041,53 @@ export default function ProductPage() {
 
               <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-24 lg:self-start xl:p-6">
                 <div className="mb-4">
-                  <h1 className="mb-2 break-words font-display text-xl font-black leading-snug text-black sm:text-2xl xl:text-[1.9rem]">
-                    {product.name}
-                  </h1>
-
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Star className="w-5 h-5 fill-[#ffb54a] text-[#ffb54a]" />
-                    </div>
-
-                    <span className="text-gray-600 text-sm">
-                      {ratingText}
-                    </span>
-
-                    {soldText && (
-                      <span className="text-sm text-dh-dark-gray">
-                        {soldText}
-                      </span>
-                    )}
-                  </div>
-
                   {sellerDisplay.storeName && (
-                    <Link
-                      to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
-                      className="mt-3 inline-flex max-w-full items-center gap-2.5 rounded-full border border-dh-light-gray bg-dh-gray py-1.5 pl-1.5 pr-3 transition hover:border-dh-primary/20 hover:bg-white"
-                    >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-black text-dh-primary shadow-sm">
-                        {sellerDisplay.avatarUrl ? (
-                          <img
-                            src={sellerDisplay.avatarUrl}
-                            alt={sellerDisplay.storeName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          sellerDisplay.initials
-                        )}
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dh-light-gray bg-dh-gray p-2.5">
+                      <Link
+                        to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
+                        className="flex min-w-0 items-center gap-2.5"
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-black text-dh-primary shadow-sm">
+                          {sellerDisplay.avatarUrl ? (
+                            <img
+                              src={sellerDisplay.avatarUrl}
+                              alt={sellerDisplay.storeName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            sellerDisplay.initials
+                          )}
+                        </span>
 
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-black leading-tight text-dh-primary">
-                          {sellerDisplay.storeName}
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black leading-tight text-dh-primary">
+                            {sellerDisplay.storeName}
+                          </span>
+                          <span className="block truncate text-[11px] font-bold leading-tight text-green-700">
+                            {sellerDisplay.feedbackText}
+                          </span>
                         </span>
-                        <span className="block truncate text-[11px] font-bold leading-tight text-green-700">
-                          {sellerDisplay.feedbackText}
-                        </span>
-                      </span>
-                    </Link>
+                      </Link>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Link
+                          to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
+                          className="rounded-full bg-white px-3 py-2 text-xs font-black text-dh-primary transition hover:bg-dh-primary hover:text-white"
+                        >
+                          Visit store
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => alert('Seller chat is coming soon.')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Chat
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 mb-5">
-                  <span className="font-display text-3xl font-black text-black xl:text-[2.35rem]">
-                    {formatProductPrice(activePrice)}
-                  </span>
-
-                  <StockBadge item={activeStockItem as any} />
                 </div>
 
                 <div className="mb-5 overflow-hidden rounded-2xl border border-green-100 bg-green-50">
@@ -1539,6 +1589,7 @@ export default function ProductPage() {
         <div
           className="fixed inset-0 z-[100] flex flex-col bg-black/95 text-white"
           onTouchStart={handleGalleryTouchStart}
+          onTouchMove={handleGalleryTouchMove}
           onTouchEnd={handleGalleryTouchEnd}
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -1599,10 +1650,7 @@ export default function ProductPage() {
               className="max-h-full max-w-full select-none object-contain transition-transform duration-200"
               style={{ transform: `scale(${galleryScale})` }}
               draggable={false}
-              onDoubleClick={() =>
-                setGalleryScale((current) => current > 1 ? 1 : 2)
-              }
-            />
+/>
 
             {displayImages.length > 1 && (
               <button

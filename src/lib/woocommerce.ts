@@ -82,12 +82,17 @@ export type WooProduct = {
     key?: string;
     url?: string;
     verified?: boolean;
+    avatarUrl?: string;
+    profilePhotoUrl?: string;
+    logoUrl?: string;
   } | null;
   sellerStoreName?: string;
   sellerKey?: string;
   sellerUrl?: string;
   sellerVerified?: boolean;
   sellerCustomerId?: string | number;
+  sellerAvatarUrl?: string;
+  sellerProfilePhotoUrl?: string;
 
   categoryIds: number[];
   categories: {
@@ -507,6 +512,20 @@ shortDescriptionHtml:
     sellerUrl: product.sellerUrl || product.seller_url || product.seller?.url || '',
     sellerVerified: Boolean(product.sellerVerified || product.seller_verified || product.seller?.verified),
     sellerCustomerId: product.sellerCustomerId || product.seller_customer_id || product.seller?.customerId || '',
+    sellerAvatarUrl:
+      product.sellerAvatarUrl ||
+      product.seller_avatar_url ||
+      product.sellerProfilePhotoUrl ||
+      product.seller_profile_photo_url ||
+      product.seller?.avatarUrl ||
+      product.seller?.profilePhotoUrl ||
+      product.seller?.logoUrl ||
+      '',
+    sellerProfilePhotoUrl:
+      product.sellerProfilePhotoUrl ||
+      product.seller_profile_photo_url ||
+      product.seller?.profilePhotoUrl ||
+      '',
   };
 }
 
