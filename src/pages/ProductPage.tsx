@@ -226,6 +226,7 @@ export default function ProductPage() {
   const { addToRecentlyViewed } = useRecentlyViewed()
 
   const pageRef = useRef<HTMLDivElement>(null)
+  const galleryHistoryStateRef = useRef(false)
 
   useEffect(() => {
     if (!slug) return
@@ -422,11 +423,44 @@ export default function ProductPage() {
     setIsGalleryOpen(true)
   }
 
-  const closeGallery = () => {
+  const closeGallery = (options: { skipHistoryBack?: boolean } = {}) => {
     setIsGalleryOpen(false)
     setGalleryScale(1)
     setGalleryTouchStartX(null)
+    setGalleryTouchStartY(null)
+    setGalleryPinchDistance(null)
+
+    if (!options.skipHistoryBack && galleryHistoryStateRef.current) {
+      galleryHistoryStateRef.current = false
+      window.history.back()
+    }
   }
+
+  useEffect(() => {
+    if (!isGalleryOpen) return
+
+    if (!galleryHistoryStateRef.current) {
+      window.history.pushState(
+        { digitalhoodProductGalleryOpen: true },
+        '',
+        window.location.href
+      )
+      galleryHistoryStateRef.current = true
+    }
+
+    const handlePopState = () => {
+      if (!galleryHistoryStateRef.current) return
+
+      galleryHistoryStateRef.current = false
+      closeGallery({ skipHistoryBack: true })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [isGalleryOpen])
 
   const zoomGalleryIn = () => {
     setGalleryScale((current) => Math.min(3, Number((current + 0.5).toFixed(1))))
