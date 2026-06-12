@@ -58,27 +58,27 @@ export default function Services() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="py-16 lg:py-24 bg-white">
-      <div className="container mx-auto px-4">
+    <section ref={sectionRef} className="bg-white py-9 lg:py-12">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="services-title font-display font-bold text-3xl sm:text-4xl lg:text-5xl text-dh-primary mb-4">
+        <div className="mb-6 text-center">
+          <h2 className="services-title mb-2 font-display text-2xl font-black text-dh-primary sm:text-3xl">
             Our <span className="text-dh-secondary">Services</span>
           </h2>
-          <p className="services-title text-lg text-dh-dark-gray max-w-xl mx-auto">
+          <p className="services-title mx-auto max-w-xl text-sm leading-6 text-dh-dark-gray sm:text-base">
             More than just a store - we're your tech partner
           </p>
         </div>
 
         {/* Services Grid */}
-        <div className="services-grid grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="services-grid grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {services.slice(0, 3).map((service) => {
             const Icon = iconMap[service.icon] || Package;
             return (
               <Link
                 key={service.id}
                 to={service.link}
-                className="service-card group relative bg-dh-gray rounded-2xl p-6 lg:p-8 hover:bg-dh-primary transition-all duration-500 overflow-hidden"
+                className="service-card group relative overflow-hidden rounded-2xl bg-dh-gray p-4 transition-all duration-500 hover:bg-dh-primary sm:p-5"
               >
                 {/* Background Decoration */}
                 <div className="absolute -right-10 -top-10 w-40 h-40 bg-dh-secondary/10 rounded-full group-hover:bg-white/10 transition-colors" />
@@ -87,15 +87,15 @@ export default function Services() {
                 {/* Content */}
                 <div className="relative z-10">
                   {/* Icon */}
-                  <div className="w-16 h-16 bg-dh-primary rounded-2xl flex items-center justify-center mb-6 group-hover:bg-dh-secondary transition-colors">
-                    <Icon className="w-8 h-8 text-white group-hover:text-dh-primary transition-colors" />
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-dh-primary transition-colors group-hover:bg-dh-secondary sm:h-14 sm:w-14">
+                    <Icon className="h-6 w-6 text-white transition-colors group-hover:text-dh-primary sm:h-7 sm:w-7" />
                   </div>
 
                   {/* Text */}
-                  <h3 className="font-display font-semibold text-xl text-dh-primary group-hover:text-white mb-3 transition-colors">
+                  <h3 className="mb-2 font-display text-lg font-black text-dh-primary transition-colors group-hover:text-white">
                     {service.title}
                   </h3>
-                  <p className="text-dh-dark-gray group-hover:text-white/80 mb-6 transition-colors">
+                  <p className="mb-4 text-sm leading-6 text-dh-dark-gray transition-colors group-hover:text-white/80">
                     {service.description}
                   </p>
 
@@ -111,7 +111,7 @@ export default function Services() {
         </div>
 
         {/* CTA Banner */}
-        <div className="mt-12 bg-gradient-to-r from-dh-primary to-[#3a3aa8] rounded-2xl p-6 lg:p-10 flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-dh-primary to-[#3a3aa8] p-5 sm:p-6 lg:flex-row">
           <div className="text-center lg:text-left">
             <h3 className="font-display font-bold text-2xl lg:text-3xl text-white mb-2">
               Need Help with Your Device?

@@ -135,7 +135,7 @@ export default function FlashSale() {
       setLoadError('')
 
       try {
-        const response = await fetchWooProducts(24, 1)
+        const response = await fetchWooProducts(36, 1)
         const availableProducts = (response.products || []).filter(
           (product) => product.price > 0
         )
@@ -144,10 +144,10 @@ export default function FlashSale() {
 
         const selectedProducts =
           dealProducts.length > 0
-            ? dealProducts.slice(0, 4)
+            ? dealProducts.slice(0, 12)
             : availableProducts
                 .sort((a, b) => safeNumber(b.totalSales) - safeNumber(a.totalSales))
-                .slice(0, 4)
+                .slice(0, 12)
 
         if (mounted) {
           setProducts(selectedProducts)
@@ -232,7 +232,7 @@ export default function FlashSale() {
     return () => ctx.revert()
   }, [products.length])
 
-  const displayProducts = useMemo(() => products.slice(0, 4), [products])
+  const displayProducts = useMemo(() => products.slice(0, 12), [products])
 
   const handleAddToCart = (product: WooProduct) => {
     if (product.hasOptions || product.type === 'variable') {
@@ -275,33 +275,33 @@ export default function FlashSale() {
   return (
     <section
       ref={sectionRef}
-      className="py-16 lg:py-24 bg-white overflow-hidden"
+      className="overflow-hidden bg-white py-9 lg:py-12"
     >
       <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="flash-banner relative bg-gradient-to-r from-red-500 via-orange-500 to-[#ffb54a] rounded-3xl p-6 lg:p-10 mb-10 overflow-hidden">
+        <div className="flash-banner relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-r from-red-500 via-orange-500 to-[#ffb54a] p-4 sm:p-5 lg:p-6">
           <div className="absolute inset-0 opacity-20">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')]" />
           </div>
 
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
-                <Flame className="w-7 h-7 text-white" />
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 animate-pulse">
+                <Flame className="h-6 w-6 text-white" />
               </div>
 
               <div>
-                <h2 className="font-display font-bold text-2xl lg:text-4xl text-white mb-1">
+                <h2 className="mb-1 font-display text-2xl font-black text-white lg:text-3xl">
                   Flash Sale
                 </h2>
 
-                <p className="text-white/80 flex items-center gap-2">
+                <p className="flex items-center gap-2 text-sm text-white/80">
                   <Clock className="w-4 h-4" />
                   Live marketplace offers
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {[
                 { value: timeLeft.days, label: 'Days' },
                 { value: timeLeft.hours, label: 'Hours' },
@@ -309,8 +309,8 @@ export default function FlashSale() {
                 { value: timeLeft.seconds, label: 'Secs' },
               ].map((item, index) => (
                 <div key={index} className="countdown-box text-center">
-                  <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white rounded-xl flex items-center justify-center mb-1">
-                    <span className="font-display font-bold text-xl lg:text-2xl text-red-500">
+                  <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-white sm:h-12 sm:w-12">
+                    <span className="font-display text-lg font-black text-red-500 sm:text-xl">
                       {formatTime(item.value)}
                     </span>
                   </div>
@@ -323,7 +323,7 @@ export default function FlashSale() {
             <Link to="/shop">
               <Button
                 size="lg"
-                className="bg-white text-red-500 hover:bg-gray-100 rounded-full px-8 font-semibold"
+                className="h-10 rounded-full bg-white px-5 text-sm font-bold text-red-500 hover:bg-gray-100"
               >
                 Explore deals
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -333,19 +333,19 @@ export default function FlashSale() {
         </div>
 
         {isLoading ? (
-          <div className="rounded-3xl bg-dh-gray p-10 text-center">
+          <div className="rounded-2xl bg-dh-gray p-8 text-center">
             <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-dh-primary" />
             <p className="font-semibold text-dh-primary">
               Loading live deals...
             </p>
           </div>
         ) : loadError ? (
-          <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-6 text-yellow-800">
+          <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
             <p className="font-semibold">Flash sale products could not load.</p>
             <p className="mt-1 text-sm">{loadError}</p>
           </div>
         ) : displayProducts.length > 0 ? (
-          <div className="flash-products grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="flash-products grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {displayProducts.map((product) => {
               const originalPrice = getOriginalPrice(product)
               const productUrl = getProductUrl(product)
@@ -353,9 +353,9 @@ export default function FlashSale() {
               return (
                 <div
                   key={product.id}
-                  className="flash-product group bg-white rounded-2xl overflow-hidden border-2 border-gray-100 hover:border-[#ffb54a] transition-all duration-300 hover:shadow-lg"
+                  className="flash-product group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#ffb54a] hover:shadow-lg"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-gray-100">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                     <Link to={productUrl}>
                       <img
                         src={product.image || '/logo.jpg'}
@@ -371,8 +371,8 @@ export default function FlashSale() {
                       {productHasDeal(product) ? 'Deal' : 'Hot'}
                     </Badge>
 
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                      <div className="flex items-center justify-between text-white text-sm mb-1">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                      <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-white">
                         <span>{product.stockLabel || 'Available'}</span>
                         {product.manageStock && product.stockQuantity !== null && (
                           <span className="font-semibold">
@@ -388,15 +388,15 @@ export default function FlashSale() {
                     </div>
                   </div>
 
-                  <div className="p-4">
+                  <div className="p-3 sm:p-3.5">
                     <Link to={productUrl}>
-                      <h3 className="font-medium text-black hover:text-[#ffb54a] transition-colors line-clamp-2 mb-2 text-sm">
+                      <h3 className="mb-2 line-clamp-2 min-h-[2.5rem] text-sm font-black leading-5 text-black transition-colors hover:text-[#ffb54a]">
                         {product.name}
                       </h3>
                     </Link>
 
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <span className="font-display font-bold text-lg text-red-500">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <span className="font-display text-base font-black text-red-500 sm:text-lg">
                         {formatPrice(product.price)}
                       </span>
 
@@ -409,7 +409,7 @@ export default function FlashSale() {
 
                     <Button
                       onClick={() => handleAddToCart(product)}
-                      className={`w-full rounded-xl transition-all ${
+                      className={`h-9 w-full rounded-full text-xs font-black transition-all ${
                         addedToCart === String(product.id)
                           ? 'bg-green-500 hover:bg-green-600'
                           : 'bg-black hover:bg-[#ffb54a] hover:text-black'
@@ -439,7 +439,7 @@ export default function FlashSale() {
             })}
           </div>
         ) : (
-          <div className="rounded-3xl bg-dh-gray p-8 text-center">
+          <div className="rounded-2xl bg-dh-gray p-8 text-center">
             <h3 className="font-display text-xl font-bold text-dh-primary">
               Deals are being prepared
             </h3>

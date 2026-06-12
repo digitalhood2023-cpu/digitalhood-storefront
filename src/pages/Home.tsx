@@ -101,15 +101,15 @@ function uniqueProducts(products: WooProduct[]) {
 
 function MarketplaceHomeSkeleton() {
   return (
-    <section className="bg-white py-12">
+    <section className="bg-white py-8 lg:py-10">
       <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {Array.from({ length: 8 }).map((_, index) => (
             <div
               key={index}
               className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white shadow-sm"
             >
-              <div className="aspect-square animate-pulse bg-dh-gray" />
+              <div className="aspect-[4/3] animate-pulse bg-dh-gray" />
               <div className="space-y-3 p-4">
                 <div className="h-4 w-3/4 animate-pulse rounded-full bg-dh-gray" />
                 <div className="h-4 w-1/2 animate-pulse rounded-full bg-dh-gray" />
@@ -244,9 +244,9 @@ export default function Home() {
         {isLoadingProducts ? (
           <MarketplaceHomeSkeleton />
         ) : loadError ? (
-          <section className="bg-white py-12">
+          <section className="bg-white py-8 lg:py-10">
             <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-              <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-6 text-yellow-800">
+              <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
                 <p className="font-semibold">Marketplace products could not load.</p>
                 <p className="mt-1 text-sm">{loadError}</p>
               </div>

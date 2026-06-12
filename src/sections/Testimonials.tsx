@@ -113,24 +113,24 @@ export default function Testimonials() {
   };
 
   return (
-    <section ref={sectionRef} className="py-16 lg:py-24 bg-dh-gray overflow-hidden">
-      <div className="container mx-auto px-4">
+    <section ref={sectionRef} className="overflow-hidden bg-dh-gray py-9 lg:py-12">
+      <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="testimonials-title font-display font-bold text-3xl sm:text-4xl lg:text-5xl text-dh-primary mb-4">
+        <div className="mb-6 text-center">
+          <h2 className="testimonials-title mb-2 font-display text-2xl font-black text-dh-primary sm:text-3xl">
             What Our <span className="text-gradient">Customers Say</span>
           </h2>
-          <p className="testimonials-title text-lg text-dh-dark-gray max-w-xl mx-auto">
+          <p className="testimonials-title mx-auto max-w-xl text-sm leading-6 text-dh-dark-gray sm:text-base">
             Real reviews from real customers across Zambia
           </p>
         </div>
 
         {/* 3D Carousel */}
         <div
-          className="testimonial-carousel relative max-w-4xl mx-auto"
+          className="testimonial-carousel relative mx-auto max-w-4xl"
           style={{ perspective: '1200px' }}
         >
-          <div className="relative h-[400px] sm:h-[350px]" style={{ transformStyle: 'preserve-3d' }}>
+          <div className="relative h-[330px] sm:h-[300px]" style={{ transformStyle: 'preserve-3d' }}>
             {testimonials.map((testimonial, index) => (
               <div
                 key={testimonial.id}
@@ -140,14 +140,14 @@ export default function Testimonials() {
                   transformStyle: 'preserve-3d',
                 }}
               >
-                <div className="bg-white rounded-3xl shadow-card-hover p-8 h-full flex flex-col items-center text-center">
+                <div className="flex h-full flex-col items-center rounded-2xl bg-white p-5 text-center shadow-lg sm:p-6">
                   {/* Quote Icon */}
-                  <div className="w-12 h-12 bg-dh-secondary/20 rounded-full flex items-center justify-center mb-6">
-                    <Quote className="w-6 h-6 text-dh-secondary" />
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-dh-secondary/20">
+                    <Quote className="h-5 w-5 text-dh-secondary" />
                   </div>
 
                   {/* Stars */}
-                  <div className="flex items-center gap-1 mb-6">
+                  <div className="mb-4 flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
@@ -161,7 +161,7 @@ export default function Testimonials() {
                   </div>
 
                   {/* Quote */}
-                  <p className="text-lg text-dh-dark-gray mb-8 flex-1 line-clamp-3">
+                  <p className="mb-5 line-clamp-3 flex-1 text-sm leading-6 text-dh-dark-gray sm:text-base">
                     "{testimonial.text}"
                   </p>
 
@@ -170,7 +170,7 @@ export default function Testimonials() {
                     <img
                       src={testimonial.image}
                       alt={testimonial.name}
-                      className="w-14 h-14 rounded-full object-cover border-2 border-dh-secondary"
+                      className="h-12 w-12 rounded-full border-2 border-dh-secondary object-cover"
                     />
                     <div className="text-left">
                       <h4 className="font-semibold text-dh-primary">{testimonial.name}</h4>
@@ -183,7 +183,7 @@ export default function Testimonials() {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-center gap-4 mt-8">
+          <div className="mt-5 flex items-center justify-center gap-3">
             <Button
               variant="outline"
               size="icon"

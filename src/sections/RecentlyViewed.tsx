@@ -20,7 +20,7 @@ export default function RecentlyViewed() {
   if (!hasItems) return null
 
   return (
-    <section className="bg-gradient-to-b from-white via-dh-gray/60 to-white py-8 lg:py-10">
+    <section className="bg-gradient-to-b from-white via-dh-gray/60 to-white py-6 lg:py-8">
       <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
@@ -52,7 +52,7 @@ export default function RecentlyViewed() {
             {items.slice(0, 10).map((product) => (
               <article
                 key={product.id}
-                className="group relative w-40 shrink-0 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-dh-light-gray transition-all duration-300 hover:-translate-y-1 hover:ring-dh-primary/20 hover:shadow-xl sm:w-48"
+                className="group relative w-40 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-dh-light-gray transition-all duration-300 hover:-translate-y-1 hover:ring-dh-primary/20 hover:shadow-lg sm:w-48"
               >
                 <button
                   type="button"

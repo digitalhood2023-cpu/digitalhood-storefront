@@ -24,14 +24,14 @@ function getShopCategoryUrl(slug: string) {
 
 function CategorySkeleton() {
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {Array.from({ length: 8 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-3xl bg-white shadow-sm"
+          className="overflow-hidden rounded-2xl bg-white shadow-sm"
         >
-          <div className="h-52 animate-pulse bg-gray-200" />
-          <div className="space-y-3 p-5">
+          <div className="h-36 animate-pulse bg-gray-200 sm:h-40" />
+          <div className="space-y-3 p-4">
             <div className="h-5 w-2/3 animate-pulse rounded-full bg-gray-200" />
             <div className="h-4 w-full animate-pulse rounded-full bg-gray-200" />
             <div className="h-4 w-1/2 animate-pulse rounded-full bg-gray-200" />
@@ -131,20 +131,20 @@ export default function Categories() {
   }, [categories.length])
 
   return (
-    <section ref={sectionRef} className="bg-gradient-to-b from-white via-orange-50/40 to-white py-16 lg:py-24">
+    <section ref={sectionRef} className="bg-gradient-to-b from-white via-orange-50/40 to-white py-9 lg:py-12">
       <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="category-title mb-12 flex flex-col gap-4 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+        <div className="category-title mb-5 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
           <div>
-            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+            <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
               <TrendingUp className="h-4 w-4" />
               Popular departments
             </p>
 
-            <h2 className="font-display font-bold text-3xl sm:text-4xl lg:text-5xl text-dh-primary mb-4">
+            <h2 className="mb-2 font-display text-2xl font-black text-dh-primary sm:text-3xl">
               Shop by Category
             </h2>
 
-            <p className="text-lg text-dh-dark-gray max-w-xl">
+            <p className="max-w-xl text-sm leading-6 text-dh-dark-gray sm:text-base">
               Browse high-demand departments based on live products, customer
               interest, and marketplace activity.
             </p>
@@ -152,7 +152,7 @@ export default function Categories() {
 
           <Link
             to="/categories"
-            className="inline-flex items-center justify-center rounded-full border border-dh-primary px-5 py-3 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
+            className="inline-flex items-center justify-center rounded-full border border-dh-primary px-5 py-2.5 text-sm font-bold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
           >
             View all categories
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -162,7 +162,7 @@ export default function Categories() {
         {isLoading ? (
           <CategorySkeleton />
         ) : loadError ? (
-          <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-6 text-yellow-800">
+          <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
             <div className="flex items-start gap-3">
               <Loader2 className="mt-0.5 h-5 w-5" />
               <div>
@@ -174,7 +174,7 @@ export default function Categories() {
         ) : categories.length > 0 ? (
           <div
             ref={cardsRef}
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
           >
             {categories.map((category, index) => {
               const visual = getCategoryVisual(category, index)
@@ -184,9 +184,9 @@ export default function Categories() {
                 <Link
                   key={category.id}
                   to={getShopCategoryUrl(category.slug)}
-                  className="category-card group relative overflow-hidden rounded-3xl bg-white shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-card-hover"
+                  className="category-card group relative overflow-hidden rounded-2xl bg-white shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg"
                 >
-                  <div className="relative h-56 overflow-hidden">
+                  <div className="relative h-36 overflow-hidden sm:h-40 lg:h-44">
                     <img
                       src={visual.image}
                       alt={category.name}
@@ -198,20 +198,20 @@ export default function Categories() {
 
                     <div className={`absolute inset-0 bg-gradient-to-t ${visual.tone} opacity-90 transition-opacity duration-500 group-hover:opacity-95`} />
 
-                    <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-dh-primary shadow-sm backdrop-blur">
+                    <div className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-black text-dh-primary shadow-sm backdrop-blur sm:left-3 sm:top-3">
                       {insight}
                     </div>
 
-                    <div className="absolute right-4 top-4 rounded-full bg-dh-secondary px-3 py-1 text-xs font-bold text-dh-primary shadow-sm">
+                    <div className="absolute right-2 top-2 rounded-full bg-dh-secondary px-2.5 py-1 text-[10px] font-black text-dh-primary shadow-sm sm:right-3 sm:top-3">
                       {category.productCount} items
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-                      <h3 className="font-display text-2xl font-bold leading-tight">
+                    <div className="absolute bottom-0 left-0 right-0 p-3 text-white sm:p-4">
+                      <h3 className="line-clamp-2 font-display text-lg font-black leading-tight sm:text-xl">
                         {category.name}
                       </h3>
 
-                      <div className="mt-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-bold text-dh-primary transition-all group-hover:bg-dh-secondary">
+                      <div className="mt-3 inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-black text-dh-primary transition-all group-hover:bg-dh-secondary">
                         Browse products
                         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </div>
@@ -222,7 +222,7 @@ export default function Categories() {
             })}
           </div>
         ) : (
-          <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+          <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
             <h3 className="font-display text-xl font-bold text-dh-primary">
               Categories are being prepared
             </h3>

@@ -236,7 +236,7 @@ export default function Hero() {
   return (
     <section
       ref={heroRef}
-      className="relative min-h-[90vh] overflow-hidden bg-gradient-to-br from-gray-50 via-white to-[#ffb54a]/10 lg:min-h-screen"
+      className="relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-[#ffb54a]/10"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="orb-1 absolute left-10 top-20 h-64 w-64 rounded-full bg-black/5 blur-3xl" />
@@ -244,35 +244,35 @@ export default function Hero() {
         <div className="orb-3 absolute left-1/3 top-1/2 h-48 w-48 rounded-full bg-black/5 blur-2xl" />
       </div>
 
-      <div className="container relative z-10 mx-auto px-4 py-12 sm:px-6 lg:px-8 lg:py-20 xl:px-12">
-        <div className="grid min-h-[70vh] items-center gap-8 lg:grid-cols-2 lg:gap-12">
+      <div className="relative z-10 mx-auto w-full max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12 xl:px-12">
+        <div className="grid items-center gap-8 lg:min-h-[620px] lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.86fr)] lg:gap-10">
           <div className="order-2 text-center lg:order-1 lg:text-left">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-white">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-white">
               <Zap className="h-4 w-4 text-[#ffb54a]" />
               <span className="text-sm font-medium tracking-wide">
                 FIXING TOMORROW TODAY
               </span>
             </div>
 
-            <div ref={headlineRef} className="mb-6">
-              <h1 className="font-display text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl xl:text-7xl">
+            <div ref={headlineRef} className="mb-4">
+              <h1 className="font-display text-4xl font-black leading-tight sm:text-5xl lg:text-6xl xl:text-[4.35rem]">
                 <span className="hero-line block text-black">Premium Tech</span>
                 <span className="hero-line block text-black">For Zambia</span>
                 <span className="hero-line block text-[#ffb54a]">Delivered</span>
               </h1>
             </div>
 
-            <p className="hero-subheadline mx-auto mb-8 max-w-xl text-lg text-gray-600 sm:text-xl lg:mx-0">
+            <p className="hero-subheadline mx-auto mb-6 max-w-xl text-base leading-7 text-gray-600 sm:text-lg lg:mx-0">
               Shop real products from the DigitalHood marketplace. Discover
               phones, accessories, gadgets, and everyday tech with secure
               checkout and delivery across Zambia.
             </p>
 
-            <div className="mb-8 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
+            <div className="mb-6 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
               <Link to="/shop" className="hero-cta">
                 <Button
                   size="lg"
-                  className="group rounded-full bg-black px-8 py-6 text-lg text-white shadow-lg transition-all hover:scale-105 hover:bg-[#ffb54a] hover:text-black hover:shadow-xl"
+                  className="group h-12 rounded-full bg-black px-6 text-base font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-[#ffb54a] hover:text-black hover:shadow-xl"
                 >
                   Shop marketplace
                   <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -283,14 +283,14 @@ export default function Hero() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="rounded-full border-2 border-black px-8 py-6 text-lg text-black transition-all hover:bg-black hover:text-white"
+                  className="h-12 rounded-full border-2 border-black px-6 text-base font-bold text-black transition-all hover:bg-black hover:text-white"
                 >
                   New arrivals
                 </Button>
               </Link>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-4 lg:justify-start lg:gap-6">
+            <div className="flex flex-wrap justify-center gap-2 lg:justify-start lg:gap-3">
               <div className="trust-item flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm text-gray-600 shadow-sm">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ffb54a]/20">
                   <Truck className="h-4 w-4 text-black" />
@@ -320,21 +320,21 @@ export default function Hero() {
           >
             <div
               ref={imageRef}
-              className="relative w-full max-w-md lg:max-w-lg xl:max-w-xl"
+              className="relative w-full max-w-sm sm:max-w-md lg:max-w-lg"
               style={{ transformStyle: 'preserve-3d' }}
             >
               <Link to={getProductUrl(heroData.featuredProduct)} className="relative z-10 block">
-                <div className="overflow-hidden rounded-3xl bg-white p-3 shadow-2xl">
+                <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-xl">
                   <img
                     src={featuredImage}
                     alt={heroData.featuredProduct?.name || 'DigitalHood marketplace product'}
                     onError={(event) => {
                       event.currentTarget.src = '/logo.jpg'
                     }}
-                    className="aspect-[5/5.7] w-full rounded-2xl object-cover"
+                    className="aspect-[4/3] w-full rounded-2xl object-cover"
                   />
 
-                  <div className="mt-3 rounded-2xl bg-gray-50 p-4">
+                  <div className="mt-3 rounded-2xl bg-gray-50 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -397,7 +397,7 @@ export default function Hero() {
               </Link>
 
               {heroData.previewProducts.length > 0 && (
-                <div className="absolute -bottom-6 left-4 right-4 z-20 hidden rounded-3xl bg-white/95 p-3 shadow-xl backdrop-blur md:block">
+                <div className="absolute -bottom-5 left-4 right-4 z-20 hidden rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur md:block">
                   <div className="grid grid-cols-3 gap-2">
                     {heroData.previewProducts.slice(0, 3).map((product) => (
                       <Link

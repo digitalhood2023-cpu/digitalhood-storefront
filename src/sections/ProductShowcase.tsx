@@ -234,21 +234,21 @@ export default function ProductShowcase({
   }
 
   return (
-    <section ref={sectionRef} className={`py-16 lg:py-24 ${bgClass}`}>
+    <section ref={sectionRef} className={`py-9 lg:py-12 ${bgClass}`}>
       <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="showcase-header mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="showcase-header mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-display text-2xl font-bold text-black sm:text-3xl lg:text-4xl">
+            <h2 className="font-display text-2xl font-black text-black sm:text-3xl">
               {title}
             </h2>
 
-            <p className="mt-2 text-gray-600">{subtitle}</p>
+            <p className="mt-1 max-w-2xl text-sm text-gray-600 sm:text-base">{subtitle}</p>
           </div>
 
           <Link to={viewAllLink}>
             <Button
               variant="outline"
-              className="rounded-full border-2 border-black px-6 text-black hover:bg-black hover:text-white"
+              className="h-10 rounded-full border border-black px-5 text-sm font-bold text-black hover:bg-black hover:text-white"
             >
               View All
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -256,7 +256,7 @@ export default function ProductShowcase({
           </Link>
         </div>
 
-        <div className="showcase-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 lg:gap-6">
+        <div className="showcase-grid grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {products.map((product) => {
             const productUrl = getProductUrl(product)
             const stock = getStockInfo(product)
@@ -266,9 +266,9 @@ export default function ProductShowcase({
             return (
               <div
                 key={product.id}
-                className="showcase-card group overflow-hidden rounded-xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                className="showcase-card group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
-                <div className="relative aspect-square overflow-hidden bg-gray-100">
+                <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                   <Link to={productUrl}>
                     <img
                       src={productImage}
@@ -348,7 +348,7 @@ export default function ProductShowcase({
                   </div>
                 </div>
 
-                <div className="p-3">
+                <div className="p-3 sm:p-3.5">
                   <div className="mb-2 flex items-center gap-1">
                     <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
                     <span className="text-xs font-medium">
