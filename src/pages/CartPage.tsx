@@ -188,34 +188,54 @@ export default function CartPage() {
             Continue shopping
           </Link>
 
-          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
-                  <ShoppingBag className="h-4 w-4" />
-                  Shopping cart
-                </p>
+          <section className="mb-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-dh-light-gray/70">
+            <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+                  <ShoppingBag className="h-5 w-5" />
+                </div>
 
-                <h1 className="font-display text-2xl font-black leading-tight text-dh-primary sm:text-3xl">
-                  Review your cart
-                </h1>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="font-display text-xl font-black leading-tight text-dh-primary sm:text-2xl">
+                      Cart
+                    </h1>
 
-                <p className="mt-2 text-sm text-dh-dark-gray">
-                  {items.length === 0
-                    ? 'Your selected products will appear here.'
-                    : `${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'} in your cart.`}
-                </p>
+                    {items.length > 0 && (
+                      <span className="rounded-full bg-dh-gray px-3 py-1 text-xs font-black text-dh-primary">
+                        {totalQuantity} {totalQuantity === 1 ? 'item' : 'items'}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-0.5 text-xs font-medium text-dh-dark-gray sm:text-sm">
+                    {items.length === 0
+                      ? 'Your selected products will appear here.'
+                      : 'Review your items by store before checkout.'}
+                  </p>
+                </div>
               </div>
 
               {items.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearCart}
-                  className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear cart
-                </button>
+                <div className="flex items-center justify-between gap-3 border-t border-dh-light-gray pt-3 sm:border-t-0 sm:pt-0">
+                  <div className="text-sm">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-dh-dark-gray">
+                      Cart total
+                    </p>
+                    <p className="font-display text-lg font-black text-dh-primary">
+                      {formatPrice(subtotal)}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="inline-flex h-9 items-center justify-center rounded-full border border-red-200 px-3 text-xs font-black text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    Clear
+                  </button>
+                </div>
               )}
             </div>
           </section>
