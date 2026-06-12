@@ -1000,7 +1000,7 @@ export default function CheckoutPage() {
         <Header />
 
         <main className="py-10 lg:py-16">
-          <div className="container mx-auto px-4 text-center">
+          <div className="mx-auto w-full max-w-[1500px] px-4 text-center sm:px-6 lg:px-8 xl:px-12">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm">
               <ShoppingBag className="h-10 w-10 text-dh-primary" />
             </div>
@@ -1033,7 +1033,7 @@ export default function CheckoutPage() {
         <Header />
 
         <main className="py-10 lg:py-16">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+          <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
             <div className="mx-auto max-w-2xl text-center">
               <div
                 className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
@@ -1202,7 +1202,7 @@ export default function CheckoutPage() {
       <Header />
 
       <main className="pb-28 pt-5 lg:py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <button
             onClick={() => navigate('/cart')}
             className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
@@ -1211,7 +1211,7 @@ export default function CheckoutPage() {
             Back to Cart
           </button>
 
-          <section className="mb-5 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-2">
               <p className="inline-flex w-fit items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
                 <Shield className="h-4 w-4" />
@@ -1229,7 +1229,7 @@ export default function CheckoutPage() {
           </section>
 
           {!isAccountLoading && isAuthenticated && customer && (
-            <div className="mb-5 rounded-3xl border border-green-100 bg-green-50 p-4 text-green-800 shadow-sm">
+            <div className="mb-4 rounded-2xl border border-green-100 bg-green-50 p-4 text-green-800 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
@@ -1259,7 +1259,7 @@ export default function CheckoutPage() {
           )}
 
           {!isAccountLoading && !isAuthenticated && (
-            <div className="mb-5 rounded-3xl border border-dh-light-gray bg-white p-4 shadow-sm">
+            <div className="mb-4 rounded-2xl border border-dh-light-gray bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-dh-secondary/15">
@@ -1298,14 +1298,14 @@ export default function CheckoutPage() {
           )}
 
           {checkoutError && (
-            <div className="mb-5 flex gap-3 rounded-3xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
+            <div className="mb-4 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <p className="text-sm whitespace-pre-wrap">{checkoutError}</p>
             </div>
           )}
 
           {hasUnavailableItems && (
-            <div className="mb-5 flex gap-3 rounded-3xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
+            <div className="mb-4 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
 
               <div>
@@ -1320,9 +1320,9 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_420px]">
             <div className="space-y-5">
-              <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+              <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-dh-primary font-bold text-white">
                     1
@@ -1339,7 +1339,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {isAuthenticated && selectedSavedAddress && !showDeliveryFields && (
-                  <div className="rounded-3xl border border-dh-light-gray bg-dh-gray p-4 sm:p-5">
+                  <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex gap-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/20 text-dh-primary">
@@ -1401,7 +1401,7 @@ export default function CheckoutPage() {
                 )}
 
                 {isAuthenticated && isAddressPickerOpen && savedAddresses.length > 1 && (
-                  <div className="mt-4 rounded-3xl border border-dh-light-gray bg-white p-4">
+                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-white p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold text-dh-primary">
@@ -1487,7 +1487,7 @@ export default function CheckoutPage() {
                 )}
 
                 {showDeliveryFields && (
-                  <div className="mt-4 rounded-3xl border border-dh-light-gray bg-dh-gray p-4 sm:p-5">
+                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
                     <div className="mb-5 flex items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold text-dh-primary">
@@ -1667,7 +1667,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                <div className="mt-5 rounded-3xl border border-green-100 bg-green-50 p-4">
+                <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 p-4">
                   <div className="flex items-start gap-2">
                     <Truck className="w-5 h-5 text-green-700 mt-0.5" />
 
@@ -1702,7 +1702,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+              <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-dh-primary font-bold text-white">
                     2
@@ -1721,7 +1721,7 @@ export default function CheckoutPage() {
                   className="space-y-3"
                 >
                   <label
-                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-4 transition-all ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3.5 transition-all ${
                       paymentMethod === 'mobile'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -1741,7 +1741,7 @@ export default function CheckoutPage() {
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-4 transition-all ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3.5 transition-all ${
                       paymentMethod === 'card'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -1761,7 +1761,7 @@ export default function CheckoutPage() {
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-4 transition-all ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3.5 transition-all ${
                       paymentMethod === 'cod'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -1782,7 +1782,7 @@ export default function CheckoutPage() {
                 </RadioGroup>
 
                 {paymentMethod === 'mobile' && (
-                  <div className="mt-5 rounded-3xl border border-dh-light-gray bg-dh-gray p-4">
+                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
                     <Label htmlFor="paymentPhone">
                       Mobile Money Payment Number
                     </Label>
@@ -1829,7 +1829,7 @@ export default function CheckoutPage() {
                         type="button"
                         onClick={prepareCardPayment}
                         disabled={hasUnavailableItems}
-                        className="h-12 w-full rounded-full bg-dh-primary font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                        className="h-11 w-full rounded-full bg-dh-primary font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                       >
                         Prepare Card Payment
                       </Button>
@@ -1840,7 +1840,7 @@ export default function CheckoutPage() {
             </div>
 
             <aside>
-              <div className="sticky top-24 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+              <div className="sticky top-24 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                 <h2 className="mb-5 font-display text-2xl font-bold text-dh-primary">
                   Order Summary
                 </h2>
@@ -1943,7 +1943,7 @@ export default function CheckoutPage() {
                   <Button
                     onClick={handlePlaceOrder}
                     disabled={isSubmitting || hasUnavailableItems}
-                    className="mt-6 h-12 w-full rounded-full bg-dh-primary font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                    className="mt-5 h-11 w-full rounded-full bg-dh-primary font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                   >
                     {hasUnavailableItems
                       ? 'Checkout unavailable'
@@ -1972,7 +1972,7 @@ export default function CheckoutPage() {
 
       {!orderComplete && items.length > 0 && paymentMethod !== 'card' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-dh-light-gray bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-dh-dark-gray">
                 Total
