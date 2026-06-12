@@ -172,7 +172,7 @@ export default function SellerStorePage() {
       <main>
         {isLoading ? (
           <section className="flex min-h-[60vh] items-center justify-center px-4">
-            <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+            <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-dh-primary" />
               <p className="mt-3 text-sm font-semibold text-gray-500">
                 Loading seller store...
@@ -181,7 +181,7 @@ export default function SellerStorePage() {
           </section>
         ) : error || !store || !seller ? (
           <section className="mx-auto max-w-[1500px] px-4 py-16 sm:px-6 lg:px-8">
-            <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+            <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
               <Store className="mx-auto h-12 w-12 text-dh-primary" />
               <h1 className="mt-4 font-display text-3xl font-bold text-dh-primary">
                 Seller store not found
@@ -200,10 +200,10 @@ export default function SellerStorePage() {
           </section>
         ) : (
           <>
-            <section className="bg-gray-50 px-4 pt-5 sm:px-6 lg:px-8">
-              <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[2rem] bg-white shadow-sm">
+            <section className="bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8 xl:px-12">
+              <div className="mx-auto max-w-[1500px] overflow-hidden rounded-2xl bg-white shadow-sm">
                 <div
-                  className="h-28 bg-dh-primary sm:h-36"
+                  className="h-24 bg-dh-primary sm:h-32"
                   style={{
                     backgroundImage: seller.coverPhotoUrl
                       ? `linear-gradient(90deg, rgba(38,36,140,0.88), rgba(38,36,140,0.32)), url(${seller.coverPhotoUrl})`
@@ -213,10 +213,10 @@ export default function SellerStorePage() {
                   }}
                 />
 
-                <div className="px-5 pb-5 sm:px-6 lg:px-7">
-                  <div className="-mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="px-4 pb-4 sm:px-5 lg:px-6">
+                  <div className="-mt-9 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-dh-primary shadow-md sm:h-28 sm:w-28">
+                      <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-dh-primary shadow-md sm:h-24 sm:w-24">
                         {seller.profilePhotoUrl ? (
                           <img
                             src={seller.profilePhotoUrl}
@@ -241,7 +241,7 @@ export default function SellerStorePage() {
                           )}
                         </div>
 
-                        <h1 className="font-display text-3xl font-black tracking-tight text-dh-primary sm:text-4xl">
+                        <h1 className="font-display text-2xl font-black tracking-tight text-dh-primary sm:text-3xl">
                           {seller.storeName}
                         </h1>
 
@@ -253,14 +253,14 @@ export default function SellerStorePage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[500px]">
                       {[
                         ['Years', formatYears(seller.yearsOnDigitalHood)],
                         ['Sold', store.stats.itemsSold.toLocaleString('en-ZM')],
                         ['Products', store.stats.productsLive.toLocaleString('en-ZM')],
                         ['Rating', getRatingLabel(store)],
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-2xl bg-gray-50 px-4 py-3">
+                        <div key={label} className="rounded-2xl bg-gray-50 px-3 py-2.5">
                           <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
                             {label}
                           </p>
@@ -275,8 +275,8 @@ export default function SellerStorePage() {
               </div>
             </section>
 
-            <section className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-6 lg:px-8">
-              <div className="flex flex-col gap-3 rounded-[1.5rem] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <section className="mx-auto max-w-[1500px] px-4 pt-3 sm:px-6 lg:px-8 xl:px-12">
+              <div className="flex flex-col gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ffb54a]/15 text-[#b87500]">
                     <Star className="h-5 w-5 fill-[#ffb54a] text-[#ffb54a]" />
@@ -326,20 +326,20 @@ export default function SellerStorePage() {
               </div>
             </section>
 
-            <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:px-8">
+            <section className="mx-auto grid max-w-[1500px] gap-4 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8 xl:px-12">
               <aside className="space-y-4 text-center lg:text-left">
-                <div className="rounded-[2rem] bg-white p-6 shadow-sm">
-                  <h2 className="font-display text-2xl font-black text-dh-primary">
+                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
+                  <h2 className="font-display text-xl font-black text-dh-primary">
                     About this store
                   </h2>
-                  <p className="mt-3 text-sm leading-7 text-gray-600">
+                  <p className="mt-3 text-sm leading-6 text-gray-600">
                     {seller.description ||
                       'This seller is approved to sell on DigitalHood Marketplace.'}
                   </p>
                 </div>
 
                 {(seller.supportPhone || seller.supportEmail) && (
-                  <div className="rounded-[2rem] bg-white p-6 shadow-sm">
+                  <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                     <h2 className="font-display text-xl font-black text-dh-primary">
                       Store support
                     </h2>
@@ -369,9 +369,9 @@ export default function SellerStorePage() {
               </aside>
 
               <section className="min-w-0">
-                <div className="mb-5 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+                <div className="mb-4 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
                   <div>
-                    <h2 className="font-display text-3xl font-black text-dh-primary">
+                    <h2 className="font-display text-2xl font-black text-dh-primary sm:text-3xl">
                       Products by {seller.storeName}
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
@@ -393,7 +393,7 @@ export default function SellerStorePage() {
                 </div>
 
                 {featuredProducts.length === 0 ? (
-                  <div className="rounded-[2rem] bg-white p-8 text-center shadow-sm">
+                  <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
                     <PackageCheck className="mx-auto h-12 w-12 text-dh-primary" />
                     <h3 className="mt-4 font-display text-2xl font-black text-dh-primary">
                       No live products yet
@@ -403,7 +403,7 @@ export default function SellerStorePage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-3 xl:grid-cols-5">
+                  <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                     {featuredProducts.map((product) => {
                       const image = product.image || product.images?.[0] || '/logo.jpg'
                       const productUrl = getProductUrl(product)
@@ -415,7 +415,7 @@ export default function SellerStorePage() {
                       return (
                         <article
                           key={product.id}
-                          className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-0.5 hover:shadow-md"
+                          className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-0.5 hover:shadow-lg"
                         >
                           <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                             <Link to={productUrl}>
@@ -451,7 +451,7 @@ export default function SellerStorePage() {
                             </button>
                           </div>
 
-                          <div className="p-3">
+                          <div className="p-3 sm:p-3.5">
                             <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-gray-500">
                               <span className="inline-flex items-center gap-1">
                                 <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
@@ -476,7 +476,7 @@ export default function SellerStorePage() {
 
                             <div className="mt-2 flex items-end justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="font-display text-sm font-black text-dh-primary">
+                                <p className="font-display text-base font-black text-dh-primary">
                                   {formatPrice(product.price)}
                                 </p>
 
