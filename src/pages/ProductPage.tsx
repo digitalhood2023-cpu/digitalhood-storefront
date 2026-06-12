@@ -945,17 +945,37 @@ export default function ProductPage() {
                   className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
+                  onPointerUp={(event) => {
+                    if (event.pointerType !== 'mouse' && touchStartX === null) {
+                      openGallery(selectedImage)
+                    }
+                  }}
                 >
                   <img
                     src={displayImages[selectedImage]}
                     alt={product.name}
-                    className="h-full w-full cursor-zoom-in object-contain sm:object-cover"
+                    className="h-full w-full cursor-zoom-in object-cover"
                     onClick={() => openGallery(selectedImage)}
+                    onTouchEnd={(event) => {
+                      if (touchStartX !== null) return
+                      event.preventDefault()
+                      event.stopPropagation()
+                      openGallery(selectedImage)
+                    }}
                   />
 
                   <button
                     type="button"
-                    onClick={() => openGallery(selectedImage)}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      openGallery(selectedImage)
+                    }}
+                    onTouchEnd={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      openGallery(selectedImage)
+                    }}
                     className="absolute bottom-3 right-3 rounded-full bg-black/65 px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-black/80"
                   >
                     Tap to view
@@ -993,24 +1013,19 @@ export default function ProductPage() {
                 </div>
 
                 {displayImages.length > 1 && (
-                  <div className="flex gap-3 overflow-x-auto pb-2 max-w-full">
+                  <div className="flex items-center justify-center gap-2 pb-2">
                     {displayImages.map((image, index) => (
                       <button
-                        key={`${image}-${index}`}
+                        key={`dot-${image}-${index}`}
                         type="button"
                         onClick={() => setSelectedImage(index)}
-                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                        className={`h-2.5 rounded-full transition-all ${
                           selectedImage === index
-                            ? 'border-black'
-                            : 'border-transparent hover:border-gray-300'
+                            ? 'w-7 bg-dh-primary'
+                            : 'w-2.5 bg-gray-300 hover:bg-gray-500'
                         }`}
-                      >
-                        <img
-                          src={image}
-                          alt={`${product.name} ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
+                        aria-label={`Show product image ${index + 1}`}
+                      />
                     ))}
                   </div>
                 )}
@@ -1592,7 +1607,12 @@ export default function ProductPage() {
           onTouchMove={handleGalleryTouchMove}
           onTouchEnd={handleGalleryTouchEnd}
         >
-          <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
+            onTouchStart={(event) => event.stopPropagation()}
+            onTouchMove={(event) => event.stopPropagation()}
+            onTouchEnd={(event) => event.stopPropagation()}
+          >
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">
                 {product.name}
@@ -1623,7 +1643,21 @@ export default function ProductPage() {
 
               <button
                 type="button"
-                onClick={closeGallery}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  closeGallery()
+                }}
+                onTouchEnd={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  closeGallery()
+                }}
+                onPointerUp={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  closeGallery()
+                }}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black transition hover:bg-[#ffb54a]"
                 aria-label="Close gallery"
               >
