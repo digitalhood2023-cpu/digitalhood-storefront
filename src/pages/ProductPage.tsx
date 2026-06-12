@@ -939,25 +939,6 @@ export default function ProductPage() {
                   <h1 className="break-words font-display text-lg font-black leading-snug text-black sm:text-xl lg:text-2xl">
                     {product.name}
                   </h1>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="font-display text-xl font-black text-dh-primary sm:text-2xl">
-                      {formatProductPrice(activePrice)}
-                    </span>
-
-                    <StockBadge item={activeStockItem as any} />
-
-                    <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary">
-                      <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                      {product.averageRating ? product.averageRating.toFixed(1) : 'No ratings'}
-                    </span>
-
-                    {soldText && (
-                      <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-dark-gray">
-                        {soldText}
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 <div
@@ -1088,6 +1069,25 @@ export default function ProductPage() {
                       </div>
                     </div>
                   )}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-dh-light-gray bg-white p-2.5">
+                    <span className="font-display text-xl font-black text-dh-primary sm:text-2xl">
+                      {formatProductPrice(activePrice)}
+                    </span>
+
+                    <StockBadge item={activeStockItem as any} />
+
+                    <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary">
+                      <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
+                      {product.averageRating ? product.averageRating.toFixed(1) : 'No ratings'}
+                    </span>
+
+                    {soldText && (
+                      <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-dark-gray">
+                        {soldText}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mb-5 overflow-hidden rounded-2xl border border-green-100 bg-green-50">
