@@ -200,25 +200,23 @@ export default function SellerStorePage() {
           </section>
         ) : (
           <>
-            <section
-              className="relative overflow-hidden bg-dh-primary text-white"
-              style={{
-                backgroundImage: seller.coverPhotoUrl
-                  ? `linear-gradient(90deg, rgba(38,36,140,0.94), rgba(38,36,140,0.62)), url(${seller.coverPhotoUrl})`
-                  : undefined,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            >
-              <div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8 lg:py-16 xl:px-12">
-                <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
-                  <div>
-                    <Badge className="mb-5 bg-[#ffb54a] text-black hover:bg-[#ffb54a]">
-                      Verified DigitalHood seller
-                    </Badge>
+            <section className="bg-gray-50 px-4 pt-5 sm:px-6 lg:px-8 xl:px-12">
+              <div className="container mx-auto overflow-hidden rounded-[2rem] bg-white shadow-sm">
+                <div
+                  className="h-28 bg-dh-primary sm:h-36"
+                  style={{
+                    backgroundImage: seller.coverPhotoUrl
+                      ? `linear-gradient(90deg, rgba(38,36,140,0.88), rgba(38,36,140,0.32)), url(${seller.coverPhotoUrl})`
+                      : 'linear-gradient(135deg, #26248c, #ffb54a)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                />
 
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                      <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-[2rem] border-4 border-white/20 bg-white/10">
+                <div className="px-5 pb-5 sm:px-6 lg:px-7">
+                  <div className="-mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-dh-primary shadow-md sm:h-28 sm:w-28">
                         {seller.profilePhotoUrl ? (
                           <img
                             src={seller.profilePhotoUrl}
@@ -226,43 +224,49 @@ export default function SellerStorePage() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <Store className="h-12 w-12 text-[#ffb54a]" />
+                          <Store className="h-10 w-10 text-[#ffb54a]" />
                         )}
                       </div>
 
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <h1 className="font-display text-4xl font-black tracking-tight sm:text-5xl">
-                            {seller.storeName}
-                          </h1>
+                      <div className="pb-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <Badge className="bg-[#ffb54a] text-black hover:bg-[#ffb54a]">
+                            Verified seller
+                          </Badge>
                           {seller.verified && (
-                            <BadgeCheck className="h-7 w-7 text-[#ffb54a]" />
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                              <BadgeCheck className="h-3.5 w-3.5" />
+                              DigitalHood approved
+                            </span>
                           )}
                         </div>
 
+                        <h1 className="font-display text-3xl font-black tracking-tight text-dh-primary sm:text-4xl">
+                          {seller.storeName}
+                        </h1>
+
                         {seller.tagline && (
-                          <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-white/80">
+                          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-gray-500">
                             {seller.tagline}
                           </p>
                         )}
                       </div>
                     </div>
-                  </div>
 
-                  <div className="rounded-[2rem] bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#ffb54a]">
-                      Store trust
-                    </p>
-                    <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
                       {[
                         ['Years', formatYears(seller.yearsOnDigitalHood)],
-                        ['Items sold', store.stats.itemsSold.toLocaleString('en-ZM')],
+                        ['Sold', store.stats.itemsSold.toLocaleString('en-ZM')],
                         ['Products', store.stats.productsLive.toLocaleString('en-ZM')],
                         ['Rating', getRatingLabel(store)],
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-2xl bg-white/10 p-4">
-                          <p className="text-[11px] font-bold uppercase text-white/60">{label}</p>
-                          <p className="mt-1 font-display text-xl font-black">{value}</p>
+                        <div key={label} className="rounded-2xl bg-gray-50 px-4 py-3">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                            {label}
+                          </p>
+                          <p className="mt-1 truncate font-display text-lg font-black text-dh-primary">
+                            {value}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -271,7 +275,7 @@ export default function SellerStorePage() {
               </div>
             </section>
 
-            <section className="container mx-auto -mt-6 px-4 sm:px-6 lg:px-8 xl:px-12">
+            <section className="container mx-auto px-4 pt-5 sm:px-6 lg:px-8 xl:px-12">
               <div className="grid gap-4 rounded-[2rem] bg-white p-4 shadow-sm md:grid-cols-4">
                 <div className="rounded-3xl bg-gray-50 p-5">
                   <Star className="h-5 w-5 text-[#ffb54a]" />
