@@ -19,6 +19,9 @@ import {
   Zap,
   Flame,
   BadgeCheck,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -69,6 +72,18 @@ function getRatingText(product: WooProduct) {
   }`
 }
 
+function getSellerInitials(storeName = '') {
+  const words = String(storeName || 'DigitalHood')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('') || 'DH'
+}
+
 function getProductSellerDisplay(product: WooProduct) {
   const storeName =
     product.sellerStoreName ||
@@ -85,10 +100,29 @@ function getProductSellerDisplay(product: WooProduct) {
     product.seller?.url ||
     (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '')
 
+  const isOfficialDigitalHood =
+    sellerKey === 'digitalhood' ||
+    storeName.toLowerCase() === 'digitalhood'
+
+  const ratingCount = Number(product.ratingCount || product.reviewCount || 0)
+  const averageRating = Number(product.averageRating || 0)
+  const positivePercent =
+    ratingCount > 0 && averageRating > 0
+      ? Math.min(100, Math.max(0, Math.round((averageRating / 5) * 100)))
+      : isOfficialDigitalHood
+        ? 100
+        : null
+
   return {
     storeName,
     sellerUrl,
     verified: Boolean(product.sellerVerified || product.seller?.verified),
+    avatarUrl: isOfficialDigitalHood ? '/logo.jpg' : '',
+    initials: getSellerInitials(storeName),
+    feedbackText:
+      positivePercent !== null
+        ? `${positivePercent}% positive`
+        : 'New seller',
   }
 }
 
@@ -161,6 +195,9 @@ export default function ProductPage() {
   const [newArrivalProducts, setNewArrivalProducts] = useState<WooProduct[]>([])
   const [hotSellingProducts, setHotSellingProducts] = useState<WooProduct[]>([])
   const [selectedImage, setSelectedImage] = useState(0)
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [galleryScale, setGalleryScale] = useState(1)
+  const [galleryTouchStartX, setGalleryTouchStartX] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [activeTab, setActiveTab] = useState('description')
@@ -186,6 +223,9 @@ export default function ProductPage() {
     setIsLoading(true)
     setLoadError('')
     setSelectedImage(0)
+    setIsGalleryOpen(false)
+    setGalleryScale(1)
+    setGalleryTouchStartX(null)
     setSelectedAttributes({})
     setQuantity(1)
     setShowFullDescription(false)
@@ -353,7 +393,55 @@ export default function ProductPage() {
   const ratingText = product ? getRatingText(product) : ''
   const sellerDisplay = product
     ? getProductSellerDisplay(product)
-    : { storeName: '', sellerUrl: '', verified: false }
+    : {
+        storeName: '',
+        sellerUrl: '',
+        verified: false,
+        avatarUrl: '',
+        initials: 'DH',
+        feedbackText: 'New seller',
+      }
+
+  const openGallery = (index = selectedImage) => {
+    setSelectedImage(index)
+    setGalleryScale(1)
+    setIsGalleryOpen(true)
+  }
+
+  const closeGallery = () => {
+    setIsGalleryOpen(false)
+    setGalleryScale(1)
+    setGalleryTouchStartX(null)
+  }
+
+  const zoomGalleryIn = () => {
+    setGalleryScale((current) => Math.min(3, Number((current + 0.5).toFixed(1))))
+  }
+
+  const zoomGalleryOut = () => {
+    setGalleryScale((current) => Math.max(1, Number((current - 0.5).toFixed(1))))
+  }
+
+  const handleGalleryTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setGalleryTouchStartX(event.touches[0]?.clientX ?? null)
+  }
+
+  const handleGalleryTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (galleryTouchStartX === null) return
+
+    const endX = event.changedTouches[0]?.clientX ?? galleryTouchStartX
+    const deltaX = galleryTouchStartX - endX
+
+    setGalleryTouchStartX(null)
+
+    if (Math.abs(deltaX) < 45 || galleryScale > 1) return
+
+    if (deltaX > 0) {
+      goToNextImage()
+    } else {
+      goToPreviousImage()
+    }
+  }
 
   const descriptionHtml = product ? getProductDescriptionHtml(product) : ''
   const hasLongDescription = descriptionHtml.length > 1400
@@ -814,8 +902,17 @@ export default function ProductPage() {
                   <img
                     src={displayImages[selectedImage]}
                     alt={product.name}
-                    className="w-full h-full object-contain sm:object-cover"
+                    className="h-full w-full cursor-zoom-in object-contain sm:object-cover"
+                    onClick={() => openGallery(selectedImage)}
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => openGallery(selectedImage)}
+                    className="absolute bottom-3 right-3 rounded-full bg-black/65 px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-black/80"
+                  >
+                    Tap to zoom
+                  </button>
 
                   <div className="absolute top-4 left-4">
                     <StockBadge item={activeStockItem as any} />
@@ -878,7 +975,7 @@ export default function ProductPage() {
 
               <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-24 lg:self-start xl:p-6">
                 <div className="mb-4">
-                  <h1 className="mb-3 break-words font-display text-2xl font-black leading-tight text-black sm:text-3xl xl:text-[2.35rem]">
+                  <h1 className="mb-2 break-words font-display text-xl font-black leading-snug text-black sm:text-2xl xl:text-[1.9rem]">
                     {product.name}
                   </h1>
 
@@ -901,22 +998,28 @@ export default function ProductPage() {
                   {sellerDisplay.storeName && (
                     <Link
                       to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
-                      className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-dh-light-gray bg-dh-gray px-4 py-3 transition hover:border-dh-primary/20 hover:bg-white"
+                      className="mt-3 inline-flex max-w-full items-center gap-2.5 rounded-full border border-dh-light-gray bg-dh-gray py-1.5 pl-1.5 pr-3 transition hover:border-dh-primary/20 hover:bg-white"
                     >
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
-                          Store
-                        </p>
-                        <p className="mt-0.5 text-sm font-black text-dh-primary sm:text-base">
-                          Sold by {sellerDisplay.storeName}
-                        </p>
-                      </div>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-black text-dh-primary shadow-sm">
+                        {sellerDisplay.avatarUrl ? (
+                          <img
+                            src={sellerDisplay.avatarUrl}
+                            alt={sellerDisplay.storeName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          sellerDisplay.initials
+                        )}
+                      </span>
 
-                      {sellerDisplay.verified && (
-                        <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                          Verified
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black leading-tight text-dh-primary">
+                          {sellerDisplay.storeName}
                         </span>
-                      )}
+                        <span className="block truncate text-[11px] font-bold leading-tight text-green-700">
+                          {sellerDisplay.feedbackText}
+                        </span>
+                      </span>
                     </Link>
                   )}
                 </div>
@@ -1420,6 +1523,113 @@ export default function ProductPage() {
             >
               Buy
             </Button>
+          </div>
+        </div>
+      )}
+
+      {product && isGalleryOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col bg-black/95 text-white"
+          onTouchStart={handleGalleryTouchStart}
+          onTouchEnd={handleGalleryTouchEnd}
+        >
+          <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">
+                {product.name}
+              </p>
+              <p className="text-xs text-white/65">
+                {selectedImage + 1} / {displayImages.length}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={zoomGalleryOut}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="h-5 w-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={zoomGalleryIn}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={closeGallery}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black transition hover:bg-[#ffb54a]"
+                aria-label="Close gallery"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-3 py-4">
+            {displayImages.length > 1 && (
+              <button
+                type="button"
+                onClick={goToPreviousImage}
+                className="absolute left-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl font-light transition hover:bg-white/20 sm:flex"
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+            )}
+
+            <img
+              src={displayImages[selectedImage]}
+              alt={product.name}
+              className="max-h-full max-w-full select-none object-contain transition-transform duration-200"
+              style={{ transform: `scale(${galleryScale})` }}
+              draggable={false}
+              onDoubleClick={() =>
+                setGalleryScale((current) => current > 1 ? 1 : 2)
+              }
+            />
+
+            {displayImages.length > 1 && (
+              <button
+                type="button"
+                onClick={goToNextImage}
+                className="absolute right-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl font-light transition hover:bg-white/20 sm:flex"
+                aria-label="Next image"
+              >
+                ›
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto px-4 pb-4 sm:px-6">
+            {displayImages.map((image, index) => (
+              <button
+                key={`fullscreen-${image}-${index}`}
+                type="button"
+                onClick={() => {
+                  setSelectedImage(index)
+                  setGalleryScale(1)
+                }}
+                className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                  selectedImage === index
+                    ? 'border-[#ffb54a]'
+                    : 'border-white/15 opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img
+                  src={image}
+                  alt={`${product.name} ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ))}
           </div>
         </div>
       )}
