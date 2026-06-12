@@ -41,6 +41,19 @@ type ShowcaseProduct = {
   stockTone?: 'success' | 'warning' | 'danger' | 'muted'
   canAddToCart?: boolean
   inStock?: boolean
+  seller?: {
+    id?: string
+    customerId?: string | number
+    storeName?: string
+    key?: string
+    url?: string
+    verified?: boolean
+  } | null
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
 }
 
 interface ProductShowcaseProps {
@@ -101,6 +114,29 @@ function getStockInfo(product: ShowcaseProduct) {
     className: 'bg-green-50 text-green-700 border-green-100',
     icon: <PackageCheck className="h-3.5 w-3.5" />,
     canAdd: Boolean(product.canAddToCart ?? true),
+  }
+}
+
+function getSellerDisplay(product: ShowcaseProduct) {
+  const storeName =
+    product.sellerStoreName ||
+    product.seller?.storeName ||
+    ''
+
+  const sellerKey =
+    product.sellerKey ||
+    product.seller?.key ||
+    ''
+
+  const sellerUrl =
+    product.sellerUrl ||
+    product.seller?.url ||
+    (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '')
+
+  return {
+    storeName,
+    sellerUrl,
+    verified: Boolean(product.sellerVerified || product.seller?.verified),
   }
 }
 
@@ -262,6 +298,7 @@ export default function ProductShowcase({
             const stock = getStockInfo(product)
             const productImage = product.image || product.images?.[0] || '/logo.jpg'
             const isVariable = product.hasOptions || product.type === 'variable'
+            const sellerDisplay = getSellerDisplay(product)
 
             return (
               <div
@@ -364,6 +401,22 @@ export default function ProductShowcase({
                       {product.name}
                     </h3>
                   </Link>
+
+                  {sellerDisplay.storeName && (
+                    <Link
+                      to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
+                      className="mb-2 inline-flex max-w-full items-center gap-1 text-[11px] font-bold text-dh-dark-gray transition-colors hover:text-dh-primary"
+                    >
+                      <span className="truncate">
+                        Sold by <span className="text-dh-primary">{sellerDisplay.storeName}</span>
+                      </span>
+                      {sellerDisplay.verified && (
+                        <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-black text-green-700">
+                          Verified
+                        </span>
+                      )}
+                    </Link>
+                  )}
 
                   <div className="mb-2 flex items-center gap-2">
                     <span className="font-display text-sm font-bold">

@@ -36,6 +36,12 @@ type HomeProduct = {
   stockTone?: 'success' | 'warning' | 'danger' | 'muted'
   canAddToCart?: boolean
   inStock?: boolean
+  seller?: WooProduct['seller']
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
 }
 
 function getOriginalPriceFromHtml(product: WooProduct) {
@@ -73,6 +79,12 @@ function toHomeProduct(product: WooProduct, badge?: string): HomeProduct {
     stockTone: product.stockTone,
     canAddToCart: product.canAddToCart,
     inStock: product.inStock,
+    seller: product.seller,
+    sellerStoreName: product.sellerStoreName,
+    sellerKey: product.sellerKey,
+    sellerUrl: product.sellerUrl,
+    sellerVerified: product.sellerVerified,
+    sellerCustomerId: product.sellerCustomerId,
   }
 }
 

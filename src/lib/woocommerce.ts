@@ -75,6 +75,20 @@ export type WooProduct = {
   ratingCount: number;
   reviewCount: number;
 
+  seller?: {
+    id?: string;
+    customerId?: string | number;
+    storeName?: string;
+    key?: string;
+    url?: string;
+    verified?: boolean;
+  } | null;
+  sellerStoreName?: string;
+  sellerKey?: string;
+  sellerUrl?: string;
+  sellerVerified?: boolean;
+  sellerCustomerId?: string | number;
+
   categoryIds: number[];
   categories: {
     id: number;
@@ -487,6 +501,12 @@ shortDescriptionHtml:
     average_rating: String(averageRating || 0),
     rating_count: ratingCount,
     review_count: Number(product.review_count || product.reviewCount || ratingCount),
+    seller: product.seller || null,
+    sellerStoreName: product.sellerStoreName || product.seller_store_name || product.seller?.storeName || '',
+    sellerKey: product.sellerKey || product.seller_key || product.seller?.key || '',
+    sellerUrl: product.sellerUrl || product.seller_url || product.seller?.url || '',
+    sellerVerified: Boolean(product.sellerVerified || product.seller_verified || product.seller?.verified),
+    sellerCustomerId: product.sellerCustomerId || product.seller_customer_id || product.seller?.customerId || '',
   };
 }
 

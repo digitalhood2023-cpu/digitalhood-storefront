@@ -69,6 +69,29 @@ function getRatingText(product: WooProduct) {
   }`
 }
 
+function getProductSellerDisplay(product: WooProduct) {
+  const storeName =
+    product.sellerStoreName ||
+    product.seller?.storeName ||
+    ''
+
+  const sellerKey =
+    product.sellerKey ||
+    product.seller?.key ||
+    ''
+
+  const sellerUrl =
+    product.sellerUrl ||
+    product.seller?.url ||
+    (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '')
+
+  return {
+    storeName,
+    sellerUrl,
+    verified: Boolean(product.sellerVerified || product.seller?.verified),
+  }
+}
+
 function getSoldText(product: WooProduct) {
   if (!product.totalSales || product.totalSales <= 0) {
     return ''
@@ -328,6 +351,9 @@ export default function ProductPage() {
 
   const soldText = product ? getSoldText(product) : ''
   const ratingText = product ? getRatingText(product) : ''
+  const sellerDisplay = product
+    ? getProductSellerDisplay(product)
+    : { storeName: '', sellerUrl: '', verified: false }
 
   const descriptionHtml = product ? getProductDescriptionHtml(product) : ''
   const hasLongDescription = descriptionHtml.length > 1400
@@ -871,6 +897,28 @@ export default function ProductPage() {
                       </span>
                     )}
                   </div>
+
+                  {sellerDisplay.storeName && (
+                    <Link
+                      to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
+                      className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-dh-light-gray bg-dh-gray px-4 py-3 transition hover:border-dh-primary/20 hover:bg-white"
+                    >
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
+                          Store
+                        </p>
+                        <p className="mt-0.5 text-sm font-black text-dh-primary sm:text-base">
+                          Sold by {sellerDisplay.storeName}
+                        </p>
+                      </div>
+
+                      {sellerDisplay.verified && (
+                        <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                          Verified
+                        </span>
+                      )}
+                    </Link>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -1258,15 +1306,18 @@ export default function ProductPage() {
                         </span>
                       </div>
 
-                      {soldText && (
-                        <div className="flex justify-between gap-4 py-2 border-b border-gray-200">
-                          <span className="text-gray-600">
-                            Sold
+                      {sellerDisplay.storeName && (
+                        <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
+                          <span className="text-sm font-semibold text-dh-dark-gray">
+                            Store
                           </span>
 
-                          <span className="text-right font-semibold text-dh-primary">
-                            {soldText}
-                          </span>
+                          <Link
+                            to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
+                            className="text-right font-black text-dh-primary transition hover:text-[#ffb54a]"
+                          >
+                            {sellerDisplay.storeName}
+                          </Link>
                         </div>
                       )}
 

@@ -162,6 +162,29 @@ function getRatingText(product: WooProduct) {
   }`;
 }
 
+function getProductSellerDisplay(product: WooProduct) {
+  const storeName =
+    product.sellerStoreName ||
+    product.seller?.storeName ||
+    ''
+
+  const sellerKey =
+    product.sellerKey ||
+    product.seller?.key ||
+    ''
+
+  const sellerUrl =
+    product.sellerUrl ||
+    product.seller?.url ||
+    (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '')
+
+  return {
+    storeName,
+    sellerUrl,
+    verified: Boolean(product.sellerVerified || product.seller?.verified),
+  }
+}
+
 function getSoldText(product: WooProduct) {
   const totalSales = safeNumber(product.totalSales);
 
@@ -1165,6 +1188,7 @@ export default function ShopPage() {
                   {sortedProducts.map((product) => {
                     const soldText = getSoldText(product);
                     const ratingText = getRatingText(product);
+                    const sellerDisplay = getProductSellerDisplay(product);
                     const shouldViewOptions =
                       product.hasOptions || product.type === 'variable';
                     const canBuyDirectly = !shouldViewOptions && product.canAddToCart;
@@ -1244,6 +1268,23 @@ export default function ShopPage() {
                               {product.name}
                             </h3>
                           </Link>
+
+                          {sellerDisplay.storeName && (
+                            <Link
+                              to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
+                              className="mb-2 inline-flex max-w-full items-center gap-1 text-[11px] font-bold text-dh-dark-gray transition-colors hover:text-dh-primary"
+                              onClick={saveShopReturnState}
+                            >
+                              <span className="truncate">
+                                Sold by <span className="text-dh-primary">{sellerDisplay.storeName}</span>
+                              </span>
+                              {sellerDisplay.verified && (
+                                <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-black text-green-700">
+                                  Verified
+                                </span>
+                              )}
+                            </Link>
+                          )}
 
                           <div className="mb-3 flex flex-wrap items-center gap-2">
                             <StockBadge item={product as any} />
