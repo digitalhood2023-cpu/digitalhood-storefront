@@ -619,15 +619,19 @@ export default function ProductPage() {
     const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX
     const distance = touchStartX - touchEndX
 
+    setTouchStartX(null)
+
     if (Math.abs(distance) > 45) {
       if (distance > 0) {
         goToNextImage()
       } else {
         goToPreviousImage()
       }
+      return
     }
 
-    setTouchStartX(null)
+    event.preventDefault()
+    openGallery(selectedImage)
   }
 
   const buildCartProduct = () => {
@@ -980,7 +984,7 @@ export default function ProductPage() {
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onPointerUp={(event) => {
-                    if (event.pointerType !== 'mouse' && touchStartX === null) {
+                    if (event.pointerType === 'mouse') {
                       openGallery(selectedImage)
                     }
                   }}
@@ -990,12 +994,6 @@ export default function ProductPage() {
                     alt={product.name}
                     className="h-full w-full cursor-zoom-in object-cover"
                     onClick={() => openGallery(selectedImage)}
-                    onTouchEnd={(event) => {
-                      if (touchStartX !== null) return
-                      event.preventDefault()
-                      event.stopPropagation()
-                      openGallery(selectedImage)
-                    }}
                   />
 
                   <button
