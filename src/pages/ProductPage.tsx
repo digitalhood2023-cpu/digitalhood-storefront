@@ -573,6 +573,14 @@ export default function ProductPage() {
         matchingVariation?.can_add_to_cart ??
         product.canAddToCart ??
         product.can_add_to_cart,
+      seller: product.seller,
+      sellerStoreName: sellerDisplay.storeName,
+      sellerKey: product.sellerKey || product.seller?.key || '',
+      sellerUrl: sellerDisplay.sellerUrl,
+      sellerVerified: sellerDisplay.verified,
+      sellerCustomerId: product.sellerCustomerId || product.seller?.customerId || '',
+      sellerAvatarUrl: sellerDisplay.avatarUrl,
+      sellerFeedbackText: sellerDisplay.feedbackText,
       selectedVariation: matchingVariation
         ? ({
             ...(matchingVariation as any),

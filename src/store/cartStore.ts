@@ -50,6 +50,25 @@ export type CartProduct = {
   can_add_to_cart?: boolean
   canAddToCart?: boolean
 
+  seller?: {
+    id?: string
+    customerId?: string | number
+    storeName?: string
+    key?: string
+    url?: string
+    verified?: boolean
+    avatarUrl?: string
+    profilePhotoUrl?: string
+    feedbackText?: string
+  } | null
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
+  sellerAvatarUrl?: string
+  sellerFeedbackText?: string
+
   selectedVariation?: CartProduct | null
 }
 
@@ -70,6 +89,14 @@ export type CartItem = {
   stockLabel?: string
   stockTone?: StockTone
   canAddToCart?: boolean
+
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
+  sellerAvatarUrl?: string
+  sellerFeedbackText?: string
 }
 
 type CartStore = {
@@ -251,6 +278,46 @@ const getVariationLabelFromAttributes = (
     .join(' / ')
 }
 
+const getSellerInfo = (product: CartProduct) => {
+  const storeName =
+    product.sellerStoreName ||
+    product.seller?.storeName ||
+    'DigitalHood'
+
+  const sellerKey =
+    product.sellerKey ||
+    product.seller?.key ||
+    (storeName.toLowerCase() === 'digitalhood'
+      ? 'digitalhood'
+      : '')
+
+  const sellerUrl =
+    product.sellerUrl ||
+    product.seller?.url ||
+    (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '/seller/digitalhood')
+
+  const isDigitalHood =
+    sellerKey === 'digitalhood' ||
+    storeName.toLowerCase() === 'digitalhood'
+
+  return {
+    sellerStoreName: storeName,
+    sellerKey,
+    sellerUrl,
+    sellerVerified: Boolean(product.sellerVerified || product.seller?.verified || isDigitalHood),
+    sellerCustomerId: product.sellerCustomerId || product.seller?.customerId || '',
+    sellerAvatarUrl:
+      product.sellerAvatarUrl ||
+      product.seller?.avatarUrl ||
+      product.seller?.profilePhotoUrl ||
+      (isDigitalHood ? '/logo.jpg' : ''),
+    sellerFeedbackText:
+      product.sellerFeedbackText ||
+      product.seller?.feedbackText ||
+      (isDigitalHood ? '100% positive' : 'New seller'),
+  }
+}
+
 const getVariationLabel = (product: CartProduct): string => {
   if (product.variationLabel || product.variation_label) {
     return product.variationLabel || product.variation_label || ''
@@ -300,6 +367,7 @@ export const useCartStore = create<CartStore>()(
         const productId = getProductId(product)
         const variationId = getVariationId(product)
         const variationLabel = getVariationLabel(product)
+        const sellerInfo = getSellerInfo(product)
 
         const existingItem = items.find((item) => item.id === cartItemId)
 
@@ -313,6 +381,13 @@ export const useCartStore = create<CartStore>()(
                     ...item,
                     quantity: item.quantity + safeQuantity,
                     variationLabel: item.variationLabel || variationLabel,
+                    sellerStoreName: item.sellerStoreName || sellerInfo.sellerStoreName,
+                    sellerKey: item.sellerKey || sellerInfo.sellerKey,
+                    sellerUrl: item.sellerUrl || sellerInfo.sellerUrl,
+                    sellerVerified: item.sellerVerified || sellerInfo.sellerVerified,
+                    sellerCustomerId: item.sellerCustomerId || sellerInfo.sellerCustomerId,
+                    sellerAvatarUrl: item.sellerAvatarUrl || sellerInfo.sellerAvatarUrl,
+                    sellerFeedbackText: item.sellerFeedbackText || sellerInfo.sellerFeedbackText,
                   }
                 : item
             ),
@@ -358,6 +433,13 @@ export const useCartStore = create<CartStore>()(
               stockLabel: getStockLabel(selectedProduct),
               stockTone: getStockTone(selectedProduct),
               canAddToCart: getCanAddToCart(selectedProduct),
+              sellerStoreName: sellerInfo.sellerStoreName,
+              sellerKey: sellerInfo.sellerKey,
+              sellerUrl: sellerInfo.sellerUrl,
+              sellerVerified: sellerInfo.sellerVerified,
+              sellerCustomerId: sellerInfo.sellerCustomerId,
+              sellerAvatarUrl: sellerInfo.sellerAvatarUrl,
+              sellerFeedbackText: sellerInfo.sellerFeedbackText,
             },
           ],
         })

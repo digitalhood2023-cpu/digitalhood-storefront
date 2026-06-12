@@ -121,6 +121,7 @@ export default function SellerStorePage() {
   )
 
   function handleAddToCart(product: PublicSellerProduct) {
+    if (!seller) return
     if (product.type === 'variable') {
       window.location.href = getProductUrl(product)
       return
@@ -145,7 +146,18 @@ export default function SellerStorePage() {
         stock_label: product.stockLabel,
         stock_tone: product.stockTone,
         can_add_to_cart: product.canAddToCart,
-      },
+      sellerStoreName: seller.storeName,
+      sellerKey: seller.key || sellerKey || '',
+      sellerUrl: seller.key ? `/seller/${seller.key}` : sellerKey ? `/seller/${sellerKey}` : '',
+      sellerVerified: Boolean(seller.verified),
+      sellerCustomerId: seller.id || '',
+      sellerAvatarUrl: seller.profilePhotoUrl || '',
+      sellerFeedbackText:
+        store?.stats?.feedback?.total && store.stats.feedback.total > 0
+          ? `${Math.round((Number(store.stats.feedback.positive || 0) / Number(store.stats.feedback.total || 1)) * 100)}% positive`
+          : 'New seller',
+
+    },
       1
     )
 

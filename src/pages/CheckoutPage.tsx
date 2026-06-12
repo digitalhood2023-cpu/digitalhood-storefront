@@ -85,6 +85,13 @@ type CheckoutCartItem = {
   stockLabel?: string
   stockTone?: string
   canAddToCart?: boolean
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
+  sellerAvatarUrl?: string
+  sellerFeedbackText?: string
 }
 
 function getCartItemStockObject(item: CheckoutCartItem) {
@@ -122,6 +129,67 @@ function getVariationText(item: CheckoutCartItem) {
   if (!item.variationId) return ''
 
   return `Variation ID: ${item.variationId}`
+}
+
+function getStoreInitials(storeName = '') {
+  const words = String(storeName || 'DigitalHood')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('') || 'DH'
+}
+
+function getCheckoutStoreInfo(item: CheckoutCartItem) {
+  const storeName = item.sellerStoreName || 'DigitalHood'
+  const sellerKey =
+    item.sellerKey ||
+    (storeName.toLowerCase() === 'digitalhood' ? 'digitalhood' : '')
+  const sellerUrl =
+    item.sellerUrl ||
+    (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '/seller/digitalhood')
+  const isDigitalHood =
+    sellerKey === 'digitalhood' ||
+    storeName.toLowerCase() === 'digitalhood'
+
+  return {
+    key: sellerKey || storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    storeName,
+    sellerUrl,
+    avatarUrl: item.sellerAvatarUrl || (isDigitalHood ? '/logo.jpg' : ''),
+    initials: getStoreInitials(storeName),
+    feedbackText: item.sellerFeedbackText || (isDigitalHood ? '100% positive' : 'New seller'),
+  }
+}
+
+function groupCheckoutItemsByStore(items: CheckoutCartItem[]) {
+  const groups = new Map<
+    string,
+    ReturnType<typeof getCheckoutStoreInfo> & {
+      items: CheckoutCartItem[]
+      subtotal: number
+    }
+  >()
+
+  for (const item of items) {
+    const store = getCheckoutStoreInfo(item)
+    const current =
+      groups.get(store.key) ||
+      {
+        ...store,
+        items: [],
+        subtotal: 0,
+      }
+
+    current.items.push(item)
+    current.subtotal += Number(item.price || 0) * Number(item.quantity || 1)
+    groups.set(store.key, current)
+  }
+
+  return Array.from(groups.values())
 }
 
 function isLencoPaidStatus(status: unknown) {
@@ -214,6 +282,7 @@ export default function CheckoutPage() {
 
   const subtotal = getSubtotal()
   const checkoutItems = items as CheckoutCartItem[]
+  const checkoutStoreGroups = groupCheckoutItemsByStore(checkoutItems)
   const hasUnavailableItems = checkoutItems.some(isUnavailable)
 
   const accountSavedAddresses = customer?.savedAddresses || []
@@ -1846,64 +1915,103 @@ export default function CheckoutPage() {
                 </h2>
 
                 <div className="mb-5 max-h-80 space-y-3 overflow-y-auto pr-1 [scrollbar-width:thin]">
-                  {checkoutItems.map((item) => {
-                    const unavailable = isUnavailable(item)
-                    const variationText = getVariationText(item)
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`rounded-2xl border p-3 ${
-                          unavailable
-                            ? 'border-red-200 bg-red-50/40'
-                            : 'border-dh-light-gray bg-white'
-                        }`}
+                  {checkoutStoreGroups.map((group) => (
+                    <div
+                      key={group.key}
+                      className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white"
+                    >
+                      <Link
+                        to={group.sellerUrl}
+                        className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-dh-gray px-3 py-2.5 transition hover:bg-white"
                       >
-                        <div className="flex gap-3">
-                          <img
-                            src={item.image || '/logo.jpg'}
-                            alt={item.name}
-                            className="h-16 w-16 rounded-2xl bg-dh-gray object-cover"
-                            onError={(event) => {
-                              event.currentTarget.src = '/logo.jpg'
-                            }}
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <p className="line-clamp-2 text-sm font-semibold text-dh-primary">
-                              {item.name}
-                            </p>
-
-                            {variationText && (
-                              <p className="mt-1 text-xs text-dh-dark-gray">
-                                Selected: {variationText}
-                              </p>
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-black text-dh-primary">
+                            {group.avatarUrl ? (
+                              <img
+                                src={group.avatarUrl}
+                                alt={group.storeName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              group.initials
                             )}
+                          </span>
 
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <StockBadge item={getCartItemStockObject(item)} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black text-dh-primary">
+                              {group.storeName}
+                            </span>
+                            <span className="block truncate text-[11px] font-bold text-green-700">
+                              {group.feedbackText}
+                            </span>
+                          </span>
+                        </span>
 
-                              {unavailable && (
-                                <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
-                                  Review
-                                </span>
-                              )}
+                        <span className="shrink-0 text-xs font-black text-dh-primary">
+                          {formatPrice(group.subtotal)}
+                        </span>
+                      </Link>
+
+                      <div className="divide-y divide-dh-light-gray">
+                        {group.items.map((item) => {
+                          const unavailable = isUnavailable(item)
+                          const variationText = getVariationText(item)
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`p-3 ${
+                                unavailable ? 'bg-red-50/40' : 'bg-white'
+                              }`}
+                            >
+                              <div className="flex gap-3">
+                                <img
+                                  src={item.image || '/logo.jpg'}
+                                  alt={item.name}
+                                  className="h-16 w-16 rounded-2xl bg-dh-gray object-cover"
+                                  onError={(event) => {
+                                    event.currentTarget.src = '/logo.jpg'
+                                  }}
+                                />
+
+                                <div className="flex-1 min-w-0">
+                                  <p className="line-clamp-2 text-sm font-semibold text-dh-primary">
+                                    {item.name}
+                                  </p>
+
+                                  {variationText && (
+                                    <p className="mt-1 text-xs text-dh-dark-gray">
+                                      Selected: {variationText}
+                                    </p>
+                                  )}
+
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <StockBadge item={getCartItemStockObject(item)} />
+
+                                    {unavailable && (
+                                      <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                                        Review
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-2 flex items-center justify-between gap-3">
+                                    <p className="text-xs text-dh-dark-gray">
+                                      Qty: {item.quantity}
+                                    </p>
+
+                                    <p className="text-sm font-bold text-dh-primary">
+                                      {formatPrice(item.price * item.quantity)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-
-                            <div className="mt-2 flex items-center justify-between gap-3">
-                              <p className="text-xs text-dh-dark-gray">
-                                Qty: {item.quantity}
-                              </p>
-
-                              <p className="text-sm font-bold text-dh-primary">
-                                {formatPrice(item.price * item.quantity)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
+                    </div>
+                  ))}
                 </div>
 
                 <div className="space-y-3 border-t border-dh-light-gray pt-4">

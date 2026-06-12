@@ -662,6 +662,14 @@ export default function ShopPage() {
         stock_label: product.stockLabel || product.stock_label,
         stock_tone: product.stockTone || product.stock_tone,
         can_add_to_cart: product.canAddToCart ?? product.can_add_to_cart,
+        seller: product.seller,
+        sellerStoreName: product.sellerStoreName || product.seller?.storeName || 'DigitalHood',
+        sellerKey: product.sellerKey || product.seller?.key || 'digitalhood',
+        sellerUrl: product.sellerUrl || product.seller?.url || '/seller/digitalhood',
+        sellerVerified: Boolean(product.sellerVerified || product.seller?.verified || product.sellerKey === 'digitalhood'),
+        sellerCustomerId: product.sellerCustomerId || product.seller?.customerId || '',
+        sellerAvatarUrl: (product.sellerKey || product.seller?.key) === 'digitalhood' ? '/logo.jpg' : '',
+        sellerFeedbackText: (product.sellerKey || product.seller?.key) === 'digitalhood' ? '100% positive' : 'New seller',
       },
       1
     );

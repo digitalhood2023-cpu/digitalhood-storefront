@@ -32,6 +32,13 @@ type CartPageItem = {
   stockLabel?: string
   stockTone?: string
   canAddToCart?: boolean
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
+  sellerAvatarUrl?: string
+  sellerFeedbackText?: string
 }
 
 function formatPrice(price: number) {
@@ -78,6 +85,69 @@ function getVariationText(item: CartPageItem) {
   return `Variation ID: ${item.variationId}`
 }
 
+function getStoreInitials(storeName = '') {
+  const words = String(storeName || 'DigitalHood')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('') || 'DH'
+}
+
+function getCartStoreInfo(item: CartPageItem) {
+  const storeName = item.sellerStoreName || 'DigitalHood'
+  const sellerKey =
+    item.sellerKey ||
+    (storeName.toLowerCase() === 'digitalhood' ? 'digitalhood' : '')
+  const sellerUrl =
+    item.sellerUrl ||
+    (sellerKey ? `/seller/${encodeURIComponent(sellerKey)}` : '/seller/digitalhood')
+  const isDigitalHood =
+    sellerKey === 'digitalhood' ||
+    storeName.toLowerCase() === 'digitalhood'
+
+  return {
+    key: sellerKey || storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    storeName,
+    sellerUrl,
+    verified: Boolean(item.sellerVerified || isDigitalHood),
+    avatarUrl: item.sellerAvatarUrl || (isDigitalHood ? '/logo.jpg' : ''),
+    initials: getStoreInitials(storeName),
+    feedbackText: item.sellerFeedbackText || (isDigitalHood ? '100% positive' : 'New seller'),
+  }
+}
+
+function groupCartItemsByStore(items: CartPageItem[]) {
+  const groups = new Map<
+    string,
+    ReturnType<typeof getCartStoreInfo> & {
+      items: CartPageItem[]
+      subtotal: number
+    }
+  >()
+
+  for (const item of items) {
+    const store = getCartStoreInfo(item)
+    const current =
+      groups.get(store.key) ||
+      {
+        ...store,
+        items: [],
+        subtotal: 0,
+      }
+
+    current.items.push(item)
+    current.subtotal += Number(item.price || 0) * Number(item.quantity || 1)
+    groups.set(store.key, current)
+  }
+
+  return Array.from(groups.values())
+}
+
+
 export default function CartPage() {
   const navigate = useNavigate()
 
@@ -93,6 +163,7 @@ export default function CartPage() {
   const hasUnavailableItems = items.some((item) =>
     isUnavailable(item as CartPageItem)
   )
+  const storeGroups = groupCartItemsByStore(items as CartPageItem[])
 
   const handleCheckout = () => {
     if (hasUnavailableItems) {
@@ -189,7 +260,42 @@ export default function CartPage() {
                   </div>
                 )}
 
-                {items.map((rawItem) => {
+                {storeGroups.map((group) => (
+                  <div key={group.key} className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                    <Link
+                      to={group.sellerUrl}
+                      className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-white px-4 py-3 transition hover:bg-dh-gray"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-dh-gray text-xs font-black text-dh-primary">
+                          {group.avatarUrl ? (
+                            <img
+                              src={group.avatarUrl}
+                              alt={group.storeName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            group.initials
+                          )}
+                        </span>
+
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black text-dh-primary">
+                            {group.storeName}
+                          </span>
+                          <span className="block truncate text-xs font-bold text-green-700">
+                            {group.feedbackText}
+                          </span>
+                        </span>
+                      </div>
+
+                      <span className="shrink-0 rounded-full bg-dh-gray px-3 py-1 text-xs font-black text-dh-primary">
+                        {formatPrice(group.subtotal)}
+                      </span>
+                    </Link>
+
+                    <div className="grid gap-3 p-3">
+                      {group.items.map((rawItem) => {
                   const item = rawItem as CartPageItem
                   const unavailable = isUnavailable(item)
                   const variationText = getVariationText(item)
@@ -308,7 +414,10 @@ export default function CartPage() {
                       </div>
                     </article>
                   )
-                })}
+                      })}
+                    </div>
+                  </div>
+                ))}
               </section>
 
               <aside>

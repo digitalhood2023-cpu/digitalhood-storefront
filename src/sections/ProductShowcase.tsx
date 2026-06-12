@@ -245,6 +245,14 @@ export default function ProductShowcase({
         price: safeNumber(product.price),
         regular_price: product.originalPrice || product.price,
         image: product.image || product.images?.[0] || '/logo.jpg',
+        seller: product.seller,
+        sellerStoreName: product.sellerStoreName || product.seller?.storeName || 'DigitalHood',
+        sellerKey: product.sellerKey || product.seller?.key || 'digitalhood',
+        sellerUrl: product.sellerUrl || product.seller?.url || '/seller/digitalhood',
+        sellerVerified: Boolean(product.sellerVerified || product.seller?.verified || product.sellerKey === 'digitalhood'),
+        sellerCustomerId: product.sellerCustomerId || product.seller?.customerId || '',
+        sellerAvatarUrl: product.sellerKey === 'digitalhood' ? '/logo.jpg' : '',
+        sellerFeedbackText: product.sellerKey === 'digitalhood' ? '100% positive' : 'New seller',
       },
       1
     )
