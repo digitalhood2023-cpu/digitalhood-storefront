@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Heart, ShoppingCart, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import { useWishlist } from '@/context/WishlistContext'
 import { useCartStore } from '@/store/cartStore'
 
@@ -71,6 +72,11 @@ export default function WishlistDrawer() {
 
   const addItem = useCartStore((state) => state.addItem)
   const wishlistItems = items as unknown as DrawerWishlistProduct[]
+  const dismissWishlistDrawer = useBackButtonDismiss({
+    id: 'wishlist-drawer',
+    isOpen: isWishlistDrawerOpen,
+    onDismiss: closeWishlistDrawer,
+  })
 
   const handleAddToCart = (product: DrawerWishlistProduct) => {
     if (!canBuyDirectly(product)) return
@@ -104,7 +110,7 @@ export default function WishlistDrawer() {
       <button
         type="button"
         aria-label="Close wishlist"
-        onClick={closeWishlistDrawer}
+        onClick={dismissWishlistDrawer}
         className="absolute inset-0 bg-black/40"
       />
 
@@ -122,7 +128,7 @@ export default function WishlistDrawer() {
 
           <button
             type="button"
-            onClick={closeWishlistDrawer}
+            onClick={dismissWishlistDrawer}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-dh-gray text-dh-primary"
             aria-label="Close wishlist"
           >
@@ -144,7 +150,7 @@ export default function WishlistDrawer() {
               Tap the heart icon on products you like and they will appear here.
             </p>
 
-            <Link to="/shop" onClick={closeWishlistDrawer}>
+            <Link to="/shop" onClick={dismissWishlistDrawer}>
               <Button className="mt-6 rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
                 Start shopping
               </Button>
@@ -164,7 +170,7 @@ export default function WishlistDrawer() {
                     <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3">
                       <Link
                         to={`/product/${getProductSlug(product)}`}
-                        onClick={closeWishlistDrawer}
+                        onClick={dismissWishlistDrawer}
                         className="aspect-square overflow-hidden rounded-2xl bg-dh-gray"
                       >
                         <img
@@ -181,7 +187,7 @@ export default function WishlistDrawer() {
                         <div className="flex items-start justify-between gap-2">
                           <Link
                             to={`/product/${getProductSlug(product)}`}
-                            onClick={closeWishlistDrawer}
+                            onClick={dismissWishlistDrawer}
                           >
                             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-dh-primary hover:text-dh-secondary">
                               {product.name}
@@ -205,7 +211,7 @@ export default function WishlistDrawer() {
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <Link
                             to={`/product/${getProductSlug(product)}`}
-                            onClick={closeWishlistDrawer}
+                            onClick={dismissWishlistDrawer}
                             className="inline-flex items-center justify-center rounded-full border border-dh-primary px-3 py-2 text-xs font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
                           >
                             View
@@ -223,7 +229,7 @@ export default function WishlistDrawer() {
                           ) : (
                             <Link
                               to={`/product/${getProductSlug(product)}`}
-                              onClick={closeWishlistDrawer}
+                              onClick={dismissWishlistDrawer}
                               className="inline-flex items-center justify-center rounded-full bg-dh-primary px-3 py-2 text-xs font-semibold text-white hover:bg-dh-secondary"
                             >
                               Options
@@ -241,7 +247,7 @@ export default function WishlistDrawer() {
 
         {wishlistItems.length > 0 && (
           <div className="border-t border-dh-light-gray bg-white p-4">
-            <Link to="/wishlist" onClick={closeWishlistDrawer}>
+            <Link to="/wishlist" onClick={dismissWishlistDrawer}>
               <Button className="w-full rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
                 View full wishlist
               </Button>

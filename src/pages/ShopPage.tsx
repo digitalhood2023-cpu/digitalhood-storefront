@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import Header from '@/sections/Header';
+import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss';
 import Footer from '@/sections/Footer';
 import SEO from '@/components/SEO';
 import StockBadge from '@/components/StockBadge';
@@ -248,6 +249,11 @@ export default function ShopPage() {
   const [selectedStorage, setSelectedStorage] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const dismissMobileFilters = useBackButtonDismiss({
+    id: 'shop-mobile-filters',
+    isOpen: showMobileFilters,
+    onDismiss: () => setShowMobileFilters(false),
+  });
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState(searchFromUrl);
   const [page, setPage] = useState(pageFromUrl);
@@ -521,7 +527,7 @@ export default function ShopPage() {
     setPriceRange('all');
     setSelectedStorage('');
     setSelectedColor('');
-    setShowMobileFilters(false);
+    dismissMobileFilters();
     setSearchParams({});
   };
 
@@ -532,7 +538,7 @@ export default function ShopPage() {
   };
 
   const applyMobileFilters = () => {
-    setShowMobileFilters(false);
+    dismissMobileFilters();
 
     window.setTimeout(() => {
       document
@@ -978,7 +984,7 @@ export default function ShopPage() {
                 <button
                   type="button"
                   aria-label="Close filters"
-                  onClick={() => setShowMobileFilters(false)}
+                  onClick={dismissMobileFilters}
                   className="absolute inset-0 bg-black/40"
                 />
 
@@ -995,7 +1001,7 @@ export default function ShopPage() {
 
                     <button
                       type="button"
-                      onClick={() => setShowMobileFilters(false)}
+                      onClick={dismissMobileFilters}
                       className="flex h-10 w-10 items-center justify-center rounded-full bg-dh-gray text-dh-primary"
                       aria-label="Close filters"
                     >

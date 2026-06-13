@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 
 import StockBadge from '@/components/StockBadge'
+import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import { useCartStore } from '@/store/cartStore'
 
 type CartDrawerProps = {
@@ -91,6 +92,11 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const hasUnavailableItems = items.some((item) =>
     isUnavailable(item as CartDrawerItem)
   )
+  const dismissDrawer = useBackButtonDismiss({
+    id: 'cart-drawer',
+    isOpen,
+    onDismiss: onClose,
+  })
 
   if (!isOpen) return null
 
@@ -100,7 +106,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         type="button"
         aria-label="Close cart"
         className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        onClick={dismissDrawer}
       />
 
       <aside className="absolute right-0 top-0 flex h-full w-[92vw] max-w-md flex-col bg-dh-gray shadow-2xl">
@@ -124,7 +130,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={dismissDrawer}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-dh-gray text-dh-primary transition-colors hover:bg-dh-secondary/20"
               aria-label="Close cart"
             >
@@ -150,7 +156,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
               <Link
                 to="/shop"
-                onClick={onClose}
+                onClick={dismissDrawer}
                 className="mt-6 inline-flex rounded-full bg-dh-primary px-6 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
               >
                 Start shopping
@@ -173,7 +179,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3">
                       <Link
                         to={item.slug ? `/product/${item.slug}` : '/shop'}
-                        onClick={onClose}
+                        onClick={dismissDrawer}
                         className="aspect-square overflow-hidden rounded-2xl bg-dh-gray"
                       >
                         <img
@@ -190,7 +196,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                         <div className="flex items-start justify-between gap-2">
                           <Link
                             to={item.slug ? `/product/${item.slug}` : '/shop'}
-                            onClick={onClose}
+                            onClick={dismissDrawer}
                           >
                             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-dh-primary hover:text-dh-secondary">
                               {item.name}
@@ -305,7 +311,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             <div className="grid grid-cols-2 gap-3">
               <Link
                 to="/cart"
-                onClick={onClose}
+                onClick={dismissDrawer}
                 className="inline-flex items-center justify-center rounded-full border border-dh-primary px-4 py-3 text-sm font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
               >
                 View cart
@@ -322,7 +328,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               ) : (
                 <Link
                   to="/checkout"
-                  onClick={onClose}
+                  onClick={dismissDrawer}
                   className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
                 >
                   Checkout

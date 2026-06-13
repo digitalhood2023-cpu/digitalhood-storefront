@@ -22,6 +22,7 @@ import { navCategories } from '@/data/products'
 import { Button } from '@/components/ui/button'
 import { CartButton } from '@/features/cart/CartButton'
 import { CartDrawer } from '@/features/cart/CartDrawer'
+import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import WishlistDrawer from '@/components/wishlist/WishlistDrawer'
 import SearchAutocomplete from '@/components/search/SearchAutocomplete'
 import {
@@ -81,6 +82,18 @@ export default function Header() {
   const { customer, isAuthenticated, logout } = useAccount()
 
   const customerDisplayName = getCustomerDisplayName(customer)
+
+  const dismissMobileMenu = useBackButtonDismiss({
+    id: 'mobile-menu',
+    isOpen: isMobileMenuOpen,
+    onDismiss: () => setIsMobileMenuOpen(false),
+  })
+
+  const dismissMobileSearch = useBackButtonDismiss({
+    id: 'mobile-search',
+    isOpen: isSearchOpen,
+    onDismiss: () => setIsSearchOpen(false),
+  })
 
   useEffect(() => {
     const handleScroll = () => {
@@ -367,7 +380,7 @@ export default function Header() {
 
             <div className="flex items-center gap-2 md:hidden">
               <button
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
+                onClick={() => (isSearchOpen ? dismissMobileSearch() : setIsSearchOpen(true))}
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
                 aria-label="Open search"
               >
@@ -397,7 +410,7 @@ export default function Header() {
               <CartButton onClick={() => setIsCartOpen(true)} />
 
               <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                onClick={() => (isMobileMenuOpen ? dismissMobileMenu() : setIsMobileMenuOpen(true))}
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
                 aria-label="Open menu"
               >
