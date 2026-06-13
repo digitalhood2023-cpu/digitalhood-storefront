@@ -1117,16 +1117,40 @@ export default function ProductPage() {
                   )}
 
                   <div className="mt-3 rounded-2xl border border-dh-light-gray bg-white p-3">
-                    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-                      <span className="font-display text-xl font-black leading-none text-dh-primary sm:text-2xl">
-                        {formatProductPrice(activePrice)}
-                      </span>
+                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-1">
+                        <span className="font-display text-xl font-black leading-none text-dh-primary sm:text-2xl">
+                          {formatProductPrice(activePrice)}
+                        </span>
 
-                      <span className="pb-0.5 text-xs font-black text-green-700 sm:text-sm">
-                        {shipping.fee === 0
-                          ? '+ free shipping'
-                          : `+ ${formatProductPrice(shipping.fee)} shipping`}
-                      </span>
+                        <span className="pb-0.5 text-xs font-black text-green-700 sm:text-sm">
+                          {shipping.fee === 0
+                            ? '+ free shipping'
+                            : `+ ${formatProductPrice(shipping.fee)} shipping`}
+                        </span>
+                      </div>
+
+                      <div className="flex min-w-0 items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-green-700 lg:max-w-[46%]">
+                        <Truck className="h-4 w-4 shrink-0" />
+
+                        <div className="relative h-5 min-w-0 flex-1 overflow-hidden text-xs font-black">
+                          <div className="animate-[deliveryTicker_7.5s_ease-in-out_infinite]">
+                            <p className="h-5 truncate leading-5">
+                              {shipping.estimate}
+                            </p>
+
+                            <p className="h-5 truncate leading-5">
+                              {shipping.isLusaka
+                                ? shipping.countdown
+                                : shipping.title}
+                            </p>
+
+                            <p className="h-5 truncate leading-5">
+                              Final delivery fee updates at checkout.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1145,22 +1169,6 @@ export default function ProductPage() {
                         <Truck className="h-3.5 w-3.5" />
                         {shipping.title}
                       </span>
-                    </div>
-
-                    <div className="mt-2 rounded-xl bg-green-50 px-3 py-2 text-left">
-                      <p className="text-xs font-bold text-green-800">
-                        {shipping.estimate}
-                      </p>
-
-                      {shipping.isLusaka && (
-                        <p className="mt-0.5 text-[11px] font-semibold text-green-700">
-                          {shipping.countdown}
-                        </p>
-                      )}
-
-                      <p className="mt-0.5 text-[10px] font-semibold text-green-700">
-                        Final delivery fee updates at checkout.
-                      </p>
                     </div>
                   </div>
                 </div>

@@ -275,3 +275,21 @@ canvas,
 svg {
   max-width: 100%;
 }
+
+@keyframes deliveryTicker {
+  0%, 26% {
+    transform: translateY(0);
+  }
+
+  33%, 59% {
+    transform: translateY(-1.25rem);
+  }
+
+  66%, 92% {
+    transform: translateY(-2.5rem);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
