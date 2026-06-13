@@ -44,6 +44,14 @@ export type WooProductVariation = {
   can_add_to_cart?: boolean;
 };
 
+export type WooProductImageVariant = {
+  thumb?: string;
+  card?: string;
+  medium?: string;
+  large?: string;
+  original?: string;
+};
+
 export type WooProduct = {
   id: number;
   name: string;
@@ -53,7 +61,13 @@ export type WooProduct = {
   price: number;
   priceHtml: string;
   image: string;
+  imageThumb?: string;
+  imageCard?: string;
+  imageMedium?: string;
+  imageLarge?: string;
+  imageOriginal?: string;
   images: string[];
+  imageVariants?: WooProductImageVariant[];
   description: string;
   descriptionHtml: string;
   shortDescription: string;
@@ -195,6 +209,54 @@ function getImages(item: any): string[] {
 
   return images.length > 0 ? images : ['/logo.jpg'];
 }
+
+
+function getImageVariantSource(variant: any, key: keyof WooProductImageVariant): string {
+  if (!variant || typeof variant !== 'object') return '';
+
+  return String(variant[key] || '').trim();
+}
+
+function getImageVariants(input: any): WooProductImageVariant[] {
+  return Array.isArray(input?.imageVariants)
+    ? input.imageVariants
+        .map((variant: any) => ({
+          thumb: getImageVariantSource(variant, 'thumb'),
+          card: getImageVariantSource(variant, 'card'),
+          medium: getImageVariantSource(variant, 'medium'),
+          large: getImageVariantSource(variant, 'large'),
+          original: getImageVariantSource(variant, 'original'),
+        }))
+        .filter((variant: WooProductImageVariant) =>
+          Boolean(variant.thumb || variant.card || variant.medium || variant.large || variant.original)
+        )
+    : [];
+}
+
+function getProductGalleryImages(product: any): string[] {
+  const variants = getImageVariants(product);
+  const variantOriginals = variants
+    .map((variant) => variant.original || variant.large || variant.medium || variant.card || variant.thumb)
+    .filter(Boolean) as string[];
+
+  if (variantOriginals.length) return variantOriginals;
+
+  const fallbackImages = getImages(product);
+  return fallbackImages.length ? fallbackImages : ['/logo.jpg'];
+}
+
+function getPrimaryProductImage(product: any, images: string[] = []): string {
+  return (
+    product.imageCard ||
+    product.image ||
+    product.imageMedium ||
+    product.imageLarge ||
+    product.imageOriginal ||
+    images[0] ||
+    '/logo.jpg'
+  );
+}
+
 
 function normalizeAttributeName(name = '') {
   return name
@@ -422,7 +484,8 @@ export function mapWooVariation(variation: any): WooProductVariation {
 
 export function mapWooProduct(product: any): WooProduct {
   const categories = mapCategories(product);
-  const images = getImages(product);
+  const images = getProductGalleryImages(product);
+  const primaryImage = getPrimaryProductImage(product, images);
   const stockStatus = getStockStatus(product);
   const stockQuantity = getStockQuantity(product);
   const manageStock = getManageStock(product);
@@ -462,8 +525,14 @@ export function mapWooProduct(product: any): WooProduct {
     permalink: product.permalink || '',
     price: getPrice(product),
     priceHtml: product.price_html || product.priceHtml || '',
-    image: images[0] || '/logo.jpg',
+    image: primaryImage,
+    imageThumb: product.imageThumb,
+    imageCard: product.imageCard,
+    imageMedium: product.imageMedium,
+    imageLarge: product.imageLarge,
+    imageOriginal: product.imageOriginal,
     images,
+    imageVariants: getImageVariants(product),
     description: stripHtml(product.description),
 descriptionHtml: product.description || product.descriptionHtml || '',
 shortDescription: stripHtml(product.short_description || product.shortDescription),
