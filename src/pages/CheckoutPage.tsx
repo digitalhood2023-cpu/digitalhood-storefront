@@ -1201,6 +1201,53 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                <div className="mt-5 rounded-2xl border border-dh-light-gray bg-white p-4 text-left">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
+                    Stores in this order
+                  </p>
+
+                  <div className="mt-3 space-y-2.5">
+                    {checkoutStoreGroups.map((group) => (
+                      <div
+                        key={group.key}
+                        className="flex items-center justify-between gap-3 rounded-2xl bg-dh-gray px-3 py-2.5"
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary">
+                            {group.avatarUrl ? (
+                              <img
+                                src={group.avatarUrl}
+                                alt={group.storeName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              group.initials
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-dh-primary">
+                              {group.storeName}
+                            </p>
+                            <p className="truncate text-[11px] font-bold text-green-700">
+                              {group.feedbackText}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          <p className="text-xs font-black text-dh-primary">
+                            {formatPrice(group.subtotal)}
+                          </p>
+                          <p className="text-[10px] font-semibold text-dh-dark-gray">
+                            {group.items.length} item{group.items.length === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {!successState.confirmed && (
                   <div className="mt-5 rounded-2xl border border-yellow-100 bg-yellow-50 p-4 text-left">
                     <p className="text-sm font-semibold text-yellow-800 mb-1">

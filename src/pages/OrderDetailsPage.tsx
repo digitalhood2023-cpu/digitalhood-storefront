@@ -30,6 +30,8 @@ import {
   type AccountOrderItem,
 } from '@/api/account'
 
+import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
+
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
 
@@ -343,6 +345,10 @@ export default function OrderDetailsPage() {
     }, 0)
   }, [order])
 
+  const orderStoreGroups = useMemo(() => {
+    return groupOrderItemsByStore(order?.items || [])
+  }, [order])
+
   if (isLoading || isOrderLoading) {
     return (
       <div className="min-h-screen bg-dh-gray">
@@ -616,56 +622,99 @@ export default function OrderDetailsPage() {
                 title="Items in this order"
               >
                 <div className="space-y-4">
-                  {(order.items || []).map((item) => {
-                    const metaLines = getItemMetaText(item)
-
-                    return (
-                      <article
-                        key={item.id}
-                        className="rounded-2xl border border-dh-light-gray p-4"
+                  {orderStoreGroups.map((group) => (
+                    <section
+                      key={group.key}
+                      className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white"
+                    >
+                      <Link
+                        to={group.sellerUrl}
+                        className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-dh-gray px-3 py-2.5 transition hover:bg-white"
                       >
-                        <div className="flex gap-4">
-                          <img
-                            src={item.image || '/logo.jpg'}
-                            alt={item.name}
-                            className="h-20 w-20 shrink-0 rounded-xl bg-dh-gray object-cover"
-                            onError={(event) => {
-                              event.currentTarget.src = '/logo.jpg'
-                            }}
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 font-semibold text-dh-primary">
-                              {item.name}
-                            </p>
-
-                            {metaLines.length > 0 && (
-                              <div className="mt-1 space-y-0.5">
-                                {metaLines.map((line) => (
-                                  <p
-                                    key={line}
-                                    className="text-xs text-dh-dark-gray"
-                                  >
-                                    {line}
-                                  </p>
-                                ))}
-                              </div>
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary">
+                            {group.avatarUrl ? (
+                              <img
+                                src={group.avatarUrl}
+                                alt={group.storeName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              group.initials
                             )}
+                          </span>
 
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                              <p className="text-sm text-dh-dark-gray">
-                                Qty: {item.quantity}
-                              </p>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black leading-tight text-dh-primary">
+                              {group.storeName}
+                            </span>
+                            <span className="block truncate text-[11px] font-bold leading-tight text-green-700">
+                              {group.feedbackText}
+                            </span>
+                          </span>
+                        </span>
 
-                              <p className="font-semibold text-dh-primary">
-                                {formatPrice(item.total, order.currency)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    )
-                  })}
+                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-dh-primary">
+                          {formatPrice(group.subtotal, order.currency)}
+                        </span>
+                      </Link>
+
+                      <div className="divide-y divide-dh-light-gray">
+                        {group.items.map((item) => {
+                          const metaLines = getItemMetaText(item)
+
+                          return (
+                            <article
+                              key={item.id}
+                              className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 p-3"
+                            >
+                              <img
+                                src={item.image || '/logo.jpg'}
+                                alt={item.name}
+                                className="h-16 w-16 shrink-0 rounded-xl bg-dh-gray object-contain p-1.5"
+                                onError={(event) => {
+                                  event.currentTarget.src = '/logo.jpg'
+                                }}
+                              />
+
+                              <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="line-clamp-2 text-sm font-black leading-tight text-dh-primary">
+                                      {item.name}
+                                    </p>
+
+                                    {metaLines.length > 0 && (
+                                      <div className="mt-1 space-y-0.5">
+                                        {metaLines.slice(0, 2).map((line) => (
+                                          <p
+                                            key={line}
+                                            className="line-clamp-1 text-[11px] text-dh-dark-gray"
+                                          >
+                                            {line}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <p className="shrink-0 text-right text-sm font-black text-dh-primary">
+                                    {formatPrice(item.total, order.currency)}
+                                  </p>
+                                </div>
+
+                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                  <span className="rounded-full bg-dh-gray px-2.5 py-1 text-[11px] font-black text-dh-primary">
+                                    Qty {item.quantity}
+                                  </span>
+                                </div>
+                              </div>
+                            </article>
+                          )
+                        })}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               </DetailCard>
             </div>
