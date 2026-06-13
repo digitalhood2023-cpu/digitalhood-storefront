@@ -2076,6 +2076,22 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
+                <div className="mb-4 rounded-2xl bg-green-50 p-3 text-xs font-semibold text-green-700">
+                  <div className="flex items-start gap-2">
+                    <Truck className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="font-black text-green-800">
+                        {deliveryTitle} · {deliveryEstimate}
+                      </p>
+                      <p className="mt-0.5">
+                        {shipping.isLusaka
+                          ? shipping.countdown
+                          : 'Delivery timing is confirmed from your address.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3 border-t border-dh-light-gray pt-4">
                   <div className="flex justify-between text-dh-dark-gray">
                     <span>Subtotal</span>

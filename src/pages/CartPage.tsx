@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Trash2,
+  Truck,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -15,6 +16,7 @@ import StockBadge from '@/components/StockBadge'
 import { Button } from '@/components/ui/button'
 
 import { useCartStore } from '@/store/cartStore'
+import { getShippingDetails } from '@/lib/shipping'
 
 type CartPageItem = {
   id: number
@@ -159,6 +161,8 @@ export default function CartPage() {
   const getSubtotal = useCartStore((state) => state.getSubtotal)
 
   const subtotal = getSubtotal()
+  const shipping = getShippingDetails({ subtotal })
+  const estimatedTotal = subtotal + shipping.fee
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0)
   const hasUnavailableItems = items.some((item) =>
     isUnavailable(item as CartPageItem)
@@ -461,14 +465,32 @@ export default function CartPage() {
                     </div>
 
                     <div className="flex justify-between gap-4 text-sm text-dh-dark-gray">
-                      <span>Delivery</span>
-                      <span className="text-right">Calculated at checkout</span>
+                      <span>Estimated delivery</span>
+                      <span className="text-right font-semibold text-dh-primary">
+                        {shipping.fee === 0 ? 'Free' : formatPrice(shipping.fee)}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl bg-green-50 p-3 text-xs font-semibold text-green-700">
+                      <div className="flex items-start gap-2">
+                        <Truck className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div>
+                          <p className="font-black text-green-800">
+                            {shipping.title} · {shipping.estimate}
+                          </p>
+                          <p className="mt-0.5">
+                            {shipping.isLusaka
+                              ? shipping.countdown
+                              : 'Final delivery timing is confirmed at checkout.'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <div className="font-display flex justify-between pt-4 text-lg font-black text-dh-primary">
-                    <span>Total</span>
-                    <span>{formatPrice(subtotal)}</span>
+                    <span>Estimated total</span>
+                    <span>{formatPrice(estimatedTotal)}</span>
                   </div>
 
                   {hasUnavailableItems && (
@@ -503,8 +525,8 @@ export default function CartPage() {
                   <div className="mt-4 flex items-start gap-2 rounded-2xl bg-green-50 p-3 text-xs text-green-700">
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>
-                      Secure checkout powered by DigitalHood Marketplace. Final
-                      delivery fee and payment method are confirmed at checkout.
+                      Secure checkout powered by DigitalHood Marketplace. Delivery
+                      may update if your checkout address changes.
                     </p>
                   </div>
                 </div>
