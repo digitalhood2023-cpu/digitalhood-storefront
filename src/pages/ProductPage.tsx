@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   Check,
-  Clock,
   Heart,
   Minus,
   Plus,
@@ -1117,58 +1116,52 @@ export default function ProductPage() {
                     </div>
                   )}
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-dh-light-gray bg-white p-2.5">
-                    <span className="font-display text-xl font-black text-dh-primary sm:text-2xl">
-                      {formatProductPrice(activePrice)}
-                    </span>
-
-                    <StockBadge item={activeStockItem as any} />
-
-                    <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary">
-                      <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                      {product.averageRating ? product.averageRating.toFixed(1) : 'No ratings'}
-                    </span>
-
-                    {soldText && (
-                      <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-dark-gray">
-                        {soldText}
+                  <div className="mt-3 rounded-2xl border border-dh-light-gray bg-white p-3">
+                    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                      <span className="font-display text-xl font-black leading-none text-dh-primary sm:text-2xl">
+                        {formatProductPrice(activePrice)}
                       </span>
-                    )}
-                  </div>
-                </div>
 
-                <div className="mb-5 overflow-hidden rounded-2xl border border-green-100 bg-green-50">
-                  <div className="flex animate-[pulse_3s_ease-in-out_infinite] flex-col gap-2.5 p-3.5 sm:p-4">
-                    <div className="flex items-start gap-3">
-                      <Truck className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
-
-                      <div>
-                        <p className="font-semibold text-green-800">
-                          {shipping.title}:{' '}
-                          {shipping.fee === 0
-                            ? 'Free'
-                            : formatProductPrice(shipping.fee)}
-                        </p>
-
-                        <p className="text-sm text-green-700">
-                          {shipping.estimate}
-                        </p>
-                      </div>
+                      <span className="pb-0.5 text-xs font-black text-green-700 sm:text-sm">
+                        {shipping.fee === 0
+                          ? '+ free shipping'
+                          : `+ ${formatProductPrice(shipping.fee)} shipping`}
+                      </span>
                     </div>
 
-                    {shipping.isLusaka && (
-                      <div className="flex items-start gap-3">
-                        <Clock className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary">
+                        <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
+                        {product.averageRating ? product.averageRating.toFixed(1) : 'No ratings'}
+                      </span>
 
-                        <p className="text-sm font-medium text-green-800">
+                      {soldText && (
+                        <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-dark-gray">
+                          {soldText}
+                        </span>
+                      )}
+
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
+                        <Truck className="h-3.5 w-3.5" />
+                        {shipping.title}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 rounded-xl bg-green-50 px-3 py-2 text-left">
+                      <p className="text-xs font-bold text-green-800">
+                        {shipping.estimate}
+                      </p>
+
+                      {shipping.isLusaka && (
+                        <p className="mt-0.5 text-[11px] font-semibold text-green-700">
                           {shipping.countdown}
                         </p>
-                      </div>
-                    )}
+                      )}
 
-                    <p className="text-xs text-green-700">
-                      Final delivery fee updates automatically at checkout.
-                    </p>
+                      <p className="mt-0.5 text-[10px] font-semibold text-green-700">
+                        Final delivery fee updates at checkout.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

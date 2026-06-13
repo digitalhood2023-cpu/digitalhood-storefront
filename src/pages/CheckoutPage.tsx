@@ -956,6 +956,15 @@ export default function CheckoutPage() {
     }
   }, [paymentMethod])
 
+  useEffect(() => {
+    if (!orderComplete && !checkoutError) return
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' })
+      pageRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+    })
+  }, [orderComplete, checkoutError])
+
   const handleCardPaymentSuccess = async () => {
     setCheckoutError('')
     setIsSubmitting(true)
@@ -1105,14 +1114,18 @@ export default function CheckoutPage() {
           <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
             <div className="mx-auto max-w-2xl text-center">
               <div
-                className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
+                className={`relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
                   successState.confirmed
-                    ? 'bg-green-100'
+                    ? 'bg-green-100 shadow-[0_0_0_12px_rgba(34,197,94,0.10)]'
                     : 'bg-yellow-100'
                 }`}
               >
+                {successState.confirmed && (
+                  <span className="absolute inset-0 rounded-full border-4 border-green-300/70 animate-ping" />
+                )}
+
                 {successState.confirmed ? (
-                  <Check className="h-10 w-10 text-green-500" />
+                  <Check className="relative z-10 h-10 w-10 animate-[bounce_1.1s_ease-in-out_1] text-green-600" />
                 ) : (
                   <Loader2 className="h-10 w-10 animate-spin text-yellow-600" />
                 )}

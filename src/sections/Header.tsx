@@ -73,7 +73,6 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [lastScrollY, setLastScrollY] = useState(0)
-  const [isVisible, setIsVisible] = useState(true)
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -86,12 +85,6 @@ export default function Header() {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
-
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsVisible(false)
-      } else {
-        setIsVisible(true)
-      }
 
       setIsScrolled(currentScrollY > 50)
       setLastScrollY(currentScrollY)
@@ -155,9 +148,9 @@ export default function Header() {
       </div>
 
       <header
-        className={`sticky top-0 z-50 transition-all duration-300 ${
+        className={`sticky top-0 z-50 border-b border-dh-light-gray transition-all duration-300 ${
           isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
-        } ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}
+        }`}
       >
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center justify-between gap-4">
