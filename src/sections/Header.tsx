@@ -107,7 +107,8 @@ export default function Header() {
 
   return (
     <>
-      <div className="hidden bg-black py-2 text-sm text-white md:block">
+      <div className="fixed left-0 right-0 top-0 z-[100]">
+        <div className="hidden bg-black py-2 text-sm text-white md:block">
         <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
@@ -133,7 +134,7 @@ export default function Header() {
               </span>
             )}
 
-            <Link to="/help" className="transition-colors hover:text-[#ffb54a]">
+            <Link to="/contact" className="transition-colors hover:text-[#ffb54a]">
               Help
             </Link>
 
@@ -147,11 +148,11 @@ export default function Header() {
         </div>
       </div>
 
-      <header
-        className={`fixed left-0 right-0 top-0 z-[100] border-b border-dh-light-gray transition-all duration-300 ${
-          isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
-        }`}
-      >
+        <header
+          className={`border-b border-dh-light-gray transition-all duration-300 ${
+            isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
+          }`}
+        >
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center justify-between gap-4">
             <Link to="/" className="group flex items-center gap-3">
@@ -564,7 +565,8 @@ export default function Header() {
             </div>
           </div>
         )}
-      </header>
+        </header>
+      </div>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       <WishlistDrawer />
