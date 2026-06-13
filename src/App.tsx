@@ -106,8 +106,9 @@ function App() {
           <SEO />
           <NavigationScrollManager />
 
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
+          <div className="pt-[88px] md:pt-[122px]">
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
@@ -154,8 +155,9 @@ function App() {
               <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
 
               <Route path="*" element={<Home />} />
-            </Routes>
-          </Suspense>
+              </Routes>
+            </Suspense>
+          </div>
         </RecentlyViewedProvider>
       </WishlistProvider>
     </AccountProvider>

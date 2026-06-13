@@ -148,7 +148,7 @@ export default function Header() {
       </div>
 
       <header
-        className={`sticky top-0 z-50 border-b border-dh-light-gray transition-all duration-300 ${
+        className={`fixed left-0 right-0 top-0 z-[100] border-b border-dh-light-gray transition-all duration-300 ${
           isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
         }`}
       >
