@@ -18,6 +18,7 @@ import {
 
 import Header from '@/sections/Header';
 import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss';
+import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import Footer from '@/sections/Footer';
 import SEO from '@/components/SEO';
 import StockBadge from '@/components/StockBadge';
@@ -1225,7 +1226,9 @@ export default function ShopPage() {
                         >
                           <Link to={`/product/${product.slug}`}>
                             <img
-                              src={product.image || '/logo.jpg'}
+                              src={getOptimizedImageUrl(product.image, 'card')}
+                              srcSet={getImageSrcSet(product.image, 'card')}
+                              sizes="(min-width: 1536px) 20vw, (min-width: 1024px) 25vw, 50vw"
                               alt={product.name}
                               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               loading="lazy"
@@ -1470,7 +1473,9 @@ export default function ShopPage() {
                         >
                           <div className="aspect-square overflow-hidden rounded-2xl bg-dh-gray">
                             <img
-                              src={item.image || '/logo.jpg'}
+                              src={getOptimizedImageUrl(item.image, 'card')}
+                              srcSet={getImageSrcSet(item.image, 'card')}
+                              sizes="(min-width: 1024px) 240px, 50vw"
                               alt={item.name}
                               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               loading="lazy"

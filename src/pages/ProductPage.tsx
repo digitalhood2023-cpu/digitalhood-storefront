@@ -45,6 +45,7 @@ import {
 } from '@/lib/woocommerce'
 
 import { getShippingDetails } from '@/lib/shipping'
+import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
@@ -989,9 +990,14 @@ export default function ProductPage() {
                   }}
                 >
                   <img
-                    src={displayImages[selectedImage]}
+                    src={getOptimizedImageUrl(displayImages[selectedImage], 'large')}
+                    srcSet={getImageSrcSet(displayImages[selectedImage], 'large')}
+                    sizes="(min-width: 1024px) 45vw, 100vw"
                     alt={product.name}
                     className="h-full w-full cursor-zoom-in object-cover"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                     onClick={() => openGallery(selectedImage)}
                   />
 
