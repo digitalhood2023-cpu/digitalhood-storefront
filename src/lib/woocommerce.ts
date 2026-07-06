@@ -5,7 +5,6 @@ const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL || 'https://payments.digitalhood.info';
 
 const STORE_PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
-const STORE_CATEGORIES_API = `${STORE_URL}/wp-json/wc/store/v1/products/categories`;
 
 const MARKETPLACE_PRODUCTS_API = `${PAYMENTS_API_URL}/api/products`;
 
@@ -708,16 +707,14 @@ export async function fetchWooProductBySlug(
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {
-  const params = new URLSearchParams({
-    per_page: '100',
-  });
+  const response = await fetch(`${PAYMENTS_API_URL}/api/categories`);
+  const data = await parseJsonResponse(response);
 
-  const response = await fetch(`${STORE_CATEGORIES_API}?${params.toString()}`);
-  const categories = await parseJsonResponse(response);
-
-  if (!Array.isArray(categories)) {
-    return [];
-  }
+  const categories = Array.isArray(data?.categories)
+    ? data.categories
+    : Array.isArray(data)
+      ? data
+      : [];
 
   return categories
     .map(mapWooCategory)
