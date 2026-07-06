@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Search,
@@ -238,12 +239,7 @@ export default function ShopPage() {
   const searchFromUrl = searchParams.get('search') || '';
   const pageFromUrl = Math.max(1, Number(searchParams.get('page') || '1') || 1);
 
-  const [products, setProducts] = useState<WooProduct[]>([]);
-  const [categories, setCategories] = useState<WooCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [priceRange, setPriceRange] = useState<PriceRangeKey>('all');
@@ -258,8 +254,6 @@ export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState(searchFromUrl);
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState(searchFromUrl);
   const [page, setPage] = useState(pageFromUrl);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
   const [addedToCart, setAddedToCart] = useState<number | null>(null);
 
   const addItem = useCartStore((state) => state.addItem);
@@ -270,21 +264,21 @@ export default function ShopPage() {
   const hasCompletedInitialPageSyncRef = useRef(false);
   const shouldRestoreShopScrollRef = useRef(false);
 
-  useEffect(() => {
-    fetchWooCategories()
-      .then((items) =>
-        setCategories(
-          sortCategoriesForMarketplace(
-            items.filter((category) => category.productCount > 0)
-          )
-        )
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+  } = useQuery({
+    queryKey: ['woo-categories'],
+    queryFn: async () => {
+      const items = await fetchWooCategories()
+
+      return sortCategoriesForMarketplace(
+        items.filter((category) => category.productCount > 0)
       )
-      .catch((error) => {
-        console.error(error);
-        setCategories([]);
-      })
-      .finally(() => setCategoriesLoading(false));
-  }, []);
+    },
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
+  });
 
   useEffect(() => {
     if (!categories.length) return;
@@ -330,25 +324,28 @@ export default function ShopPage() {
     }
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    setIsLoading(true);
+  const {
+    data: productsResponse,
+    isLoading,
+    error: productsError,
+  } = useQuery({
+    queryKey: ['woo-products', PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId],
+    queryFn: () =>
+      fetchWooProducts(PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
 
-    fetchWooProducts(PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId)
-      .then(({ products, total, totalPages }) => {
-        setProducts(products);
-        setTotalProducts(total);
-        setTotalPages(totalPages || 1);
-        setLoadError('');
-
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoadError(
-          error?.message || 'We could not load products right now. Please try again.'
-        );
-      })
-      .finally(() => setIsLoading(false));
-  }, [page, submittedSearchQuery, selectedCategoryId]);
+  const products = productsResponse?.products || [];
+  const totalProducts = productsResponse?.total || 0;
+  const totalPages = productsResponse?.totalPages || 1;
+  const loadError =
+    productsError instanceof Error
+      ? productsError.message
+      : productsError
+        ? 'We could not load products right now. Please try again.'
+        : '';
 
   useEffect(() => {
     const ctx = gsap.context(() => {
