@@ -202,10 +202,50 @@ app.post('/api/woocommerce/orders/:orderId/apply-shipping', async (req, res) => 
   }
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
+const distDir = path.join(__dirname, 'dist');
+
+app.use(
+  express.static(distDir, {
+    index: false,
+    etag: true,
+    lastModified: true,
+    setHeaders(res, filePath) {
+      const normalizedPath = filePath.replace(/\\/g, '/');
+
+      if (normalizedPath.endsWith('/index.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        return;
+      }
+
+      if (normalizedPath.endsWith('/build-version.txt')) {
+        res.setHeader('Cache-Control', 'no-store');
+        return;
+      }
+
+      if (normalizedPath.includes('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        return;
+      }
+
+      if (
+        /\.(?:png|jpg|jpeg|webp|avif|gif|svg|ico|woff2?|ttf|otf)$/i.test(normalizedPath)
+      ) {
+        res.setHeader('Cache-Control', 'public, max-age=2592000');
+        return;
+      }
+
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    },
+  })
+);
 
 app.use((_req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(distDir, 'index.html'));
 });
 
 app.listen(PORT, () => {
