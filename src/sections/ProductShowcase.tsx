@@ -1,3 +1,4 @@
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -304,7 +305,8 @@ export default function ProductShowcase({
           {products.map((product) => {
             const productUrl = getProductUrl(product)
             const stock = getStockInfo(product)
-            const productImage = product.image || product.images?.[0] || '/logo.jpg'
+            const productImage = getFastProductImage(product, 'card')
+            const productSrcSet = getFastProductSrcSet(product)
             const isVariable = product.hasOptions || product.type === 'variable'
             const sellerDisplay = getSellerDisplay(product)
 
@@ -317,7 +319,12 @@ export default function ProductShowcase({
                   <Link to={productUrl}>
                     <img
                       src={productImage}
+                      srcSet={productSrcSet}
+                      sizes={getProductImageSizes('card')}
                       alt={product.name}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
                       onError={(event) => {
                         event.currentTarget.src = '/logo.jpg'
                       }}

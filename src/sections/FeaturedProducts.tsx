@@ -1,3 +1,4 @@
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, ShoppingCart, Star, Eye, Check } from 'lucide-react'
@@ -125,8 +126,16 @@ export default function FeaturedProducts() {
               <div className="relative aspect-square overflow-hidden bg-dh-gray">
                 <Link to={`/product/${product.id}`}>
                   <img
-                    src={product.image}
+                    src={getFastProductImage(product, 'card')}
+                    srcSet={getFastProductSrcSet(product)}
+                    sizes={getProductImageSizes('card')}
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
+                    onError={(event) => {
+                      event.currentTarget.src = '/logo.jpg'
+                    }}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                 </Link>

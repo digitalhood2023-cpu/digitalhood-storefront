@@ -248,8 +248,9 @@ function getProductGalleryImages(product: any): string[] {
 function getPrimaryProductImage(product: any, images: string[] = []): string {
   return (
     product.imageCard ||
-    product.image ||
+    product.imageThumb ||
     product.imageMedium ||
+    product.image ||
     product.imageLarge ||
     product.imageOriginal ||
     images[0] ||
