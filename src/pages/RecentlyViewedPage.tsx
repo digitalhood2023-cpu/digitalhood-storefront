@@ -15,6 +15,7 @@ import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
 import { Button } from '@/components/ui/button'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 function formatPrice(price: number) {
   return `K${Number(price || 0).toLocaleString('en-ZM', {
@@ -226,8 +227,13 @@ export default function RecentlyViewedPage() {
                     <div className="relative aspect-[4/3] bg-dh-gray">
                       <Link to={getProductUrl(product)}>
                         <img
-                          src={product.image || '/logo.jpg'}
+                          src={getFastProductImage(product, 'card')}
+                          srcSet={getFastProductSrcSet(product)}
+                          sizes={getProductImageSizes('card')}
                           alt={product.name}
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}
@@ -299,8 +305,13 @@ export default function RecentlyViewedPage() {
                         className="block aspect-[4/3] overflow-hidden bg-dh-gray sm:aspect-auto"
                       >
                         <img
-                          src={product.image || '/logo.jpg'}
+                          src={getFastProductImage(product, 'card')}
+                          srcSet={getFastProductSrcSet(product)}
+                          sizes={getProductImageSizes('card')}
                           alt={product.name}
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}

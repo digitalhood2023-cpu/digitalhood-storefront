@@ -51,6 +51,7 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
 
 import gsap from 'gsap'
+import { getFastProductImage } from '@/lib/productImages'
 
 function getVariationLabel(variation: WooProductVariation) {
   const values = Object.values(variation.attributes || {}).filter(Boolean)
@@ -311,7 +312,7 @@ export default function ProductPage() {
       name: product.name,
       slug: product.slug || String(product.id),
       price: Number(product.price || 0),
-      image: product.image || product.images?.[0] || '/logo.jpg',
+      image: getFastProductImage(product, 'card'),
       rating: Number(product.averageRating || 0),
       reviews: Number(product.ratingCount || 0),
       category: product.categories?.[0]?.name || 'Marketplace',
@@ -652,7 +653,7 @@ export default function ProductPage() {
       type: product.type,
       price: activePrice,
       regular_price: activePrice,
-      image: activeImage || product.image || '/logo.jpg',
+      image: activeImage || getFastProductImage(product, 'card'),
       stock_status:
         matchingVariation?.stockStatus ||
         matchingVariation?.stock_status ||

@@ -15,6 +15,7 @@ import {
   searchProductsByImage,
   type SearchSuggestionProduct,
 } from '@/lib/woocommerce'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 type SearchAutocompleteProps = {
   compact?: boolean
@@ -402,9 +403,14 @@ export default function SearchAutocomplete({
                     >
                       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-dh-gray">
                         <img
-                          src={product.image || '/logo.jpg'}
+                          src={getFastProductImage(product, 'thumb')}
+                          srcSet={getFastProductSrcSet(product)}
+                          sizes={getProductImageSizes('search')}
                           alt={product.name}
                           className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}

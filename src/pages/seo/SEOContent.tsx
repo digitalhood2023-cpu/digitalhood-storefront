@@ -5,6 +5,7 @@ import { products } from '@/data/products';
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
 import gsap from 'gsap';
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 interface SEOContentProps {
   title: string;
@@ -104,8 +105,16 @@ export default function SEOContent({ title, description, keywords, categoryFilte
                 >
                   <div className="aspect-square overflow-hidden bg-gray-100">
                     <img
-                      src={product.image}
+                      src={getFastProductImage(product, 'card')}
+                      srcSet={getFastProductSrcSet(product)}
+                      sizes={getProductImageSizes('card')}
                       alt={product.name}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                      onError={(event) => {
+                        event.currentTarget.src = '/logo.jpg'
+                      }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>

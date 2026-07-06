@@ -28,6 +28,7 @@ import {
   type PublicSellerProduct,
   type PublicSellerStore,
 } from '@/api/publicSellers'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 function safeNumber(value: unknown, fallback = 0) {
   const numericValue = Number(value)
@@ -140,7 +141,7 @@ export default function SellerStorePage() {
         type: product.type,
         price: safeNumber(product.price),
         regular_price: safeNumber(product.regularPrice || product.price),
-        image: product.image || product.images?.[0] || '/logo.jpg',
+        image: getFastProductImage(product, 'card'),
         stock_status: product.stockStatus,
         stock_quantity: product.stockQuantity,
         stock_label: product.stockLabel,
@@ -417,7 +418,8 @@ export default function SellerStorePage() {
                 ) : (
                   <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                     {featuredProducts.map((product) => {
-                      const image = product.image || product.images?.[0] || '/logo.jpg'
+                      const image = getFastProductImage(product, 'card')
+                      const imageSrcSet = getFastProductSrcSet(product)
                       const productUrl = getProductUrl(product)
                       const canAdd =
                         product.canAddToCart !== false &&
@@ -433,7 +435,12 @@ export default function SellerStorePage() {
                             <Link to={productUrl}>
                               <img
                                 src={image}
+                                srcSet={imageSrcSet}
+                                sizes={getProductImageSizes('card')}
                                 alt={product.name}
+                                loading="lazy"
+                                decoding="async"
+                                fetchPriority="low"
                                 onError={(event) => {
                                   event.currentTarget.src = '/logo.jpg'
                                 }}

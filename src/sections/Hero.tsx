@@ -19,6 +19,7 @@ import {
 } from '@/lib/woocommerce'
 
 import gsap from 'gsap'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 function safeNumber(value: unknown, fallback = 0) {
   const numberValue = Number(value)
@@ -406,8 +407,13 @@ export default function Hero() {
                         className="group rounded-2xl p-2 transition-colors hover:bg-gray-50"
                       >
                         <img
-                          src={product.image || product.images?.[0] || '/logo.jpg'}
+                          src={getFastProductImage(product, 'thumb')}
+                          srcSet={getFastProductSrcSet(product)}
+                          sizes={getProductImageSizes('search')}
                           alt={product.name}
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}

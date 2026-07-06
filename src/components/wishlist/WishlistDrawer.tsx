@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import { useWishlist } from '@/context/WishlistContext'
 import { useCartStore } from '@/store/cartStore'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 type DrawerWishlistProduct = {
   id: string | number
@@ -15,6 +16,11 @@ type DrawerWishlistProduct = {
   price?: number | string
   regular_price?: number | string
   image?: string
+  imageThumb?: string
+  imageCard?: string
+  imageMedium?: string
+  imageLarge?: string
+  imageOriginal?: string
   images?: {
     src: string
   }[]
@@ -47,7 +53,30 @@ function formatPrice(price: unknown) {
 }
 
 function getProductImage(product: DrawerWishlistProduct) {
-  return product.images?.[0]?.src || product.image || '/logo.jpg'
+  return getFastProductImage(
+    {
+      image: product.image,
+      imageThumb: product.imageThumb,
+      imageCard: product.imageCard,
+      imageMedium: product.imageMedium,
+      imageLarge: product.imageLarge,
+      imageOriginal: product.imageOriginal,
+      images: product.images?.map((image) => image.src),
+    },
+    'card'
+  )
+}
+
+function getProductSrcSet(product: DrawerWishlistProduct) {
+  return getFastProductSrcSet({
+    image: product.image,
+    imageThumb: product.imageThumb,
+    imageCard: product.imageCard,
+    imageMedium: product.imageMedium,
+    imageLarge: product.imageLarge,
+    imageOriginal: product.imageOriginal,
+    images: product.images?.map((image) => image.src),
+  })
 }
 
 function getProductSlug(product: DrawerWishlistProduct) {
@@ -175,7 +204,12 @@ export default function WishlistDrawer() {
                       >
                         <img
                           src={getProductImage(product)}
+                          srcSet={getProductSrcSet(product)}
+                          sizes={getProductImageSizes('card')}
                           alt={product.name}
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}

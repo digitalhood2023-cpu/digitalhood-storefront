@@ -14,6 +14,7 @@ import {
 
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -358,8 +359,13 @@ export default function FlashSale() {
                   <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
                     <Link to={productUrl}>
                       <img
-                        src={product.image || '/logo.jpg'}
+                        src={getFastProductImage(product, 'card')}
+                        srcSet={getFastProductSrcSet(product)}
+                        sizes={getProductImageSizes('card')}
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        fetchPriority="low"
                         onError={(event) => {
                           event.currentTarget.src = '/logo.jpg'
                         }}

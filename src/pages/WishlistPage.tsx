@@ -18,6 +18,7 @@ import StockBadge from '@/components/StockBadge'
 import { Button } from '@/components/ui/button'
 import { useWishlist } from '@/context/WishlistContext'
 import { useCartStore } from '@/store/cartStore'
+import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 type WishlistProduct = {
   id: string | number
@@ -28,6 +29,11 @@ type WishlistProduct = {
   price?: number | string
   regular_price?: number | string
   image?: string
+  imageThumb?: string
+  imageCard?: string
+  imageMedium?: string
+  imageLarge?: string
+  imageOriginal?: string
   images?: {
     src: string
   }[]
@@ -119,7 +125,30 @@ function getSoldText(product: WishlistProduct) {
 }
 
 function getProductImage(product: WishlistProduct) {
-  return product.images?.[0]?.src || product.image || '/logo.jpg'
+  return getFastProductImage(
+    {
+      image: product.image,
+      imageThumb: product.imageThumb,
+      imageCard: product.imageCard,
+      imageMedium: product.imageMedium,
+      imageLarge: product.imageLarge,
+      imageOriginal: product.imageOriginal,
+      images: product.images?.map((image) => image.src),
+    },
+    'card'
+  )
+}
+
+function getProductSrcSet(product: WishlistProduct) {
+  return getFastProductSrcSet({
+    image: product.image,
+    imageThumb: product.imageThumb,
+    imageCard: product.imageCard,
+    imageMedium: product.imageMedium,
+    imageLarge: product.imageLarge,
+    imageOriginal: product.imageOriginal,
+    images: product.images?.map((image) => image.src),
+  })
 }
 
 function getProductSlug(product: WishlistProduct) {
@@ -283,9 +312,13 @@ export default function WishlistPage() {
                       <Link to={`/product/${getProductSlug(product)}`}>
                         <img
                           src={getProductImage(product)}
+                          srcSet={getProductSrcSet(product)}
+                          sizes={getProductImageSizes('card')}
                           alt={product.name}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}
@@ -381,9 +414,13 @@ export default function WishlistPage() {
                       >
                         <img
                           src={getProductImage(product)}
+                          srcSet={getProductSrcSet(product)}
+                          sizes={getProductImageSizes('card')}
                           alt={product.name}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           onError={(event) => {
                             event.currentTarget.src = '/logo.jpg'
                           }}
