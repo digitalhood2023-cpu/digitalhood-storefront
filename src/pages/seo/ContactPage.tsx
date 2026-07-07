@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, Clock, Mail, MapPin, Phone, ShieldCheck } from 'lucide-react'
 import Header from '@/sections/Header'
@@ -33,6 +34,23 @@ const contactCards = [
 ]
 
 export default function ContactPage() {
+  const [formHeight, setFormHeight] = useState(760)
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== 'https://digitalhood.info') return
+      if (event.data?.source !== 'digitalhood-contact-form') return
+
+      const nextHeight = Number(event.data?.height)
+      if (!Number.isFinite(nextHeight)) return
+
+      setFormHeight(Math.max(320, Math.min(nextHeight + 24, 900)))
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -87,7 +105,8 @@ export default function ContactPage() {
             <iframe
               title="DigitalHood contact form"
               src="https://digitalhood.info/?digitalhood_contact_embed=1"
-              className="h-[760px] w-full rounded-2xl border-0 bg-white"
+              className="w-full rounded-2xl border-0 bg-white transition-[height] duration-300"
+              style={{ height: `${formHeight}px` }}
               loading="lazy"
             />
           </section>
