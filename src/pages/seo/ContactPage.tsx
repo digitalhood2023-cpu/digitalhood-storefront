@@ -1,241 +1,139 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronRight, Phone, Mail, MapPin, Clock, Send, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import Header from '@/sections/Header';
-import Footer from '@/sections/Footer';
+import { Link } from 'react-router-dom'
+import { ChevronRight, Clock, Mail, MapPin, Phone, ShieldCheck } from 'lucide-react'
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
+
+const contactCards = [
+  {
+    icon: Phone,
+    title: 'Phone',
+    value: '+260 971 047 570',
+    helper: 'Mon-Sat, 8am-6pm',
+    href: 'tel:+260971047570',
+  },
+  {
+    icon: Mail,
+    title: 'Email',
+    value: 'contact@digitalhood.info',
+    helper: 'We reply as soon as possible',
+    href: 'mailto:contact@digitalhood.info',
+  },
+  {
+    icon: MapPin,
+    title: 'Location',
+    value: 'Lusaka, Zambia',
+    helper: 'DigitalHood Marketplace',
+  },
+  {
+    icon: Clock,
+    title: 'Business Hours',
+    value: 'Monday - Saturday',
+    helper: '8:00 AM - 6:00 PM',
+  },
+]
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: ''
-  });
-  const [isSubmitted, setIsSubmitted] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-    }, 3000);
-  };
-
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      
-      <main className="pt-6 pb-16">
-        {/* Breadcrumb */}
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 mb-6">
-          <nav className="flex items-center gap-2 text-sm text-gray-500">
-            <Link to="/" className="hover:text-black transition-colors">Home</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-black">Contact Us</span>
+
+      <main className="py-5 lg:py-8">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
+          <nav className="mb-5 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
+            <Link to="/" className="hover:text-dh-primary">
+              Home
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="font-medium text-dh-primary">Contact Us</span>
           </nav>
-        </div>
 
-        {/* Hero Section */}
-        <div className="bg-gradient-to-br from-gray-50 to-white py-12 lg:py-16 mb-12">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-            <div className="max-w-3xl mx-auto text-center">
-              <h1 className="font-display font-bold text-3xl sm:text-4xl lg:text-5xl text-black mb-4">
-                Contact DigitalHood Zambia
-              </h1>
-              <p className="text-lg text-gray-600">
-                Have a question? We're here to help. Reach out to us via phone, email, or visit our store in Lusaka.
+          <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-dh-primary via-[#1d1a78] to-[#0f0d3d] p-5 text-white shadow-sm sm:p-7 lg:p-10">
+            <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr] lg:items-center">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-dh-secondary">
+                  <ShieldCheck className="h-4 w-4" />
+                  Secure contact form
+                </div>
+
+                <h1 className="font-display text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+                  Contact DigitalHood Zambia
+                </h1>
+
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">
+                  Send us your question, quotation request, order inquiry, or seller support message.
+                  Our WordPress WPForms contact form is protected with reCAPTCHA V2.
+                </p>
+              </div>
+
+              <div className="rounded-3xl bg-white/10 p-4 ring-1 ring-white/15">
+                <p className="text-sm font-bold text-dh-secondary">Need quick help?</p>
+                <p className="mt-2 text-sm leading-6 text-white/75">
+                  Call us directly or use the form below. Required fields are Name, Email,
+                  Phone Number, and Message.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {contactCards.map((card) => {
+              const Icon = card.icon
+              const content = (
+                <div className="h-full rounded-3xl bg-white p-5 shadow-sm ring-1 ring-dh-light-gray transition hover:-translate-y-1 hover:shadow-xl">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-black uppercase tracking-wide text-dh-dark-gray">
+                    {card.title}
+                  </p>
+                  <p className="mt-1 break-words font-display text-lg font-black text-dh-primary">
+                    {card.value}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-dh-dark-gray">{card.helper}</p>
+                </div>
+              )
+
+              return card.href ? (
+                <a key={card.title} href={card.href}>
+                  {content}
+                </a>
+              ) : (
+                <div key={card.title}>{content}</div>
+              )
+            })}
+          </section>
+
+          <section className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+            <aside className="rounded-[2rem] bg-dh-gray p-5 sm:p-7">
+              <h2 className="font-display text-2xl font-black text-dh-primary">
+                Send us a message
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-dh-dark-gray">
+                This form is connected to the official WordPress WPForms form on digitalhood.info,
+                so your submissions go through the same spam protection, notifications, and entries.
               </p>
-            </div>
-          </div>
-        </div>
 
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
-            {/* Contact Info */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h2 className="font-display font-bold text-xl text-black mb-6">Contact Information</h2>
-                
-                <div className="space-y-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
-                      <Phone className="w-6 h-6 text-[#ffb54a]" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-black mb-1">Phone</h3>
-                      <a href="tel:+260971047570" className="text-gray-600 hover:text-black transition-colors">
-                        +260 971 047 570
-                      </a>
-                      <p className="text-gray-500 text-sm mt-1">Mon-Sat, 8am-6pm</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
-                      <Mail className="w-6 h-6 text-[#ffb54a]" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-black mb-1">Email</h3>
-                      <a href="mailto:Contact@digitalhood.info" className="text-gray-600 hover:text-black transition-colors">
-                        Contact@digitalhood.info
-                      </a>
-                      <p className="text-gray-500 text-sm mt-1">We reply within 24 hours</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
-                      <MapPin className="w-6 h-6 text-[#ffb54a]" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-black mb-1">Location</h3>
-                      <p className="text-gray-600">Lusaka, Zambia</p>
-                      <p className="text-gray-500 text-sm mt-1">Visit our store</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shrink-0">
-                      <Clock className="w-6 h-6 text-[#ffb54a]" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-black mb-1">Business Hours</h3>
-                      <p className="text-gray-600">Monday - Saturday</p>
-                      <p className="text-gray-500 text-sm">8:00 AM - 6:00 PM</p>
-                      <p className="text-gray-500 text-sm">Sunday: Closed</p>
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-5 rounded-3xl bg-white p-4 shadow-sm">
+                <p className="text-sm font-black text-dh-primary">Form protection</p>
+                <p className="mt-2 text-sm leading-6 text-dh-dark-gray">
+                  reCAPTCHA V2 is active. Complete the CAPTCHA before submitting.
+                </p>
               </div>
+            </aside>
 
-              {/* Quick Links */}
-              <div className="bg-black rounded-xl p-6">
-                <h3 className="font-semibold text-white mb-4">Quick Links</h3>
-                <div className="space-y-2">
-                  <Link to="/shop" className="block text-gray-400 hover:text-[#ffb54a] transition-colors">
-                    Shop Products
-                  </Link>
-                  <Link to="/track-order" className="block text-gray-400 hover:text-[#ffb54a] transition-colors">
-                    Track Your Order
-                  </Link>
-                  <Link to="/shipping" className="block text-gray-400 hover:text-[#ffb54a] transition-colors">
-                    Shipping Information
-                  </Link>
-                  <Link to="/returns" className="block text-gray-400 hover:text-[#ffb54a] transition-colors">
-                    Returns & Refunds
-                  </Link>
-                </div>
-              </div>
+            <div className="overflow-hidden rounded-[2rem] bg-white p-3 shadow-sm ring-1 ring-dh-light-gray sm:p-5">
+              <iframe
+                title="DigitalHood contact form"
+                src="https://digitalhood.info/?digitalhood_contact_embed=1"
+                className="h-[820px] w-full rounded-2xl border-0 bg-white"
+                loading="lazy"
+              />
             </div>
-
-            {/* Contact Form */}
-            <div className="lg:col-span-2">
-              <div className="bg-gray-50 rounded-xl p-6 lg:p-8">
-                <h2 className="font-display font-bold text-xl text-black mb-6">
-                  Send us a Message
-                </h2>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid sm:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="name">Your Name</Label>
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="John Doe"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email Address</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="john@example.com"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="+260 97X XXX XXX"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="subject">Subject</Label>
-                      <Input
-                        id="subject"
-                        type="text"
-                        placeholder="How can we help?"
-                        value={formData.subject}
-                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                        required
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea
-                      id="message"
-                      placeholder="Tell us more about your inquiry..."
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      required
-                      className="mt-1 min-h-[150px]"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isSubmitted}
-                    className={`w-full sm:w-auto transition-all ${
-                      isSubmitted
-                        ? 'bg-green-500 hover:bg-green-600'
-                        : 'bg-black hover:bg-[#ffb54a] hover:text-black'
-                    } text-white px-8`}
-                  >
-                    {isSubmitted ? (
-                      <>
-                        <Check className="w-4 h-4 mr-2" />
-                        Message Sent!
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Send Message
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </div>
-            </div>
-          </div>
+          </section>
         </div>
       </main>
 
       <Footer />
     </div>
-  );
+  )
 }
