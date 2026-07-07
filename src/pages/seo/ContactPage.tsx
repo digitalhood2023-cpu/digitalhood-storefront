@@ -214,7 +214,7 @@ export default function ContactPage() {
             </div>
           </section>
 
-          <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.42fr]">
+          <section className="mt-5">
             <div className="overflow-hidden rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-dh-light-gray sm:p-6">
               {caseNumber ? (
                 <div className="rounded-[1.75rem] bg-gradient-to-br from-green-50 to-white p-5 text-center ring-1 ring-green-100 sm:p-8">
@@ -416,39 +416,6 @@ export default function ContactPage() {
                 </>
               )}
             </div>
-
-            <aside className="rounded-[2rem] bg-dh-primary p-5 text-white shadow-sm">
-              <p className="text-sm font-black uppercase tracking-wide text-dh-secondary">
-                Support promise
-              </p>
-
-              <h3 className="mt-3 font-display text-2xl font-black">
-                Built for marketplace support
-              </h3>
-
-              <p className="mt-3 text-sm leading-7 text-white/75">
-                This contact system is now part of DigitalHood’s own support case platform.
-                It can grow into order disputes, warranty claims, seller support, returns,
-                attachments, and tracking.
-              </p>
-
-              <div className="mt-5 grid gap-3">
-                {[
-                  'Instant case number',
-                  'Customer acknowledgement email',
-                  'Internal DigitalHood support record',
-                  'Ready for admin dashboard management',
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-3 rounded-2xl bg-white/10 p-3 text-sm font-bold text-white/85 ring-1 ring-white/10"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-dh-secondary" />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </aside>
           </section>
 
           <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
