@@ -818,11 +818,11 @@ export default function OrderDetailsPage() {
 
               <DetailCard
                 icon={<ShieldCheck className="h-6 w-6" />}
-                title="Need help?"
+                title="Order case"
               >
                 <p className="text-sm text-dh-dark-gray">
-                  Contact DigitalHood support with your order number if you need
-                  help with payment, product availability, or delivery.
+                  Open a case for this order if there is an issue with payment,
+                  delivery, product condition, or return/refund support.
                 </p>
 
                 <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
@@ -833,14 +833,26 @@ export default function OrderDetailsPage() {
                   <p className="mt-1 text-dh-dark-gray">
                     #{order.number || order.id}
                   </p>
+
+                  {order.caseEligibility?.deadline && (
+                    <p className="mt-2 text-xs font-semibold text-dh-dark-gray">
+                      Case window ends: {formatDate(order.caseEligibility.deadline)}
+                    </p>
+                  )}
                 </div>
 
-                <Link
-                  to={buildOrderSupportUrl(order)}
-                  className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
-                >
-                  Contact Support
-                </Link>
+                {order.caseEligibility?.canOpenCase ? (
+                  <Link
+                    to={buildOrderSupportUrl(order)}
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
+                  >
+                    Open Order Case
+                  </Link>
+                ) : (
+                  <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">
+                    {order.caseEligibility?.reason || 'Order cases are not available for this order right now.'}
+                  </div>
+                )}
               </DetailCard>
             </aside>
           </section>

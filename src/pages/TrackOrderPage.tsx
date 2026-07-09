@@ -913,12 +913,12 @@ export default function TrackOrderPage() {
 
                   <div className="rounded-3xl bg-white p-6">
                     <h3 className="font-display mb-4 text-lg font-bold text-dh-primary">
-                      Need help?
+                      Order case
                     </h3>
 
                     <p className="text-sm text-dh-dark-gray">
-                      Contact DigitalHood support with your order number if you
-                      need help with payment, delivery, or product availability.
+                      Open a case for this order if there is an issue with payment,
+                      delivery, product condition, or return/refund support.
                     </p>
 
                     <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
@@ -929,14 +929,26 @@ export default function TrackOrderPage() {
                       <p className="mt-1 text-dh-dark-gray">
                         #{order.number || order.id}
                       </p>
+
+                      {order.caseEligibility?.deadline && (
+                        <p className="mt-2 text-xs font-semibold text-dh-dark-gray">
+                          Case window ends: {formatDate(order.caseEligibility.deadline)}
+                        </p>
+                      )}
                     </div>
 
-                    <Link
-                      to={buildOrderSupportUrl(order)}
-                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
-                    >
-                      Contact Support
-                    </Link>
+                    {order.caseEligibility?.canOpenCase ? (
+                      <Link
+                        to={buildOrderSupportUrl(order)}
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
+                      >
+                        Open Order Case
+                      </Link>
+                    ) : (
+                      <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">
+                        {order.caseEligibility?.reason || 'Order cases are not available for this order right now.'}
+                      </div>
+                    )}
                   </div>
                 </aside>
               </section>

@@ -59,6 +59,17 @@ export type AccountDeliveryEstimate = {
   skipDays?: string[]
 }
 
+export type AccountOrderCaseEligibility = {
+  canOpenCase: boolean
+  reasonCode?: string
+  reason?: string
+  caseWindowDays?: number
+  opensAt?: string | null
+  deadline?: string | null
+  deliveredAt?: string | null
+  final?: boolean
+}
+
 export type AccountOrderItemMeta = {
   key?: string
   value?: unknown
@@ -100,6 +111,8 @@ export type AccountOrder = {
   transactionId?: string
   customerNote?: string
   deliveryEstimate?: AccountDeliveryEstimate
+  caseEligibility?: AccountOrderCaseEligibility
+  dateCompleted?: string | null
   billing?: {
     firstName?: string
     lastName?: string
