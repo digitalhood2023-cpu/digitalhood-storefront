@@ -24,7 +24,12 @@ export function getOrderSupportType(order: OrderLike = {}): SupportCaseType {
     return 'RETURN_REFUND'
   }
 
-  if (status === 'out-for-delivery' || status === 'outfordelivery' || status === 'shipped' || status === 'delivered') {
+  if (
+    status === 'out-for-delivery' ||
+    status === 'outfordelivery' ||
+    status === 'shipped' ||
+    status === 'delivered'
+  ) {
     return 'DELIVERY_SUPPORT'
   }
 
