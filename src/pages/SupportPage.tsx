@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -79,7 +80,13 @@ function StatusPill({ value }: { value?: string }) {
 }
 
 export default function SupportPage() {
-  const [mode, setMode] = useState<SupportMode>('create')
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const [mode, setMode] = useState<SupportMode>(() => {
+    return location.pathname.includes('/track') || searchParams.get('mode') === 'track'
+      ? 'track'
+      : 'create'
+  })
   const [startedAt] = useState(Date.now())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLookingUp, setIsLookingUp] = useState(false)
@@ -102,6 +109,42 @@ export default function SupportPage() {
     caseNumber: '',
     email: '',
   })
+
+  useEffect(() => {
+    const typeParam = searchParams.get('type') as SupportCaseType | null
+    const orderNumberParam = searchParams.get('orderNumber') || ''
+    const subjectParam = searchParams.get('subject') || ''
+    const messageParam = searchParams.get('message') || ''
+    const caseNumberParam = searchParams.get('caseNumber') || ''
+    const emailParam = searchParams.get('email') || ''
+    const modeParam = searchParams.get('mode') as SupportMode | null
+
+    const validType = typeParam && supportTypes.some((item) => item.value === typeParam)
+
+    if (location.pathname.includes('/track') || modeParam === 'track' || caseNumberParam) {
+      setMode('track')
+    } else if (modeParam === 'create' || validType || orderNumberParam || subjectParam || messageParam) {
+      setMode('create')
+    }
+
+    if (validType || orderNumberParam || subjectParam || messageParam) {
+      setForm((current) => ({
+        ...current,
+        type: validType ? typeParam : current.type,
+        orderNumber: orderNumberParam || current.orderNumber,
+        subject: subjectParam || current.subject,
+        message: messageParam || current.message,
+      }))
+    }
+
+    if (caseNumberParam || emailParam) {
+      setTrackForm((current) => ({
+        ...current,
+        caseNumber: caseNumberParam || current.caseNumber,
+        email: emailParam || current.email,
+      }))
+    }
+  }, [location.pathname, searchParams])
 
   useEffect(() => {
     if (successCaseNumber) {
