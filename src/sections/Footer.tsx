@@ -20,6 +20,8 @@ const shopLinks = [
 ]
 
 const supportLinks = [
+  { name: 'Support Center', href: '/support' },
+  { name: 'Track Support Case', href: '/support/track' },
   { name: 'Help', href: '/help' },
   { name: 'Shipping', href: '/shipping' },
   { name: 'Returns', href: '/returns' },
