@@ -13,6 +13,9 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
+
 import SEO from '@/components/SEO'
 import {
   createSupportCase,
@@ -207,7 +210,10 @@ export default function SupportPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
+    <>
+      <Header />
+
+      <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
       <SEO
         title="DigitalHood Support Center Zambia | Track Support Cases"
         description="Create and track DigitalHood Marketplace support cases for orders, payments, delivery, warranty, returns and seller support in Zambia."
@@ -568,6 +574,9 @@ export default function SupportPage() {
           </div>
         )}
       </section>
-    </main>
+      </main>
+
+      <Footer />
+    </>
   )
 }

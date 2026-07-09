@@ -12,6 +12,9 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
+
 import SEO from '@/components/SEO'
 
 const contactCards = [
@@ -54,7 +57,10 @@ const supportCards = [
 
 export default function ContactPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/60">
+    <>
+      <Header />
+
+      <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/60">
       <SEO
         title="Contact DigitalHood Zambia | Support Center"
         description="Contact DigitalHood Marketplace Zambia or create and track a support case for orders, payments, delivery, warranty, returns, quotations and seller support."
@@ -217,12 +223,15 @@ export default function ContactPage() {
               Support response
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Our team reviews marketplace support cases from the DigitalHood admin support desk.
+              DigitalHood reviews marketplace support cases and follows up with updates.
             </p>
           </div>
         </aside>
       </section>
-    </main>
+      </main>
+
+      <Footer />
+    </>
   )
 }
 
