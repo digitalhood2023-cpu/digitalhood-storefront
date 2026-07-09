@@ -3,14 +3,10 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
-  Clock3,
-  LifeBuoy,
   Mail,
-  MessageSquareText,
   PackageSearch,
   Search,
   Send,
-  ShieldCheck,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -378,64 +374,12 @@ export default function SupportPage() {
 
       <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
       <SEO
-        title="DigitalHood Support Center Zambia | Track Support Cases"
-        description="Create and track DigitalHood Marketplace support cases for orders, payments, delivery, warranty, returns and seller support in Zambia."
+        title="DigitalHood Support Cases Zambia | DigitalHood"
+        description="Create and track DigitalHood support cases for orders, payments, delivery, warranty, returns and seller support in Zambia."
       />
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[1fr_420px] lg:px-6 lg:py-12">
-        <div className="overflow-hidden rounded-[2rem] bg-[#26248c] text-white shadow-2xl shadow-[#26248c]/15">
-          <div className="p-6 md:p-8">
-            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#ffb54a]">
-              <LifeBuoy className="h-4 w-4" />
-              DigitalHood Support Center
-            </p>
-            <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-5xl">
-              Get help and track your support case.
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-white/72">
-              Create a support case for orders, payments, delivery, warranty, returns, quotations and marketplace issues. Every request gets a case number for follow-up.
-            </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {[
-                { icon: ShieldCheck, title: 'Trackable cases', text: 'Every request gets a DigitalHood case number.' },
-                { icon: Clock3, title: 'Admin follow-up', text: 'Our team updates status inside the support desk.' },
-                { icon: MessageSquareText, title: 'Email replies', text: 'Replies are sent to your case email address.' },
-              ].map((item) => {
-                const Icon = item.icon
-
-                return (
-                  <div key={item.title} className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
-                    <Icon className="h-5 w-5 text-[#ffb54a]" />
-                    <p className="mt-3 text-sm font-black">{item.title}</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-white/60">{item.text}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        <aside className="rounded-[2rem] bg-white p-5 shadow-xl shadow-slate-200/70 ring-1 ring-slate-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-            Quick help
-          </p>
-          <div className="mt-4 grid gap-3">
-            {[
-              ['Email', 'contact@digitalhood.info'],
-              ['Phone', '+260 971 047 570'],
-              ['Marketplace', 'store.digitalhood.info'],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-                <p className="mt-1 text-sm font-black text-[#26248c]">{value}</p>
-              </div>
-            ))}
-          </div>
-        </aside>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 pb-12 lg:px-6">
+      <section className="mx-auto max-w-7xl px-4 py-8 lg:px-6">
         <div className="mb-5 flex flex-wrap gap-2">
           <button
             type="button"
