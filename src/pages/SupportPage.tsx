@@ -26,6 +26,22 @@ import {
 
 type SupportMode = 'create' | 'track'
 
+type SupportCaseField = {
+  name: string
+  label: string
+  placeholder?: string
+  required?: boolean
+  textarea?: boolean
+  type?: string
+}
+
+type SupportCaseFormConfig = {
+  subjectPlaceholder: string
+  messageLabel: string
+  messagePlaceholder: string
+  fields: SupportCaseField[]
+}
+
 const supportTypes: Array<{ value: SupportCaseType; label: string; helper: string }> = [
   { value: 'GENERAL_CONTACT', label: 'General contact', helper: 'Questions, business inquiries and normal support.' },
   { value: 'ORDER_SUPPORT', label: 'Order support', helper: 'Help with a DigitalHood order.' },
@@ -38,6 +54,137 @@ const supportTypes: Array<{ value: SupportCaseType; label: string; helper: strin
   { value: 'QUOTE_REQUEST', label: 'Quotation request', helper: 'Formal quotations for companies, schools and tenders.' },
   { value: 'TECHNICAL_ISSUE', label: 'Technical issue', helper: 'Website, checkout or account technical problem.' },
 ]
+
+const supportCaseFormConfigs: Partial<Record<SupportCaseType, SupportCaseFormConfig>> = {
+  GENERAL_CONTACT: {
+    subjectPlaceholder: 'What do you need help with?',
+    messageLabel: 'Message',
+    messagePlaceholder: 'Explain your question or request clearly.',
+    fields: [
+      { name: 'contactReason', label: 'Reason for contacting us', placeholder: 'Business inquiry, general question, partnership, other' },
+      { name: 'preferredContactMethod', label: 'Preferred contact method', placeholder: 'Email, phone call or WhatsApp' },
+    ],
+  },
+  ORDER_SUPPORT: {
+    subjectPlaceholder: 'What is the order issue?',
+    messageLabel: 'Order issue details',
+    messagePlaceholder: 'Explain what happened with this order.',
+    fields: [
+      { name: 'issueReason', label: 'Order issue reason', required: true, placeholder: 'Wrong item, missing item, damaged item, order status, other' },
+      { name: 'affectedItem', label: 'Affected item', placeholder: 'Product name or item in the order' },
+    ],
+  },
+  PAYMENT_SUPPORT: {
+    subjectPlaceholder: 'What payment issue happened?',
+    messageLabel: 'Payment issue details',
+    messagePlaceholder: 'Explain the payment issue and include any useful reference.',
+    fields: [
+      { name: 'paymentMethod', label: 'Payment method', required: true, placeholder: 'MTN, Airtel, Zamtel, card, bank transfer' },
+      { name: 'paymentReference', label: 'Payment or transaction reference', placeholder: 'Transaction ID, mobile money reference or card reference' },
+      { name: 'paymentAmount', label: 'Amount paid', placeholder: 'Example: K1,250' },
+      { name: 'paymentDate', label: 'Payment date', type: 'date' },
+    ],
+  },
+  DELIVERY_SUPPORT: {
+    subjectPlaceholder: 'What delivery issue happened?',
+    messageLabel: 'Delivery issue details',
+    messagePlaceholder: 'Explain the delivery issue, address concern or pickup issue.',
+    fields: [
+      { name: 'deliveryIssue', label: 'Delivery issue', required: true, placeholder: 'Late delivery, wrong address, pickup issue, rider issue' },
+      { name: 'deliveryCity', label: 'Delivery city/town', placeholder: 'Example: Lusaka' },
+      { name: 'deliveryAddress', label: 'Delivery address', placeholder: 'Address related to the delivery issue' },
+    ],
+  },
+  RETURN_REFUND: {
+    subjectPlaceholder: 'What return or refund do you need?',
+    messageLabel: 'Return/refund details',
+    messagePlaceholder: 'Explain why you want a return or refund and what resolution you prefer.',
+    fields: [
+      { name: 'affectedItem', label: 'Item to return/refund', required: true, placeholder: 'Product name' },
+      { name: 'returnReason', label: 'Reason', required: true, placeholder: 'Damaged, wrong item, not as described, changed mind' },
+      { name: 'preferredResolution', label: 'Preferred resolution', placeholder: 'Refund, replacement, exchange, repair' },
+    ],
+  },
+  WARRANTY_CLAIM: {
+    subjectPlaceholder: 'What warranty issue do you have?',
+    messageLabel: 'Warranty issue details',
+    messagePlaceholder: 'Explain the fault, when it started, and how the product is behaving.',
+    fields: [
+      { name: 'productName', label: 'Product name/model', required: true, placeholder: 'Example: HP EliteBook 840 G5' },
+      { name: 'faultDescription', label: 'Fault description', required: true, textarea: true, placeholder: 'Describe the fault clearly' },
+      { name: 'purchaseDate', label: 'Purchase date if known', type: 'date' },
+      { name: 'serialNumber', label: 'Serial number if available', placeholder: 'Optional' },
+    ],
+  },
+  SELLER_SUPPORT: {
+    subjectPlaceholder: 'What seller issue do you need help with?',
+    messageLabel: 'Seller support details',
+    messagePlaceholder: 'Explain the seller account, store or listing issue.',
+    fields: [
+      { name: 'storeName', label: 'Store name', placeholder: 'Your DigitalHood store name' },
+      { name: 'sellerEmail', label: 'Seller email', type: 'email', placeholder: 'seller@example.com' },
+      { name: 'sellerIssueArea', label: 'Issue area', required: true, placeholder: 'Login, products, orders, payout, store settings' },
+    ],
+  },
+  PRODUCT_INQUIRY: {
+    subjectPlaceholder: 'What product are you asking about?',
+    messageLabel: 'Product question',
+    messagePlaceholder: 'Ask your product question clearly.',
+    fields: [
+      { name: 'productName', label: 'Product name/link', required: true, placeholder: 'Product name or DigitalHood product link' },
+      { name: 'quantityNeeded', label: 'Quantity needed', placeholder: 'Example: 1, 5, 20' },
+      { name: 'buyingTimeline', label: 'Buying timeline', placeholder: 'Today, this week, next month' },
+    ],
+  },
+  QUOTE_REQUEST: {
+    subjectPlaceholder: 'Quotation request title',
+    messageLabel: 'Quotation details',
+    messagePlaceholder: 'List the items/specifications needed. Include brands, quantities and delivery requirements.',
+    fields: [
+      { name: 'organizationName', label: 'Company/school/organization name', required: true, placeholder: 'Organization name' },
+      { name: 'contactPerson', label: 'Contact person', required: true, placeholder: 'Name of procurement/contact person' },
+      { name: 'itemsNeeded', label: 'Items needed', required: true, textarea: true, placeholder: 'Example: 10 laptops, Core i5, 8GB RAM, 256GB SSD' },
+      { name: 'deliveryLocation', label: 'Delivery location', placeholder: 'Town/city or full delivery location' },
+      { name: 'quotationDeadline', label: 'Quotation deadline', type: 'date' },
+    ],
+  },
+  TECHNICAL_ISSUE: {
+    subjectPlaceholder: 'What technical issue happened?',
+    messageLabel: 'Technical issue details',
+    messagePlaceholder: 'Explain what you were trying to do, what happened, and any error message shown.',
+    fields: [
+      { name: 'pageUrl', label: 'Page or URL with the issue', placeholder: 'Example: checkout page, product page, account page' },
+      { name: 'deviceBrowser', label: 'Device/browser', placeholder: 'Example: iPhone Safari, Android Chrome, Windows Chrome' },
+      { name: 'technicalIssueType', label: 'Issue type', required: true, placeholder: 'Checkout error, login issue, page not loading, payment form issue' },
+      { name: 'stepsTaken', label: 'Steps taken before the issue', textarea: true, placeholder: 'Tell us what you clicked or entered before the issue happened' },
+    ],
+  },
+  BUSINESS_INQUIRY: {
+    subjectPlaceholder: 'Business inquiry title',
+    messageLabel: 'Business inquiry details',
+    messagePlaceholder: 'Explain the partnership, company request or business inquiry.',
+    fields: [
+      { name: 'companyName', label: 'Company name', placeholder: 'Company or organization name' },
+      { name: 'inquiryType', label: 'Inquiry type', placeholder: 'Partnership, supply, corporate account, tender, other' },
+    ],
+  },
+  FRAUD_REPORT: {
+    subjectPlaceholder: 'Fraud or safety report title',
+    messageLabel: 'Report details',
+    messagePlaceholder: 'Explain what happened and include any evidence or related order/product details.',
+    fields: [
+      { name: 'reportType', label: 'Report type', required: true, placeholder: 'Suspicious seller, fake product, payment fraud, impersonation' },
+      { name: 'relatedOrderOrProduct', label: 'Related order/product/seller', placeholder: 'Order number, product link or seller name' },
+    ],
+  },
+}
+
+const defaultSupportFormConfig: SupportCaseFormConfig = {
+  subjectPlaceholder: 'What do you need help with?',
+  messageLabel: 'Message',
+  messagePlaceholder: 'Explain the issue clearly. Include payment/order details if relevant.',
+  fields: [],
+}
 
 function formatDate(value?: string) {
   if (!value) return '—'
@@ -106,6 +253,7 @@ export default function SupportPage() {
     subject: '',
     message: '',
     companyWebsite: '',
+    caseDetails: {} as Record<string, string>,
   })
 
   const [trackForm, setTrackForm] = useState({
@@ -163,6 +311,20 @@ export default function SupportPage() {
     return supportTypes.find((item) => item.value === form.type) || supportTypes[0]
   }, [form.type])
 
+  const selectedFormConfig = useMemo(() => {
+    return supportCaseFormConfigs[form.type] || defaultSupportFormConfig
+  }, [form.type])
+
+  function updateCaseDetail(name: string, value: string) {
+    setForm((current) => ({
+      ...current,
+      caseDetails: {
+        ...current.caseDetails,
+        [name]: value,
+      },
+    }))
+  }
+
   async function handleCreateCase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
@@ -185,6 +347,7 @@ export default function SupportPage() {
         message: '',
         orderNumber: '',
         companyWebsite: '',
+        caseDetails: {},
       }))
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to create support case.')
@@ -331,7 +494,7 @@ export default function SupportPage() {
                   <button
                     key={type.value}
                     type="button"
-                    onClick={() => setForm((current) => ({ ...current, type: type.value }))}
+                    onClick={() => setForm((current) => ({ ...current, type: type.value, caseDetails: {} }))}
                     className={`rounded-2xl p-3 text-left transition ${
                       form.type === type.value
                         ? 'bg-[#26248c] text-white'
@@ -411,10 +574,46 @@ export default function SupportPage() {
                     value={form.orderNumber}
                     onChange={(event) => setForm((current) => ({ ...current, orderNumber: event.target.value }))}
                     className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"
-                    placeholder="Optional"
+                    placeholder={['ORDER_SUPPORT', 'PAYMENT_SUPPORT', 'DELIVERY_SUPPORT', 'RETURN_REFUND', 'WARRANTY_CLAIM'].includes(form.type) ? 'Required for this case type' : 'Optional'}
+                    required={['ORDER_SUPPORT', 'PAYMENT_SUPPORT', 'DELIVERY_SUPPORT', 'RETURN_REFUND', 'WARRANTY_CLAIM'].includes(form.type)}
                   />
                 </label>
               </div>
+
+              {selectedFormConfig.fields.length > 0 && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {selectedFormConfig.fields.map((field) => (
+                    <label
+                      key={field.name}
+                      className={field.textarea ? 'grid gap-1 md:col-span-2' : 'grid gap-1'}
+                    >
+                      <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        {field.label}
+                      </span>
+
+                      {field.textarea ? (
+                        <textarea
+                          required={field.required}
+                          rows={4}
+                          value={form.caseDetails[field.name] || ''}
+                          onChange={(event) => updateCaseDetail(field.name, event.target.value)}
+                          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-[#26248c]"
+                          placeholder={field.placeholder}
+                        />
+                      ) : (
+                        <input
+                          required={field.required}
+                          type={field.type || 'text'}
+                          value={form.caseDetails[field.name] || ''}
+                          onChange={(event) => updateCaseDetail(field.name, event.target.value)}
+                          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"
+                          placeholder={field.placeholder}
+                        />
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
 
               <label className="grid gap-1">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">Subject</span>
@@ -423,19 +622,19 @@ export default function SupportPage() {
                   value={form.subject}
                   onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
                   className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"
-                  placeholder="What do you need help with?"
+                  placeholder={selectedFormConfig.subjectPlaceholder}
                 />
               </label>
 
               <label className="grid gap-1">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-500">Message</span>
+                <span className="text-xs font-black uppercase tracking-wide text-slate-500">{selectedFormConfig.messageLabel}</span>
                 <textarea
                   required
                   rows={7}
                   value={form.message}
                   onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
                   className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-[#26248c]"
-                  placeholder="Explain the issue clearly. Include payment/order details if relevant."
+                  placeholder={selectedFormConfig.messagePlaceholder}
                 />
               </label>
 

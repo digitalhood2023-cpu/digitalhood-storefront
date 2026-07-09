@@ -27,6 +27,7 @@ export type CreateSupportCasePayload = {
   pageUrl?: string
   startedAt?: number
   companyWebsite?: string
+  caseDetails?: Record<string, string>
 }
 
 export type PublicSupportCase = {
