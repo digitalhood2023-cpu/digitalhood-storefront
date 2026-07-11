@@ -368,7 +368,8 @@ export default function AccountPage() {
       setIsOrdersLoading(true)
 
       try {
-        const response = await getCustomerOrders()
+        // The dashboard only displays the latest three orders.
+        const response = await getCustomerOrders(3)
 
         if (mounted) {
           setOrders(response.orders || [])

@@ -409,8 +409,15 @@ export async function deleteCustomerSavedAddress(addressId: string) {
   )
 }
 
-export async function getCustomerOrders() {
-  return accountFetch<OrdersResponse>('/api/account/orders')
+export async function getCustomerOrders(limit?: number) {
+  const query =
+    typeof limit === 'number'
+      ? `?limit=${encodeURIComponent(String(limit))}`
+      : ''
+
+  return accountFetch<OrdersResponse>(
+    `/api/account/orders${query}`
+  )
 }
 
 export async function getCustomerOrder(orderId: string | number) {
