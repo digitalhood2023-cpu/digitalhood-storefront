@@ -18,7 +18,6 @@ import {
   ShoppingBag,
   Star,
   Trash2,
-  Truck,
   UserRound,
   X,
 } from 'lucide-react'
@@ -39,7 +38,6 @@ import {
   getCustomerOrders,
   getCustomerSavedAddresses,
   setDefaultCustomerSavedAddress,
-  updateCustomerProfile,
   updateCustomerSavedAddress,
   type AccountOrder,
   type SavedCustomerAddress,
@@ -321,22 +319,15 @@ export default function AccountPage() {
   const [defaultAddressId, setDefaultAddressId] = useState('')
   const [isOrdersLoading, setIsOrdersLoading] = useState(false)
   const [isAddressesLoading, setIsAddressesLoading] = useState(false)
-  const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingAddress, setIsSavingAddress] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [busyAddressId, setBusyAddressId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
   const [isAddressManagerOpen, setIsAddressManagerOpen] = useState(false)
   const [editingAddressId, setEditingAddressId] = useState('')
 
-  const [profileForm, setProfileForm] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-  })
 
   const [addressForm, setAddressForm] =
     useState<AddressFormData>(emptyAddressForm)
@@ -363,11 +354,6 @@ export default function AccountPage() {
   useEffect(() => {
     if (!customer) return
 
-    setProfileForm({
-      firstName: customer.firstName || '',
-      lastName: customer.lastName || '',
-      phone: customer.billing?.phone || '',
-    })
 
     setSavedAddresses(customer.savedAddresses || [])
     setDefaultAddressId(customer.defaultAddressId || customer.savedAddresses?.[0]?.id || '')
@@ -469,15 +455,6 @@ export default function AccountPage() {
   }
 
 
-  const updateProfileField = (
-    field: keyof typeof profileForm,
-    value: string
-  ) => {
-    setProfileForm((current) => ({
-      ...current,
-      [field]: value,
-    }))
-  }
 
   const updateAddressField = (
     field: keyof AddressFormData,
@@ -533,57 +510,6 @@ export default function AccountPage() {
     if (!addressForm.province.trim()) return 'Province is required.'
 
     return ''
-  }
-
-  const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    if (!profileForm.firstName.trim()) {
-      setErrorMessage('First name is required.')
-      return
-    }
-
-    if (!profileForm.lastName.trim()) {
-      setErrorMessage('Last name is required.')
-      return
-    }
-
-    setIsSavingProfile(true)
-
-    try {
-      const response = await updateCustomerProfile({
-        firstName: profileForm.firstName.trim(),
-        lastName: profileForm.lastName.trim(),
-        phone: profileForm.phone.trim(),
-        billing: {
-          firstName: profileForm.firstName.trim(),
-          lastName: profileForm.lastName.trim(),
-          email: customer?.email || '',
-          phone: profileForm.phone.trim(),
-          country: 'ZM',
-        },
-        shipping: {
-          firstName: profileForm.firstName.trim(),
-          lastName: profileForm.lastName.trim(),
-          country: 'ZM',
-        },
-      })
-
-      updateCustomerInState(response.customer)
-      setSuccessMessage('Your account details have been updated.')
-      setIsProfileOpen(false)
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to update your account details.'
-      )
-    } finally {
-      setIsSavingProfile(false)
-    }
   }
 
   const handleSaveAddress = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -779,47 +705,12 @@ export default function AccountPage() {
                   </h1>
 
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
-                    Manage your orders, wishlist, account details, and delivery
-                    addresses from one simple dashboard.
+                    Access your orders, saved products, delivery addresses and
+                    personal account settings.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-3xl bg-dh-gray p-4 lg:min-w-[360px]">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-dh-primary shadow-sm">
-                    <Truck className="h-5 w-5" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
-                      Default delivery
-                    </p>
-
-                    {defaultAddress ? (
-                      <>
-                        <p className="mt-1 truncate font-display text-lg font-bold text-dh-primary">
-                          {defaultAddress.city || defaultAddress.label || 'Ready for checkout'}
-                        </p>
-
-                        <p className="mt-1 line-clamp-2 text-sm text-dh-dark-gray">
-                          {getAddressLine(defaultAddress)}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-1 font-display text-lg font-bold text-dh-primary">
-                          Not set yet
-                        </p>
-
-                        <p className="mt-1 text-sm text-dh-dark-gray">
-                          Add a delivery address for faster checkout.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="mt-5 flex flex-wrap gap-3 border-t border-dh-light-gray pt-5">
@@ -863,7 +754,7 @@ export default function AccountPage() {
             </div>
           </section>
 
-          <section className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <DashboardCard
               icon={<ShoppingBag className="h-6 w-6" />}
               label="Orders"
@@ -890,10 +781,11 @@ export default function AccountPage() {
             </button>
 
             <DashboardCard
-              icon={<Truck className="h-6 w-6" />}
-              label="Default Delivery"
-              value={defaultAddress?.city || 'Set up'}
-              helper={defaultAddress ? getAddressLine(defaultAddress) : 'Add a default address.'}
+              icon={<UserRound className="h-6 w-6" />}
+              label="Account details"
+              value="Manage"
+              helper="Update your personal information."
+              href="/account/details"
             />
           </section>
 
@@ -921,141 +813,6 @@ export default function AccountPage() {
 
           <section className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-8">
-              <section className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-display text-2xl font-bold text-dh-primary">
-                      Account details
-                    </h2>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      View and update your name and phone number.
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsProfileOpen((current) => !current)}
-                    className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                  >
-                    {isProfileOpen ? (
-                      <>
-                        <X className="mr-2 h-4 w-4" />
-                        Close
-                      </>
-                    ) : (
-                      <>
-                        <Edit3 className="mr-2 h-4 w-4" />
-                        Edit details
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {!isProfileOpen && (
-                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-dh-gray p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                        Name
-                      </p>
-                      <p className="mt-1 font-semibold text-dh-primary">
-                        {displayName}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-dh-gray p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                        Email
-                      </p>
-                      <p className="mt-1 break-all font-semibold text-dh-primary">
-                        {customer.email}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-dh-gray p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                        Phone
-                      </p>
-                      <p className="mt-1 font-semibold text-dh-primary">
-                        {profileForm.phone || 'Not added yet'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {isProfileOpen && (
-                  <form onSubmit={handleSaveProfile} className="mt-6 grid gap-5">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label htmlFor="firstName">First name</Label>
-                        <Input
-                          id="firstName"
-                          value={profileForm.firstName}
-                          onChange={(event) =>
-                            updateProfileField('firstName', event.target.value)
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="lastName">Last name</Label>
-                        <Input
-                          id="lastName"
-                          value={profileForm.lastName}
-                          onChange={(event) =>
-                            updateProfileField('lastName', event.target.value)
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          value={customer.email}
-                          disabled
-                          className="mt-1 bg-gray-100"
-                        />
-                        <p className="mt-1 text-xs text-dh-dark-gray">
-                          Your email is used for login and order receipts.
-                        </p>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="phone">Phone</Label>
-                        <Input
-                          id="phone"
-                          value={profileForm.phone}
-                          onChange={(event) =>
-                            updateProfileField('phone', event.target.value)
-                          }
-                          placeholder="+260 97X XXX XXX"
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={isSavingProfile}
-                      className="h-12 rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
-                    >
-                      {isSavingProfile ? (
-                        'Saving...'
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-5 w-5" />
-                          Save account details
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                )}
-              </section>
-
               <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-3xl bg-white p-6 shadow-sm sm:p-8">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                   <div>
