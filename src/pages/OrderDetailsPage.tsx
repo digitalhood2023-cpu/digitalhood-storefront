@@ -8,13 +8,16 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  ImagePlus,
   Loader2,
   MapPin,
   PackageCheck,
   ReceiptText,
   ShieldCheck,
   ShoppingBag,
+  Trash2,
   Truck,
+  X,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -25,14 +28,17 @@ import { Button } from '@/components/ui/button'
 import { useAccount } from '@/context/AccountContext'
 
 import {
+  createCustomerOrderCase,
   getCustomerOrder,
+  getCustomerOrderCases,
   type AccountOrder,
+  type AccountOrderCase,
+  type AccountOrderCaseReasonOption,
   type AccountOrderItem,
 } from '@/api/account'
 
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 
-import { buildOrderSupportUrl } from '@/lib/supportLinks'
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
 
@@ -47,6 +53,23 @@ function formatPrice(amount?: string | number, currency = 'ZMW') {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+function countWords(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .length
+}
+
+function formatFileSize(value?: number) {
+  const bytes = Number(value || 0)
+
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatDate(date?: string | null) {
@@ -293,6 +316,20 @@ export default function OrderDetailsPage() {
   const [isOrderLoading, setIsOrderLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
+  const [isCaseModalOpen, setIsCaseModalOpen] = useState(false)
+  const [isCaseDataLoading, setIsCaseDataLoading] = useState(false)
+  const [isCaseSubmitting, setIsCaseSubmitting] = useState(false)
+  const [caseError, setCaseError] = useState('')
+  const [caseSuccessNumber, setCaseSuccessNumber] = useState('')
+  const [orderCases, setOrderCases] = useState<AccountOrderCase[]>([])
+  const [caseReasonOptions, setCaseReasonOptions] = useState<
+    AccountOrderCaseReasonOption[]
+  >([])
+  const [caseReason, setCaseReason] = useState('')
+  const [caseItemId, setCaseItemId] = useState('')
+  const [caseDescription, setCaseDescription] = useState('')
+  const [casePhotos, setCasePhotos] = useState<File[]>([])
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate(`/login?redirect=/orders/${orderId || ''}`)
@@ -349,6 +386,169 @@ export default function OrderDetailsPage() {
   const orderStoreGroups = useMemo(() => {
     return groupOrderItemsByStore(order?.items || [])
   }, [order])
+
+  const caseDescriptionWordCount = useMemo(() => {
+    return countWords(caseDescription)
+  }, [caseDescription])
+
+  const casePhotoPreviews = useMemo(() => {
+    return casePhotos.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }))
+  }, [casePhotos])
+
+  useEffect(() => {
+    return () => {
+      for (const preview of casePhotoPreviews) {
+        URL.revokeObjectURL(preview.url)
+      }
+    }
+  }, [casePhotoPreviews])
+
+  useEffect(() => {
+    if (!isCaseModalOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isCaseModalOpen])
+
+  async function loadOrderCases() {
+    if (!order) return
+
+    setIsCaseDataLoading(true)
+    setCaseError('')
+
+    try {
+      const response = await getCustomerOrderCases(order.id)
+
+      setOrderCases(response.cases || [])
+      setCaseReasonOptions(response.reasonOptions || [])
+
+      if (
+        response.reasonOptions?.length &&
+        !response.reasonOptions.some((option) => option.value === caseReason)
+      ) {
+        setCaseReason(response.reasonOptions[0].value)
+      }
+    } catch (error) {
+      setCaseError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to load order case options.'
+      )
+    } finally {
+      setIsCaseDataLoading(false)
+    }
+  }
+
+  async function openOrderCaseModal() {
+    setCaseError('')
+    setCaseSuccessNumber('')
+    setIsCaseModalOpen(true)
+    await loadOrderCases()
+  }
+
+  function closeOrderCaseModal() {
+    if (isCaseSubmitting) return
+
+    setIsCaseModalOpen(false)
+    setCaseError('')
+    setCaseSuccessNumber('')
+  }
+
+  function handleCasePhotos(files: FileList | null) {
+    if (!files) return
+
+    setCaseError('')
+
+    const selected = Array.from(files)
+    const allowedTypes = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ])
+
+    const invalidType = selected.find((file) => !allowedTypes.has(file.type))
+    if (invalidType) {
+      setCaseError('Only JPG, PNG and WebP photos are allowed.')
+      return
+    }
+
+    const oversized = selected.find((file) => file.size > 5 * 1024 * 1024)
+    if (oversized) {
+      setCaseError(`${oversized.name} is larger than 5 MB.`)
+      return
+    }
+
+    if (casePhotos.length + selected.length > 5) {
+      setCaseError('You can attach a maximum of 5 photos.')
+      return
+    }
+
+    setCasePhotos((current) => [...current, ...selected])
+  }
+
+  function removeCasePhoto(index: number) {
+    setCasePhotos((current) =>
+      current.filter((_, photoIndex) => photoIndex !== index)
+    )
+  }
+
+  async function submitOrderCase() {
+    if (!order) return
+
+    setCaseError('')
+    setCaseSuccessNumber('')
+
+    if (!caseReason) {
+      setCaseError('Select the issue affecting this order.')
+      return
+    }
+
+    if (caseDescription.trim().length < 10) {
+      setCaseError('Describe the issue using at least 10 characters.')
+      return
+    }
+
+    if (caseDescriptionWordCount > 200) {
+      setCaseError('Your description must not exceed 200 words.')
+      return
+    }
+
+    setIsCaseSubmitting(true)
+
+    try {
+      const response = await createCustomerOrderCase(order.id, {
+        reason: caseReason,
+        description: caseDescription.trim(),
+        itemId: caseItemId || undefined,
+        photos: casePhotos,
+        pageUrl: window.location.href,
+      })
+
+      setCaseSuccessNumber(response.caseNumber)
+      setCaseDescription('')
+      setCaseItemId('')
+      setCasePhotos([])
+
+      const refreshed = await getCustomerOrderCases(order.id)
+      setOrderCases(refreshed.cases || [])
+      setCaseReasonOptions(refreshed.reasonOptions || [])
+    } catch (error) {
+      setCaseError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to create this order case.'
+      )
+    } finally {
+      setIsCaseSubmitting(false)
+    }
+  }
 
   if (isLoading || isOrderLoading) {
     return (
@@ -842,15 +1042,46 @@ export default function OrderDetailsPage() {
                 </div>
 
                 {order.caseEligibility?.canOpenCase ? (
-                  <Link
-                    to={buildOrderSupportUrl(order)}
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
+                  <button
+                    type="button"
+                    onClick={openOrderCaseModal}
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-dh-secondary"
                   >
-                    Open Order Case
-                  </Link>
+                    Report an issue
+                  </button>
                 ) : (
                   <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">
                     {order.caseEligibility?.reason || 'Order cases are not available for this order right now.'}
+                  </div>
+                )}
+
+                {orderCases.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                      Existing cases
+                    </p>
+
+                    <div className="mt-3 space-y-2">
+                      {orderCases.slice(0, 3).map((item) => (
+                        <div
+                          key={item.caseNumber}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-dh-primary">
+                              {item.caseNumber}
+                            </p>
+                            <p className="mt-1 text-xs text-dh-dark-gray">
+                              {item.reasonLabel || item.subject || 'Order issue'}
+                            </p>
+                          </div>
+
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold uppercase text-slate-500">
+                            {item.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </DetailCard>
@@ -858,6 +1089,332 @@ export default function OrderDetailsPage() {
           </section>
         </div>
       </main>
+
+      {isCaseModalOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="order-case-title"
+        >
+          <button
+            type="button"
+            aria-label="Close order issue form"
+            onClick={closeOrderCaseModal}
+            className="absolute inset-0 cursor-default"
+          />
+
+          <div className="relative z-10 max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:rounded-[2rem]">
+            <div className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-slate-100 bg-white/95 px-5 py-5 backdrop-blur sm:px-7">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-dh-secondary">
+                  Order #{order.number || order.id}
+                </p>
+
+                <h2
+                  id="order-case-title"
+                  className="mt-1 font-display text-2xl font-bold text-dh-primary"
+                >
+                  Report an order issue
+                </h2>
+
+                <p className="mt-1 text-sm text-dh-dark-gray">
+                  Your account, order, payment and delivery information will be
+                  attached automatically.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeOrderCaseModal}
+                disabled={isCaseSubmitting}
+                className="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6 p-5 sm:p-7">
+              {caseSuccessNumber ? (
+                <div className="rounded-3xl border border-green-200 bg-green-50 p-6 text-center">
+                  <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
+
+                  <h3 className="mt-4 text-xl font-bold text-green-800">
+                    Your order case has been created
+                  </h3>
+
+                  <p className="mt-2 text-sm font-semibold text-green-700">
+                    Case number
+                  </p>
+
+                  <p className="mt-1 text-2xl font-black text-dh-primary">
+                    {caseSuccessNumber}
+                  </p>
+
+                  <p className="mt-3 text-sm leading-6 text-green-700">
+                    DigitalHood will review the order details and evidence attached
+                    to this case.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={closeOrderCaseModal}
+                    className="mt-5 rounded-full bg-dh-primary px-6 py-3 text-sm font-bold text-white hover:bg-dh-secondary"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : isCaseDataLoading ? (
+                <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-dh-primary" />
+                  <p className="mt-4 text-sm font-semibold text-dh-dark-gray">
+                    Loading issue options...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {caseError && (
+                    <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                      <p>{caseError}</p>
+                    </div>
+                  )}
+
+                  <section>
+                    <h3 className="text-sm font-bold text-dh-primary">
+                      What happened?
+                    </h3>
+
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {caseReasonOptions.map((option) => {
+                        const selected = caseReason === option.value
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setCaseReason(option.value)}
+                            className={`rounded-2xl border p-4 text-left text-sm font-semibold transition ${
+                              selected
+                                ? 'border-dh-primary bg-dh-primary text-white shadow-md'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-dh-primary/40 hover:bg-slate-50'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  {(order.items || []).length > 0 && (
+                    <label className="grid gap-2">
+                      <span className="text-sm font-bold text-dh-primary">
+                        Which item is affected?
+                      </span>
+
+                      <select
+                        value={caseItemId}
+                        onChange={(event) => setCaseItemId(event.target.value)}
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-dh-primary"
+                      >
+                        <option value="">The whole order / not item-specific</option>
+
+                        {(order.items || []).map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name} × {item.quantity}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  <label className="grid gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-bold text-dh-primary">
+                        Describe the issue
+                      </span>
+
+                      <span
+                        className={`text-xs font-bold ${
+                          caseDescriptionWordCount > 200
+                            ? 'text-red-600'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {caseDescriptionWordCount}/200 words
+                      </span>
+                    </div>
+
+                    <textarea
+                      value={caseDescription}
+                      onChange={(event) => setCaseDescription(event.target.value)}
+                      rows={6}
+                      maxLength={4000}
+                      placeholder="Briefly explain what happened, the condition of the item, and what resolution you need."
+                      className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:border-dh-primary"
+                    />
+
+                    <p className="text-xs leading-5 text-slate-500">
+                      Keep the description clear and below 200 words. Do not enter
+                      payment card details or passwords.
+                    </p>
+                  </label>
+
+                  <section>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-dh-primary">
+                          Add photos
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Up to 5 JPG, PNG or WebP photos. Maximum 5 MB each.
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-bold text-slate-400">
+                        {casePhotos.length}/5
+                      </span>
+                    </div>
+
+                    {casePhotos.length < 5 && (
+                      <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-7 text-center transition hover:border-dh-primary/40 hover:bg-white">
+                        <ImagePlus className="h-8 w-8 text-dh-primary" />
+
+                        <span className="mt-3 text-sm font-bold text-dh-primary">
+                          Choose evidence photos
+                        </span>
+
+                        <span className="mt-1 text-xs text-slate-500">
+                          Photos of damage, wrong items or missing parts help with
+                          review.
+                        </span>
+
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(event) => {
+                            handleCasePhotos(event.target.files)
+                            event.target.value = ''
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+
+                    {casePhotoPreviews.length > 0 && (
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {casePhotoPreviews.map((preview, index) => (
+                          <div
+                            key={`${preview.file.name}-${preview.file.lastModified}-${index}`}
+                            className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                          >
+                            <div className="aspect-square bg-slate-100">
+                              <img
+                                src={preview.url}
+                                alt={`Evidence ${index + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 p-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold text-slate-700">
+                                  {preview.file.name}
+                                </p>
+                                <p className="mt-1 text-[10px] text-slate-400">
+                                  {formatFileSize(preview.file.size)}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => removeCasePhoto(index)}
+                                className="shrink-0 rounded-full bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                                aria-label={`Remove ${preview.file.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {orderCases.length > 0 && (
+                    <section className="rounded-3xl bg-slate-50 p-5">
+                      <h3 className="text-sm font-bold text-dh-primary">
+                        Previous cases for this order
+                      </h3>
+
+                      <div className="mt-3 space-y-3">
+                        {orderCases.map((item) => (
+                          <div
+                            key={item.caseNumber}
+                            className="rounded-2xl bg-white p-4 ring-1 ring-slate-100"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-bold text-dh-primary">
+                                {item.caseNumber}
+                              </p>
+
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500">
+                                {item.status}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-sm font-semibold text-slate-700">
+                              {item.reasonLabel || item.subject || 'Order issue'}
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-400">
+                              Created {formatDate(item.createdAt)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={closeOrderCaseModal}
+                      disabled={isCaseSubmitting}
+                      className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={submitOrderCase}
+                      disabled={
+                        isCaseSubmitting ||
+                        !caseReason ||
+                        caseDescription.trim().length < 10 ||
+                        caseDescriptionWordCount > 200
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-dh-primary px-7 py-3 text-sm font-bold text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isCaseSubmitting && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+
+                      {isCaseSubmitting
+                        ? 'Submitting case...'
+                        : 'Submit order case'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

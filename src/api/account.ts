@@ -166,6 +166,67 @@ export type OrderResponse = {
   order: AccountOrder
 }
 
+export type AccountOrderCaseReasonOption = {
+  value: string
+  label: string
+}
+
+export type AccountOrderCaseAttachment = {
+  id?: string
+  type?: string
+  url: string
+  path?: string
+  filename?: string
+  originalName?: string
+  mimeType?: string
+  size?: number
+  uploadedAt?: string
+}
+
+export type AccountOrderCase = {
+  caseNumber: string
+  type: string
+  status: string
+  priority?: string
+  subject?: string
+  message?: string
+  source?: string
+  reason?: string
+  reasonLabel?: string
+  itemId?: string | number | null
+  attachments?: AccountOrderCaseAttachment[]
+  order?: {
+    orderId?: string | number | null
+    orderNumber?: string | null
+    status?: string
+    statusLabel?: string
+    total?: string
+    currency?: string
+  }
+  messages?: Array<{
+    id?: string
+    message: string
+    createdAt?: string
+  }>
+  createdAt?: string
+  updatedAt?: string
+  resolvedAt?: string | null
+}
+
+export type AccountOrderCasesResponse = {
+  success: boolean
+  cases: AccountOrderCase[]
+  count: number
+  eligibility?: AccountOrderCaseEligibility
+  reasonOptions?: AccountOrderCaseReasonOption[]
+}
+
+export type CreateAccountOrderCaseResponse = {
+  success: boolean
+  caseNumber: string
+  case: AccountOrderCase
+}
+
 export type WishlistResponse = {
   success: boolean
   productIds: number[]
@@ -354,6 +415,79 @@ export async function getCustomerOrders() {
 
 export async function getCustomerOrder(orderId: string | number) {
   return accountFetch<OrderResponse>(`/api/account/orders/${orderId}`)
+}
+
+export async function getCustomerOrderCases(
+  orderId: string | number
+) {
+  return accountFetch<AccountOrderCasesResponse>(
+    `/api/account/orders/${encodeURIComponent(String(orderId))}/cases`
+  )
+}
+
+export async function getAllCustomerOrderCases() {
+  return accountFetch<AccountOrderCasesResponse>(
+    '/api/account/order-cases'
+  )
+}
+
+export async function createCustomerOrderCase(
+  orderId: string | number,
+  payload: {
+    reason: string
+    description: string
+    itemId?: string | number
+    photos?: File[]
+    pageUrl?: string
+  }
+) {
+  const token = getAccountToken()
+  const formData = new FormData()
+
+  formData.append('reason', payload.reason)
+  formData.append('description', payload.description)
+
+  if (payload.itemId !== undefined && payload.itemId !== null) {
+    formData.append('itemId', String(payload.itemId))
+  }
+
+  if (payload.pageUrl) {
+    formData.append('pageUrl', payload.pageUrl)
+  }
+
+  for (const photo of payload.photos || []) {
+    formData.append('photos', photo)
+  }
+
+  const response = await fetch(
+    `${PAYMENTS_API_URL}/api/account/orders/${encodeURIComponent(String(orderId))}/cases`,
+    {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    }
+  )
+
+  let data: any = null
+
+  try {
+    data = await response.json()
+  } catch {
+    data = null
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.details ||
+      data?.error ||
+      data?.message ||
+      `Order case request failed with status ${response.status}`
+    )
+  }
+
+  return data as CreateAccountOrderCaseResponse
 }
 
 export async function getCustomerWishlist() {
