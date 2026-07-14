@@ -18,6 +18,7 @@ const RecentlyViewedPage = lazy(() => import('@/pages/RecentlyViewedPage'))
 const TrackOrderPage = lazy(() => import('@/pages/TrackOrderPage'))
 const AccountPage = lazy(() => import('@/pages/AccountPage'))
 const AccountDetailsPage = lazy(() => import('@/pages/AccountDetailsPage'))
+const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
@@ -126,6 +127,7 @@ function App() {
 
               <Route path="/account" element={<AccountPage />} />
               <Route path="/account/details" element={<AccountDetailsPage />} />
+              <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/orders" element={<OrdersPage />} />

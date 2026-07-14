@@ -207,6 +207,14 @@ export type AccountOrderCase = {
     id?: string
     message: string
     createdAt?: string
+    author?: string
+    authorName?: string
+    sender?: string
+    senderName?: string
+    senderType?: string
+    direction?: string
+    role?: string
+    [key: string]: unknown
   }>
   createdAt?: string
   updatedAt?: string

@@ -9,6 +9,7 @@ import {
   Heart,
   Home,
   Loader2,
+  LifeBuoy,
   LockKeyhole,
   MapPin,
   PackageCheck,
@@ -755,7 +756,7 @@ export default function AccountPage() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <DashboardCard
               icon={<ShoppingBag className="h-6 w-6" />}
               label="Orders"
@@ -787,6 +788,14 @@ export default function AccountPage() {
               value="Manage"
               helper="Update your personal information."
               href="/account/details"
+            />
+
+            <DashboardCard
+              icon={<LifeBuoy className="h-6 w-6" />}
+              label="Support cases"
+              value="Track"
+              helper="View case status and support replies."
+              href="/account/support-cases"
             />
           </section>
 
