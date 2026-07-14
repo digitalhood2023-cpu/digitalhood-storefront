@@ -65,7 +65,6 @@ function normalizeStatus(value?: string) {
     .replaceAll(' ', '_')
 
   if (status === 'IN_PROGRESS') return 'OPEN'
-  if (status === 'WAITING_FOR_CUSTOMER') return 'PENDING'
   if (status === 'WAITING_FOR_SELLER') return 'PENDING'
   if (status === 'DONE') return 'RESOLVED'
 
@@ -100,6 +99,10 @@ function statusStyle(value?: string) {
 
   if (status === 'PENDING') {
     return 'border-amber-100 bg-amber-50 text-amber-700'
+  }
+
+  if (status === 'WAITING_FOR_CUSTOMER') {
+    return 'border-orange-200 bg-orange-50 text-orange-700'
   }
 
   if (status === 'RESOLVED') {
@@ -397,8 +400,10 @@ export default function AccountSupportCasesPage() {
     return {
       total: cases.length,
       active: cases.filter(isActiveCase).length,
-      pending: cases.filter(
-        (item) => normalizeStatus(item.status) === 'PENDING'
+      pending: cases.filter((item) =>
+        ['PENDING', 'WAITING_FOR_CUSTOMER'].includes(
+          normalizeStatus(item.status)
+        )
       ).length,
       resolved: cases.filter((item) =>
         ['RESOLVED', 'CLOSED'].includes(
@@ -417,7 +422,11 @@ export default function AccountSupportCasesPage() {
       const matchesFilter =
         filter === 'all' ||
         (filter === 'active' && isActiveCase(item)) ||
-        status === filter.toUpperCase()
+        status === filter.toUpperCase() ||
+        (
+          filter === 'pending' &&
+          status === 'WAITING_FOR_CUSTOMER'
+        )
 
       const matchesQuery =
         !cleanedQuery ||
@@ -682,6 +691,27 @@ export default function AccountSupportCasesPage() {
                         {statusLabel(selectedCase.status)}
                       </span>
                     </div>
+
+                    {selectedCase.canReply &&
+                      selectedCase.order?.orderId && (
+                        <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+                          <p className="font-semibold text-orange-800">
+                            DigitalHood needs more information
+                          </p>
+
+                          <p className="mt-1 text-sm leading-6 text-orange-700">
+                            Open the linked order to respond securely.
+                          </p>
+
+                          <Link
+                            to={`/orders/${selectedCase.order.orderId}`}
+                            className="mt-3 inline-flex items-center font-semibold text-dh-primary hover:text-dh-secondary"
+                          >
+                            Open order and respond
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Link>
+                        </div>
+                      )}
 
                     <section className="mt-5 rounded-3xl bg-dh-gray p-4 sm:p-5">
                       <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">

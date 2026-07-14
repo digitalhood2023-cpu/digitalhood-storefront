@@ -11,8 +11,11 @@ import {
   ImagePlus,
   Loader2,
   MapPin,
+  MessageCircle,
   PackageCheck,
   ReceiptText,
+  RefreshCw,
+  Send,
   ShieldCheck,
   ShoppingBag,
   Trash2,
@@ -31,8 +34,10 @@ import {
   createCustomerOrderCase,
   getCustomerOrder,
   getCustomerOrderCases,
+  replyToCustomerOrderCase,
   type AccountOrder,
   type AccountOrderCase,
+  type AccountOrderCaseAttachment,
   type AccountOrderCaseReasonOption,
   type AccountOrderItem,
 } from '@/api/account'
@@ -121,6 +126,70 @@ function getStatusStyle(status?: string) {
   }
 
   return 'bg-gray-50 text-gray-700 border-gray-100'
+}
+
+const ORDER_CASE_ASSET_ORIGIN =
+  import.meta.env.VITE_PAYMENTS_API_URL ||
+  'https://payments.digitalhood.info'
+
+function getCaseStatusLabel(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'new') return 'Submitted'
+  if (value === 'open') return 'Under review'
+  if (value === 'pending') return 'Pending'
+  if (value === 'waiting-for-customer') return 'Action required'
+  if (value === 'waiting-for-seller') return 'Waiting for seller'
+  if (value === 'resolved') return 'Resolved'
+  if (value === 'closed') return 'Closed'
+
+  return String(status || 'Submitted')
+    .replaceAll('_', ' ')
+    .replaceAll('-', ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function getCaseStatusStyle(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'waiting-for-customer') {
+    return 'border-orange-200 bg-orange-50 text-orange-700'
+  }
+
+  if (value === 'resolved') {
+    return 'border-green-200 bg-green-50 text-green-700'
+  }
+
+  if (value === 'closed') {
+    return 'border-slate-200 bg-slate-100 text-slate-600'
+  }
+
+  if (value === 'open') {
+    return 'border-purple-200 bg-purple-50 text-purple-700'
+  }
+
+  return 'border-blue-200 bg-blue-50 text-blue-700'
+}
+
+function isCaseClosed(status?: string) {
+  return ['resolved', 'closed', 'spam'].includes(
+    normalizeStatus(status)
+  )
+}
+
+function getCaseAttachmentUrl(
+  attachment: AccountOrderCaseAttachment
+) {
+  const value = String(attachment.url || '').trim()
+
+  if (!value) return ''
+
+  try {
+    return new URL(value, ORDER_CASE_ASSET_ORIGIN).toString()
+  } catch {
+    return value
+  }
 }
 
 function getStatusTitle(status?: string) {
@@ -329,6 +398,17 @@ export default function OrderDetailsPage() {
   const [caseItemId, setCaseItemId] = useState('')
   const [caseDescription, setCaseDescription] = useState('')
   const [casePhotos, setCasePhotos] = useState<File[]>([])
+  const [caseCanCreate, setCaseCanCreate] =
+    useState<boolean | null>(null)
+  const [isCaseProgressOpen, setIsCaseProgressOpen] =
+    useState(false)
+  const [caseReplyMessage, setCaseReplyMessage] = useState('')
+  const [caseReplyPhotos, setCaseReplyPhotos] =
+    useState<File[]>([])
+  const [isCaseReplySubmitting, setIsCaseReplySubmitting] =
+    useState(false)
+  const [caseReplyError, setCaseReplyError] = useState('')
+  const [caseReplySuccess, setCaseReplySuccess] = useState('')
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -373,6 +453,21 @@ export default function OrderDetailsPage() {
     }
   }, [isAuthenticated, orderId])
 
+  useEffect(() => {
+    if (!order) return
+
+    setOrderCases([])
+    setCaseCanCreate(null)
+    setIsCaseProgressOpen(false)
+    setCaseReplyMessage('')
+    setCaseReplyPhotos([])
+    setCaseReplyError('')
+    setCaseReplySuccess('')
+
+    void loadOrderCases()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id])
+
   const progressSteps = useMemo(() => {
     return order ? getProgressSteps(order) : []
   }, [order])
@@ -398,6 +493,21 @@ export default function OrderDetailsPage() {
     }))
   }, [casePhotos])
 
+  const existingOrderCase = useMemo(() => {
+    return orderCases[0] || null
+  }, [orderCases])
+
+  const caseReplyWordCount = useMemo(() => {
+    return countWords(caseReplyMessage)
+  }, [caseReplyMessage])
+
+  const caseReplyPhotoPreviews = useMemo(() => {
+    return caseReplyPhotos.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }))
+  }, [caseReplyPhotos])
+
   useEffect(() => {
     return () => {
       for (const preview of casePhotoPreviews) {
@@ -405,6 +515,14 @@ export default function OrderDetailsPage() {
       }
     }
   }, [casePhotoPreviews])
+
+  useEffect(() => {
+    return () => {
+      for (const preview of caseReplyPhotoPreviews) {
+        URL.revokeObjectURL(preview.url)
+      }
+    }
+  }, [caseReplyPhotoPreviews])
 
   useEffect(() => {
     if (!isCaseModalOpen) return
@@ -417,21 +535,36 @@ export default function OrderDetailsPage() {
     }
   }, [isCaseModalOpen])
 
-  async function loadOrderCases() {
+  async function loadOrderCases(
+    options: { silent?: boolean } = {}
+  ) {
     if (!order) return
 
-    setIsCaseDataLoading(true)
+    if (!options.silent) {
+      setIsCaseDataLoading(true)
+    }
+
     setCaseError('')
 
     try {
       const response = await getCustomerOrderCases(order.id)
+      const nextCases = response.cases || []
 
-      setOrderCases(response.cases || [])
+      setOrderCases(nextCases)
       setCaseReasonOptions(response.reasonOptions || [])
+
+      setCaseCanCreate(
+        typeof response.canCreateCase === 'boolean'
+          ? response.canCreateCase
+          : nextCases.length === 0 &&
+              Boolean(response.eligibility?.canOpenCase)
+      )
 
       if (
         response.reasonOptions?.length &&
-        !response.reasonOptions.some((option) => option.value === caseReason)
+        !response.reasonOptions.some(
+          (option) => option.value === caseReason
+        )
       ) {
         setCaseReason(response.reasonOptions[0].value)
       }
@@ -439,16 +572,25 @@ export default function OrderDetailsPage() {
       setCaseError(
         error instanceof Error
           ? error.message
-          : 'Unable to load order case options.'
+          : 'Unable to load order case information.'
       )
     } finally {
-      setIsCaseDataLoading(false)
+      if (!options.silent) {
+        setIsCaseDataLoading(false)
+      }
     }
   }
 
   async function openOrderCaseModal() {
     setCaseError('')
     setCaseSuccessNumber('')
+
+    if (existingOrderCase) {
+      setIsCaseProgressOpen(true)
+      await loadOrderCases({ silent: true })
+      return
+    }
+
     setIsCaseModalOpen(true)
     await loadOrderCases()
   }
@@ -499,6 +641,121 @@ export default function OrderDetailsPage() {
     )
   }
 
+  function handleCaseReplyPhotos(
+    files: FileList | null
+  ) {
+    if (!files) return
+
+    setCaseReplyError('')
+
+    const selected = Array.from(files)
+    const allowedTypes = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ])
+
+    const invalidType = selected.find(
+      (file) => !allowedTypes.has(file.type)
+    )
+
+    if (invalidType) {
+      setCaseReplyError(
+        'Only JPG, PNG and WebP photos are allowed.'
+      )
+      return
+    }
+
+    const oversized = selected.find(
+      (file) => file.size > 5 * 1024 * 1024
+    )
+
+    if (oversized) {
+      setCaseReplyError(
+        `${oversized.name} is larger than 5 MB.`
+      )
+      return
+    }
+
+    if (
+      caseReplyPhotos.length + selected.length > 5
+    ) {
+      setCaseReplyError(
+        'You can attach a maximum of 5 photos.'
+      )
+      return
+    }
+
+    setCaseReplyPhotos((current) => [
+      ...current,
+      ...selected,
+    ])
+  }
+
+  function removeCaseReplyPhoto(index: number) {
+    setCaseReplyPhotos((current) =>
+      current.filter(
+        (_, photoIndex) => photoIndex !== index
+      )
+    )
+  }
+
+  async function submitCaseReply() {
+    if (!existingOrderCase) return
+
+    setCaseReplyError('')
+    setCaseReplySuccess('')
+
+    if (!existingOrderCase.canReply) {
+      setCaseReplyError(
+        'You can provide more information after DigitalHood Support replies.'
+      )
+      return
+    }
+
+    if (caseReplyMessage.trim().length < 2) {
+      setCaseReplyError(
+        'Enter the additional information.'
+      )
+      return
+    }
+
+    if (caseReplyWordCount > 200) {
+      setCaseReplyError(
+        'Your reply must not exceed 200 words.'
+      )
+      return
+    }
+
+    setIsCaseReplySubmitting(true)
+
+    try {
+      await replyToCustomerOrderCase(
+        existingOrderCase.caseNumber,
+        {
+          message: caseReplyMessage.trim(),
+          photos: caseReplyPhotos,
+        }
+      )
+
+      setCaseReplyMessage('')
+      setCaseReplyPhotos([])
+      setCaseReplySuccess(
+        'Your information was sent to DigitalHood Support.'
+      )
+
+      await loadOrderCases({ silent: true })
+    } catch (error) {
+      setCaseReplyError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to send the additional information.'
+      )
+    } finally {
+      setIsCaseReplySubmitting(false)
+    }
+  }
+
   async function submitOrderCase() {
     if (!order) return
 
@@ -539,6 +796,8 @@ export default function OrderDetailsPage() {
       const refreshed = await getCustomerOrderCases(order.id)
       setOrderCases(refreshed.cases || [])
       setCaseReasonOptions(refreshed.reasonOptions || [])
+      setCaseCanCreate(false)
+      setIsCaseProgressOpen(true)
     } catch (error) {
       setCaseError(
         error instanceof Error
@@ -1018,70 +1277,488 @@ export default function OrderDetailsPage() {
 
               <DetailCard
                 icon={<ShieldCheck className="h-6 w-6" />}
-                title="Order case"
+                title={
+                  existingOrderCase
+                    ? 'Support case'
+                    : 'Order case'
+                }
               >
-                <p className="text-sm text-dh-dark-gray">
-                  Open a case for this order if there is an issue with payment,
-                  delivery, product condition, or return/refund support.
-                </p>
+                {existingOrderCase ? (
+                  <div>
+                    <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
+                            Case number
+                          </p>
 
-                <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
-                  <p className="font-semibold text-dh-primary">
-                    Order reference
-                  </p>
+                          <p className="mt-1 font-display text-lg font-bold text-dh-primary">
+                            {existingOrderCase.caseNumber}
+                          </p>
 
-                  <p className="mt-1 text-dh-dark-gray">
-                    #{order.number || order.id}
-                  </p>
+                          <p className="mt-2 text-sm font-semibold text-dh-primary">
+                            {existingOrderCase.reasonLabel ||
+                              existingOrderCase.subject ||
+                              'Order support issue'}
+                          </p>
+                        </div>
 
-                  {order.caseEligibility?.deadline && (
-                    <p className="mt-2 text-xs font-semibold text-dh-dark-gray">
-                      Case window ends: {formatDate(order.caseEligibility.deadline)}
-                    </p>
-                  )}
-                </div>
-
-                {order.caseEligibility?.canOpenCase ? (
-                  <button
-                    type="button"
-                    onClick={openOrderCaseModal}
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-dh-secondary"
-                  >
-                    Report an issue
-                  </button>
-                ) : (
-                  <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">
-                    {order.caseEligibility?.reason || 'Order cases are not available for this order right now.'}
-                  </div>
-                )}
-
-                {orderCases.length > 0 && (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                      Existing cases
-                    </p>
-
-                    <div className="mt-3 space-y-2">
-                      {orderCases.slice(0, 3).map((item) => (
-                        <div
-                          key={item.caseNumber}
-                          className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2"
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getCaseStatusStyle(
+                            existingOrderCase.status
+                          )}`}
                         >
+                          {getCaseStatusLabel(
+                            existingOrderCase.status
+                          )}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-xs leading-5 text-dh-dark-gray">
+                        Opened{' '}
+                        {formatDate(
+                          existingOrderCase.createdAt
+                        )}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCaseProgressOpen(
+                          (current) => !current
+                        )
+
+                        if (!isCaseProgressOpen) {
+                          void loadOrderCases({
+                            silent: true,
+                          })
+                        }
+                      }}
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-dh-secondary"
+                    >
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      {isCaseProgressOpen
+                        ? 'Hide case progress'
+                        : 'Check case progress'}
+                    </button>
+
+                    <Link
+                      to="/account/support-cases"
+                      className="mt-3 inline-flex w-full items-center justify-center text-sm font-semibold text-dh-primary hover:text-dh-secondary"
+                    >
+                      View all support cases
+                    </Link>
+
+                    {isCaseProgressOpen && (
+                      <div className="mt-5 space-y-4 border-t border-dh-light-gray pt-5">
+                        <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="text-xs font-bold text-dh-primary">
-                              {item.caseNumber}
+                            <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
+                              Last updated
                             </p>
-                            <p className="mt-1 text-xs text-dh-dark-gray">
-                              {item.reasonLabel || item.subject || 'Order issue'}
+
+                            <p className="mt-1 text-sm font-semibold text-dh-primary">
+                              {formatDate(
+                                existingOrderCase.updatedAt ||
+                                  existingOrderCase.createdAt
+                              )}
                             </p>
                           </div>
 
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold uppercase text-slate-500">
-                            {item.status}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void loadOrderCases({
+                                silent: true,
+                              })
+                            }
+                            className="rounded-full bg-dh-gray p-2.5 text-dh-primary hover:bg-dh-secondary/20"
+                            aria-label="Refresh case progress"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </button>
                         </div>
-                      ))}
+
+                        <div className="rounded-2xl bg-dh-gray p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
+                            Your original report
+                          </p>
+
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-dh-primary">
+                            {existingOrderCase.message ||
+                              'No description available.'}
+                          </p>
+                        </div>
+
+                        {!!existingOrderCase.attachments?.length && (
+                          <div>
+                            <p className="text-sm font-bold text-dh-primary">
+                              Original evidence
+                            </p>
+
+                            <div className="mt-3 grid grid-cols-3 gap-2">
+                              {existingOrderCase.attachments.map(
+                                (attachment, index) => (
+                                  <a
+                                    key={
+                                      attachment.id ||
+                                      attachment.filename ||
+                                      index
+                                    }
+                                    href={getCaseAttachmentUrl(
+                                      attachment
+                                    )}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="overflow-hidden rounded-xl border border-dh-light-gray bg-dh-gray"
+                                  >
+                                    <img
+                                      src={getCaseAttachmentUrl(
+                                        attachment
+                                      )}
+                                      alt={
+                                        attachment.originalName ||
+                                        `Case evidence ${index + 1}`
+                                      }
+                                      loading="lazy"
+                                      className="aspect-square w-full object-cover"
+                                    />
+                                  </a>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-sm font-bold text-dh-primary">
+                            Case conversation
+                          </p>
+
+                          <div className="mt-3 space-y-3">
+                            {(existingOrderCase.messages || []).map(
+                              (message, index) => {
+                                const fromCustomer =
+                                  message.direction ===
+                                  'customer_to_admin'
+
+                                return (
+                                  <article
+                                    key={
+                                      message.id ||
+                                      `${message.createdAt}-${index}`
+                                    }
+                                    className={`rounded-2xl p-4 ${
+                                      fromCustomer
+                                        ? 'ml-4 bg-dh-primary text-white'
+                                        : 'mr-4 border border-dh-light-gray bg-white'
+                                    }`}
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p
+                                        className={`text-xs font-bold ${
+                                          fromCustomer
+                                            ? 'text-white'
+                                            : 'text-dh-primary'
+                                        }`}
+                                      >
+                                        {fromCustomer
+                                          ? 'You'
+                                          : 'DigitalHood Support'}
+                                      </p>
+
+                                      <p
+                                        className={`text-[11px] ${
+                                          fromCustomer
+                                            ? 'text-white/70'
+                                            : 'text-dh-dark-gray'
+                                        }`}
+                                      >
+                                        {formatDate(
+                                          message.createdAt
+                                        )}
+                                      </p>
+                                    </div>
+
+                                    <p
+                                      className={`mt-2 whitespace-pre-wrap text-sm leading-6 ${
+                                        fromCustomer
+                                          ? 'text-white'
+                                          : 'text-dh-dark-gray'
+                                      }`}
+                                    >
+                                      {message.message}
+                                    </p>
+
+                                    {!!message.attachments?.length && (
+                                      <div className="mt-3 grid grid-cols-3 gap-2">
+                                        {message.attachments.map(
+                                          (
+                                            attachment,
+                                            attachmentIndex
+                                          ) => (
+                                            <a
+                                              key={
+                                                attachment.id ||
+                                                attachment.filename ||
+                                                attachmentIndex
+                                              }
+                                              href={getCaseAttachmentUrl(
+                                                attachment
+                                              )}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="overflow-hidden rounded-xl bg-white/90"
+                                            >
+                                              <img
+                                                src={getCaseAttachmentUrl(
+                                                  attachment
+                                                )}
+                                                alt="Additional case evidence"
+                                                className="aspect-square w-full object-cover"
+                                              />
+                                            </a>
+                                          )
+                                        )}
+                                      </div>
+                                    )}
+                                  </article>
+                                )
+                              }
+                            )}
+
+                            {!existingOrderCase.messages?.length && (
+                              <div className="rounded-2xl bg-dh-gray p-4 text-center">
+                                <Clock className="mx-auto h-6 w-6 text-dh-primary" />
+
+                                <p className="mt-2 text-sm font-semibold text-dh-primary">
+                                  DigitalHood is reviewing your case
+                                </p>
+
+                                <p className="mt-1 text-xs leading-5 text-dh-dark-gray">
+                                  Replies and requests for additional
+                                  information will appear here.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {caseReplyError && (
+                          <div className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <p>{caseReplyError}</p>
+                          </div>
+                        )}
+
+                        {caseReplySuccess && (
+                          <div className="flex items-start gap-2 rounded-2xl border border-green-100 bg-green-50 p-4 text-sm font-semibold text-green-700">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                            <p>{caseReplySuccess}</p>
+                          </div>
+                        )}
+
+                        {existingOrderCase.canReply ? (
+                          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+                            <p className="font-semibold text-orange-800">
+                              DigitalHood needs more information
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-orange-700">
+                              You may send one response now. After
+                              submitting, replies will lock until
+                              DigitalHood responds again.
+                            </p>
+
+                            <label className="mt-4 grid gap-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-sm font-bold text-dh-primary">
+                                  Additional information
+                                </span>
+
+                                <span
+                                  className={`text-xs font-bold ${
+                                    caseReplyWordCount > 200
+                                      ? 'text-red-600'
+                                      : 'text-dh-dark-gray'
+                                  }`}
+                                >
+                                  {caseReplyWordCount}/200 words
+                                </span>
+                              </div>
+
+                              <textarea
+                                value={caseReplyMessage}
+                                onChange={(event) =>
+                                  setCaseReplyMessage(
+                                    event.target.value
+                                  )
+                                }
+                                rows={5}
+                                maxLength={4000}
+                                placeholder="Answer DigitalHood's question or provide the requested information."
+                                className="rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-dh-primary"
+                              />
+                            </label>
+
+                            <label className="mt-4 flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-orange-300 bg-white px-4 py-4 text-sm font-semibold text-dh-primary hover:border-dh-primary">
+                              <ImagePlus className="mr-2 h-5 w-5" />
+                              Add photos
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                multiple
+                                onChange={(event) => {
+                                  handleCaseReplyPhotos(
+                                    event.target.files
+                                  )
+                                  event.currentTarget.value = ''
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+
+                            {!!caseReplyPhotoPreviews.length && (
+                              <div className="mt-3 grid grid-cols-3 gap-2">
+                                {caseReplyPhotoPreviews.map(
+                                  (preview, index) => (
+                                    <div
+                                      key={`${preview.file.name}-${index}`}
+                                      className="relative overflow-hidden rounded-xl bg-white"
+                                    >
+                                      <img
+                                        src={preview.url}
+                                        alt={preview.file.name}
+                                        className="aspect-square w-full object-cover"
+                                      />
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeCaseReplyPhoto(
+                                            index
+                                          )
+                                        }
+                                        className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-white"
+                                        aria-label="Remove photo"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+
+                                      <p className="truncate px-2 py-1 text-[10px] text-dh-dark-gray">
+                                        {formatFileSize(
+                                          preview.file.size
+                                        )}
+                                      </p>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={submitCaseReply}
+                              disabled={
+                                isCaseReplySubmitting ||
+                                !caseReplyMessage.trim() ||
+                                caseReplyWordCount > 200
+                              }
+                              className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
+                            >
+                              {isCaseReplySubmitting ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Sending information...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="mr-2 h-4 w-4" />
+                                  Send information
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        ) : isCaseClosed(
+                            existingOrderCase.status
+                          ) ? (
+                          <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
+                            <p className="font-semibold">
+                              This case is{' '}
+                              {getCaseStatusLabel(
+                                existingOrderCase.status
+                              ).toLowerCase()}
+                              .
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5">
+                              The conversation remains available for
+                              your records.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                            <p className="font-semibold">
+                              DigitalHood is reviewing your case
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5">
+                              Additional information can be submitted
+                              after DigitalHood Support replies.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-dh-dark-gray">
+                      Open a case for this order if there is an issue
+                      with payment, delivery, product condition, or
+                      return and refund support.
+                    </p>
+
+                    <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
+                      <p className="font-semibold text-dh-primary">
+                        Order reference
+                      </p>
+
+                      <p className="mt-1 text-dh-dark-gray">
+                        #{order.number || order.id}
+                      </p>
+
+                      {order.caseEligibility?.deadline && (
+                        <p className="mt-2 text-xs font-semibold text-dh-dark-gray">
+                          Case window ends:{' '}
+                          {formatDate(
+                            order.caseEligibility.deadline
+                          )}
+                        </p>
+                      )}
                     </div>
+
+                    {isCaseDataLoading &&
+                    caseCanCreate === null ? (
+                      <div className="mt-4 flex items-center justify-center rounded-2xl bg-dh-gray p-4 text-sm font-semibold text-dh-primary">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Checking case status...
+                      </div>
+                    ) : caseCanCreate ? (
+                      <button
+                        type="button"
+                        onClick={openOrderCaseModal}
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-dh-secondary"
+                      >
+                        Report an issue
+                      </button>
+                    ) : (
+                      <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">
+                        {order.caseEligibility?.reason ||
+                          'Order cases are not available for this order right now.'}
+                      </div>
+                    )}
                   </div>
                 )}
               </DetailCard>

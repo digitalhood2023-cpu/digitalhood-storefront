@@ -194,7 +194,15 @@ export type AccountOrderCase = {
   reason?: string
   reasonLabel?: string
   itemId?: string | number | null
+  itemName?: string
   attachments?: AccountOrderCaseAttachment[]
+  canReply?: boolean
+  awaitingCustomerResponse?: boolean
+  replyState?:
+    | 'waiting_for_support'
+    | 'customer_may_reply'
+    | 'case_closed'
+    | string
   order?: {
     orderId?: string | number | null
     orderNumber?: string | null
@@ -214,6 +222,7 @@ export type AccountOrderCase = {
     senderType?: string
     direction?: string
     role?: string
+    attachments?: AccountOrderCaseAttachment[]
     [key: string]: unknown
   }>
   createdAt?: string
@@ -225,6 +234,8 @@ export type AccountOrderCasesResponse = {
   success: boolean
   cases: AccountOrderCase[]
   count: number
+  existingCase?: AccountOrderCase | null
+  canCreateCase?: boolean
   eligibility?: AccountOrderCaseEligibility
   reasonOptions?: AccountOrderCaseReasonOption[]
 }
@@ -233,6 +244,23 @@ export type CreateAccountOrderCaseResponse = {
   success: boolean
   caseNumber: string
   case: AccountOrderCase
+}
+
+export type ReplyToAccountOrderCaseResponse = {
+  success: boolean
+  message?: string
+  case: AccountOrderCase
+  reply?: {
+    id?: string
+    direction?: string
+    message: string
+    attachments?: AccountOrderCaseAttachment[]
+    createdAt?: string
+  }
+  email?: {
+    adminSent?: boolean
+    error?: string
+  }
 }
 
 export type WishlistResponse = {
@@ -503,6 +531,55 @@ export async function createCustomerOrderCase(
   }
 
   return data as CreateAccountOrderCaseResponse
+}
+
+export async function replyToCustomerOrderCase(
+  caseNumber: string,
+  payload: {
+    message: string
+    photos?: File[]
+  }
+) {
+  const token = getAccountToken()
+  const formData = new FormData()
+
+  formData.append('message', payload.message)
+
+  for (const photo of payload.photos || []) {
+    formData.append('photos', photo)
+  }
+
+  const response = await fetch(
+    `${PAYMENTS_API_URL}/api/account/order-cases/${encodeURIComponent(
+      caseNumber
+    )}/replies`,
+    {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    }
+  )
+
+  let data: any = null
+
+  try {
+    data = await response.json()
+  } catch {
+    data = null
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.details ||
+        data?.error ||
+        data?.message ||
+        `Case reply failed with status ${response.status}`
+    )
+  }
+
+  return data as ReplyToAccountOrderCaseResponse
 }
 
 export async function getCustomerWishlist() {
