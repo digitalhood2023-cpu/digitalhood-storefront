@@ -5,6 +5,7 @@ import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import SEO from '@/components/SEO'
+import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
 const ShopPage = lazy(() => import('@/pages/ShopPage'))
@@ -141,6 +142,12 @@ function App() {
               <Route path="/terms" element={<InfoPage />} />
               <Route path="/privacy" element={<InfoPage />} />
               <Route path="/cookies" element={<InfoPage />} />
+              <Route path="/marketplace-terms" element={<MarketplacePolicyPage />} />
+              <Route path="/seller-terms" element={<MarketplacePolicyPage />} />
+              <Route path="/prohibited-products" element={<MarketplacePolicyPage />} />
+              <Route path="/dispute-resolution" element={<MarketplacePolicyPage />} />
+              <Route path="/data-protection" element={<MarketplacePolicyPage />} />
+              <Route path="/incident-response" element={<MarketplacePolicyPage />} />
               <Route path="/sitemap" element={<InfoPage />} />
               <Route path="/blog" element={<InfoPage />} />
 

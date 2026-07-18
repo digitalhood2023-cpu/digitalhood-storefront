@@ -32,7 +32,12 @@ const companyLinks = [
   { name: 'About', href: '/about' },
   { name: 'Contact', href: '/contact' },
   { name: 'Sell on DigitalHood', href: 'https://seller.digitalhood.info', external: true },
-  { name: 'Terms', href: '/terms' },
+  { name: 'Marketplace Terms', href: '/marketplace-terms' },
+  { name: 'Seller Terms', href: '/seller-terms' },
+  { name: 'Prohibited Products', href: '/prohibited-products' },
+  { name: 'Disputes & Refunds', href: '/dispute-resolution' },
+  { name: 'Data Protection', href: '/data-protection' },
+  { name: 'Incident Response', href: '/incident-response' },
   { name: 'Privacy', href: '/privacy' },
 ]
 
