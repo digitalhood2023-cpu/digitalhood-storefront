@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowLeft,
@@ -378,12 +378,14 @@ function DetailCard({
 
 export default function OrderDetailsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { orderId } = useParams()
   const { isAuthenticated, isLoading } = useAccount()
 
   const [order, setOrder] = useState<AccountOrder | null>(null)
   const [isOrderLoading, setIsOrderLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [highlightedItemId, setHighlightedItemId] = useState('')
 
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false)
   const [isCaseDataLoading, setIsCaseDataLoading] = useState(false)
@@ -412,9 +414,22 @@ export default function OrderDetailsPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate(`/login?redirect=/orders/${orderId || ''}`)
+      const redirectPath =
+        `${location.pathname}${location.search}${location.hash}`
+
+      navigate(
+        `/login?redirect=${encodeURIComponent(redirectPath)}`,
+        { replace: true }
+      )
     }
-  }, [isAuthenticated, isLoading, navigate, orderId])
+  }, [
+    isAuthenticated,
+    isLoading,
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+  ])
 
   useEffect(() => {
     if (!isAuthenticated || !orderId) return
@@ -481,6 +496,64 @@ export default function OrderDetailsPage() {
   const orderStoreGroups = useMemo(() => {
     return groupOrderItemsByStore(order?.items || [])
   }, [order])
+
+  const requestedItemId = useMemo(() => {
+    const queryItem =
+      new URLSearchParams(location.search)
+        .get('item')
+        ?.trim()
+
+    if (queryItem) {
+      return queryItem
+    }
+
+    const hashMatch =
+      location.hash.match(/^#item-(.+)$/)
+
+    if (!hashMatch?.[1]) {
+      return ''
+    }
+
+    try {
+      return decodeURIComponent(hashMatch[1])
+    } catch {
+      return hashMatch[1]
+    }
+  }, [location.hash, location.search])
+
+  useEffect(() => {
+    if (!order || !requestedItemId) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(
+        `item-${requestedItemId}`
+      )
+
+      if (!target) {
+        return
+      }
+
+      setHighlightedItemId(requestedItemId)
+
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    })
+
+    const highlightTimeout = window.setTimeout(() => {
+      setHighlightedItemId((current) =>
+        current === requestedItemId ? '' : current
+      )
+    }, 5000)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(highlightTimeout)
+    }
+  }, [order, requestedItemId])
 
   const caseDescriptionWordCount = useMemo(() => {
     return countWords(caseDescription)
@@ -1122,11 +1195,21 @@ export default function OrderDetailsPage() {
                       <div className="divide-y divide-dh-light-gray">
                         {group.items.map((item) => {
                           const metaLines = getItemMetaText(item)
+                          const itemId = String(item.id)
+                          const itemDomId = `item-${itemId}`
+                          const isHighlighted =
+                            highlightedItemId === itemId
 
                           return (
                             <article
+                              id={itemDomId}
                               key={item.id}
-                              className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 p-3"
+                              data-order-item-id={itemId}
+                              className={`scroll-mt-28 grid grid-cols-[64px_minmax(0,1fr)] gap-3 p-3 transition-all duration-500 ${
+                                isHighlighted
+                                  ? 'relative z-10 rounded-2xl bg-amber-50 ring-2 ring-dh-secondary shadow-lg'
+                                  : ''
+                              }`}
                             >
                               <img
                                 src={item.image || '/logo.jpg'}
