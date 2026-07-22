@@ -156,7 +156,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
               <Link
                 to="/shop"
-                onClick={dismissDrawer}
+                onClick={onClose}
                 className="mt-6 inline-flex rounded-full bg-dh-primary px-6 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
               >
                 Start shopping
@@ -179,7 +179,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3">
                       <Link
                         to={item.slug ? `/product/${item.slug}` : '/shop'}
-                        onClick={dismissDrawer}
+                        onClick={onClose}
                         className="aspect-square overflow-hidden rounded-2xl bg-dh-gray"
                       >
                         <img
@@ -196,7 +196,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                         <div className="flex items-start justify-between gap-2">
                           <Link
                             to={item.slug ? `/product/${item.slug}` : '/shop'}
-                            onClick={dismissDrawer}
+                            onClick={onClose}
                           >
                             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-dh-primary hover:text-dh-secondary">
                               {item.name}
@@ -311,7 +311,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             <div className="grid grid-cols-2 gap-3">
               <Link
                 to="/cart"
-                onClick={dismissDrawer}
+                onClick={onClose}
                 className="inline-flex items-center justify-center rounded-full border border-dh-primary px-4 py-3 text-sm font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
               >
                 View cart
@@ -328,7 +328,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               ) : (
                 <Link
                   to="/checkout"
-                  onClick={dismissDrawer}
+                  onClick={onClose}
                   className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
                 >
                   Checkout
