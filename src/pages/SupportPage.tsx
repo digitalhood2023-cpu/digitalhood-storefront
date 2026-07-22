@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -36,6 +36,141 @@ type SupportCaseFormConfig = {
   messageLabel: string
   messagePlaceholder: string
   fields: SupportCaseField[]
+}
+
+const TURNSTILE_SITE_KEY = '0x4AAAAAAD7MdYiDnBbCljKc'
+const TURNSTILE_SCRIPT_URL =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+
+type TurnstileApi = {
+  render: (
+    container: HTMLElement,
+    options: {
+      sitekey: string
+      action: string
+      callback: (token: string) => void
+      'expired-callback': () => void
+      'error-callback': () => void
+    }
+  ) => string
+  reset: (widgetId?: string) => void
+  remove: (widgetId: string) => void
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi
+  }
+}
+
+let turnstileScriptPromise: Promise<void> | null = null
+
+function loadTurnstileScript() {
+  if (window.turnstile) {
+    return Promise.resolve()
+  }
+
+  if (turnstileScriptPromise) {
+    return turnstileScriptPromise
+  }
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${TURNSTILE_SCRIPT_URL}"]`
+    )
+
+    const resolveWhenReady = () => {
+      if (window.turnstile) {
+        resolve()
+      } else {
+        reject(new Error('Cloudflare Turnstile did not initialize.'))
+      }
+    }
+
+    if (existingScript) {
+      existingScript.addEventListener('load', resolveWhenReady, { once: true })
+      existingScript.addEventListener(
+        'error',
+        () => reject(new Error('Unable to load Cloudflare Turnstile.')),
+        { once: true }
+      )
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = TURNSTILE_SCRIPT_URL
+    script.async = true
+    script.defer = true
+    script.onload = resolveWhenReady
+    script.onerror = () =>
+      reject(new Error('Unable to load Cloudflare Turnstile.'))
+
+    document.head.appendChild(script)
+  })
+
+  return turnstileScriptPromise
+}
+
+function TurnstileWidget({
+  onTokenChange,
+  resetKey,
+}: {
+  onTokenChange: (token: string) => void
+  resetKey: number
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const widgetIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    loadTurnstileScript()
+      .then(() => {
+        if (!active || !containerRef.current || !window.turnstile) {
+          return
+        }
+
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          action: 'turnstile-spin-v2',
+          callback: (token) => onTokenChange(token),
+          'expired-callback': () => onTokenChange(''),
+          'error-callback': () => onTokenChange(''),
+        })
+      })
+      .catch(() => onTokenChange(''))
+
+    return () => {
+      active = false
+
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current)
+        widgetIdRef.current = null
+      }
+    }
+  }, [onTokenChange])
+
+  useEffect(() => {
+    if (resetKey > 0 && widgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current)
+      onTokenChange('')
+    }
+  }, [onTokenChange, resetKey])
+
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+      <p className="mb-3 text-xs font-black text-[#26248c]">
+        Human verification
+      </p>
+
+      <div
+        ref={containerRef}
+        className="cf-turnstile"
+        data-sitekey={TURNSTILE_SITE_KEY}
+        data-action="turnstile-spin-v2"
+      />
+    </div>
+  )
 }
 
 const supportTypes: Array<{ value: SupportCaseType; label: string; helper: string }> = [
@@ -239,6 +374,8 @@ export default function SupportPage() {
   const [error, setError] = useState('')
   const [successCaseNumber, setSuccessCaseNumber] = useState('')
   const [lookedUpCase, setLookedUpCase] = useState<PublicSupportCase | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const [form, setForm] = useState({
     type: 'GENERAL_CONTACT' as SupportCaseType,
@@ -326,16 +463,25 @@ export default function SupportPage() {
     setError('')
     setSuccessCaseNumber('')
     setLookedUpCase(null)
+
+    if (!turnstileToken) {
+      setError('Please complete the human verification before submitting.')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const response = await createSupportCase({
         ...form,
+        'cf-turnstile-response': turnstileToken,
         startedAt,
         pageUrl: window.location.href,
       })
 
       setSuccessCaseNumber(response.caseNumber)
+      setTurnstileToken('')
+      setTurnstileResetKey((current) => current + 1)
       setMode('track')
       setForm((current) => ({
         ...current,
@@ -347,6 +493,8 @@ export default function SupportPage() {
       }))
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to create support case.')
+      setTurnstileToken('')
+      setTurnstileResetKey((current) => current + 1)
     } finally {
       setIsSubmitting(false)
     }
@@ -581,6 +729,11 @@ export default function SupportPage() {
                   placeholder={selectedFormConfig.messagePlaceholder}
                 />
               </label>
+
+              <TurnstileWidget
+                onTokenChange={setTurnstileToken}
+                resetKey={turnstileResetKey}
+              />
 
               <button
                 type="submit"

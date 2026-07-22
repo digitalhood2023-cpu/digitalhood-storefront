@@ -28,6 +28,7 @@ export type CreateSupportCasePayload = {
   startedAt?: number
   companyWebsite?: string
   caseDetails?: Record<string, string>
+  'cf-turnstile-response': string
 }
 
 export type PublicSupportCase = {
