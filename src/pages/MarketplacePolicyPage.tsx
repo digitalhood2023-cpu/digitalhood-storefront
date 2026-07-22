@@ -1,13 +1,16 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ShieldCheck } from 'lucide-react'
 import SEO from '@/components/SEO'
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
 import {
   MARKETPLACE_POLICY_PAGES,
   MARKETPLACE_POLICY_LINKS,
 } from '@/lib/marketplacePolicies'
 
 export default function MarketplacePolicyPage() {
-  const { policySlug = '' } = useParams()
+  const location = useLocation()
+  const policySlug = location.pathname.replace(/^\/+|\/+$/g, '')
   const policy = MARKETPLACE_POLICY_PAGES[policySlug]
 
   if (!policy) {
@@ -15,7 +18,10 @@ export default function MarketplacePolicyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50">
+      <Header />
+
+      <main className="min-h-screen bg-slate-50">
       <SEO
         title={`${policy.title} | DigitalHood Marketplace Zambia`}
         description={policy.subtitle}
@@ -101,6 +107,9 @@ export default function MarketplacePolicyPage() {
           </article>
         </div>
       </section>
-    </main>
+      </main>
+
+      <Footer />
+    </div>
   )
 }
