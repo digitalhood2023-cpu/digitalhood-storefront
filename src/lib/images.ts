@@ -16,11 +16,35 @@ function isDataUrl(url: string) {
   return url.startsWith('data:')
 }
 
+const CLOUDFLARE_IMAGE_ZONE = 'https://digitalhood.info'
+const CLOUDFLARE_IMAGE_QUALITY = 80
+
+function isDigitalHoodHostname(hostname: string) {
+  const normalized = hostname.toLowerCase()
+
+  return (
+    normalized === 'digitalhood.info' ||
+    normalized.endsWith('.digitalhood.info')
+  )
+}
+
 function isOptimizableWordPressImage(url: URL) {
   return (
+    isDigitalHoodHostname(url.hostname) &&
     /\/wp-content\/uploads\//i.test(url.pathname) &&
     /\.(jpe?g|png|webp)$/i.test(url.pathname)
   )
+}
+
+function buildCloudflareImageUrl(source: URL, width: number) {
+  const options = [
+    `width=${width}`,
+    'fit=scale-down',
+    `quality=${CLOUDFLARE_IMAGE_QUALITY}`,
+    'format=auto',
+  ].join(',')
+
+  return `${CLOUDFLARE_IMAGE_ZONE}/cdn-cgi/image/${options}/${source.toString()}`
 }
 
 export function getOptimizedImageUrl(
@@ -47,9 +71,7 @@ export function getOptimizedImageUrl(
     }
 
     if (isOptimizableWordPressImage(url)) {
-      url.searchParams.set('w', String(width))
-      url.searchParams.set('quality', '75')
-      return url.toString()
+      return buildCloudflareImageUrl(url, width)
     }
 
     return rawUrl
@@ -90,9 +112,7 @@ export function getImageSrcSet(input?: string | null, size: ImageSize = 'card') 
         }
 
         if (isOptimizableWordPressImage(url)) {
-          url.searchParams.set('w', String(width))
-          url.searchParams.set('quality', '75')
-          return `${url.toString()} ${width}w`
+          return `${buildCloudflareImageUrl(url, width)} ${width}w`
         }
 
         return ''
