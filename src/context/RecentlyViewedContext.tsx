@@ -8,6 +8,8 @@ import React, {
 
 import type { Product } from '@/types'
 
+import { useAccount } from '@/context/AccountContext'
+
 import {
   addCustomerRecentlyViewedItem,
   getCustomerRecentlyViewed,
@@ -32,7 +34,6 @@ interface RecentlyViewedContextType {
 const RecentlyViewedContext =
   createContext<RecentlyViewedContextType | undefined>(undefined)
 
-const STORAGE_KEY = 'digitalhood_recently_viewed'
 const MAX_ITEMS = 50
 
 function accountProductToRecentlyViewed(product: AccountProduct): RecentlyViewedProduct {
@@ -50,25 +51,6 @@ function accountProductToRecentlyViewed(product: AccountProduct): RecentlyViewed
   }
 }
 
-function readLocalItems() {
-  if (typeof window === 'undefined') return []
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    const parsed = stored ? JSON.parse(stored) : []
-
-    return Array.isArray(parsed) ? parsed.slice(0, MAX_ITEMS) : []
-  } catch {
-    return []
-  }
-}
-
-function saveLocalItems(items: RecentlyViewedProduct[]) {
-  if (typeof window === 'undefined') return
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_ITEMS)))
-}
-
 function dedupeItems(items: RecentlyViewedProduct[]) {
   const map = new Map<string, RecentlyViewedProduct>()
 
@@ -81,31 +63,35 @@ function dedupeItems(items: RecentlyViewedProduct[]) {
 }
 
 export function RecentlyViewedProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<RecentlyViewedProduct[]>(readLocalItems)
+  const { customer, isAuthenticated } = useAccount()
+  const [items, setItems] = useState<RecentlyViewedProduct[]>([])
 
   useEffect(() => {
-    saveLocalItems(items)
-  }, [items])
+    setItems([])
 
-  useEffect(() => {
+    if (!isAuthenticated || !customer?.id) return
+
     let mounted = true
 
     getCustomerRecentlyViewed()
       .then((response) => {
         if (!mounted) return
-
-        const backendItems = (response.products || []).map(accountProductToRecentlyViewed)
-
-        setItems((current) => dedupeItems([...backendItems, ...current]))
+        setItems(
+          dedupeItems(
+            (response.products || []).map(accountProductToRecentlyViewed)
+          )
+        )
       })
-      .catch(() => {
-        // Guest users or signed-out users continue with local history.
+      .catch((error) => {
+        if (mounted) {
+          console.error('[Recently Viewed] Unable to load account history.', error)
+        }
       })
 
     return () => {
       mounted = false
     }
-  }, [])
+  }, [customer?.id, isAuthenticated])
 
   const addToRecentlyViewed = useCallback((product: RecentlyViewedProduct) => {
     setItems((prev) => {
@@ -113,18 +99,22 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
       return next
     })
 
-    addCustomerRecentlyViewedItem(Number(product.id)).catch(() => {
-      // Local history still works for guests/offline sessions.
-    })
-  }, [])
+    if (isAuthenticated) {
+      addCustomerRecentlyViewedItem(Number(product.id)).catch(() => {
+        // The in-memory view remains available during a temporary API failure.
+      })
+    }
+  }, [isAuthenticated])
 
   const removeRecentlyViewed = useCallback((productId: string | number) => {
     setItems((prev) => prev.filter((item) => String(item.id) !== String(productId)))
 
-    removeCustomerRecentlyViewedItem(Number(productId)).catch(() => {
-      // Local delete still works.
-    })
-  }, [])
+    if (isAuthenticated) {
+      removeCustomerRecentlyViewedItem(Number(productId)).catch(() => {
+        // The in-memory removal remains applied during a temporary API failure.
+      })
+    }
+  }, [isAuthenticated])
 
   const removeSelectedRecentlyViewed = useCallback(
     (productIds: Array<string | number>) => {
@@ -132,23 +122,26 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
 
       setItems((prev) => prev.filter((item) => !ids.includes(String(item.id))))
 
-      removeCustomerRecentlyViewedItems(productIds.map(Number).filter(Boolean)).catch(() => {
-        // Local delete still works.
-      })
+      if (isAuthenticated) {
+        removeCustomerRecentlyViewedItems(productIds.map(Number).filter(Boolean)).catch(() => {
+          // The in-memory removal remains applied during a temporary API failure.
+        })
+      }
     },
-    []
+    [isAuthenticated]
   )
 
   const clearRecentlyViewed = useCallback(() => {
     const productIds = items.map((item) => Number(item.id)).filter(Boolean)
 
     setItems([])
-    localStorage.removeItem(STORAGE_KEY)
 
-    removeCustomerRecentlyViewedItems(productIds).catch(() => {
-      // Local clear still works.
-    })
-  }, [items])
+    if (isAuthenticated) {
+      removeCustomerRecentlyViewedItems(productIds).catch(() => {
+        // The in-memory clear remains applied during a temporary API failure.
+      })
+    }
+  }, [isAuthenticated, items])
 
   const hasItems = items.length > 0
 
