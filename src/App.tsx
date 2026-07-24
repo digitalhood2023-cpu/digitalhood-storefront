@@ -24,6 +24,7 @@ const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
 const OrderDetailsPage = lazy(() => import('@/pages/OrderDetailsPage'))
+const PaymentRecoveryPage = lazy(() => import('@/pages/PaymentRecoveryPage'))
 const InfoPage = lazy(() => import('@/pages/InfoPage'))
 
 const PhoneAccessoriesPage = lazy(() => import('@/pages/seo/PhoneAccessoriesPage'))
@@ -133,6 +134,7 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+              <Route path="/orders/:orderId/payment" element={<PaymentRecoveryPage />} />
 
               <Route path="/help" element={<InfoPage />} />
               <Route path="/faqs" element={<InfoPage />} />
