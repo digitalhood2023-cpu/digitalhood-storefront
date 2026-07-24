@@ -29,32 +29,37 @@ export default function AccountCartSync() {
 
     const customerId = String(customer.id)
 
+    const beginSaving = () => {
+      if (!active || hydrated) return
+      hydrated = true
+
+      unsubscribe = useCartStore.subscribe((state, previousState) => {
+        if (!active || state.items === previousState.items) return
+
+        const snapshot = state.items.map((item) => ({ ...item }))
+        saveQueue = saveQueue
+          .catch(() => undefined)
+          .then(async () => {
+            if (!active) return
+            await saveCustomerCart(snapshot)
+          })
+          .catch((error) => {
+            console.error('[Account Cart] Unable to save cart.', error)
+          })
+      })
+    }
+
     getCustomerCart()
       .then((response) => {
         if (!active || String(customer.id) !== customerId) return
 
         useCartStore.getState().replaceItems(response.items || [])
-        hydrated = true
-
-        unsubscribe = useCartStore.subscribe((state, previousState) => {
-          if (!active || !hydrated || state.items === previousState.items) return
-
-          const snapshot = state.items.map((item) => ({ ...item }))
-          saveQueue = saveQueue
-            .catch(() => undefined)
-            .then(async () => {
-              if (!active) return
-              await saveCustomerCart(snapshot)
-            })
-            .catch((error) => {
-              console.error('[Account Cart] Unable to save cart.', error)
-            })
-        })
+        beginSaving()
       })
       .catch((error) => {
         if (!active) return
-        hydrated = true
         console.error('[Account Cart] Unable to load cart.', error)
+        beginSaving()
       })
 
     return () => {
