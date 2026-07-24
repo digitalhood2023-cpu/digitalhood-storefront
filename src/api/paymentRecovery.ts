@@ -19,6 +19,8 @@ export type PaymentRecoveryOrder = {
   recoveryStartedAt?: string
   recoveryExpiresAt?: string
   recoveryRemainingSeconds?: number
+  paymentReference?: string
+  failureReason?: string
 }
 
 export type PaymentRecoveryDetailsResponse = {
@@ -47,6 +49,7 @@ export type MobileRecoveryResponse = {
   pending?: boolean
   code?: string
   message?: string
+  paymentReference?: string
   amount: number
   currency: string
 }
@@ -62,6 +65,7 @@ export type MobileRecoveryVerificationResponse = {
   message: string
   reference: string
   transactionId?: string | null
+  paymentReference?: string
   orderId: number
 }
 
