@@ -76,10 +76,11 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
     getCustomerRecentlyViewed()
       .then((response) => {
         if (!mounted) return
-        setItems(
-          dedupeItems(
-            (response.products || []).map(accountProductToRecentlyViewed)
-          )
+        setItems((current) =>
+          dedupeItems([
+            ...current,
+            ...(response.products || []).map(accountProductToRecentlyViewed),
+          ])
         )
       })
       .catch((error) => {
