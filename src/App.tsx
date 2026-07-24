@@ -5,7 +5,6 @@ import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import SEO from '@/components/SEO'
-import PaymentRecoveryNotice from '@/components/payments/PaymentRecoveryNotice'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -93,8 +92,6 @@ function App() {
         <RecentlyViewedProvider>
           <SEO />
           <NavigationScrollManager />
-          <PaymentRecoveryNotice />
-
           <div className="pt-[88px] md:pt-[122px]">
             <Suspense fallback={<PageLoader />}>
               <Routes>
