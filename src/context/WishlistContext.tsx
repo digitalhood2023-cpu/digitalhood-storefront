@@ -29,6 +29,10 @@ interface WishlistContextType {
   closeWishlistDrawer: () => void
 }
 
+const WishlistContext = createContext<WishlistContextType | undefined>(
+  undefined
+)
+
 function normalizeId(productId: string | number) {
   return String(productId)
 }
