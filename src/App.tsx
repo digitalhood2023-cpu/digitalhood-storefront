@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 
-import { AccountProvider } from '@/context/AccountContext'
+import { AccountProvider, useAccount } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import SEO from '@/components/SEO'
+import AccountCartSync from '@/components/account/AccountCartSync'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -85,11 +86,28 @@ function NavigationScrollManager() {
   return null
 }
 
+function AccountDataBoundary({ children }: { children: ReactNode }) {
+  const { customer, isLoading } = useAccount()
+  const scopeKey = isLoading
+    ? 'loading'
+    : customer?.id
+      ? `customer-${customer.id}`
+      : 'guest'
+
+  return (
+    <WishlistProvider key={`wishlist-${scopeKey}`}>
+      <RecentlyViewedProvider key={`recently-viewed-${scopeKey}`}>
+        <AccountCartSync />
+        {children}
+      </RecentlyViewedProvider>
+    </WishlistProvider>
+  )
+}
+
 function App() {
   return (
     <AccountProvider>
-      <WishlistProvider>
-        <RecentlyViewedProvider>
+      <AccountDataBoundary>
           <SEO />
           <NavigationScrollManager />
           <div className="pt-[88px] md:pt-[122px]">
@@ -149,8 +167,7 @@ function App() {
               </Routes>
             </Suspense>
           </div>
-        </RecentlyViewedProvider>
-      </WishlistProvider>
+      </AccountDataBoundary>
     </AccountProvider>
   )
 }
