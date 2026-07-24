@@ -156,10 +156,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     getCustomerWishlist()
       .then((response) => {
         if (!mounted) return
-        setItems(
-          dedupeProducts(
-            normalizeBackendWishlistProducts(response.products || [])
-          )
+        setItems((current) =>
+          dedupeProducts([
+            ...current,
+            ...normalizeBackendWishlistProducts(response.products || []),
+          ])
         )
       })
       .catch((error) => {
