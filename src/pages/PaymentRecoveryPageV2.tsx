@@ -42,12 +42,27 @@ function formatDeadline(value?: string) {
   }).format(new Date(value))
 }
 
+function formatCountdown(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds))
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainder = seconds % 60
+  return [
+    days ? `${days}d` : '',
+    `${String(hours).padStart(2, '0')}h`,
+    `${String(minutes).padStart(2, '0')}m`,
+    `${String(remainder).padStart(2, '0')}s`,
+  ].filter(Boolean).join(' ')
+}
+
 export default function PaymentRecoveryPageV2() {
   const { orderId = '' } = useParams()
   const navigate = useNavigate()
   const { isAuthenticated, isLoading: isAccountLoading } = useAccount()
   const pollRef = useRef<number | null>(null)
   const pollAttemptsRef = useRef(0)
+  const pollErrorsRef = useRef(0)
 
   const [order, setOrder] = useState<PaymentRecoveryOrder | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -62,11 +77,14 @@ export default function PaymentRecoveryPageV2() {
   const [mobileReference, setMobileReference] = useState('')
   const [mobileMessage, setMobileMessage] = useState('')
   const [mobileFailed, setMobileFailed] = useState(false)
+  const [mobileTransactionId, setMobileTransactionId] = useState('')
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
 
   const stopPolling = () => {
-    if (pollRef.current) window.clearInterval(pollRef.current)
+    if (pollRef.current) window.clearTimeout(pollRef.current)
     pollRef.current = null
     pollAttemptsRef.current = 0
+    pollErrorsRef.current = 0
   }
 
   useEffect(() => stopPolling, [])
@@ -85,6 +103,8 @@ export default function PaymentRecoveryPageV2() {
         if (!active) return
         setOrder(response.order)
         setPhone(response.order.billingPhone || '')
+        setMobileTransactionId(response.order.paymentReference || '')
+        setRemainingSeconds(response.order.recoveryRemainingSeconds || 0)
         if (!response.order.eligible) {
           setError(
             response.order.eligibilityCode === 'recovery_expired'
@@ -106,6 +126,23 @@ export default function PaymentRecoveryPageV2() {
       active = false
     }
   }, [isAccountLoading, isAuthenticated, navigate, orderId])
+
+  useEffect(() => {
+    if (!order?.eligible || remainingSeconds <= 0) return
+    const timer = window.setInterval(() => {
+      setRemainingSeconds((current) => {
+        if (current <= 1) {
+          stopPolling()
+          setOrder((existing) => existing ? { ...existing, eligible: false, eligibilityCode: 'recovery_expired' } : existing)
+          setError('The payment window for this order has closed. Please create a new order.')
+          return 0
+        }
+        return current - 1
+      })
+    }, 1000)
+    return () => window.clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id, order?.eligible])
 
   const stripeOptions = useMemo(
     () => clientSecret ? { clientSecret, appearance: { theme: 'stripe' as const, variables: { borderRadius: '10px' } } } : undefined,
@@ -149,17 +186,21 @@ export default function PaymentRecoveryPageV2() {
 
   function beginMobilePolling(reference: string) {
     stopPolling()
-    pollAttemptsRef.current = 0
-    pollRef.current = window.setInterval(async () => {
+
+    const checkPayment = async () => {
       pollAttemptsRef.current += 1
       try {
         const result = await verifyRecoveryMobilePayment(orderId, reference)
+        pollErrorsRef.current = 0
         setMobileMessage(result.message || 'Checking payment status...')
+        setMobileTransactionId(
+          result.paymentReference || result.transactionId || reference
+        )
 
         if (result.paid) {
           stopPolling()
           setSuccess('Payment confirmed. Your original order is now processing.')
-          window.setTimeout(() => navigate(`/orders/${orderId}`), 1000)
+          window.setTimeout(() => navigate(`/orders/${orderId}`), 1800)
           return
         }
 
@@ -170,20 +211,30 @@ export default function PaymentRecoveryPageV2() {
           return
         }
 
-        if (pollAttemptsRef.current >= 24) {
+        if (pollAttemptsRef.current >= 36) {
           stopPolling()
           setMobileFailed(true)
-          setError('The payment prompt was not confirmed. Try again and approve the new prompt, or choose card payment.')
+          setError('The phone approval was not confirmed before it expired. Try again, or use card payment.')
+          return
         }
+
+        pollRef.current = window.setTimeout(checkPayment, 4000)
       } catch (verificationError) {
         const typed = verificationError as Error & { terminal?: boolean }
-        if (typed.terminal || pollAttemptsRef.current >= 24) {
+        pollErrorsRef.current += 1
+
+        if (typed.terminal || pollErrorsRef.current >= 3 || pollAttemptsRef.current >= 36) {
           stopPolling()
           setMobileFailed(true)
           setError(typed.message || 'The payment could not be confirmed. Try again or choose another method.')
+          return
         }
+
+        pollRef.current = window.setTimeout(checkPayment, 4000)
       }
-    }, 5000)
+    }
+
+    void checkPayment()
   }
 
   async function startMobilePayment() {
@@ -200,6 +251,7 @@ export default function PaymentRecoveryPageV2() {
         operator: detectOperator(phone),
       })
       setMobileReference(response.reference)
+      setMobileTransactionId(response.paymentReference || response.transactionId || response.reference)
       setMobileMessage(response.message || 'Check your phone and approve the payment.')
 
       if (response.paid) {
@@ -225,6 +277,7 @@ export default function PaymentRecoveryPageV2() {
     setMobileReference('')
     setMobileMessage('')
     setMobileFailed(false)
+    setMobileTransactionId('')
     setError('')
   }
 
@@ -261,13 +314,24 @@ export default function PaymentRecoveryPageV2() {
                         <div className="text-right"><p className="text-xs font-bold uppercase text-slate-500">Amount due</p><p className="mt-1 text-xl font-black">{formatMoney(order.total, order.currency)}</p></div>
                       </div>
                       {order.recoveryExpiresAt && order.eligible && (
-                        <p className="mt-4 border-t border-slate-200 pt-3 text-xs font-semibold text-amber-700">Complete payment before {formatDeadline(order.recoveryExpiresAt)}.</p>
+                        <div className="mt-4 border-t border-slate-200 pt-3 text-amber-800">
+                          <p className="text-xs font-semibold">Complete payment before {formatDeadline(order.recoveryExpiresAt)}.</p>
+                          <p className="mt-2 font-mono text-lg font-black tabular-nums" aria-live="polite">
+                            {formatCountdown(remainingSeconds)}
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}
 
                   {error && <div className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" /><p>{error}</p></div>}
                   {success && <div className="mb-5 flex gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><p>{success}</p></div>}
+                  {mobileTransactionId && (
+                    <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Mobile Money transaction ID</p>
+                      <p className="mt-1 break-all font-mono text-sm font-black text-slate-900">{mobileTransactionId}</p>
+                    </div>
+                  )}
 
                   {order?.eligible && !success && (
                     <>
