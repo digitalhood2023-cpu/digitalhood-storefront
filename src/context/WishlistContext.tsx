@@ -4,7 +4,6 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 
@@ -30,36 +29,8 @@ interface WishlistContextType {
   closeWishlistDrawer: () => void
 }
 
-const WISHLIST_STORAGE_KEY = 'digitalhood-wishlist'
-
-const WishlistContext = createContext<WishlistContextType | undefined>(
-  undefined
-)
-
 function normalizeId(productId: string | number) {
   return String(productId)
-}
-
-function loadStoredWishlist(): Product[] {
-  if (typeof window === 'undefined') return []
-
-  try {
-    const saved = window.localStorage.getItem(WISHLIST_STORAGE_KEY)
-
-    if (!saved) return []
-
-    const parsed = JSON.parse(saved)
-
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveStoredWishlist(items: Product[]) {
-  if (typeof window === 'undefined') return
-
-  window.localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(items))
 }
 
 function dedupeProducts(items: Product[]) {
@@ -147,20 +118,13 @@ function normalizeBackendWishlistProducts(products: any[]): Product[] {
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, customer } = useAccount()
 
-  const [items, setItems] = useState<Product[]>(() => loadStoredWishlist())
+  const [items, setItems] = useState<Product[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
   const [isWishlistDrawerOpen, setIsWishlistDrawerOpen] = useState(false)
 
-  const hasMergedLocalWishlistRef = useRef(false)
-  const previousCustomerIdRef = useRef<string>('')
-
-  useEffect(() => {
-    saveStoredWishlist(items)
-  }, [items])
-
   const refreshWishlist = useCallback(async () => {
-    if (!isAuthenticated) {
-      setItems(loadStoredWishlist())
+    if (!isAuthenticated || !customer?.id) {
+      setItems([])
       return
     }
 
@@ -168,96 +132,42 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await getCustomerWishlist()
-      const backendProducts = normalizeBackendWishlistProducts(response.products || [])
-
-      setItems((current) => {
-        const merged = dedupeProducts([...backendProducts, ...current])
-        saveStoredWishlist(merged)
-        return merged
-      })
+      setItems(
+        dedupeProducts(
+          normalizeBackendWishlistProducts(response.products || [])
+        )
+      )
     } catch (error) {
       console.error(error)
     } finally {
       setIsSyncing(false)
     }
-  }, [isAuthenticated])
+  }, [customer?.id, isAuthenticated])
 
   useEffect(() => {
-    const customerId = customer?.id ? String(customer.id) : ''
+    setItems([])
+    setIsWishlistDrawerOpen(false)
 
-    if (!isAuthenticated || !customerId) {
-      hasMergedLocalWishlistRef.current = false
-      previousCustomerIdRef.current = ''
-      return
-    }
-
-    if (previousCustomerIdRef.current !== customerId) {
-      hasMergedLocalWishlistRef.current = false
-      previousCustomerIdRef.current = customerId
-    }
+    if (!isAuthenticated || !customer?.id) return
 
     let mounted = true
+    setIsSyncing(true)
 
-    async function syncLoggedInWishlist() {
-      setIsSyncing(true)
-
-      try {
-        const localItems = loadStoredWishlist()
-        const response = await getCustomerWishlist()
-        const backendProducts = normalizeBackendWishlistProducts(response.products || [])
-        const backendProductIds = new Set(
-          (response.productIds || []).map((id) => normalizeId(id))
+    getCustomerWishlist()
+      .then((response) => {
+        if (!mounted) return
+        setItems(
+          dedupeProducts(
+            normalizeBackendWishlistProducts(response.products || [])
+          )
         )
-
-        if (!hasMergedLocalWishlistRef.current && localItems.length > 0) {
-          for (const product of localItems) {
-            const productId = normalizeId(product.id)
-
-            if (!backendProductIds.has(productId)) {
-              await addCustomerWishlistItem(Number(productId))
-              backendProductIds.add(productId)
-            }
-          }
-
-          hasMergedLocalWishlistRef.current = true
-
-          const updatedResponse = await getCustomerWishlist()
-          const mergedProducts = dedupeProducts([
-            ...normalizeBackendWishlistProducts(updatedResponse.products || []),
-            ...localItems,
-          ])
-
-          if (mounted) {
-            setItems(mergedProducts)
-            saveStoredWishlist(mergedProducts)
-          }
-
-          return
-        }
-
-        hasMergedLocalWishlistRef.current = true
-
-        const mergedProducts = dedupeProducts([
-          ...backendProducts,
-          ...localItems.filter((product) =>
-            backendProductIds.has(normalizeId(product.id))
-          ),
-        ])
-
-        if (mounted) {
-          setItems(mergedProducts)
-          saveStoredWishlist(mergedProducts)
-        }
-      } catch (error) {
-        console.error(error)
-      } finally {
-        if (mounted) {
-          setIsSyncing(false)
-        }
-      }
-    }
-
-    syncLoggedInWishlist()
+      })
+      .catch((error) => {
+        if (mounted) console.error(error)
+      })
+      .finally(() => {
+        if (mounted) setIsSyncing(false)
+      })
 
     return () => {
       mounted = false
