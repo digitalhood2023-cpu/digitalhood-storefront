@@ -9,13 +9,16 @@ export type PaymentRecoveryOrder = {
   id: number
   number: string
   status: string
+  statusLabel?: string
   currency: string
   total: number
-  paymentMethod: string
   eligible: boolean
   eligibilityCode: string
-  allowedMethods: Array<'stripe' | 'lenco'>
+  allowedMethods: Array<'card' | 'mobile'>
   billingPhone?: string
+  recoveryStartedAt?: string
+  recoveryExpiresAt?: string
+  recoveryRemainingSeconds?: number
 }
 
 export type PaymentRecoveryDetailsResponse = {
@@ -32,21 +35,31 @@ export type StripeRecoveryResponse = {
   currency: string
 }
 
-export type LencoRecoveryResponse = {
+export type MobileRecoveryResponse = {
   success: boolean
   orderId: number
   reference: string
   transactionId?: string | null
   status: string
+  paid?: boolean
+  failed?: boolean
+  terminal?: boolean
+  pending?: boolean
+  code?: string
+  message?: string
   amount: number
   currency: string
-  message?: string
 }
 
-export type LencoRecoveryVerificationResponse = {
+export type MobileRecoveryVerificationResponse = {
   success: boolean
   paid: boolean
+  failed: boolean
+  terminal: boolean
+  pending: boolean
+  code: string
   status: string
+  message: string
   reference: string
   transactionId?: string | null
   orderId: number
@@ -74,12 +87,16 @@ async function recoveryFetch<T>(
   }
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       data?.details ||
         data?.error ||
         data?.message ||
-        `Payment recovery request failed with status ${response.status}`
-    )
+        `Payment request failed with status ${response.status}`
+    ) as Error & { code?: string; failed?: boolean; terminal?: boolean }
+    error.code = data?.code
+    error.failed = Boolean(data?.failed)
+    error.terminal = Boolean(data?.terminal)
+    throw error
   }
 
   return data as T
@@ -102,43 +119,36 @@ export function createRecoveryStripeIntent(orderId: string | number) {
     )}/payment-recovery/stripe`,
     {
       method: 'POST',
-      headers: {
-        'Idempotency-Key': idempotencyKey,
-      },
+      headers: { 'Idempotency-Key': idempotencyKey },
       body: JSON.stringify({}),
     }
   )
 }
 
-export function createRecoveryLencoPayment(
+export function createRecoveryMobilePayment(
   orderId: string | number,
-  payload: {
-    phone: string
-    operator?: 'mtn' | 'airtel'
-  }
+  payload: { phone: string; operator?: 'mtn' | 'airtel' }
 ) {
-  return recoveryFetch<LencoRecoveryResponse>(
+  return recoveryFetch<MobileRecoveryResponse>(
     `/api/account/orders/${encodeURIComponent(
       String(orderId)
     )}/payment-recovery/lenco`,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
+    { method: 'POST', body: JSON.stringify(payload) }
   )
 }
 
-export function verifyRecoveryLencoPayment(
+export const createRecoveryLencoPayment = createRecoveryMobilePayment
+
+export function verifyRecoveryMobilePayment(
   orderId: string | number,
   reference: string
 ) {
-  return recoveryFetch<LencoRecoveryVerificationResponse>(
+  return recoveryFetch<MobileRecoveryVerificationResponse>(
     `/api/account/orders/${encodeURIComponent(
       String(orderId)
     )}/payment-recovery/lenco/verify`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ reference }),
-    }
+    { method: 'POST', body: JSON.stringify({ reference }) }
   )
 }
+
+export const verifyRecoveryLencoPayment = verifyRecoveryMobilePayment
