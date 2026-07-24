@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
 export type StockTone = 'success' | 'warning' | 'danger' | 'muted'
 
@@ -107,6 +106,7 @@ type CartStore = {
   increaseQuantity: (productId: number) => void
   decreaseQuantity: (productId: number) => void
   clearCart: () => void
+  replaceItems: (items: CartItem[]) => void
 
   getCartCount: () => number
   getSubtotal: () => number
@@ -349,8 +349,7 @@ const getVariationLabel = (product: CartProduct): string => {
 }
 
 export const useCartStore = create<CartStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       items: [],
 
       addItem: (product, quantity = 1) => {
@@ -481,6 +480,10 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => set({ items: [] }),
 
+      replaceItems: (items) => {
+        set({ items: Array.isArray(items) ? items : [] })
+      },
+
       getCartCount: () => {
         return get().items.reduce(
           (total, item) => total + item.quantity,
@@ -494,9 +497,5 @@ export const useCartStore = create<CartStore>()(
           0
         )
       },
-    }),
-    {
-      name: 'digitalhood-cart',
-    }
-  )
+    })
 )
