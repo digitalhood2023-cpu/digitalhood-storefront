@@ -263,6 +263,8 @@ export default function ShopPage() {
   const pageRef = useRef<HTMLDivElement>(null);
   const hasCompletedInitialPageSyncRef = useRef(false);
   const shouldRestoreShopScrollRef = useRef(false);
+  const shouldScrollToResultsAfterPageChangeRef =
+    useRef(false);
 
   const {
     data: categories = [],
@@ -327,6 +329,7 @@ export default function ShopPage() {
   const {
     data: productsResponse,
     isLoading,
+    isFetching,
     error: productsError,
   } = useQuery({
     queryKey: ['woo-products', PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId],
@@ -391,6 +394,37 @@ export default function ShopPage() {
       window.sessionStorage.removeItem('digitalhood-shop-return-state');
     }
   }, [isLoading, location.pathname, location.search, products.length]);
+
+  useEffect(() => {
+    if (
+      isFetching ||
+      !shouldScrollToResultsAfterPageChangeRef.current
+    ) {
+      return;
+    }
+
+    shouldScrollToResultsAfterPageChangeRef.current = false;
+
+    window.requestAnimationFrame(() => {
+      const results =
+        document.getElementById('shop-results');
+
+      if (!results) return;
+
+      const headerOffset =
+        window.innerWidth >= 768 ? 138 : 104;
+
+      const top =
+        results.getBoundingClientRect().top +
+        window.scrollY -
+        headerOffset;
+
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: 'smooth',
+      });
+    });
+  }, [isFetching, page, products.length]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -602,30 +636,38 @@ export default function ShopPage() {
       maximumFractionDigits: 2,
     })}`;
 
-  const goToPreviousPage = () => {
-    const nextPage = Math.max(1, page - 1);
+  const goToShopPage = (nextPage: number) => {
+    if (
+      nextPage === page ||
+      nextPage < 1 ||
+      nextPage > totalPages ||
+      isFetching
+    ) {
+      return;
+    }
+
+    shouldScrollToResultsAfterPageChangeRef.current =
+      true;
 
     setPage(nextPage);
-    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    updateShopUrl(
+      selectedCategorySlug || categorySlugFromUrl,
+      searchQuery,
+      nextPage
+    );
+  };
+
+  const goToPreviousPage = () => {
+    goToShopPage(page - 1);
   };
 
   const goToNextPage = () => {
-    if (page < totalPages) {
-      const nextPage = page + 1;
-
-      setPage(nextPage);
-      updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    goToShopPage(page + 1);
   };
 
   const goToPage = (nextPage: number) => {
-    if (nextPage === page || nextPage < 1 || nextPage > totalPages || isLoading) return;
-
-    setPage(nextPage);
-    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, searchQuery, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    goToShopPage(nextPage);
   };
 
   const saveShopReturnState = () => {

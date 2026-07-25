@@ -32,8 +32,6 @@ export type PublicSellerStore = {
     description?: string
     profilePhotoUrl?: string
     coverPhotoUrl?: string
-    supportPhone?: string
-    supportEmail?: string
     accountType?: string
     verified?: boolean
     joinedAt?: string

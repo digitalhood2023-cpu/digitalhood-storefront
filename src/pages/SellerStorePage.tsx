@@ -4,10 +4,11 @@ import {
   ArrowRight,
   BadgeCheck,
   Heart,
+  LifeBuoy,
   Loader2,
-  Mail,
+  MessageCircle,
   PackageCheck,
-  Phone,
+  ShieldCheck,
   ShoppingCart,
   Star,
   Store,
@@ -351,34 +352,6 @@ export default function SellerStorePage() {
                   </p>
                 </div>
 
-                {(seller.supportPhone || seller.supportEmail) && (
-                  <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                    <h2 className="font-display text-xl font-black text-dh-primary">
-                      Store support
-                    </h2>
-                    <div className="mt-4 space-y-3">
-                      {seller.supportPhone && (
-                        <a
-                          href={`tel:${seller.supportPhone}`}
-                          className="flex items-center gap-3 rounded-2xl bg-gray-50 p-3 text-sm font-bold text-dh-primary"
-                        >
-                          <Phone className="h-4 w-4" />
-                          {seller.supportPhone}
-                        </a>
-                      )}
-
-                      {seller.supportEmail && (
-                        <a
-                          href={`mailto:${seller.supportEmail}`}
-                          className="flex items-center gap-3 rounded-2xl bg-gray-50 p-3 text-sm font-bold text-dh-primary"
-                        >
-                          <Mail className="h-4 w-4" />
-                          {seller.supportEmail}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
               </aside>
 
               <section className="min-w-0">
@@ -535,6 +508,87 @@ export default function SellerStorePage() {
                   </div>
                 )}
               </section>
+            </section>
+
+            <section className="mx-auto max-w-[1500px] px-4 pb-8 sm:px-6 lg:px-8 xl:px-12">
+              <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
+                <div className="flex flex-col gap-3 text-center sm:text-left">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#b87500]">
+                      Secure marketplace communication
+                    </p>
+
+                    <h2 className="mt-2 font-display text-2xl font-black text-dh-primary">
+                      Store support
+                    </h2>
+
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+                      DigitalHood keeps buyer and seller communication inside the
+                      marketplace to protect accounts, orders, payments and case history.
+                    </p>
+                  </div>
+
+                  <div className="mt-2 grid gap-3 md:grid-cols-3">
+                    <button
+                      type="button"
+                      disabled
+                      className="flex cursor-not-allowed items-start gap-3 rounded-2xl border border-dh-primary/10 bg-dh-primary/[0.04] p-4 text-left opacity-80"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-dh-primary text-[#ffb54a]">
+                        <MessageCircle className="h-5 w-5" />
+                      </span>
+
+                      <span>
+                        <span className="block text-sm font-black text-dh-primary">
+                          Contact seller
+                        </span>
+
+                        <span className="mt-1 block text-xs leading-5 text-gray-500">
+                          DigitalHood Marketplace Chat is coming soon.
+                        </span>
+                      </span>
+                    </button>
+
+                    <Link
+                      to="/orders"
+                      className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-left transition hover:border-dh-primary/20 hover:bg-dh-primary/[0.04]"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-green-700">
+                        <ShieldCheck className="h-5 w-5" />
+                      </span>
+
+                      <span>
+                        <span className="block text-sm font-black text-dh-primary">
+                          Resolve an order issue
+                        </span>
+
+                        <span className="mt-1 block text-xs leading-5 text-gray-500">
+                          Open the relevant order and report or track the issue securely.
+                        </span>
+                      </span>
+                    </Link>
+
+                    <Link
+                      to="/support"
+                      className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-left transition hover:border-dh-primary/20 hover:bg-dh-primary/[0.04]"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ffb54a]/15 text-[#b87500]">
+                        <LifeBuoy className="h-5 w-5" />
+                      </span>
+
+                      <span>
+                        <span className="block text-sm font-black text-dh-primary">
+                          Marketplace support
+                        </span>
+
+                        <span className="mt-1 block text-xs leading-5 text-gray-500">
+                          Get help directly from the DigitalHood Support Center.
+                        </span>
+                      </span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </section>
           </>
         )}
