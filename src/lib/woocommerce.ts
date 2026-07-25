@@ -618,6 +618,7 @@ export async function fetchWooProducts(
   const params = new URLSearchParams({
     per_page: String(limit),
     page: String(page),
+    fresh: '1',
   });
 
   if (search.trim()) {
@@ -628,7 +629,9 @@ export async function fetchWooProducts(
     params.set('category', String(categoryId));
   }
 
-  const response = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`);
+  const response = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`, {
+    cache: 'no-store',
+  });
   const data = await parseJsonResponse(response);
 
   const rawProducts = Array.isArray(data.products) ? data.products : [];
@@ -690,9 +693,12 @@ export async function fetchWooProductBySlug(
   const params = new URLSearchParams({
     slug,
     per_page: '1',
+    fresh: '1',
   });
 
-  const listResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`);
+  const listResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`, {
+    cache: 'no-store',
+  });
   const listData = await parseJsonResponse(listResponse);
 
   const foundProduct = Array.isArray(listData.products)
