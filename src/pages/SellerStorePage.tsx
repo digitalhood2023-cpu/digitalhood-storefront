@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowRight,
   BadgeCheck,
   Heart,
   Loader2,
-  Mail,
+  MessageCircle,
   PackageCheck,
-  Phone,
+  ShieldCheck,
   ShoppingCart,
   Star,
   Store,
@@ -88,6 +88,7 @@ export default function SellerStorePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [addedProductId, setAddedProductId] = useState<string | number | null>(null)
+  const productsSectionRef = useRef<HTMLElement | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
 
@@ -160,6 +161,26 @@ export default function SellerStorePage() {
   useEffect(() => {
     setProductPage(1)
   }, [sellerKey, featuredProducts.length])
+
+  function changeProductPage(nextPage: number) {
+    const safePage = Math.min(productPageCount, Math.max(1, nextPage))
+    setProductPage(safePage)
+
+    window.requestAnimationFrame(() => {
+      const productsSection = productsSectionRef.current
+      if (!productsSection) return
+
+      const top =
+        productsSection.getBoundingClientRect().top +
+        window.scrollY -
+        140
+
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: 'smooth',
+      })
+    })
+  }
 
   function handleAddToCart(product: PublicSellerProduct) {
     if (!seller) return
@@ -391,37 +412,9 @@ export default function SellerStorePage() {
                   </p>
                 </div>
 
-                {(seller.supportPhone || seller.supportEmail) && (
-                  <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                    <h2 className="font-display text-xl font-black text-dh-primary">
-                      Store support
-                    </h2>
-                    <div className="mt-4 space-y-3">
-                      {seller.supportPhone && (
-                        <a
-                          href={`tel:${seller.supportPhone}`}
-                          className="flex items-center gap-3 rounded-2xl bg-gray-50 p-3 text-sm font-bold text-dh-primary"
-                        >
-                          <Phone className="h-4 w-4" />
-                          {seller.supportPhone}
-                        </a>
-                      )}
-
-                      {seller.supportEmail && (
-                        <a
-                          href={`mailto:${seller.supportEmail}`}
-                          className="flex items-center gap-3 rounded-2xl bg-gray-50 p-3 text-sm font-bold text-dh-primary"
-                        >
-                          <Mail className="h-4 w-4" />
-                          {seller.supportEmail}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
               </aside>
 
-              <section className="min-w-0">
+              <section ref={productsSectionRef} className="min-w-0 scroll-mt-36">
                 <div className="mb-4 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
                   <div>
                     <h2 className="font-display text-2xl font-black text-dh-primary sm:text-3xl">
@@ -582,7 +575,7 @@ export default function SellerStorePage() {
                       >
                         <button
                           type="button"
-                          onClick={() => setProductPage((current) => Math.max(1, current - 1))}
+                          onClick={() => changeProductPage(productPage - 1)}
                           disabled={productPage === 1}
                           className="rounded-full border border-dh-primary px-4 py-2 text-sm font-black text-dh-primary transition hover:bg-dh-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                         >
@@ -593,11 +586,7 @@ export default function SellerStorePage() {
                         </span>
                         <button
                           type="button"
-                          onClick={() =>
-                            setProductPage((current) =>
-                              Math.min(productPageCount, current + 1)
-                            )
-                          }
+                          onClick={() => changeProductPage(productPage + 1)}
                           disabled={productPage >= productPageCount}
                           className="rounded-full bg-dh-primary px-4 py-2 text-sm font-black text-white transition hover:bg-[#ffb54a] hover:text-dh-primary disabled:cursor-not-allowed disabled:opacity-40"
                         >
@@ -608,6 +597,37 @@ export default function SellerStorePage() {
                   </>
                 )}
               </section>
+            </section>
+
+            <section className="mx-auto max-w-[1500px] px-4 pb-8 sm:px-6 lg:px-8 xl:px-12">
+              <div className="overflow-hidden rounded-3xl bg-dh-primary text-white shadow-xl">
+                <div className="grid gap-5 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffb54a] text-dh-primary">
+                      <ShieldCheck className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#ffb54a]">
+                        Marketplace communication
+                      </p>
+                      <h2 className="mt-1 font-display text-2xl font-black">
+                        Store support stays inside DigitalHood
+                      </h2>
+                      <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-white/75">
+                        Seller email addresses and phone numbers stay private. Contact this store through DigitalHood Support; marketplace chat will connect here when it launches.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={`/support?store=${encodeURIComponent(seller.storeName)}&seller=${encodeURIComponent(String(seller.id || seller.key || ''))}`}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ffb54a] px-5 py-3 text-sm font-black text-dh-primary transition hover:bg-white"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Contact seller
+                  </Link>
+                </div>
+              </div>
             </section>
           </>
         )}
