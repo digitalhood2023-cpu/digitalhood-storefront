@@ -384,6 +384,8 @@ export default function SupportPage() {
     email: '',
     phone: '',
     orderNumber: '',
+    sellerId: '',
+    storeName: '',
     subject: '',
     message: '',
     companyWebsite: '',
@@ -427,6 +429,8 @@ export default function SupportPage() {
         ...current,
         type: validType ? typeParam : current.type,
         orderNumber: orderNumberParam || current.orderNumber,
+        sellerId: marketplaceSellerId || current.sellerId,
+        storeName: marketplaceStoreName || current.storeName,
         subject:
           subjectParam ||
           (isMarketplaceSellerContact && marketplaceStoreName
