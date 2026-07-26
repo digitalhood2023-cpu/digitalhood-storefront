@@ -7,6 +7,7 @@ import {
   PackageSearch,
   Search,
   Send,
+  ShieldCheck,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -402,22 +403,44 @@ export default function SupportPage() {
     const caseNumberParam = searchParams.get('caseNumber') || ''
     const emailParam = searchParams.get('email') || ''
     const modeParam = searchParams.get('mode') as SupportMode | null
+    const marketplaceStoreName = (searchParams.get('store') || '').trim().slice(0, 120)
+    const marketplaceSellerId = (searchParams.get('seller') || '').trim().slice(0, 160)
+    const isMarketplaceSellerContact = Boolean(marketplaceStoreName || marketplaceSellerId)
 
     const validType = typeParam && supportTypes.some((item) => item.value === typeParam)
 
     if (location.pathname.includes('/track') || modeParam === 'track' || caseNumberParam) {
       setMode('track')
-    } else if (modeParam === 'create' || validType || orderNumberParam || subjectParam || messageParam) {
+    } else if (
+      modeParam === 'create' ||
+      validType ||
+      orderNumberParam ||
+      subjectParam ||
+      messageParam ||
+      isMarketplaceSellerContact
+    ) {
       setMode('create')
     }
 
-    if (validType || orderNumberParam || subjectParam || messageParam) {
+    if (validType || orderNumberParam || subjectParam || messageParam || isMarketplaceSellerContact) {
       setForm((current) => ({
         ...current,
         type: validType ? typeParam : current.type,
         orderNumber: orderNumberParam || current.orderNumber,
-        subject: subjectParam || current.subject,
+        subject:
+          subjectParam ||
+          (isMarketplaceSellerContact && marketplaceStoreName
+            ? `Contact ${marketplaceStoreName}`
+            : current.subject),
         message: messageParam || current.message,
+        caseDetails: isMarketplaceSellerContact
+          ? {
+              ...current.caseDetails,
+              marketplaceContact: 'seller',
+              storeName: marketplaceStoreName,
+              sellerId: marketplaceSellerId,
+            }
+          : current.caseDetails,
       }))
     }
 
@@ -439,6 +462,11 @@ export default function SupportPage() {
       }))
     }
   }, [successCaseNumber, form.email])
+
+  const marketplaceStoreName = useMemo(
+    () => (searchParams.get('store') || '').trim().slice(0, 120),
+    [searchParams]
+  )
 
   const selectedType = useMemo(() => {
     return supportTypes.find((item) => item.value === form.type) || supportTypes[0]
@@ -616,6 +644,20 @@ export default function SupportPage() {
                   {selectedType.helper}
                 </p>
               </div>
+
+              {marketplaceStoreName && (
+                <div className="flex gap-3 rounded-2xl border border-[#26248c]/10 bg-[#f4f3ff] p-4">
+                  <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#26248c]" />
+                  <div>
+                    <p className="text-sm font-black text-[#26248c]">
+                      Contacting {marketplaceStoreName} through DigitalHood
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
+                      Your message stays inside the marketplace. DigitalHood will help route it without exposing private seller contact details.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <input
                 type="text"
