@@ -24,6 +24,8 @@ export type CreateSupportCasePayload = {
   message: string
   orderNumber?: string
   orderId?: string
+  sellerId?: string
+  storeName?: string
   pageUrl?: string
   startedAt?: number
   companyWebsite?: string
