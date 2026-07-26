@@ -55,7 +55,8 @@ export type PublicSellerStore = {
 
 export async function fetchPublicSellerStore(sellerKey: string): Promise<PublicSellerStore> {
   const response = await fetch(
-    `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(sellerKey)}`
+    `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(sellerKey)}`,
+    { cache: 'no-store' }
   )
 
   const data = await response.json().catch(() => ({}))

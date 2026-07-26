@@ -1,3 +1,5 @@
+import type { CartItem } from '@/store/cartStore'
+
 const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL ||
   'https://payments.digitalhood.info'
@@ -263,6 +265,23 @@ export type ReplyToAccountOrderCaseResponse = {
   }
 }
 
+export type CustomerCartResponse = {
+  success: boolean
+  items: CartItem[]
+  updatedAt?: string
+}
+
+export function getCustomerCart() {
+  return accountFetch<CustomerCartResponse>('/api/account/cart')
+}
+
+export function saveCustomerCart(items: CartItem[]) {
+  return accountFetch<CustomerCartResponse>('/api/account/cart', {
+    method: 'PUT',
+    body: JSON.stringify({ items }),
+  })
+}
+
 export type WishlistResponse = {
   success: boolean
   productIds: number[]
@@ -294,6 +313,19 @@ export function clearAccountToken() {
   localStorage.removeItem(ACCOUNT_TOKEN_KEY)
 }
 
+export function clearLegacyCustomerBrowserData() {
+  if (typeof window === 'undefined') return
+
+  for (const key of [
+    'digitalhood-cart',
+    'digitalhood-wishlist',
+    'digitalhood_recently_viewed',
+  ]) {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+  }
+}
+
 async function accountFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -302,6 +334,7 @@ async function accountFetch<T>(
 
   const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
     ...options,
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

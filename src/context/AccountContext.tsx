@@ -9,12 +9,16 @@ import {
 
 import {
   clearAccountToken,
+  clearLegacyCustomerBrowserData,
   getAccountToken,
   getCurrentCustomer,
   logoutCustomerAccount,
+  saveCustomerCart,
   setAccountToken,
   type AccountCustomer,
 } from '@/api/account'
+
+import { useCartStore } from '@/store/cartStore'
 
 type AccountContextValue = {
   customer: AccountCustomer | null
@@ -40,6 +44,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const setSession = useCallback((token: string, nextCustomer: AccountCustomer) => {
+    clearLegacyCustomerBrowserData()
+    useCartStore.getState().replaceItems([])
     setAccountToken(token)
     setCustomer(nextCustomer)
     setError('')
@@ -54,6 +60,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     const token = getAccountToken()
 
     if (!token) {
+      clearLegacyCustomerBrowserData()
+      useCartStore.getState().replaceItems([])
       setCustomer(null)
       setIsLoading(false)
       return null
@@ -68,6 +76,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       return response.customer
     } catch (requestError) {
       clearAccountToken()
+      clearLegacyCustomerBrowserData()
+      useCartStore.getState().replaceItems([])
       setCustomer(null)
 
       setError(
@@ -87,16 +97,27 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     setError('')
 
     try {
+      if (customer?.id) {
+        await saveCustomerCart(useCartStore.getState().items)
+      }
+    } catch {
+      // Logout must continue even if the final cart save is unavailable.
+    }
+
+    try {
       await logoutCustomerAccount()
     } catch {
       clearAccountToken()
     } finally {
+      clearLegacyCustomerBrowserData()
+      useCartStore.getState().replaceItems([])
       setCustomer(null)
       setIsLoading(false)
     }
-  }, [])
+  }, [customer?.id])
 
   useEffect(() => {
+    clearLegacyCustomerBrowserData()
     refreshCustomer()
   }, [refreshCustomer])
 

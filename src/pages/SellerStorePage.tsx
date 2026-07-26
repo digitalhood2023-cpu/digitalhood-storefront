@@ -112,15 +112,55 @@ export default function SellerStorePage() {
 
   const seller = store?.seller
   const products = store?.products || []
+  const [productPage, setProductPage] = useState(1)
+  const productsPerPage = 24
+
+  const visibleProducts = useMemo(
+    () =>
+      products.filter((product) => {
+        const stockStatus = String(product.stockStatus || '').toLowerCase()
+
+        if (stockStatus !== 'instock') return false
+
+        // Variable products remain visible while WooCommerce reports at least
+        // one available variation. They require option selection on the detail page.
+        if (product.type === 'variable') return true
+
+        if (
+          product.stockQuantity !== null &&
+          product.stockQuantity !== undefined &&
+          safeNumber(product.stockQuantity) <= 0
+        ) {
+          return false
+        }
+
+        return product.canAddToCart !== false
+      }),
+    [products]
+  )
+
   const featuredProducts = useMemo(
     () =>
-      [...products].sort((a, b) => {
+      [...visibleProducts].sort((a, b) => {
         const scoreA = safeNumber(a.totalSales) + safeNumber(a.averageRating)
         const scoreB = safeNumber(b.totalSales) + safeNumber(b.averageRating)
         return scoreB - scoreA
       }),
-    [products]
+    [visibleProducts]
   )
+
+  const productPageCount = Math.max(
+    1,
+    Math.ceil(featuredProducts.length / productsPerPage)
+  )
+  const paginatedProducts = featuredProducts.slice(
+    (productPage - 1) * productsPerPage,
+    productPage * productsPerPage
+  )
+
+  useEffect(() => {
+    setProductPage(1)
+  }, [sellerKey, featuredProducts.length])
 
   function handleAddToCart(product: PublicSellerProduct) {
     if (!seller) return
@@ -361,9 +401,9 @@ export default function SellerStorePage() {
                       Products by {seller.storeName}
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                      {products.length
-                        ? `${products.length.toLocaleString('en-ZM')} live product${
-                            products.length === 1 ? '' : 's'
+                      {visibleProducts.length
+                        ? `${visibleProducts.length.toLocaleString('en-ZM')} live product${
+                            visibleProducts.length === 1 ? '' : 's'
                           } from this seller.`
                         : 'No live products from this seller yet.'}
                     </p>
@@ -389,8 +429,9 @@ export default function SellerStorePage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                    {featuredProducts.map((product) => {
+                  <>
+                    <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                    {paginatedProducts.map((product) => {
                       const image = getFastProductImage(product, 'card')
                       const imageSrcSet = getFastProductSrcSet(product)
                       const productUrl = getProductUrl(product)
@@ -505,7 +546,39 @@ export default function SellerStorePage() {
                         </article>
                       )
                     })}
-                  </div>
+                    </div>
+
+                    {productPageCount > 1 && (
+                      <nav
+                        className="mt-6 flex flex-wrap items-center justify-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100"
+                        aria-label="Seller product pages"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setProductPage((current) => Math.max(1, current - 1))}
+                          disabled={productPage === 1}
+                          className="rounded-full border border-dh-primary px-4 py-2 text-sm font-black text-dh-primary transition hover:bg-dh-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm font-bold text-gray-600">
+                          Page {productPage} of {productPageCount}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProductPage((current) =>
+                              Math.min(productPageCount, current + 1)
+                            )
+                          }
+                          disabled={productPage >= productPageCount}
+                          className="rounded-full bg-dh-primary px-4 py-2 text-sm font-black text-white transition hover:bg-[#ffb54a] hover:text-dh-primary disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+                      </nav>
+                    )}
+                  </>
                 )}
               </section>
             </section>

@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 
-import { AccountProvider } from '@/context/AccountContext'
+import { AccountProvider, useAccount } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import SEO from '@/components/SEO'
+import AccountCartSync from '@/components/account/AccountCartSync'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -24,6 +25,7 @@ const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
 const OrderDetailsPage = lazy(() => import('@/pages/OrderDetailsPage'))
+const PaymentRecoveryPage = lazy(() => import('@/pages/PaymentRecoveryPageV2'))
 const InfoPage = lazy(() => import('@/pages/InfoPage'))
 
 const PhoneAccessoriesPage = lazy(() => import('@/pages/seo/PhoneAccessoriesPage'))
@@ -41,14 +43,8 @@ function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="text-center">
-        <img
-          src="/logo.jpg"
-          alt="DigitalHood"
-          className="mx-auto h-16 w-16 object-contain mb-4"
-        />
-        <p className="text-sm font-medium text-gray-600">
-          Loading DigitalHood...
-        </p>
+        <img src="/logo.jpg" alt="DigitalHood" className="mx-auto h-16 w-16 object-contain mb-4" />
+        <p className="text-sm font-medium text-gray-600">Loading DigitalHood...</p>
       </div>
     </div>
   )
@@ -62,23 +58,16 @@ function NavigationScrollManager() {
     const handleLinkClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null
       const link = target?.closest('a')
-
       if (!link) return
       if (link.target && link.target !== '_self') return
       if (link.hasAttribute('download')) return
-
       const href = link.getAttribute('href')
       if (!href || href.startsWith('#')) return
 
       try {
         const nextUrl = new URL(href, window.location.href)
-
         if (nextUrl.origin !== window.location.origin) return
-
-        const isDifferentPage =
-          nextUrl.pathname !== window.location.pathname
-
-        if (isDifferentPage) {
+        if (nextUrl.pathname !== window.location.pathname) {
           window.scrollTo({ top: 0, behavior: 'auto' })
         }
       } catch {
@@ -87,93 +76,98 @@ function NavigationScrollManager() {
     }
 
     document.addEventListener('click', handleLinkClick, true)
-
-    return () => {
-      document.removeEventListener('click', handleLinkClick, true)
-    }
+    return () => document.removeEventListener('click', handleLinkClick, true)
   }, [])
 
   useEffect(() => {
-    if (navigationType !== 'POP') {
-      window.scrollTo({ top: 0, behavior: 'auto' })
-    }
+    if (navigationType !== 'POP') window.scrollTo({ top: 0, behavior: 'auto' })
   }, [location.pathname, location.search, location.hash, navigationType])
 
   return null
 }
 
+function AccountDataBoundary({ children }: { children: ReactNode }) {
+  const { customer, isLoading } = useAccount()
+  const scopeKey = isLoading
+    ? 'loading'
+    : customer?.id
+      ? `customer-${customer.id}`
+      : 'guest'
+
+  return (
+    <WishlistProvider key={`wishlist-${scopeKey}`}>
+      <RecentlyViewedProvider key={`recently-viewed-${scopeKey}`}>
+        <AccountCartSync />
+        {children}
+      </RecentlyViewedProvider>
+    </WishlistProvider>
+  )
+}
+
 function App() {
   return (
     <AccountProvider>
-      <WishlistProvider>
-        <RecentlyViewedProvider>
+      <AccountDataBoundary>
           <SEO />
           <NavigationScrollManager />
-
           <div className="pt-[88px] md:pt-[122px]">
             <Suspense fallback={<PageLoader />}>
               <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/product/:slug" element={<ProductPage />} />
-              <Route path="/seller/:sellerKey" element={<SellerStorePage />} />
-              <Route path="/stores/:sellerKey" element={<SellerStorePage />} />
-
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
-              <Route path="/recently-viewed" element={<RecentlyViewedPage />} />
-              <Route path="/track-order" element={<TrackOrderPage />} />
-
-              <Route path="/account" element={<AccountPage />} />
-              <Route path="/account/details" element={<AccountDetailsPage />} />
-              <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
-
-              <Route path="/help" element={<InfoPage />} />
-              <Route path="/faqs" element={<InfoPage />} />
-              <Route path="/shipping" element={<InfoPage />} />
-              <Route path="/returns" element={<InfoPage />} />
-              <Route path="/warranty" element={<InfoPage />} />
-              <Route path="/terms" element={<InfoPage />} />
-              <Route path="/privacy" element={<InfoPage />} />
-              <Route path="/cookies" element={<InfoPage />} />
-              <Route path="/marketplace-terms" element={<MarketplacePolicyPage />} />
-              <Route path="/seller-terms" element={<MarketplacePolicyPage />} />
-              <Route path="/prohibited-products" element={<MarketplacePolicyPage />} />
-              <Route path="/dispute-resolution" element={<MarketplacePolicyPage />} />
-              <Route path="/data-protection" element={<MarketplacePolicyPage />} />
-              <Route path="/incident-response" element={<MarketplacePolicyPage />} />
-              <Route path="/sitemap" element={<InfoPage />} />
-              <Route path="/blog" element={<InfoPage />} />
-
-              <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
-              <Route path="/iphone-zambia" element={<IPhonePage />} />
-              <Route path="/samsung-phones-zambia" element={<SamsungPage />} />
-              <Route path="/laptops-zambia" element={<LaptopPage />} />
-              <Route path="/headphones-zambia" element={<HeadphonesPage />} />
-              <Route path="/power-banks-zambia" element={<PowerBankPage />} />
-              <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
-              <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/support" element={<SupportPage />} />
-              <Route path="/support/track" element={<SupportPage />} />
-
-              <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
-              <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
-              <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
-              <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
-
-              <Route path="*" element={<Home />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/product/:slug" element={<ProductPage />} />
+                <Route path="/seller/:sellerKey" element={<SellerStorePage />} />
+                <Route path="/stores/:sellerKey" element={<SellerStorePage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/recently-viewed" element={<RecentlyViewedPage />} />
+                <Route path="/track-order" element={<TrackOrderPage />} />
+                <Route path="/account" element={<AccountPage />} />
+                <Route path="/account/details" element={<AccountDetailsPage />} />
+                <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+                <Route path="/orders/:orderId/payment" element={<PaymentRecoveryPage />} />
+                <Route path="/help" element={<InfoPage />} />
+                <Route path="/faqs" element={<InfoPage />} />
+                <Route path="/shipping" element={<InfoPage />} />
+                <Route path="/returns" element={<InfoPage />} />
+                <Route path="/warranty" element={<InfoPage />} />
+                <Route path="/terms" element={<InfoPage />} />
+                <Route path="/privacy" element={<InfoPage />} />
+                <Route path="/cookies" element={<InfoPage />} />
+                <Route path="/marketplace-terms" element={<MarketplacePolicyPage />} />
+                <Route path="/seller-terms" element={<MarketplacePolicyPage />} />
+                <Route path="/prohibited-products" element={<MarketplacePolicyPage />} />
+                <Route path="/dispute-resolution" element={<MarketplacePolicyPage />} />
+                <Route path="/data-protection" element={<MarketplacePolicyPage />} />
+                <Route path="/incident-response" element={<MarketplacePolicyPage />} />
+                <Route path="/sitemap" element={<InfoPage />} />
+                <Route path="/blog" element={<InfoPage />} />
+                <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
+                <Route path="/iphone-zambia" element={<IPhonePage />} />
+                <Route path="/samsung-phones-zambia" element={<SamsungPage />} />
+                <Route path="/laptops-zambia" element={<LaptopPage />} />
+                <Route path="/headphones-zambia" element={<HeadphonesPage />} />
+                <Route path="/power-banks-zambia" element={<PowerBankPage />} />
+                <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
+                <Route path="/about" element={<AboutUsPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/support" element={<SupportPage />} />
+                <Route path="/support/track" element={<SupportPage />} />
+                <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
+                <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
+                <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
+                <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
+                <Route path="*" element={<Home />} />
               </Routes>
             </Suspense>
           </div>
-        </RecentlyViewedProvider>
-      </WishlistProvider>
+      </AccountDataBoundary>
     </AccountProvider>
   )
 }

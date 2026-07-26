@@ -27,6 +27,7 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
 import { Button } from '@/components/ui/button'
+import PaymentRecoveryNotice from '@/components/payments/PaymentRecoveryNotice'
 
 import { useAccount } from '@/context/AccountContext'
 
@@ -43,6 +44,20 @@ import {
 } from '@/api/account'
 
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
+
+function getCustomerPaymentMethodLabel(order: AccountOrder) {
+  const value = `${order.paymentMethod || ''} ${order.paymentMethodTitle || ''}`.toLowerCase()
+  if (/stripe|card/.test(value)) return 'Card payment'
+  if (/lenco|mobile|mtn|airtel/.test(value)) return 'Mobile Money'
+  if (/cod|cash on delivery/.test(value)) return 'Cash on delivery'
+  return 'Payment'
+}
+
+function isMobileMoneyOrder(order: AccountOrder) {
+  return /lenco|mobile|mtn|airtel/.test(
+    `${order.paymentMethod || ''} ${order.paymentMethodTitle || ''}`.toLowerCase()
+  )
+}
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
@@ -980,6 +995,8 @@ export default function OrderDetailsPage() {
             </span>
           </nav>
 
+          <PaymentRecoveryNotice />
+
           <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -1268,7 +1285,7 @@ export default function OrderDetailsPage() {
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-dh-gray p-4">
                     <span className="text-dh-dark-gray">Method</span>
                     <span className="font-semibold text-dh-primary">
-                      {order.paymentMethodTitle || 'Not specified'}
+                      {getCustomerPaymentMethodLabel(order)}
                     </span>
                   </div>
 
@@ -1289,6 +1306,15 @@ export default function OrderDetailsPage() {
                           : 'Not confirmed yet'}
                     </span>
                   </div>
+
+                  {isMobileMoneyOrder(order) && order.transactionId && (
+                    <div className="rounded-2xl bg-dh-gray p-4">
+                      <span className="text-dh-dark-gray">Transaction ID</span>
+                      <p className="mt-1 break-all font-mono text-xs font-bold text-dh-primary">
+                        {order.transactionId}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </DetailCard>
 
