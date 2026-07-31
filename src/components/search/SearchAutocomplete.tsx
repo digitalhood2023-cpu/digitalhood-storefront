@@ -212,9 +212,9 @@ export default function SearchAutocomplete({
   }
 
   return (
-    <div ref={wrapperRef} className={`relative ${className}`}>
-      <form onSubmit={handleSubmit} className="relative w-full">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
+    <div ref={wrapperRef} className={`relative w-full min-w-0 ${className}`}>
+      <form onSubmit={handleSubmit} className={`flex w-full min-w-0 items-center gap-1 rounded-full border-2 border-gray-200 bg-white p-1 shadow-sm transition-colors focus-within:border-dh-primary ${compact ? "h-11" : "h-12"}`}>
+        <Search className="ml-2.5 h-5 w-5 shrink-0 text-dh-dark-gray sm:ml-3" />
 
         <input
           type="text"
@@ -229,30 +229,33 @@ export default function SearchAutocomplete({
             }
           }}
           placeholder={placeholder}
-          className={`w-full rounded-full border-2 border-gray-200 bg-white pl-12 pr-28 text-sm outline-none transition-colors focus:border-dh-primary ${
-            compact ? 'h-11' : 'h-12'
-          }`}
+          className="h-full min-w-0 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-gray-400 sm:px-2"
         />
 
         <button
           type="button"
-          onClick={() => setIsImageSearchOpen(true)}
-          className="absolute right-[4.8rem] top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-dh-gray text-dh-primary transition-colors hover:bg-[#ffb54a]"
+          onClick={() => {
+              setIsOpen(false)
+              setIsImageSearchOpen(true)
+            }}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-dh-gray text-dh-primary transition-colors hover:bg-[#ffb54a]"
           aria-label="Search by image"
         >
           <Camera className="h-4 w-4" />
         </button>
 
         <button
-          type="submit"
-          className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary"
-        >
-          Search
-        </button>
+            type="submit"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-dh-primary text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary sm:w-auto sm:px-4"
+            aria-label="Search products"
+          >
+            <Search className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Search</span>
+          </button>
       </form>
 
       {isImageSearchOpen && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[80] overflow-hidden rounded-3xl border border-dh-light-gray bg-white shadow-2xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[120] max-h-[min(38rem,calc(100vh-8rem))] overflow-y-auto overscroll-contain rounded-3xl border border-dh-light-gray bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-dh-light-gray p-4">
             <div>
               <p className="font-display text-lg font-bold text-dh-primary">
@@ -345,8 +348,8 @@ export default function SearchAutocomplete({
         </div>
       )}
 
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[70] overflow-hidden rounded-3xl border border-dh-light-gray bg-white shadow-2xl">
+      {isOpen && !isImageSearchOpen && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[110] max-h-[min(38rem,calc(100vh-8rem))] overflow-hidden rounded-3xl border border-dh-light-gray bg-white shadow-2xl">
           {trimmedQuery.length < 2 && suggestions.length === 0 ? (
             <div className="p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
@@ -390,7 +393,7 @@ export default function SearchAutocomplete({
               )}
 
               {suggestions.length > 0 ? (
-                <div className="max-h-[28rem] overflow-y-auto p-2">
+                <div className="max-h-[min(28rem,calc(100vh-15rem))] overflow-y-auto overscroll-contain p-2">
                   {suggestions.map((product) => (
                     <Link
                       key={product.id}
