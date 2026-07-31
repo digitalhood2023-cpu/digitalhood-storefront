@@ -12,52 +12,81 @@ export type LencoMobileMoneyPayload = {
   customerEmail?: string
 }
 
-export type LencoMobileMoneyResponse = {
+export type LencoPaymentState = {
+  paid?: boolean
+  failed?: boolean
+  pending?: boolean
+  terminal?: boolean
+  failureCode?: string | null
+  status?: string
+  message?: string
+}
+
+export type LencoMobileMoneyResponse = LencoPaymentState & {
   success?: boolean
   reference?: string
   orderId?: string | number
   transactionId?: string
-  status?: string
-  message?: string
-  raw?: unknown
 }
 
-export type LencoVerificationResponse = {
+type LencoErrorResponse = {
+  details?: string
+  error?: string
+  message?: string
+}
+
+export type LencoVerificationResponse = LencoPaymentState & {
   success: boolean
   paid: boolean
   status: string
   orderId?: string | number
   reference?: string
   transactionId?: string
-  message?: string
-  raw?: unknown
 }
 
 async function lencoFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
-
-  let data: any = null
+  const controller = new AbortController()
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), 12_000)
+  let response: Response
 
   try {
-    data = await response.json()
+    response = await fetch(`${PAYMENTS_API_URL}${path}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    })
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        'The Mobile Money service took too long to respond. Please check your phone before trying again.'
+      )
+    }
+
+    throw error
+  } finally {
+    globalThis.clearTimeout(timeoutId)
+  }
+
+  let data: T | LencoErrorResponse | null = null
+
+  try {
+    data = (await response.json()) as T | LencoErrorResponse
   } catch {
     data = null
   }
 
   if (!response.ok) {
+    const errorData = data as LencoErrorResponse | null
     const message =
-      data?.details ||
-      data?.error ||
-      data?.message ||
+      errorData?.details ||
+      errorData?.error ||
+      errorData?.message ||
       `Lenco request failed with status ${response.status}`
 
     throw new Error(message)
