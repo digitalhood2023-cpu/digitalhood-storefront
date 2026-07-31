@@ -67,6 +67,7 @@ type SuccessState = {
   message: string
   nextStep: string
   confirmed?: boolean
+  failed?: boolean
 }
 
 type CheckoutCartItem = {
@@ -379,7 +380,7 @@ export default function CheckoutPage() {
 
   const stopLencoPolling = () => {
     if (lencoPollingRef.current) {
-      window.clearInterval(lencoPollingRef.current)
+      window.clearTimeout(lencoPollingRef.current)
       lencoPollingRef.current = null
     }
   }
@@ -856,55 +857,83 @@ export default function CheckoutPage() {
     setIsWaitingForLenco(true)
     setLencoStatus('Waiting for payment approval...')
 
-    lencoPollingRef.current = window.setInterval(async () => {
+    const poll = async () => {
       attempts += 1
 
       try {
         const result = await verifyLencoMobileMoney(reference)
-
         const paymentConfirmed =
           result.paid === true || isLencoPaidStatus(result.status)
-
-        setLencoStatus(
-          paymentConfirmed
-            ? 'Payment confirmed successfully.'
-            : result.status
-              ? String(result.status)
-              : 'Checking payment...'
-        )
+        const paymentFailed =
+          result.failed === true ||
+          (result.terminal === true && !paymentConfirmed)
 
         if (paymentConfirmed) {
           stopLencoPolling()
-
           setIsWaitingForLenco(false)
+          setLencoStatus('Payment confirmed successfully.')
           setSuccessState(getSuccessState('mobile-confirmed'))
           setOrderComplete(true)
           setCreatedOrderId(orderId)
           setCompletedOrderTotal(finalTotal)
           clearCart()
-
           return
         }
 
-        if (attempts >= maxAttempts) {
+        if (paymentFailed) {
+          const failureMessage =
+            result.message ||
+            'The Mobile Money payment was not completed. Check the number, balance and approval prompt, then try again.'
+
           stopLencoPolling()
           setIsWaitingForLenco(false)
-          setLencoStatus(
-            'Payment has not been confirmed yet. If you approved payment, we will still reconcile it automatically.'
-          )
+          setLencoStatus(failureMessage)
+          setSuccessState({
+            title: 'Payment Not Completed',
+            message: failureMessage,
+            nextStep:
+              'Open your order to retry securely. DigitalHood will not ask for your Mobile Money PIN.',
+            confirmed: false,
+            failed: true,
+          })
+          setOrderComplete(true)
+          setCreatedOrderId(orderId)
+          setCompletedOrderTotal(finalTotal)
+          return
         }
+
+        setLencoStatus(
+          result.message ||
+            (result.status
+              ? String(result.status)
+              : 'Checking payment...')
+        )
       } catch (error) {
         console.error(error)
-
-        if (attempts >= maxAttempts) {
-          stopLencoPolling()
-          setIsWaitingForLenco(false)
-          setLencoStatus(
-            'We could not confirm payment automatically. If you approved payment, DigitalHood support will verify it.'
-          )
-        }
       }
-    }, 5000)
+
+      if (attempts >= maxAttempts) {
+        stopLencoPolling()
+        setIsWaitingForLenco(false)
+        setLencoStatus(
+          'Payment has not been confirmed. If money was deducted, do not pay again; DigitalHood will still reconcile it automatically.'
+        )
+        setSuccessState({
+          title: 'Payment Confirmation Delayed',
+          message:
+            'We could not confirm the Mobile Money result within two minutes.',
+          nextStep:
+            'If money was deducted, do not retry. View your order or contact DigitalHood support with the payment reference.',
+          confirmed: false,
+          failed: false,
+        })
+        return
+      }
+
+      lencoPollingRef.current = window.setTimeout(poll, 5000)
+    }
+
+    lencoPollingRef.current = window.setTimeout(poll, 2500)
   }
 
   const prepareCardPayment = async () => {
@@ -1033,16 +1062,39 @@ export default function CheckoutPage() {
         })
 
         const paymentReference = response.reference || reference
-        const paymentConfirmed = isLencoPaidStatus(response.status)
+        const paymentConfirmed =
+          response.paid === true || isLencoPaidStatus(response.status)
+        const paymentFailed =
+          response.failed === true ||
+          (response.terminal === true && !paymentConfirmed)
 
         setLencoReference(paymentReference)
+        setCreatedOrderId(order.orderId)
+        setCompletedOrderTotal(finalTotal)
 
         if (paymentConfirmed) {
           setSuccessState(getSuccessState('mobile-confirmed'))
           setOrderComplete(true)
-          setCreatedOrderId(order.orderId)
-          setCompletedOrderTotal(finalTotal)
           clearCart()
+          return
+        }
+
+        if (paymentFailed) {
+          const failureMessage =
+            response.message ||
+            'The Mobile Money payment was not completed. Check the number, balance and approval prompt, then try again.'
+
+          setIsWaitingForLenco(false)
+          setLencoStatus(failureMessage)
+          setSuccessState({
+            title: 'Payment Not Completed',
+            message: failureMessage,
+            nextStep:
+              'Open your order to retry securely. DigitalHood will not ask for your Mobile Money PIN.',
+            confirmed: false,
+            failed: true,
+          })
+          setOrderComplete(true)
           return
         }
 
@@ -1117,7 +1169,9 @@ export default function CheckoutPage() {
                 className={`relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
                   successState.confirmed
                     ? 'bg-green-100 shadow-[0_0_0_12px_rgba(34,197,94,0.10)]'
-                    : 'bg-yellow-100'
+                    : successState.failed
+                      ? 'bg-red-100 shadow-[0_0_0_12px_rgba(239,68,68,0.08)]'
+                      : 'bg-yellow-100'
                 }`}
               >
                 {successState.confirmed && (
@@ -1126,8 +1180,12 @@ export default function CheckoutPage() {
 
                 {successState.confirmed ? (
                   <Check className="relative z-10 h-10 w-10 animate-[bounce_1.1s_ease-in-out_1] text-green-600" />
-                ) : (
+                ) : successState.failed ? (
+                  <AlertCircle className="h-10 w-10 text-red-600" />
+                ) : isWaitingForLenco ? (
                   <Loader2 className="h-10 w-10 animate-spin text-yellow-600" />
+                ) : (
+                  <Clock className="h-10 w-10 text-yellow-700" />
                 )}
               </div>
 
@@ -1262,12 +1320,30 @@ export default function CheckoutPage() {
                 </div>
 
                 {!successState.confirmed && (
-                  <div className="mt-5 rounded-2xl border border-yellow-100 bg-yellow-50 p-4 text-left">
-                    <p className="text-sm font-semibold text-yellow-800 mb-1">
+                  <div
+                    className={`mt-5 rounded-2xl border p-4 text-left ${
+                      successState.failed
+                        ? 'border-red-200 bg-red-50'
+                        : 'border-yellow-100 bg-yellow-50'
+                    }`}
+                  >
+                    <p
+                      className={`mb-1 text-sm font-semibold ${
+                        successState.failed
+                          ? 'text-red-800'
+                          : 'text-yellow-800'
+                      }`}
+                    >
                       Payment Status
                     </p>
 
-                    <p className="text-sm text-yellow-700">
+                    <p
+                      className={`text-sm ${
+                        successState.failed
+                          ? 'text-red-700'
+                          : 'text-yellow-700'
+                      }`}
+                    >
                       {isWaitingForLenco
                         ? lencoStatus || 'Checking payment...'
                         : lencoStatus || 'Waiting for confirmation...'}
