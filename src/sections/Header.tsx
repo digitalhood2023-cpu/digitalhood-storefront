@@ -167,8 +167,8 @@ export default function Header() {
           }`}
         >
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-          <div className="flex items-center justify-between gap-4">
-            <Link to="/" className="group flex items-center gap-3">
+          <div className="flex min-w-0 items-center justify-between gap-2 xl:gap-4">
+            <Link to="/" className="group flex shrink-0 items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center">
                 <img
                   src="/logo.jpg"
@@ -188,11 +188,11 @@ export default function Header() {
               </div>
             </Link>
 
-            <div className="mx-8 hidden max-w-2xl flex-1 lg:block">
-              <SearchAutocomplete />
-            </div>
+            <div className="mx-3 hidden min-w-0 max-w-2xl flex-1 lg:block xl:mx-6">
+                <SearchAutocomplete className="mx-auto max-w-2xl" />
+              </div>
 
-            <div className="hidden items-center gap-2 md:flex">
+            <div className="hidden shrink-0 items-center gap-1 md:flex lg:gap-2">
               <Link
                 to="/shop"
                 className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
@@ -378,7 +378,7 @@ export default function Header() {
               <CartButton onClick={() => setIsCartOpen(true)} />
             </div>
 
-            <div className="flex items-center gap-2 md:hidden">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:hidden">
               <button
                 onClick={() => (isSearchOpen ? dismissMobileSearch() : setIsSearchOpen(true))}
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
@@ -424,10 +424,13 @@ export default function Header() {
           </div>
 
           {isSearchOpen && (
-            <div className="animate-slide-up mt-4 md:hidden">
-              <SearchAutocomplete compact placeholder="Search products..." />
-            </div>
-          )}
+              <div className="animate-slide-up relative z-[120] mt-3 pb-1 md:hidden">
+                <SearchAutocomplete
+                  compact
+                  placeholder="Search products..."
+                />
+              </div>
+            )}
         </div>
 
         {isMobileMenuOpen && (
