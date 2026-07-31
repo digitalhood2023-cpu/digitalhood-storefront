@@ -29,6 +29,12 @@ export type LencoMobileMoneyResponse = LencoPaymentState & {
   transactionId?: string
 }
 
+type LencoErrorResponse = {
+  details?: string
+  error?: string
+  message?: string
+}
+
 export type LencoVerificationResponse = LencoPaymentState & {
   success: boolean
   paid: boolean
@@ -67,19 +73,20 @@ async function lencoFetch<T>(
     globalThis.clearTimeout(timeoutId)
   }
 
-  let data: any = null
+  let data: T | LencoErrorResponse | null = null
 
   try {
-    data = await response.json()
+    data = (await response.json()) as T | LencoErrorResponse
   } catch {
     data = null
   }
 
   if (!response.ok) {
+    const errorData = data as LencoErrorResponse | null
     const message =
-      data?.details ||
-      data?.error ||
-      data?.message ||
+      errorData?.details ||
+      errorData?.error ||
+      errorData?.message ||
       `Lenco request failed with status ${response.status}`
 
     throw new Error(message)
