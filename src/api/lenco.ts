@@ -12,38 +12,60 @@ export type LencoMobileMoneyPayload = {
   customerEmail?: string
 }
 
-export type LencoMobileMoneyResponse = {
+export type LencoPaymentState = {
+  paid?: boolean
+  failed?: boolean
+  pending?: boolean
+  terminal?: boolean
+  failureCode?: string | null
+  status?: string
+  message?: string
+}
+
+export type LencoMobileMoneyResponse = LencoPaymentState & {
   success?: boolean
   reference?: string
   orderId?: string | number
   transactionId?: string
-  status?: string
-  message?: string
-  raw?: unknown
 }
 
-export type LencoVerificationResponse = {
+export type LencoVerificationResponse = LencoPaymentState & {
   success: boolean
   paid: boolean
   status: string
   orderId?: string | number
   reference?: string
   transactionId?: string
-  message?: string
-  raw?: unknown
 }
 
 async function lencoFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
+  const controller = new AbortController()
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), 12_000)
+  let response: Response
+
+  try {
+    response = await fetch(`${PAYMENTS_API_URL}${path}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    })
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        'The Mobile Money service took too long to respond. Please check your phone before trying again.'
+      )
+    }
+
+    throw error
+  } finally {
+    globalThis.clearTimeout(timeoutId)
+  }
 
   let data: any = null
 
