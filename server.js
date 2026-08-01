@@ -3,6 +3,12 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
+import {
+  buildServerSeo,
+  getIndexHtml,
+  getSitemapXml,
+  injectSeo,
+} from './server/marketplaceSeo.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +28,7 @@ app.use(
     target: 'https://digitalhood.info',
     changeOrigin: true,
     secure: true,
-    pathRewrite: (path) => `/wp-json/wc/store${path}`,
+    pathRewrite: (proxyPath) => `/wp-json/wc/store${proxyPath}`,
     onProxyReq(proxyReq) {
       proxyReq.setHeader('Origin', 'https://digitalhood.info');
     },
@@ -33,6 +39,13 @@ app.use(
  * JSON parser only for our custom backend routes.
  */
 app.use(express.json());
+
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 app.post('/api/lenco/mobile-money', async (req, res) => {
   try {
@@ -136,6 +149,7 @@ app.post('/api/woocommerce/orders/:orderId/mark-paid', async (req, res) => {
     });
   }
 });
+
 app.post('/api/woocommerce/orders/:orderId/apply-shipping', async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -151,7 +165,7 @@ app.post('/api/woocommerce/orders/:orderId/apply-shipping', async (req, res) => 
     if (!process.env.WC_CONSUMER_KEY || !process.env.WC_CONSUMER_SECRET) {
       return res.status(500).json({
         status: false,
-        message: 'WooCommerce API credentials are not configured',
+        message: 'WC_CONSUMER_KEY and WC_CONSUMER_SECRET are not configured',
       });
     }
 
@@ -202,6 +216,12 @@ app.post('/api/woocommerce/orders/:orderId/apply-shipping', async (req, res) => 
   }
 });
 
+app.get('/sitemap.xml', async (_req, res) => {
+  res.type('application/xml');
+  res.setHeader('Cache-Control', 'public, max-age=900, stale-while-revalidate=3600');
+  return res.send(await getSitemapXml());
+});
+
 const distDir = path.join(__dirname, 'dist');
 
 app.use(
@@ -230,7 +250,7 @@ app.use(
       }
 
       if (
-        /\.(?:png|jpg|jpeg|webp|avif|gif|svg|ico|woff2?|ttf|otf)$/i.test(normalizedPath)
+        /\\.(?:png|jpg|jpeg|webp|avif|gif|svg|ico|woff2?|ttf|otf)$/i.test(normalizedPath)
       ) {
         res.setHeader('Cache-Control', 'public, max-age=2592000');
         return;
@@ -241,11 +261,25 @@ app.use(
   })
 );
 
-app.use((_req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.sendFile(path.join(distDir, 'index.html'));
+app.use(async (req, res) => {
+  try {
+    const seo = await buildServerSeo(req.path);
+    const html = injectSeo(await getIndexHtml(distDir), seo);
+
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    if (seo.noindex) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+
+    return res.type('html').send(html);
+  } catch (error) {
+    console.error('HTML SEO rendering failed:', error?.message || error);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.sendFile(path.join(distDir, 'index.html'));
+  }
 });
 
 app.listen(PORT, () => {
