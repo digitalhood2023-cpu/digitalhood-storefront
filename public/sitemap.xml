@@ -1,8 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://store.digitalhood.info/</loc><priority>1.0</priority></url>
-  <url><loc>https://store.digitalhood.info/shop</loc><priority>0.9</priority></url>
-  <url><loc>https://store.digitalhood.info/cart</loc><priority>0.5</priority></url>
-  <url><loc>https://store.digitalhood.info/about</loc><priority>0.7</priority></url>
-  <url><loc>https://store.digitalhood.info/contact</loc><priority>0.7</priority></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://store.digitalhood.info/</loc></url>
+  <url><loc>https://store.digitalhood.info/shop</loc></url>
+  <url><loc>https://store.digitalhood.info/categories</loc></url>
+  <url><loc>https://store.digitalhood.info/phone-accessories-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/iphone-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/samsung-phones-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/laptops-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/headphones-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/power-banks-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/screen-repair-zambia</loc></url>
+  <url><loc>https://store.digitalhood.info/about</loc></url>
+  <url><loc>https://store.digitalhood.info/contact</loc></url>
+  <url><loc>https://store.digitalhood.info/support</loc></url>
+  <url><loc>https://store.digitalhood.info/help</loc></url>
+  <url><loc>https://store.digitalhood.info/faqs</loc></url>
+  <url><loc>https://store.digitalhood.info/shipping</loc></url>
+  <url><loc>https://store.digitalhood.info/returns</loc></url>
+  <url><loc>https://store.digitalhood.info/warranty</loc></url>
+  <url><loc>https://store.digitalhood.info/terms</loc></url>
+  <url><loc>https://store.digitalhood.info/privacy</loc></url>
+  <url><loc>https://store.digitalhood.info/cookies</loc></url>
+  <url><loc>https://store.digitalhood.info/marketplace-terms</loc></url>
+  <url><loc>https://store.digitalhood.info/seller-terms</loc></url>
+  <url><loc>https://store.digitalhood.info/prohibited-products</loc></url>
+  <url><loc>https://store.digitalhood.info/dispute-resolution</loc></url>
+  <url><loc>https://store.digitalhood.info/data-protection</loc></url>
+  <url><loc>https://store.digitalhood.info/incident-response</loc></url>
 </urlset>
