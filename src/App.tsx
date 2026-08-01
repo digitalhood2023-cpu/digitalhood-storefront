@@ -4,7 +4,7 @@ import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
-import SEO from '@/components/SEO'
+import MarketplaceSEO from '@/components/MarketplaceSEO'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -75,8 +75,7 @@ function NavigationScrollManager() {
 
         if (nextUrl.origin !== window.location.origin) return
 
-        const isDifferentPage =
-          nextUrl.pathname !== window.location.pathname
+        const isDifferentPage = nextUrl.pathname !== window.location.pathname
 
         if (isDifferentPage) {
           window.scrollTo({ top: 0, behavior: 'auto' })
@@ -107,68 +106,68 @@ function App() {
     <AccountProvider>
       <WishlistProvider>
         <RecentlyViewedProvider>
-          <SEO />
+          <MarketplaceSEO />
           <NavigationScrollManager />
 
           <div className="pt-[88px] md:pt-[122px]">
             <Suspense fallback={<PageLoader />}>
               <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/product/:slug" element={<ProductPage />} />
-              <Route path="/seller/:sellerKey" element={<SellerStorePage />} />
-              <Route path="/stores/:sellerKey" element={<SellerStorePage />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/product/:slug" element={<ProductPage />} />
+                <Route path="/seller/:sellerKey" element={<SellerStorePage />} />
+                <Route path="/stores/:sellerKey" element={<SellerStorePage />} />
 
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
-              <Route path="/recently-viewed" element={<RecentlyViewedPage />} />
-              <Route path="/track-order" element={<TrackOrderPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/recently-viewed" element={<RecentlyViewedPage />} />
+                <Route path="/track-order" element={<TrackOrderPage />} />
 
-              <Route path="/account" element={<AccountPage />} />
-              <Route path="/account/details" element={<AccountDetailsPage />} />
-              <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+                <Route path="/account" element={<AccountPage />} />
+                <Route path="/account/details" element={<AccountDetailsPage />} />
+                <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
 
-              <Route path="/help" element={<InfoPage />} />
-              <Route path="/faqs" element={<InfoPage />} />
-              <Route path="/shipping" element={<InfoPage />} />
-              <Route path="/returns" element={<InfoPage />} />
-              <Route path="/warranty" element={<InfoPage />} />
-              <Route path="/terms" element={<InfoPage />} />
-              <Route path="/privacy" element={<InfoPage />} />
-              <Route path="/cookies" element={<InfoPage />} />
-              <Route path="/marketplace-terms" element={<MarketplacePolicyPage />} />
-              <Route path="/seller-terms" element={<MarketplacePolicyPage />} />
-              <Route path="/prohibited-products" element={<MarketplacePolicyPage />} />
-              <Route path="/dispute-resolution" element={<MarketplacePolicyPage />} />
-              <Route path="/data-protection" element={<MarketplacePolicyPage />} />
-              <Route path="/incident-response" element={<MarketplacePolicyPage />} />
-              <Route path="/sitemap" element={<InfoPage />} />
-              <Route path="/blog" element={<InfoPage />} />
+                <Route path="/help" element={<InfoPage />} />
+                <Route path="/faqs" element={<InfoPage />} />
+                <Route path="/shipping" element={<InfoPage />} />
+                <Route path="/returns" element={<InfoPage />} />
+                <Route path="/warranty" element={<InfoPage />} />
+                <Route path="/terms" element={<InfoPage />} />
+                <Route path="/privacy" element={<InfoPage />} />
+                <Route path="/cookies" element={<InfoPage />} />
+                <Route path="/marketplace-terms" element={<MarketplacePolicyPage />} />
+                <Route path="/seller-terms" element={<MarketplacePolicyPage />} />
+                <Route path="/prohibited-products" element={<MarketplacePolicyPage />} />
+                <Route path="/dispute-resolution" element={<MarketplacePolicyPage />} />
+                <Route path="/data-protection" element={<MarketplacePolicyPage />} />
+                <Route path="/incident-response" element={<MarketplacePolicyPage />} />
+                <Route path="/sitemap" element={<InfoPage />} />
+                <Route path="/blog" element={<InfoPage />} />
 
-              <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
-              <Route path="/iphone-zambia" element={<IPhonePage />} />
-              <Route path="/samsung-phones-zambia" element={<SamsungPage />} />
-              <Route path="/laptops-zambia" element={<LaptopPage />} />
-              <Route path="/headphones-zambia" element={<HeadphonesPage />} />
-              <Route path="/power-banks-zambia" element={<PowerBankPage />} />
-              <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
-              <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/support" element={<SupportPage />} />
-              <Route path="/support/track" element={<SupportPage />} />
+                <Route path="/phone-accessories-zambia" element={<PhoneAccessoriesPage />} />
+                <Route path="/iphone-zambia" element={<IPhonePage />} />
+                <Route path="/samsung-phones-zambia" element={<SamsungPage />} />
+                <Route path="/laptops-zambia" element={<LaptopPage />} />
+                <Route path="/headphones-zambia" element={<HeadphonesPage />} />
+                <Route path="/power-banks-zambia" element={<PowerBankPage />} />
+                <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
+                <Route path="/about" element={<AboutUsPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/support" element={<SupportPage />} />
+                <Route path="/support/track" element={<SupportPage />} />
 
-              <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
-              <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
-              <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
-              <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
+                <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
+                <Route path="/buy-samsung-zambia" element={<SamsungPage />} />
+                <Route path="/buy-laptop-zambia" element={<LaptopPage />} />
+                <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
 
-              <Route path="*" element={<Home />} />
+                <Route path="*" element={<Home />} />
               </Routes>
             </Suspense>
           </div>
