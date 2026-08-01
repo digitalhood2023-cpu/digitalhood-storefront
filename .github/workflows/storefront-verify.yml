@@ -1,0 +1,74 @@
+name: Storefront verification
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - agent/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate server syntax
+        run: |
+          node --check server.js
+          node --check server/marketplaceSeo.js
+
+      - name: Build production storefront
+        run: npm run build
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Smoke-test rendered SEO responses
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          npm start > /tmp/digitalhood-storefront.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true; cat /tmp/digitalhood-storefront.log' EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ > /tmp/home.html; then
+              break
+            fi
+            sleep 1
+          done
+
+          test -s /tmp/home.html
+          grep -F 'application/ld+json' /tmp/home.html
+          grep -F 'OnlineStore' /tmp/home.html
+          grep -F 'https://store.digitalhood.info/' /tmp/home.html
+
+          curl -fsS http://127.0.0.1:3000/sitemap.xml > /tmp/sitemap.xml
+          grep -F '<urlset' /tmp/sitemap.xml
+          grep -F 'https://store.digitalhood.info/shop' /tmp/sitemap.xml
+
+          curl -fsSI http://127.0.0.1:3000/checkout > /tmp/checkout-headers.txt
+          tr -d '\r' < /tmp/checkout-headers.txt | grep -Fi 'x-robots-tag: noindex, nofollow'
