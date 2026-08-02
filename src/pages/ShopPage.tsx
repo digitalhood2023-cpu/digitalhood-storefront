@@ -31,7 +31,7 @@ import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import { useWishlist } from '@/context/WishlistContext';
 import {
   fetchWooCategories,
-  fetchWooProducts,
+  fetchMarketplaceProducts,
   type WooCategory,
   type WooProduct,
 } from '@/lib/woocommerce';
@@ -93,59 +93,6 @@ const COLOR_FILTERS = [
   'Pink',
   'Clear',
 ];
-
-function normalizeFilterText(value = '') {
-  return value
-    .toLowerCase()
-    .replace(/[-_/]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getProductFilterText(product: WooProduct) {
-  const attributeText = Array.isArray(product.attributes)
-    ? product.attributes
-        .map((attribute) => `${attribute.name} ${attribute.options.join(' ')}`)
-        .join(' ')
-    : '';
-
-  const categoryText = Array.isArray(product.categories)
-    ? product.categories.map((category) => category.name).join(' ')
-    : '';
-
-  return normalizeFilterText(
-    [
-      product.name,
-      product.slug,
-      product.shortDescription,
-      product.description,
-      attributeText,
-      categoryText,
-    ]
-      .filter(Boolean)
-      .join(' ')
-  );
-}
-
-function productMatchesPrice(product: WooProduct, rangeKey: PriceRangeKey) {
-  const selectedRange = PRICE_FILTERS.find((range) => range.key === rangeKey);
-
-  if (!selectedRange || selectedRange.key === 'all') return true;
-
-  const price = safeNumber(product.price);
-
-  if (selectedRange.min !== null && price < selectedRange.min) return false;
-  if (selectedRange.max !== null && price > selectedRange.max) return false;
-
-  return true;
-}
-
-function productMatchesTextOption(product: WooProduct, option: string) {
-  if (!option) return true;
-
-  return getProductFilterText(product).includes(normalizeFilterText(option));
-}
-
 
 function safeNumber(value: unknown, fallback = 0) {
   const numberValue = Number(value);
@@ -226,10 +173,6 @@ function getPaginationItems(currentPage: number, pageCount: number) {
   addPage(pageCount);
 
   return pages;
-}
-
-function getProductPrice(product: WooProduct) {
-  return safeNumber(product.price);
 }
 
 export default function ShopPage() {
@@ -332,9 +275,34 @@ export default function ShopPage() {
     isFetching,
     error: productsError,
   } = useQuery({
-    queryKey: ['woo-products', PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId],
-    queryFn: () =>
-      fetchWooProducts(PRODUCTS_PER_PAGE, page, submittedSearchQuery, selectedCategoryId),
+    queryKey: [
+      'marketplace-products',
+      PRODUCTS_PER_PAGE,
+      page,
+      submittedSearchQuery,
+      categorySlugFromUrl,
+      sortBy,
+      priceRange,
+      selectedStorage,
+      selectedColor,
+    ],
+    queryFn: () => {
+      const selectedRange = PRICE_FILTERS.find(
+        (range) => range.key === priceRange
+      );
+
+      return fetchMarketplaceProducts({
+        query: submittedSearchQuery,
+        page,
+        perPage: PRODUCTS_PER_PAGE,
+        sort: sortBy,
+        category: categorySlugFromUrl || undefined,
+        storage: selectedStorage || undefined,
+        colour: selectedColor || undefined,
+        minPrice: selectedRange?.min,
+        maxPrice: selectedRange?.max,
+      });
+    },
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
@@ -343,6 +311,7 @@ export default function ShopPage() {
   const products = productsResponse?.products || [];
   const totalProducts = productsResponse?.total || 0;
   const totalPages = productsResponse?.totalPages || 1;
+  const marketplaceFacets = productsResponse?.facets;
   const loadError =
     productsError instanceof Error
       ? productsError.message
@@ -369,7 +338,14 @@ export default function ShopPage() {
     }
 
     setPage(1);
-  }, [searchQuery, selectedCategoryId]);
+  }, [
+    searchQuery,
+    selectedCategoryId,
+    priceRange,
+    selectedStorage,
+    selectedColor,
+    sortBy,
+  ]);
 
   useEffect(() => {
     if (isLoading || !shouldRestoreShopScrollRef.current) return;
@@ -446,7 +422,27 @@ export default function ShopPage() {
   );
 
   const selectedCategorySlug = selectedCategory?.slug;
-  const popularCategories = categories.slice(0, 10);
+  const categoryFacetCounts = new Map(
+    (marketplaceFacets?.categories || []).map(
+      (option) => [option.value, option.count]
+    )
+  );
+  const popularCategories = categories
+    .map((category) => ({
+      ...category,
+      productCount:
+        categoryFacetCounts.get(category.slug) ??
+        category.productCount,
+    }))
+    .slice(0, 10);
+  const availableStorageFilters =
+    marketplaceFacets?.storage?.length
+      ? marketplaceFacets.storage.map((option) => option.value)
+      : STORAGE_FILTERS;
+  const availableColorFilters =
+    marketplaceFacets?.colours?.length
+      ? marketplaceFacets.colours.map((option) => option.value)
+      : COLOR_FILTERS;
   const activeSidebarFilterCount = [
     priceRange !== 'all',
     Boolean(selectedStorage),
@@ -603,32 +599,7 @@ export default function ShopPage() {
     }
   };
 
-  const sortedProducts = useMemo(() => {
-    const filteredProducts = products.filter((product) => {
-      return (
-        productMatchesPrice(product, priceRange) &&
-        productMatchesTextOption(product, selectedStorage) &&
-        productMatchesTextOption(product, selectedColor)
-      );
-    });
-
-    return filteredProducts.sort((a, b) => {
-      switch (sortBy) {
-        case 'price-low':
-          return getProductPrice(a) - getProductPrice(b);
-        case 'price-high':
-          return getProductPrice(b) - getProductPrice(a);
-        case 'newest':
-          return safeNumber(b.id) - safeNumber(a.id);
-        case 'best-selling':
-          return safeNumber(b.totalSales) - safeNumber(a.totalSales);
-        case 'rating':
-          return safeNumber(b.averageRating) - safeNumber(a.averageRating);
-        default:
-          return 0;
-      }
-    });
-  }, [products, sortBy, priceRange, selectedStorage, selectedColor]);
+  const sortedProducts = products;
 
   const formatPrice = (price: number) =>
     `K${safeNumber(price).toLocaleString('en-ZM', {
@@ -833,7 +804,7 @@ export default function ShopPage() {
           </h3>
 
           <div className="flex flex-wrap gap-2">
-            {STORAGE_FILTERS.map((storage) => (
+            {availableStorageFilters.map((storage) => (
               <button
                 key={storage}
                 type="button"
@@ -860,7 +831,7 @@ export default function ShopPage() {
           </h3>
 
           <div className="flex flex-wrap gap-2">
-            {COLOR_FILTERS.map((color) => (
+            {availableColorFilters.map((color) => (
               <button
                 key={color}
                 type="button"
@@ -1135,7 +1106,7 @@ export default function ShopPage() {
 
                 {activeSidebarFilterCount > 0 && (
                   <p className="mt-1 text-xs text-dh-dark-gray">
-                    Refined by price, storage, or colour. Showing matching products from this page.
+                    Filters and sorting are applied across the full marketplace catalogue.
                   </p>
                 )}
 
