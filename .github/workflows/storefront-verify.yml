@@ -84,5 +84,5 @@ jobs:
           grep -F 'https://store.digitalhood.info/shop' /tmp/sitemap.xml
 
           curl -fsSI http://127.0.0.1:3000/checkout > /tmp/checkout-headers.txt
-          tr -d '\\r' < /tmp/checkout-headers.txt |
+          tr -d '\r' < /tmp/checkout-headers.txt |
             grep -Fi 'x-robots-tag: noindex, nofollow'
