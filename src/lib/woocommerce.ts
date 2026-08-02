@@ -7,6 +7,7 @@ const PAYMENTS_API_URL =
 const STORE_PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
 
 const MARKETPLACE_PRODUCTS_API = `${PAYMENTS_API_URL}/api/products`;
+const MARKETPLACE_SEARCH_API = `${PAYMENTS_API_URL}/api/search/products`;
 
 export type MarketplaceStockTone = 'success' | 'warning' | 'danger' | 'muted';
 
@@ -142,6 +143,55 @@ export type WooProductsResponse = {
   products: WooProduct[];
   total: number;
   totalPages: number;
+};
+
+export type MarketplaceFacetOption = {
+  value: string;
+  label: string;
+  count: number;
+};
+
+export type MarketplaceSearchFacets = {
+  categories: MarketplaceFacetOption[];
+  brands: MarketplaceFacetOption[];
+  storage: MarketplaceFacetOption[];
+  ram: MarketplaceFacetOption[];
+  colours: MarketplaceFacetOption[];
+  conditions: MarketplaceFacetOption[];
+  connectivity: MarketplaceFacetOption[];
+  sellers: MarketplaceFacetOption[];
+  stock: MarketplaceFacetOption[];
+  price: {
+    min: number;
+    max: number;
+  };
+};
+
+export type MarketplaceSearchRequest = {
+  query?: string;
+  page?: number;
+  perPage?: number;
+  sort?: string;
+  category?: string | string[];
+  brand?: string | string[];
+  storage?: string | string[];
+  ram?: string | string[];
+  colour?: string | string[];
+  condition?: string | string[];
+  connectivity?: string | string[];
+  seller?: string | string[];
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  minRating?: number | null;
+  onSale?: boolean;
+};
+
+export type MarketplaceSearchResponse = WooProductsResponse & {
+  page: number;
+  perPage: number;
+  facets: MarketplaceSearchFacets;
+  searchProvider: string;
+  searchTimeMs: number | null;
 };
 
 function stripHtml(html = '') {
@@ -606,6 +656,130 @@ export function mapWooCategory(category: any): WooCategory {
     description: stripHtml(category.description),
     productCount: category.count || category.productCount || 0,
     image: category.image?.src || category.image || '/logo.jpg',
+  };
+}
+
+function normalizeMarketplaceFacetOptions(
+  value: unknown
+): MarketplaceFacetOption[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((option: unknown) => {
+      const record =
+        typeof option === 'object' && option !== null
+          ? (option as Record<string, unknown>)
+          : {};
+
+      return {
+        value: String(record.value || '').trim(),
+        label: String(record.label || record.value || '').trim(),
+        count: Number(record.count || 0),
+      };
+    })
+    .filter((option) => option.value);
+}
+
+export async function fetchMarketplaceProducts(
+  request: MarketplaceSearchRequest = {}
+): Promise<MarketplaceSearchResponse> {
+  const params = new URLSearchParams({
+    page: String(request.page || 1),
+    per_page: String(request.perPage || 48),
+    sort: request.sort || 'featured',
+  });
+
+  const setList = (
+    key: string,
+    value?: string | string[]
+  ) => {
+    const values = Array.isArray(value)
+      ? value
+      : value
+        ? [value]
+        : [];
+
+    for (const item of values) {
+      if (String(item || '').trim()) {
+        params.append(key, String(item).trim());
+      }
+    }
+  };
+
+  if (request.query?.trim()) {
+    params.set('q', request.query.trim());
+  }
+
+  setList('category', request.category);
+  setList('brand', request.brand);
+  setList('storage', request.storage);
+  setList('ram', request.ram);
+  setList('colour', request.colour);
+  setList('condition', request.condition);
+  setList('connectivity', request.connectivity);
+  setList('seller', request.seller);
+
+  if (request.minPrice !== null && request.minPrice !== undefined) {
+    params.set('min_price', String(request.minPrice));
+  }
+
+  if (request.maxPrice !== null && request.maxPrice !== undefined) {
+    params.set('max_price', String(request.maxPrice));
+  }
+
+  if (request.minRating !== null && request.minRating !== undefined) {
+    params.set('min_rating', String(request.minRating));
+  }
+
+  if (request.onSale !== undefined) {
+    params.set('on_sale', String(request.onSale));
+  }
+
+  const response = await fetch(
+    `${MARKETPLACE_SEARCH_API}?${params.toString()}`,
+    {
+      cache: 'no-store',
+    }
+  );
+
+  const data = await parseJsonResponse(response);
+  const rawProducts = Array.isArray(data.products)
+    ? data.products
+    : [];
+  const facets = data.facets || {};
+
+  return {
+    products: rawProducts.map(mapWooProduct),
+    total: Number(data.total || 0),
+    totalPages: Math.max(1, Number(data.totalPages || 1)),
+    page: Math.max(1, Number(data.page || request.page || 1)),
+    perPage: Math.max(
+      1,
+      Number(data.perPage || request.perPage || 48)
+    ),
+    facets: {
+      categories: normalizeMarketplaceFacetOptions(facets.categories),
+      brands: normalizeMarketplaceFacetOptions(facets.brands),
+      storage: normalizeMarketplaceFacetOptions(facets.storage),
+      ram: normalizeMarketplaceFacetOptions(facets.ram),
+      colours: normalizeMarketplaceFacetOptions(facets.colours),
+      conditions: normalizeMarketplaceFacetOptions(facets.conditions),
+      connectivity: normalizeMarketplaceFacetOptions(facets.connectivity),
+      sellers: normalizeMarketplaceFacetOptions(facets.sellers),
+      stock: normalizeMarketplaceFacetOptions(facets.stock),
+      price: {
+        min: Number(facets.price?.min || 0),
+        max: Number(facets.price?.max || 0),
+      },
+    },
+    searchProvider: String(
+      data.searchProvider || 'woocommerce'
+    ),
+    searchTimeMs:
+      data.searchTimeMs === null ||
+      data.searchTimeMs === undefined
+        ? null
+        : Number(data.searchTimeMs),
   };
 }
 
