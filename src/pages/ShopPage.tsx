@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Grid3X3,
@@ -51,7 +51,52 @@ type SortOption =
   | 'price-high'
   | 'newest'
   | 'best-selling'
-  | 'rating';
+  | 'rating'
+  | 'trending';
+
+const SORT_OPTIONS = new Set<SortOption>([
+  'featured',
+  'price-low',
+  'price-high',
+  'newest',
+  'best-selling',
+  'rating',
+  'trending',
+]);
+
+function parseSortOption(
+  value: string | null,
+  fallback: SortOption
+): SortOption {
+  return value &&
+    SORT_OPTIONS.has(
+      value as SortOption
+    )
+    ? (value as SortOption)
+    : fallback;
+}
+
+const COLLECTIONS: Record<
+  string,
+  {
+    sort: SortOption;
+    onSale?: boolean;
+  }
+> = {
+  'new-arrivals': {
+    sort: 'newest',
+  },
+  deals: {
+    sort: 'featured',
+    onSale: true,
+  },
+  'best-sellers': {
+    sort: 'best-selling',
+  },
+  trending: {
+    sort: 'trending',
+  },
+};
 
 const PRODUCTS_PER_PAGE = 48;
 
@@ -177,17 +222,101 @@ function getPaginationItems(currentPage: number, pageCount: number) {
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
-  const categorySlugFromUrl = searchParams.get('category');
-  const searchFromUrl = searchParams.get('search') || '';
-  const pageFromUrl = Math.max(1, Number(searchParams.get('page') || '1') || 1);
+  const {
+    categorySlug: routeCategorySlug,
+    collectionSlug,
+  } = useParams<{
+    categorySlug?: string;
+    collectionSlug?: string;
+  }>();
+
+  const collection =
+    collectionSlug
+      ? COLLECTIONS[
+          collectionSlug
+        ]
+      : undefined;
+
+  const categorySlugFromUrl =
+    routeCategorySlug ||
+    searchParams.get(
+      'category'
+    );
+
+  const searchFromUrl =
+    searchParams.get('q') ||
+    searchParams.get(
+      'search'
+    ) ||
+    '';
+
+  const sortFromUrl =
+    parseSortOption(
+      searchParams.get(
+        'sort'
+      ),
+      collection?.sort ||
+        'featured'
+    );
+
+  const requestedPriceRange =
+    searchParams.get(
+      'price'
+    ) as PriceRangeKey | null;
+
+  const priceRangeFromUrl =
+    requestedPriceRange &&
+    PRICE_FILTERS.some(
+      (range) =>
+        range.key ===
+        requestedPriceRange
+    )
+      ? requestedPriceRange
+      : 'all';
+
+  const storageFromUrl =
+    searchParams.get(
+      'storage'
+    ) || '';
+
+  const colorFromUrl =
+    searchParams.get(
+      'colour'
+    ) ||
+    searchParams.get(
+      'color'
+    ) ||
+    '';
+
+  const onSaleFromUrl =
+    collection?.onSale ===
+      true ||
+    ['1', 'true'].includes(
+      String(
+        searchParams.get(
+          'on_sale'
+        ) || ''
+      ).toLowerCase()
+    );
+
+  const pageFromUrl =
+    Math.max(
+      1,
+      Number(
+        searchParams.get(
+          'page'
+        ) || '1'
+      ) || 1
+    );
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<SortOption>('featured');
-  const [priceRange, setPriceRange] = useState<PriceRangeKey>('all');
-  const [selectedStorage, setSelectedStorage] = useState('');
-  const [selectedColor, setSelectedColor] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>(sortFromUrl);
+  const [priceRange, setPriceRange] = useState<PriceRangeKey>(priceRangeFromUrl);
+  const [selectedStorage, setSelectedStorage] = useState(storageFromUrl);
+  const [selectedColor, setSelectedColor] = useState(colorFromUrl);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const dismissMobileFilters = useBackButtonDismiss({
     id: 'shop-mobile-filters',
@@ -208,6 +337,8 @@ export default function ShopPage() {
   const shouldRestoreShopScrollRef = useRef(false);
   const shouldScrollToResultsAfterPageChangeRef =
     useRef(false);
+  const isApplyingUrlStateRef = useRef(false);
+  const hasMountedRefinementSyncRef = useRef(false);
 
   const {
     data: categories = [],
@@ -226,32 +357,192 @@ export default function ShopPage() {
   });
 
   useEffect(() => {
-    if (!categories.length) return;
-
-    if (searchFromUrl !== searchQuery) {
-      setSearchQuery(searchFromUrl);
-      setSubmittedSearchQuery(searchFromUrl);
+    if (
+      searchFromUrl !==
+      searchQuery
+    ) {
+      setSearchQuery(
+        searchFromUrl
+      );
     }
+
+    if (
+      searchFromUrl !==
+      submittedSearchQuery
+    ) {
+      setSubmittedSearchQuery(
+        searchFromUrl
+      );
+    }
+  }, [searchFromUrl]);
+
+  useEffect(() => {
+    if (!categories.length) return;
 
     if (!categorySlugFromUrl) {
       setSelectedCategoryId(null);
       return;
     }
 
-    const matchedCategory = categories.find(
-      (category) => category.slug === categorySlugFromUrl
-    );
+    const matchedCategory =
+      categories.find(
+        (category) =>
+          category.slug ===
+          categorySlugFromUrl
+      );
 
-    if (matchedCategory) {
-      setSelectedCategoryId(matchedCategory.id);
-    }
-  }, [categories, categorySlugFromUrl, searchFromUrl]);
+    setSelectedCategoryId(
+      matchedCategory?.id ||
+        null
+    );
+  }, [
+    categories,
+    categorySlugFromUrl,
+  ]);
 
   useEffect(() => {
     if (pageFromUrl !== page) {
       setPage(pageFromUrl);
     }
   }, [pageFromUrl]);
+
+  useEffect(() => {
+    const matchesUrl =
+      sortBy === sortFromUrl &&
+      priceRange ===
+        priceRangeFromUrl &&
+      selectedStorage ===
+        storageFromUrl &&
+      selectedColor ===
+        colorFromUrl;
+
+    if (matchesUrl) return;
+
+    isApplyingUrlStateRef.current =
+      true;
+
+    setSortBy(sortFromUrl);
+
+    setPriceRange(
+      priceRangeFromUrl
+    );
+
+    setSelectedStorage(
+      storageFromUrl
+    );
+
+    setSelectedColor(
+      colorFromUrl
+    );
+  }, [
+    sortFromUrl,
+    priceRangeFromUrl,
+    storageFromUrl,
+    colorFromUrl,
+  ]);
+
+  useEffect(() => {
+    if (
+      !hasMountedRefinementSyncRef.current
+    ) {
+      hasMountedRefinementSyncRef.current =
+        true;
+
+      return;
+    }
+
+    if (
+      isApplyingUrlStateRef.current
+    ) {
+      isApplyingUrlStateRef.current =
+        false;
+
+      return;
+    }
+
+    const matchesUrl =
+      sortBy === sortFromUrl &&
+      priceRange ===
+        priceRangeFromUrl &&
+      selectedStorage ===
+        storageFromUrl &&
+      selectedColor ===
+        colorFromUrl;
+
+    if (matchesUrl) return;
+
+    const params =
+      new URLSearchParams(
+        searchParams
+      );
+
+    const defaultSort =
+      collection?.sort ||
+      'featured';
+
+    if (
+      sortBy !== defaultSort
+    ) {
+      params.set(
+        'sort',
+        sortBy
+      );
+    } else {
+      params.delete('sort');
+    }
+
+    if (
+      priceRange !== 'all'
+    ) {
+      params.set(
+        'price',
+        priceRange
+      );
+    } else {
+      params.delete('price');
+    }
+
+    if (selectedStorage) {
+      params.set(
+        'storage',
+        selectedStorage
+      );
+    } else {
+      params.delete('storage');
+    }
+
+    if (selectedColor) {
+      params.set(
+        'colour',
+        selectedColor
+      );
+    } else {
+      params.delete('colour');
+      params.delete('color');
+    }
+
+    params.delete('page');
+    setPage(1);
+
+    setSearchParams(
+      params,
+      {
+        replace: true,
+      }
+    );
+  }, [
+    sortBy,
+    priceRange,
+    selectedStorage,
+    selectedColor,
+    sortFromUrl,
+    priceRangeFromUrl,
+    storageFromUrl,
+    colorFromUrl,
+    collection?.sort,
+    searchParams,
+    setSearchParams,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -285,6 +576,7 @@ export default function ShopPage() {
       priceRange,
       selectedStorage,
       selectedColor,
+      onSaleFromUrl,
     ],
     queryFn: () => {
       const selectedRange = PRICE_FILTERS.find(
@@ -301,11 +593,13 @@ export default function ShopPage() {
         colour: selectedColor || undefined,
         minPrice: selectedRange?.min,
         maxPrice: selectedRange?.max,
+        onSale: onSaleFromUrl,
       });
     },
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: true,
   });
 
   const products = productsResponse?.products || [];
@@ -495,18 +789,46 @@ export default function ShopPage() {
     search?: string,
     nextPage = 1
   ) => {
-    const params: Record<string, string> = {};
+    const params =
+      new URLSearchParams(
+        searchParams
+      );
 
-    if (categorySlug) {
-      params.category = categorySlug;
+    if (!routeCategorySlug) {
+      if (categorySlug) {
+        params.set(
+          'category',
+          categorySlug
+        );
+      } else {
+        params.delete(
+          'category'
+        );
+      }
+    } else {
+      params.delete(
+        'category'
+      );
     }
 
     if (search?.trim()) {
-      params.search = search.trim();
+      params.set(
+        'q',
+        search.trim()
+      );
+    } else {
+      params.delete('q');
     }
 
+    params.delete('search');
+
     if (nextPage > 1) {
-      params.page = String(nextPage);
+      params.set(
+        'page',
+        String(nextPage)
+      );
+    } else {
+      params.delete('page');
     }
 
     setSearchParams(params);
@@ -530,33 +852,197 @@ export default function ShopPage() {
   };
 
   const submitShopSearch = (value = searchQuery) => {
-    const cleanedValue = value.trim();
+    const cleanedValue =
+      value.trim();
 
-    setSearchQuery(cleanedValue);
-    setSubmittedSearchQuery(cleanedValue);
+    setSearchQuery(
+      cleanedValue
+    );
+
+    setSubmittedSearchQuery(
+      cleanedValue
+    );
+
     setPage(1);
-    updateShopUrl(selectedCategorySlug || categorySlugFromUrl, cleanedValue);
-    saveSearchHistory(cleanedValue);
+
+    if (!cleanedValue) {
+      navigate('/shop');
+      return;
+    }
+
+    const params =
+      new URLSearchParams(
+        searchParams
+      );
+
+    params.set(
+      'q',
+      cleanedValue
+    );
+
+    params.delete('search');
+    params.delete('page');
+
+    const categorySlug =
+      selectedCategorySlug ||
+      categorySlugFromUrl;
+
+    if (categorySlug) {
+      params.set(
+        'category',
+        categorySlug
+      );
+    } else {
+      params.delete(
+        'category'
+      );
+    }
+
+    if (
+      sortBy !== 'featured'
+    ) {
+      params.set(
+        'sort',
+        sortBy
+      );
+    } else {
+      params.delete('sort');
+    }
+
+    if (onSaleFromUrl) {
+      params.set(
+        'on_sale',
+        'true'
+      );
+    }
+
+    navigate(
+      `/search?${params.toString()}`
+    );
+
+    saveSearchHistory(
+      cleanedValue
+    );
   };
 
   const handleAllProductsClick = () => {
     setSelectedCategoryId(null);
-    updateShopUrl(null, searchQuery);
+    setPage(1);
+
+    const params =
+      new URLSearchParams(
+        searchParams
+      );
+
+    params.delete('category');
+    params.delete('search');
+    params.delete('page');
+
+    if (searchQuery.trim()) {
+      params.set(
+        'q',
+        searchQuery.trim()
+      );
+    } else {
+      params.delete('q');
+    }
+
+    if (
+      sortBy !== 'featured'
+    ) {
+      params.set(
+        'sort',
+        sortBy
+      );
+    } else {
+      params.delete('sort');
+    }
+
+    if (onSaleFromUrl) {
+      params.set(
+        'on_sale',
+        'true'
+      );
+    }
+
+    const suffix =
+      params.toString()
+        ? `?${params.toString()}`
+        : '';
+
+    navigate(
+      searchQuery.trim()
+        ? `/search${suffix}`
+        : `/shop${suffix}`
+    );
   };
 
   const handleCategoryClick = (category: WooCategory) => {
-    setSelectedCategoryId(category.id);
-    updateShopUrl(category.slug, searchQuery);
+    setSelectedCategoryId(
+      category.id
+    );
+
+    setPage(1);
+
+    const params =
+      new URLSearchParams(
+        searchParams
+      );
+
+    params.delete('category');
+    params.delete('search');
+    params.delete('page');
+
+    if (searchQuery.trim()) {
+      params.set(
+        'q',
+        searchQuery.trim()
+      );
+    } else {
+      params.delete('q');
+    }
+
+    if (
+      sortBy !== 'featured'
+    ) {
+      params.set(
+        'sort',
+        sortBy
+      );
+    } else {
+      params.delete('sort');
+    }
+
+    if (onSaleFromUrl) {
+      params.set(
+        'on_sale',
+        'true'
+      );
+    }
+
+    const suffix =
+      params.toString()
+        ? `?${params.toString()}`
+        : '';
+
+    navigate(
+      `/category/${encodeURIComponent(
+        category.slug
+      )}${suffix}`
+    );
   };
 
   const clearFilters = () => {
     setSearchQuery('');
+    setSubmittedSearchQuery('');
     setSelectedCategoryId(null);
+    setSortBy('featured');
     setPriceRange('all');
     setSelectedStorage('');
     setSelectedColor('');
+    setPage(1);
     dismissMobileFilters();
-    setSearchParams({});
+    navigate('/shop');
   };
 
   const clearSidebarFilters = () => {
@@ -577,21 +1063,64 @@ export default function ShopPage() {
 
   const removeFilterChip = (key: string) => {
     if (key === 'category') {
-      setSelectedCategoryId(null);
-      updateShopUrl(null, searchQuery);
+      handleAllProductsClick();
+      return;
     }
 
     if (key === 'search') {
       setSearchQuery('');
-      updateShopUrl(selectedCategorySlug || categorySlugFromUrl, '');
+      setSubmittedSearchQuery('');
+      setPage(1);
+
+      const params =
+        new URLSearchParams(
+          searchParams
+        );
+
+      params.delete('q');
+      params.delete('search');
+      params.delete('page');
+
+      let targetPath = '/shop';
+
+      if (collectionSlug) {
+        targetPath =
+          `/collections/${encodeURIComponent(
+            collectionSlug
+          )}`;
+      } else if (
+        categorySlugFromUrl
+      ) {
+        params.delete(
+          'category'
+        );
+
+        targetPath =
+          `/category/${encodeURIComponent(
+            categorySlugFromUrl
+          )}`;
+      }
+
+      const suffix =
+        params.toString()
+          ? `?${params.toString()}`
+          : '';
+
+      navigate(
+        `${targetPath}${suffix}`
+      );
+
+      return;
     }
 
     if (key === 'price') {
       setPriceRange('all');
+      return;
     }
 
     if (key === 'storage') {
       setSelectedStorage('');
+      return;
     }
 
     if (key === 'color') {
@@ -1133,6 +1662,7 @@ export default function ShopPage() {
                     <option value="price-low">Price: Low to High</option>
                     <option value="price-high">Price: High to Low</option>
                     <option value="newest">Newest Arrivals</option>
+                      <option value="trending">Trending</option>
                   </select>
                 </div>
 

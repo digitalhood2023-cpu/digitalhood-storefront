@@ -280,7 +280,7 @@ export default function Hero() {
                 </Button>
               </Link>
 
-              <Link to="/shop?sort=newest" className="hero-cta">
+              <Link to="/collections/new-arrivals" className="hero-cta">
                 <Button
                   variant="outline"
                   size="lg"
@@ -357,7 +357,7 @@ export default function Hero() {
               </Link>
 
               <Link
-                to="/shop?sort=newest"
+                to="/collections/new-arrivals"
                 className="absolute -left-4 top-1/4 z-20 rounded-2xl bg-white p-3 shadow-lg transition-transform hover:-translate-y-1 lg:-left-8 lg:p-4"
               >
                 <div className="flex items-center gap-2 lg:gap-3">

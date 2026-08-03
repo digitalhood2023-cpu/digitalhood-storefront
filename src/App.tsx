@@ -114,6 +114,9 @@ function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<ShopPage />} />
+                <Route path="/search" element={<ShopPage />} />
+                <Route path="/category/:categorySlug" element={<ShopPage />} />
+                <Route path="/collections/:collectionSlug" element={<ShopPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/product/:slug" element={<ProductPage />} />
                 <Route path="/seller/:sellerKey" element={<SellerStorePage />} />

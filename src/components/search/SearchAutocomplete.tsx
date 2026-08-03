@@ -171,7 +171,7 @@ export default function SearchAutocomplete({
       return
     }
 
-    navigate(`/shop?search=${encodeURIComponent(cleaned)}`)
+    navigate(`/search?q=${encodeURIComponent(cleaned)}`)
   }
 
   const handleSubmit = (event: FormEvent) => {

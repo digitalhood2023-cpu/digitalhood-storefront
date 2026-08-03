@@ -19,7 +19,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 function getShopCategoryUrl(slug: string) {
-  return `/shop?category=${slug}`
+  return `/category/${encodeURIComponent(slug)}`
 }
 
 function CategorySkeleton() {
