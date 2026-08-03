@@ -321,7 +321,7 @@ export default function FlashSale() {
               ))}
             </div>
 
-            <Link to="/shop">
+            <Link to="/collections/deals">
               <Button
                 size="lg"
                 className="h-10 rounded-full bg-white px-5 text-sm font-bold text-red-500 hover:bg-gray-100"

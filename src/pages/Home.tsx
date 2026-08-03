@@ -270,7 +270,7 @@ export default function Home() {
               title="New Arrivals"
               subtitle="Fresh products recently added to DigitalHood"
               products={homeSections.newArrivals}
-              viewAllLink="/shop?sort=newest"
+              viewAllLink="/collections/new-arrivals"
               bgColor="white"
             />
 
@@ -278,7 +278,7 @@ export default function Home() {
               title="Explore Deals"
               subtitle="Good value products and offers from the marketplace"
               products={homeSections.deals}
-              viewAllLink="/shop"
+              viewAllLink="/collections/deals"
               bgColor="gray"
             />
 
@@ -286,7 +286,7 @@ export default function Home() {
               title="Best Sellers"
               subtitle="Popular products customers are buying"
               products={homeSections.bestSellers}
-              viewAllLink="/shop?sort=best-selling"
+              viewAllLink="/collections/best-sellers"
               bgColor="white"
             />
 
@@ -294,7 +294,7 @@ export default function Home() {
               title="Trending Now"
               subtitle="Products getting attention across the store"
               products={homeSections.trending}
-              viewAllLink="/shop"
+              viewAllLink="/collections/trending"
               bgColor="gray"
             />
           </>

@@ -53,7 +53,7 @@ const categorySlugMap: Record<string, string> = {
 
 function getShopCategoryUrl(slug: string) {
   const mappedSlug = categorySlugMap[slug] || slug
-  return `/shop?category=${mappedSlug}`
+  return `/category/${encodeURIComponent(mappedSlug)}`
 }
 
 function getCustomerDisplayName(customer: {
@@ -208,7 +208,7 @@ export default function Header() {
               </Link>
 
               <Link
-                to="/shop?category=deals"
+                to="/collections/deals"
                 className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
               >
                 Deals
@@ -545,7 +545,7 @@ export default function Header() {
                 </div>
 
                 <Link
-                  to="/shop?category=deals"
+                  to="/collections/deals"
                   className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
                 >
                   Deals
