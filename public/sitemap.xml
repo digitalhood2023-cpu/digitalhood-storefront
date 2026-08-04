@@ -27,4 +27,7 @@
   <url><loc>https://store.digitalhood.info/dispute-resolution</loc></url>
   <url><loc>https://store.digitalhood.info/data-protection</loc></url>
   <url><loc>https://store.digitalhood.info/incident-response</loc></url>
+  <url>
+    <loc>https://store.digitalhood.info/shops</loc>
+  </url>
 </urlset>

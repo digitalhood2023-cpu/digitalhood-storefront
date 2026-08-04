@@ -204,10 +204,10 @@ export default function SellerStorePage() {
                 {error || 'This seller store is not available right now.'}
               </p>
               <Link
-                to="/shop"
+                to="/shops"
                 className="mt-6 inline-flex items-center rounded-full bg-dh-primary px-5 py-3 text-sm font-bold text-white hover:bg-dh-secondary"
               >
-                Back to shop
+                Back to shops
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </div>

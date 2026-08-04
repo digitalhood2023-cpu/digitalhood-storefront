@@ -66,3 +66,88 @@ export async function fetchPublicSellerStore(sellerKey: string): Promise<PublicS
 
   return data
 }
+
+export type PublicStoreDirectoryFacet = {
+  value: string
+  count: number
+}
+
+export type PublicStoreDirectoryCard = {
+  key: string
+  url: string
+  storeName: string
+  tagline?: string
+  description?: string
+  profilePhotoUrl?: string
+  coverPhotoUrl?: string
+  accountType?: string
+  verified?: boolean
+  city?: string
+  province?: string
+  locationLabel?: string
+  categories: string[]
+  joinedAt?: string
+  yearsOnDigitalHood?: number
+  stats: {
+    productsLive: number
+    itemsSold: number
+    ratingAverage: number | null
+    ratingCount: number
+  }
+}
+
+export type PublicStoreDirectoryResponse = {
+  success: boolean
+  stores: PublicStoreDirectoryCard[]
+  total: number
+  totalPages: number
+  page: number
+  perPage: number
+  facets: {
+    categories: PublicStoreDirectoryFacet[]
+    locations: PublicStoreDirectoryFacet[]
+    accountTypes: PublicStoreDirectoryFacet[]
+  }
+}
+
+export type PublicStoreDirectoryQuery = {
+  q?: string
+  category?: string
+  location?: string
+  accountType?: string
+  sort?: string
+  page?: number
+  perPage?: number
+}
+
+export async function fetchPublicSellerDirectory(
+  query: PublicStoreDirectoryQuery = {}
+): Promise<PublicStoreDirectoryResponse> {
+  const params = new URLSearchParams()
+
+  if (query.q?.trim()) params.set('q', query.q.trim())
+  if (query.category) params.set('category', query.category)
+  if (query.location) params.set('location', query.location)
+  if (query.accountType) {
+    params.set('account_type', query.accountType)
+  }
+  if (query.sort) params.set('sort', query.sort)
+  if (query.page) params.set('page', String(query.page))
+  if (query.perPage) {
+    params.set('per_page', String(query.perPage))
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/public/sellers?${params.toString()}`
+  )
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error || 'Unable to load marketplace shops.'
+    )
+  }
+
+  return data
+}

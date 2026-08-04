@@ -30,6 +30,13 @@ const STATIC_ROUTES: Record<string, StaticRoute> = {
     path: '/shop',
     schemaType: 'CollectionPage',
   },
+  '/shops': {
+    heading: 'Shops',
+    title: 'Marketplace Shops & Verified Sellers',
+    description: 'Search and browse verified technology shops and sellers on DigitalHood Marketplace Zambia.',
+    path: '/shops',
+    schemaType: 'CollectionPage',
+  },
   '/categories': {
     heading: 'Categories',
     title: 'Technology Product Categories',

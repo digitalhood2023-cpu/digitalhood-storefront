@@ -14,7 +14,7 @@ const MAX_SITEMAP_PAGES = 100
 const PAGE_SIZE = 100
 
 const PUBLIC_ROUTES = [
-  '/', '/shop', '/categories', '/phone-accessories-zambia', '/iphone-zambia',
+  '/', '/shop', '/shops', '/categories', '/phone-accessories-zambia', '/iphone-zambia',
   '/samsung-phones-zambia', '/laptops-zambia', '/headphones-zambia',
   '/power-banks-zambia', '/screen-repair-zambia', '/about', '/contact',
   '/support', '/help', '/faqs', '/shipping', '/returns', '/warranty', '/terms',
@@ -25,6 +25,7 @@ const PUBLIC_ROUTES = [
 
 const STATIC = {
   '/shop': ['Shop Phones, Laptops & Tech in Zambia', 'Browse verified phones, laptops, accessories and technology products from DigitalHood Marketplace sellers in Zambia.'],
+  '/shops': ['Marketplace Shops & Verified Sellers', 'Search and browse verified technology shops and sellers on DigitalHood Marketplace Zambia.'],
   '/categories': ['Technology Product Categories', 'Browse DigitalHood Marketplace categories for phones, laptops, accessories, repairs and trusted technology services in Zambia.'],
   '/about': ['About DigitalHood Marketplace Zambia', 'Learn about DigitalHood Creations Limited and our mission to build a trusted, secure and scalable online marketplace in Zambia.'],
   '/contact': ['Contact DigitalHood Zambia', 'Contact DigitalHood Marketplace for sales, customer service and marketplace support in Zambia.'],

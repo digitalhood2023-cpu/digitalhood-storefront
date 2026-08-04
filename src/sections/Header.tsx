@@ -18,7 +18,11 @@ import {
 
 import { useWishlist } from '@/context/WishlistContext'
 import { useAccount } from '@/context/AccountContext'
-import { navCategories } from '@/data/products'
+import {
+  fetchWooCategories,
+  type WooCategory,
+} from '@/lib/woocommerce'
+import { sortCategoriesForMarketplace } from '@/lib/categoryIntelligence'
 import { Button } from '@/components/ui/button'
 import { CartButton } from '@/features/cart/CartButton'
 import { CartDrawer } from '@/features/cart/CartDrawer'
@@ -32,28 +36,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-const categorySlugMap: Record<string, string> = {
-  smartphones: 'smartphones',
-  phones: 'smartphones',
-  laptops: 'laptops-computers',
-  'laptops-computers': 'laptops-computers',
-  tablets: 'tablets-e-readers',
-  'tablets-e-readers': 'tablets-e-readers',
-  audio: 'audio-headphones',
-  'audio-headphones': 'audio-headphones',
-  cameras: 'cameras-photography',
-  'cameras-photography': 'cameras-photography',
-  tv: 'tv-home-theater',
-  'tv-home-theater': 'tv-home-theater',
-  'phone-accessories': 'phone-accessories',
-  accessories: 'phone-accessories',
-  'computer-accessories': 'computer-accessories',
-  deals: 'deals',
-}
-
 function getShopCategoryUrl(slug: string) {
-  const mappedSlug = categorySlugMap[slug] || slug
-  return `/category/${encodeURIComponent(mappedSlug)}`
+  return `/category/${encodeURIComponent(slug)}`
 }
 
 function getCustomerDisplayName(customer: {
@@ -74,9 +58,47 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const [menuCategories, setMenuCategories] = useState<WooCategory[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
 
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadMenuCategories() {
+      setCategoriesLoading(true)
+
+      try {
+        const categories = await fetchWooCategories()
+
+        if (cancelled) return
+
+        setMenuCategories(
+          sortCategoriesForMarketplace(
+            categories.filter(
+              (category) =>
+                category.productCount > 0 &&
+                category.slug !== 'categorizes'
+            )
+          ).slice(0, 20)
+        )
+      } catch (error) {
+        console.error('[Header] Unable to load marketplace categories:', error)
+
+        if (!cancelled) setMenuCategories([])
+      } finally {
+        if (!cancelled) setCategoriesLoading(false)
+      }
+    }
+
+    loadMenuCategories()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const { items: wishlistItems, openWishlistDrawer } = useWishlist()
   const { customer, isAuthenticated, logout } = useAccount()
@@ -194,11 +216,11 @@ export default function Header() {
 
             <div className="hidden shrink-0 items-center gap-1 md:flex lg:gap-2">
               <Link
-                to="/shop"
-                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
-              >
-                Shop
-              </Link>
+                  to="/shops"
+                  className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
+                >
+                  Shops
+                </Link>
 
               <Link
                 to="/categories"
@@ -236,16 +258,33 @@ export default function Header() {
                   align="end"
                   className="max-h-80 w-56 overflow-y-auto"
                 >
-                  {navCategories.map((cat) => (
-                    <DropdownMenuItem key={cat.slug} asChild>
-                      <Link
-                        to={getShopCategoryUrl(cat.slug)}
-                        className="cursor-pointer"
-                      >
-                        {cat.name}
+                  {categoriesLoading ? (
+                    <DropdownMenuItem disabled>
+                      Loading categories...
+                    </DropdownMenuItem>
+                  ) : menuCategories.length > 0 ? (
+                    menuCategories.map((cat) => (
+                      <DropdownMenuItem key={cat.slug} asChild>
+                        <Link
+                          to={getShopCategoryUrl(cat.slug)}
+                          className="cursor-pointer"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {cat.name}
+                          </span>
+                          <span className="ml-3 text-xs text-gray-400">
+                            {cat.productCount}
+                          </span>
+                        </Link>
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    <DropdownMenuItem asChild>
+                      <Link to="/categories" className="cursor-pointer">
+                        Browse all categories
                       </Link>
                     </DropdownMenuItem>
-                  ))}
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -457,11 +496,11 @@ export default function Header() {
                 </Link>
 
                 <Link
-                  to="/shop"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
-                >
-                  Shop
-                </Link>
+                    to="/shops"
+                    className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                  >
+                    Shops
+                  </Link>
 
                 {isAuthenticated ? (
                   <>
@@ -532,15 +571,31 @@ export default function Header() {
                   </span>
 
                   <div className="flex flex-col gap-1 pl-4">
-                    {navCategories.slice(0, 8).map((cat) => (
+                    {categoriesLoading ? (
+                      <span className="px-4 py-2 text-sm text-gray-400">
+                        Loading categories...
+                      </span>
+                    ) : menuCategories.length > 0 ? (
+                      menuCategories.slice(0, 10).map((cat) => (
+                        <Link
+                          key={cat.slug}
+                          to={getShopCategoryUrl(cat.slug)}
+                          className="flex items-center justify-between rounded-lg px-4 py-2 text-sm transition-colors hover:bg-gray-100"
+                        >
+                          <span className="truncate">{cat.name}</span>
+                          <span className="ml-3 text-xs text-gray-400">
+                            {cat.productCount}
+                          </span>
+                        </Link>
+                      ))
+                    ) : (
                       <Link
-                        key={cat.slug}
-                        to={getShopCategoryUrl(cat.slug)}
+                        to="/categories"
                         className="rounded-lg px-4 py-2 text-sm transition-colors hover:bg-gray-100"
                       >
-                        {cat.name}
+                        Browse all categories
                       </Link>
-                    ))}
+                    )}
                   </div>
                 </div>
 
