@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
-  Building2,
   ChevronRight,
   Loader2,
   Menu,
@@ -428,46 +427,6 @@ export default function ShopsPage() {
       ]
     )
 
-  const marketplaceStores =
-    useMemo(
-      () =>
-        directory.stores.filter(
-          (store) =>
-            String(
-              store.key || ''
-            )
-              .trim()
-              .toLowerCase() !==
-            'digitalhood'
-        ),
-      [directory.stores]
-    )
-
-  const marketplaceStoreTotal =
-    useMemo(() => {
-      const digitalHoodIsIncluded =
-        directory.stores.some(
-          (store) =>
-            String(
-              store.key || ''
-            )
-              .trim()
-              .toLowerCase() ===
-            'digitalhood'
-        )
-
-      return Math.max(
-        0,
-        directory.total -
-          (digitalHoodIsIncluded
-            ? 1
-            : 0)
-      )
-    }, [
-      directory.stores,
-      directory.total,
-    ])
-
   function updateParam(
     name: string,
     value: string
@@ -548,41 +507,6 @@ export default function ShopsPage() {
               Shops
             </span>
           </nav>
-
-          <section className="overflow-hidden rounded-3xl bg-dh-primary px-5 py-8 text-white shadow-sm sm:px-8 lg:px-10">
-            <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-dh-secondary">
-                  <Building2 className="h-4 w-4" />
-                  DigitalHood seller marketplace
-                </div>
-
-                <h1 className="mt-5 max-w-4xl font-display text-3xl font-black sm:text-4xl lg:text-5xl">
-                  Discover trusted marketplace shops
-                </h1>
-
-                <p className="mt-4 max-w-3xl text-sm leading-7 text-white/75 sm:text-base">
-                  Search stores by name,
-                  specialty, location or seller
-                  type. Every shop has its own
-                  dedicated DigitalHood
-                  storefront.
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-white/10 px-6 py-4">
-                <p className="text-3xl font-black text-dh-secondary">
-                  {marketplaceStoreTotal.toLocaleString(
-                    'en-ZM'
-                  )}
-                </p>
-
-                <p className="mt-1 text-xs font-bold text-white/70">
-                  Matching shops
-                </p>
-              </div>
-            </div>
-          </section>
 
           <section className="mt-5 lg:hidden">
             <Button
@@ -871,7 +795,7 @@ export default function ShopsPage() {
                   {loadError}
                 </p>
               </div>
-            ) : marketplaceStores.length >
+            ) : directory.stores.length >
               0 ? (
               <>
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -882,11 +806,11 @@ export default function ShopsPage() {
                     <p className="mt-1 text-sm text-gray-500">
                       Showing{' '}
                       {
-                        marketplaceStores
+                        directory.stores
                           .length
                       }{' '}
                       of{' '}
-                      {marketplaceStoreTotal.toLocaleString(
+                      {directory.total.toLocaleString(
                         'en-ZM'
                       )}{' '}
                       shops
@@ -901,7 +825,7 @@ export default function ShopsPage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                  {marketplaceStores.map(
+                  {directory.stores.map(
                     (store) => (
                       <StoreCard
                         key={store.key}
