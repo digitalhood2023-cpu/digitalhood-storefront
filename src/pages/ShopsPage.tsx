@@ -63,18 +63,104 @@ function formatAccountType(
     )
 }
 
+function StoreCover({
+  src,
+  storeName,
+}: {
+  src?: string
+  storeName: string
+}) {
+  const [
+    imageFailed,
+    setImageFailed,
+  ] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [src])
+
+  return (
+    <div className="relative h-20 overflow-hidden bg-gradient-to-br from-dh-primary via-[#3430a8] to-[#ffb54a] sm:h-24">
+      {src && !imageFailed && (
+        <img
+          src={src}
+          alt={`${storeName} cover`}
+          loading="lazy"
+          decoding="async"
+          onError={() =>
+            setImageFailed(true)
+          }
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-r from-dh-primary/75 via-dh-primary/25 to-transparent" />
+    </div>
+  )
+}
+
+function StoreProfilePhoto({
+  src,
+  storeName,
+}: {
+  src?: string
+  storeName: string
+}) {
+  const [
+    imageFailed,
+    setImageFailed,
+  ] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [src])
+
+  return (
+    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-[3px] border-white bg-white shadow-md sm:h-16 sm:w-16">
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+        <Store className="h-6 w-6 text-dh-primary sm:h-7 sm:w-7" />
+      </div>
+
+      {src && !imageFailed && (
+        <img
+          src={src}
+          alt={`${storeName} profile`}
+          loading="lazy"
+          decoding="async"
+          onError={() =>
+            setImageFailed(true)
+          }
+          className="relative h-full w-full object-cover"
+        />
+      )}
+    </div>
+  )
+}
+
 function StoreCard({
   store,
 }: {
   store: PublicStoreDirectoryCard
 }) {
-  const ratingText =
-    store.stats.ratingAverage &&
+  const hasRating =
+    Boolean(
+      store.stats.ratingAverage
+    ) &&
     store.stats.ratingCount > 0
-      ? `${store.stats.ratingAverage.toFixed(
+
+  const ratingText =
+    hasRating
+      ? `${store.stats.ratingAverage?.toFixed(
           1
-        )} (${store.stats.ratingCount})`
-      : 'New seller'
+        )} (${store.stats.ratingCount.toLocaleString(
+          'en-ZM'
+        )})`
+      : 'New'
+
+  const summary =
+    store.tagline ||
+    store.description ||
+    'Approved seller on DigitalHood Marketplace.'
 
   return (
     <Link
@@ -82,111 +168,102 @@ function StoreCard({
         store.url ||
         `/seller/${store.key}`
       }
-      className="group overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-dh-secondary hover:shadow-xl"
+      className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-dh-secondary/70 hover:shadow-lg"
     >
-      <div
-        className="h-28 bg-dh-primary"
-        style={{
-          backgroundImage:
-            store.coverPhotoUrl
-              ? `linear-gradient(90deg, rgba(38,36,140,0.9), rgba(38,36,140,0.35)), url(${store.coverPhotoUrl})`
-              : 'linear-gradient(135deg, #26248c, #ffb54a)',
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-        }}
-      />
+      <div className="relative">
+        <StoreCover
+          src={store.coverPhotoUrl}
+          storeName={
+            store.storeName
+          }
+        />
 
-      <div className="px-5 pb-5">
-        <div className="-mt-10 flex items-end justify-between gap-3">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-md">
-            {store.profilePhotoUrl ? (
-              <img
-                src={store.profilePhotoUrl}
-                alt={store.storeName}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <Store className="h-9 w-9 text-dh-primary" />
-            )}
-          </div>
+        {store.verified && (
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-black text-green-700 shadow-sm backdrop-blur">
+            <BadgeCheck className="h-3 w-3" />
+            Verified
+          </span>
+        )}
+      </div>
 
-          {store.verified && (
-            <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-              <BadgeCheck className="h-3.5 w-3.5" />
-              Verified
-            </span>
-          )}
-        </div>
+      <div className="relative px-3 pb-3">
+        <div className="-mt-7 flex min-w-0 items-end gap-2.5">
+          <StoreProfilePhoto
+            src={
+              store.profilePhotoUrl
+            }
+            storeName={
+              store.storeName
+            }
+          />
 
-        <h2 className="mt-4 truncate font-display text-xl font-black text-dh-primary">
-          {store.storeName}
-        </h2>
+          <div className="min-w-0 flex-1 pb-0.5">
+            <h2 className="truncate font-display text-base font-black leading-tight text-dh-primary sm:text-lg">
+              {store.storeName}
+            </h2>
 
-        <p className="mt-1 text-xs font-bold uppercase tracking-wide text-gray-400">
-          {formatAccountType(
-            store.accountType
-          )}
-        </p>
-
-        <p className="mt-3 line-clamp-2 min-h-[44px] text-sm leading-6 text-gray-500">
-          {store.tagline ||
-            store.description ||
-            'Approved seller on DigitalHood Marketplace.'}
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {store.categories
-            .slice(0, 3)
-            .map((category) => (
-              <span
-                key={category}
-                className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600"
-              >
-                {category}
-              </span>
-            ))}
-        </div>
-
-        <div className="mt-5 grid grid-cols-3 gap-2 border-t border-gray-100 pt-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-              Products
-            </p>
-            <p className="mt-1 font-display text-lg font-black text-dh-primary">
-              {store.stats.productsLive}
+            <p className="mt-0.5 truncate text-[10px] font-black uppercase tracking-[0.08em] text-gray-400">
+              {formatAccountType(
+                store.accountType
+              )}
             </p>
           </div>
 
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-              Sold
-            </p>
-            <p className="mt-1 font-display text-lg font-black text-dh-primary">
-              {store.stats.itemsSold}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-              Rating
-            </p>
-            <p className="mt-1 flex items-center gap-1 text-sm font-black text-dh-primary">
-              <Star className="h-4 w-4 fill-dh-secondary text-dh-secondary" />
-              {ratingText}
-            </p>
-          </div>
+          <span className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-dh-primary/5 text-dh-primary transition group-hover:bg-dh-primary group-hover:text-white">
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </span>
         </div>
 
         {store.locationLabel && (
-          <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-gray-500">
-            <MapPin className="h-4 w-4 text-dh-secondary" />
-            {store.locationLabel}
-          </div>
+          <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-gray-500">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-dh-secondary" />
+            <span className="truncate">
+              {store.locationLabel}
+            </span>
+          </p>
         )}
 
-        <div className="mt-5 inline-flex items-center text-sm font-black text-dh-primary">
-          Visit store
-          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+        <p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-gray-500">
+          {summary}
+        </p>
+
+        <div className="mt-3 grid grid-cols-3 divide-x divide-gray-200 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+          <div className="px-2 py-2 text-center">
+            <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+              Products
+            </p>
+
+            <p className="mt-0.5 truncate font-display text-sm font-black text-dh-primary">
+              {store.stats.productsLive.toLocaleString(
+                'en-ZM'
+              )}
+            </p>
+          </div>
+
+          <div className="px-2 py-2 text-center">
+            <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+              Sold
+            </p>
+
+            <p className="mt-0.5 truncate font-display text-sm font-black text-dh-primary">
+              {store.stats.itemsSold.toLocaleString(
+                'en-ZM'
+              )}
+            </p>
+          </div>
+
+          <div className="px-1.5 py-2 text-center">
+            <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">
+              Rating
+            </p>
+
+            <p className="mt-0.5 flex items-center justify-center gap-1 truncate text-xs font-black text-dh-primary">
+              <Star className="h-3.5 w-3.5 shrink-0 fill-dh-secondary text-dh-secondary" />
+              <span className="truncate">
+                {ratingText}
+              </span>
+            </p>
+          </div>
         </div>
       </div>
     </Link>
@@ -632,7 +709,7 @@ export default function ShopsPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {directory.stores.map(
                     (store) => (
                       <StoreCard

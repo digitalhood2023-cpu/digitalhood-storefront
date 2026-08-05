@@ -1,3 +1,7 @@
+import {
+  resolvePublicSellerAssetUrl,
+} from '@/api/publicSellers'
+
 export type OrderStoreMetaEntry = {
   key?: string
   value?: unknown
@@ -91,12 +95,26 @@ function getInitials(value: string) {
 }
 
 export function getOrderItemStoreInfo(item: OrderStoreItem) {
+  const sellerObject =
+    item.seller &&
+    typeof item.seller ===
+      'object'
+      ? (item.seller as {
+          storeName?: string
+          avatarUrl?: string
+          profilePhotoUrl?: string
+          logoUrl?: string
+          coverPhotoUrl?: string
+        })
+      : null
+
   const directStoreName =
     item.sellerStoreName ||
     item.seller_store_name ||
-    (item.seller && typeof item.seller === 'object'
-      ? String((item.seller as { storeName?: string }).storeName || '')
-      : '')
+    String(
+      sellerObject?.storeName ||
+        ''
+    )
 
   const storeName =
     directStoreName ||
@@ -121,19 +139,27 @@ export function getOrderItemStoreInfo(item: OrderStoreItem) {
   const isDigitalHood = storeName.toLowerCase() === 'digitalhood'
 
   const avatarUrl =
-    item.sellerAvatarUrl ||
-    item.seller_avatar_url ||
-    item.sellerProfilePhotoUrl ||
-    item.seller_profile_photo_url ||
-    getMetaValue(item, [
-      'sellerAvatarUrl',
-      'seller_avatar_url',
-      'sellerProfilePhotoUrl',
-      'seller_profile_photo_url',
-      'storeAvatarUrl',
-      'store_avatar_url',
-    ]) ||
-    (isDigitalHood ? '/logo.jpg' : '')
+    resolvePublicSellerAssetUrl(
+      item.sellerAvatarUrl ||
+        item.seller_avatar_url ||
+        item.sellerProfilePhotoUrl ||
+        item.seller_profile_photo_url ||
+        sellerObject?.avatarUrl ||
+        sellerObject
+          ?.profilePhotoUrl ||
+        sellerObject?.logoUrl ||
+        getMetaValue(item, [
+          'sellerAvatarUrl',
+          'seller_avatar_url',
+          'sellerProfilePhotoUrl',
+          'seller_profile_photo_url',
+          'storeAvatarUrl',
+          'store_avatar_url',
+        ]) ||
+        (isDigitalHood
+          ? '/logo.jpg'
+          : '')
+    )
 
   const sellerUrl =
     item.sellerUrl ||

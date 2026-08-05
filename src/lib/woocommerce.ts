@@ -1,3 +1,7 @@
+import {
+  resolvePublicSellerAssetUrl,
+} from '@/api/publicSellers';
+
 const STORE_URL =
   import.meta.env.VITE_WOOCOMMERCE_STORE_URL || `https://${'digitalhood'}.info`;
 
@@ -99,6 +103,7 @@ export type WooProduct = {
     avatarUrl?: string;
     profilePhotoUrl?: string;
     logoUrl?: string;
+    coverPhotoUrl?: string;
   } | null;
   sellerStoreName?: string;
   sellerKey?: string;
@@ -107,6 +112,7 @@ export type WooProduct = {
   sellerCustomerId?: string | number;
   sellerAvatarUrl?: string;
   sellerProfilePhotoUrl?: string;
+  sellerCoverPhotoUrl?: string;
 
   categoryIds: number[];
   categories: {
@@ -496,6 +502,74 @@ function mapCategories(product: any) {
   );
 }
 
+function mapPublicSellerBranding(
+  product: any
+) {
+  const rawSeller =
+    product?.seller &&
+    typeof product.seller ===
+      'object'
+      ? product.seller
+      : null
+
+  const profilePhotoUrl =
+    resolvePublicSellerAssetUrl(
+      product
+        ?.sellerProfilePhotoUrl ||
+        product
+          ?.seller_profile_photo_url ||
+        rawSeller
+          ?.profilePhotoUrl ||
+        rawSeller?.avatarUrl ||
+        rawSeller?.logoUrl ||
+        ''
+    )
+
+  const avatarUrl =
+    resolvePublicSellerAssetUrl(
+      product
+        ?.sellerAvatarUrl ||
+        product
+          ?.seller_avatar_url ||
+        rawSeller?.avatarUrl ||
+        profilePhotoUrl
+    )
+
+  const logoUrl =
+    resolvePublicSellerAssetUrl(
+      rawSeller?.logoUrl ||
+        profilePhotoUrl ||
+        avatarUrl
+    )
+
+  const coverPhotoUrl =
+    resolvePublicSellerAssetUrl(
+      product
+        ?.sellerCoverPhotoUrl ||
+        product
+          ?.seller_cover_photo_url ||
+        rawSeller
+          ?.coverPhotoUrl ||
+        ''
+    )
+
+  return {
+    seller:
+      rawSeller
+        ? {
+            ...rawSeller,
+            avatarUrl,
+            profilePhotoUrl,
+            logoUrl,
+            coverPhotoUrl,
+          }
+        : null,
+    avatarUrl,
+    profilePhotoUrl,
+    coverPhotoUrl,
+  }
+}
+
 export function mapWooVariation(variation: any): WooProductVariation {
   const stockStatus = getStockStatus(variation);
   const stockQuantity = getStockQuantity(variation);
@@ -533,6 +607,11 @@ export function mapWooVariation(variation: any): WooProductVariation {
 }
 
 export function mapWooProduct(product: any): WooProduct {
+  const sellerBranding =
+    mapPublicSellerBranding(
+      product
+    );
+
   const categories = mapCategories(product);
   const images = getProductGalleryImages(product);
   const primaryImage = getPrimaryProductImage(product, images);
@@ -625,26 +704,19 @@ shortDescriptionHtml:
     average_rating: String(averageRating || 0),
     rating_count: ratingCount,
     review_count: Number(product.review_count || product.reviewCount || ratingCount),
-    seller: product.seller || null,
+    seller:
+      sellerBranding.seller,
     sellerStoreName: product.sellerStoreName || product.seller_store_name || product.seller?.storeName || '',
     sellerKey: product.sellerKey || product.seller_key || product.seller?.key || '',
     sellerUrl: product.sellerUrl || product.seller_url || product.seller?.url || '',
     sellerVerified: Boolean(product.sellerVerified || product.seller_verified || product.seller?.verified),
     sellerCustomerId: product.sellerCustomerId || product.seller_customer_id || product.seller?.customerId || '',
     sellerAvatarUrl:
-      product.sellerAvatarUrl ||
-      product.seller_avatar_url ||
-      product.sellerProfilePhotoUrl ||
-      product.seller_profile_photo_url ||
-      product.seller?.avatarUrl ||
-      product.seller?.profilePhotoUrl ||
-      product.seller?.logoUrl ||
-      '',
+      sellerBranding.avatarUrl,
     sellerProfilePhotoUrl:
-      product.sellerProfilePhotoUrl ||
-      product.seller_profile_photo_url ||
-      product.seller?.profilePhotoUrl ||
-      '',
+      sellerBranding.profilePhotoUrl,
+    sellerCoverPhotoUrl:
+      sellerBranding.coverPhotoUrl,
   };
 }
 

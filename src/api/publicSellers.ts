@@ -1,6 +1,73 @@
 const API_BASE_URL =
   import.meta.env.VITE_PAYMENTS_API_URL || 'https://payments.digitalhood.info'
 
+const API_ORIGIN =
+  API_BASE_URL.replace(
+    /\/+$/,
+    ''
+  )
+
+export function resolvePublicSellerAssetUrl(
+  value?: string
+) {
+  const normalized =
+    String(value || '').trim()
+
+  if (!normalized) {
+    return ''
+  }
+
+  if (
+    /^(?:https?:|data:|blob:)/i.test(
+      normalized
+    )
+  ) {
+    return normalized
+  }
+
+  if (
+    normalized.startsWith(
+      '/api/public/sellers/'
+    ) ||
+    normalized.startsWith(
+      '/uploads/'
+    )
+  ) {
+    return `${API_ORIGIN}${normalized}`
+  }
+
+  if (
+    normalized.startsWith('/')
+  ) {
+    return normalized
+  }
+
+  return `${API_ORIGIN}/${normalized.replace(
+    /^\/+/, ''
+  )}`
+}
+
+function normalizeSellerBranding<
+  T extends {
+    profilePhotoUrl?: string
+    coverPhotoUrl?: string
+  },
+>(
+  seller: T
+): T {
+  return {
+    ...seller,
+    profilePhotoUrl:
+      resolvePublicSellerAssetUrl(
+        seller.profilePhotoUrl
+      ),
+    coverPhotoUrl:
+      resolvePublicSellerAssetUrl(
+        seller.coverPhotoUrl
+      ),
+  }
+}
+
 export type PublicSellerProduct = {
   id: string | number
   name: string
@@ -64,7 +131,15 @@ export async function fetchPublicSellerStore(sellerKey: string): Promise<PublicS
     throw new Error(data?.error || 'Unable to load seller store.')
   }
 
-  return data
+  return {
+    ...data,
+    seller:
+      data?.seller
+        ? normalizeSellerBranding(
+            data.seller
+          )
+        : data?.seller,
+  }
 }
 
 export type PublicStoreDirectoryFacet = {
@@ -149,5 +224,18 @@ export async function fetchPublicSellerDirectory(
     )
   }
 
-  return data
+  return {
+    ...data,
+    stores:
+      Array.isArray(data?.stores)
+        ? data.stores.map(
+            (
+              store: PublicStoreDirectoryCard
+            ) =>
+              normalizeSellerBranding(
+                store
+              )
+          )
+        : [],
+  }
 }
