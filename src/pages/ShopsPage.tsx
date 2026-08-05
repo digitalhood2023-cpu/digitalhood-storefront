@@ -15,11 +15,13 @@ import {
   Building2,
   ChevronRight,
   Loader2,
+  Menu,
   MapPin,
   PackageCheck,
   Search,
   Star,
   Store,
+  X,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -186,8 +188,8 @@ function StoreCard({
         )}
       </div>
 
-      <div className="relative px-3 pb-3">
-        <div className="-mt-7 flex min-w-0 items-end gap-2.5">
+      <div className="px-3 pb-3 pt-3">
+        <div className="flex min-w-0 items-center gap-3">
           <StoreProfilePhoto
             src={
               store.profilePhotoUrl
@@ -197,19 +199,19 @@ function StoreCard({
             }
           />
 
-          <div className="min-w-0 flex-1 pb-0.5">
-            <h2 className="truncate font-display text-base font-black leading-tight text-dh-primary sm:text-lg">
+          <div className="min-w-0 flex-1">
+            <h2 className="line-clamp-2 min-h-10 break-words font-display text-base font-black leading-5 text-gray-950 sm:text-lg sm:leading-6">
               {store.storeName}
             </h2>
 
-            <p className="mt-0.5 truncate text-[10px] font-black uppercase tracking-[0.08em] text-gray-400">
+            <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.08em] text-gray-400">
               {formatAccountType(
                 store.accountType
               )}
             </p>
           </div>
 
-          <span className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-dh-primary/5 text-dh-primary transition group-hover:bg-dh-primary group-hover:text-white">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-dh-primary/5 text-dh-primary transition group-hover:bg-dh-primary group-hover:text-white">
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>
@@ -296,6 +298,46 @@ export default function ShopsPage() {
 
   const [loadError, setLoadError] =
     useState('')
+
+  const [
+    isFilterDrawerOpen,
+    setIsFilterDrawerOpen,
+  ] = useState(false)
+
+  useEffect(() => {
+    if (!isFilterDrawerOpen) {
+      return
+    }
+
+    const previousOverflow =
+      document.body.style.overflow
+
+    const closeOnEscape = (
+      event: KeyboardEvent
+    ) => {
+      if (event.key === 'Escape') {
+        setIsFilterDrawerOpen(false)
+      }
+    }
+
+    document.body.style.overflow =
+      'hidden'
+
+    window.addEventListener(
+      'keydown',
+      closeOnEscape
+    )
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow
+
+      window.removeEventListener(
+        'keydown',
+        closeOnEscape
+      )
+    }
+  }, [isFilterDrawerOpen])
 
   const query =
     searchParams.get('q') || ''
@@ -386,6 +428,46 @@ export default function ShopsPage() {
       ]
     )
 
+  const marketplaceStores =
+    useMemo(
+      () =>
+        directory.stores.filter(
+          (store) =>
+            String(
+              store.key || ''
+            )
+              .trim()
+              .toLowerCase() !==
+            'digitalhood'
+        ),
+      [directory.stores]
+    )
+
+  const marketplaceStoreTotal =
+    useMemo(() => {
+      const digitalHoodIsIncluded =
+        directory.stores.some(
+          (store) =>
+            String(
+              store.key || ''
+            )
+              .trim()
+              .toLowerCase() ===
+            'digitalhood'
+        )
+
+      return Math.max(
+        0,
+        directory.total -
+          (digitalHoodIsIncluded
+            ? 1
+            : 0)
+      )
+    }, [
+      directory.stores,
+      directory.total,
+    ])
+
   function updateParam(
     name: string,
     value: string
@@ -413,6 +495,7 @@ export default function ShopsPage() {
       'q',
       searchInput.trim()
     )
+    setIsFilterDrawerOpen(false)
   }
 
   function setPage(
@@ -436,6 +519,7 @@ export default function ShopsPage() {
     setSearchParams(
       new URLSearchParams()
     )
+    setIsFilterDrawerOpen(false)
   }
 
   return (
@@ -488,7 +572,7 @@ export default function ShopsPage() {
 
               <div className="rounded-2xl bg-white/10 px-6 py-4">
                 <p className="text-3xl font-black text-dh-secondary">
-                  {directory.total.toLocaleString(
+                  {marketplaceStoreTotal.toLocaleString(
                     'en-ZM'
                   )}
                 </p>
@@ -500,10 +584,110 @@ export default function ShopsPage() {
             </div>
           </section>
 
-          <section className="mt-5 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+          <section className="mt-5 lg:hidden">
+            <Button
+              type="button"
+              variant="outline"
+              aria-expanded={
+                isFilterDrawerOpen
+              }
+              aria-controls="shop-filter-drawer"
+              onClick={() =>
+                setIsFilterDrawerOpen(
+                  true
+                )
+              }
+              className="h-auto w-full justify-between rounded-2xl border-gray-200 bg-white px-4 py-3.5 text-left shadow-sm hover:bg-white"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dh-primary text-white">
+                  <Menu className="h-5 w-5" />
+                </span>
+
+                <span className="min-w-0">
+                  <span className="block font-display text-sm font-black text-dh-primary">
+                    Filters & search
+                  </span>
+
+                  <span className="mt-0.5 block truncate text-xs font-medium text-gray-500">
+                    Specialty, location and
+                    seller type
+                  </span>
+                </span>
+              </span>
+
+              <span className="ml-3 shrink-0 rounded-full bg-dh-primary/10 px-3 py-1 text-xs font-black text-dh-primary">
+                {activeFilterCount > 0
+                  ? activeFilterCount
+                  : 'Open'}
+              </span>
+            </Button>
+          </section>
+
+          <div
+            id="shop-filter-drawer"
+            className={
+              isFilterDrawerOpen
+                ? 'fixed inset-0 z-[200] lg:static lg:z-auto lg:block'
+                : 'hidden lg:block'
+            }
+          >
+            <button
+              type="button"
+              aria-label="Close shop filters"
+              onClick={() =>
+                setIsFilterDrawerOpen(
+                  false
+                )
+              }
+              className="absolute inset-0 bg-black/50 backdrop-blur-[1px] lg:hidden"
+            />
+
+            <section
+              role={
+                isFilterDrawerOpen
+                  ? 'dialog'
+                  : undefined
+              }
+              aria-modal={
+                isFilterDrawerOpen
+                  ? true
+                  : undefined
+              }
+              aria-labelledby="shop-filter-title"
+              className="absolute inset-y-0 right-0 z-10 w-[min(92vw,420px)] overflow-y-auto bg-white p-5 shadow-2xl lg:static lg:z-auto lg:mt-5 lg:w-auto lg:overflow-visible lg:rounded-3xl lg:shadow-sm"
+            >
+              <div className="mb-5 flex items-center justify-between border-b border-gray-100 pb-4 lg:hidden">
+                <div>
+                  <h2
+                    id="shop-filter-title"
+                    className="font-display text-xl font-black text-dh-primary"
+                  >
+                    Find a shop
+                  </h2>
+
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    Refine marketplace
+                    results.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Close filters"
+                  onClick={() =>
+                    setIsFilterDrawerOpen(
+                      false
+                    )
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-200"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             <form
               onSubmit={submitSearch}
-              className="grid gap-3 lg:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(150px,0.7fr))_auto]"
+              className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(150px,0.7fr))_auto] lg:gap-3"
             >
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -516,7 +700,7 @@ export default function ShopsPage() {
                     )
                   }
                   placeholder="Search shops, specialties or locations..."
-                  className="h-12 rounded-full pl-12"
+                  className="h-12 rounded-xl pl-12 lg:rounded-full"
                 />
               </div>
 
@@ -528,7 +712,7 @@ export default function ShopsPage() {
                     event.target.value
                   )
                 }
-                className="h-12 rounded-full border border-input bg-white px-4 text-sm"
+                className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm lg:rounded-full"
               >
                 <option value="">
                   All specialties
@@ -555,7 +739,7 @@ export default function ShopsPage() {
                     event.target.value
                   )
                 }
-                className="h-12 rounded-full border border-input bg-white px-4 text-sm"
+                className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm lg:rounded-full"
               >
                 <option value="">
                   All locations
@@ -582,7 +766,7 @@ export default function ShopsPage() {
                     event.target.value
                   )
                 }
-                className="h-12 rounded-full border border-input bg-white px-4 text-sm"
+                className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm lg:rounded-full"
               >
                 <option value="">
                   All seller types
@@ -611,7 +795,7 @@ export default function ShopsPage() {
                     event.target.value
                   )
                 }
-                className="h-12 rounded-full border border-input bg-white px-4 text-sm"
+                className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm lg:rounded-full"
               >
                 <option value="featured">
                   Featured
@@ -632,9 +816,15 @@ export default function ShopsPage() {
 
               <Button
                 type="submit"
-                className="h-12 rounded-full bg-dh-primary px-6 text-white hover:bg-dh-secondary hover:text-black"
+                className="h-12 rounded-xl bg-dh-primary px-6 text-white hover:bg-dh-secondary hover:text-black lg:rounded-full"
               >
-                Search
+                <span className="lg:hidden">
+                  Apply filters
+                </span>
+
+                <span className="hidden lg:inline">
+                  Search
+                </span>
               </Button>
             </form>
 
@@ -658,7 +848,8 @@ export default function ShopsPage() {
                 </Button>
               </div>
             )}
-          </section>
+            </section>
+          </div>
 
           <section className="mt-6">
             {isLoading ? (
@@ -680,7 +871,7 @@ export default function ShopsPage() {
                   {loadError}
                 </p>
               </div>
-            ) : directory.stores.length >
+            ) : marketplaceStores.length >
               0 ? (
               <>
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -691,11 +882,11 @@ export default function ShopsPage() {
                     <p className="mt-1 text-sm text-gray-500">
                       Showing{' '}
                       {
-                        directory.stores
+                        marketplaceStores
                           .length
                       }{' '}
                       of{' '}
-                      {directory.total.toLocaleString(
+                      {marketplaceStoreTotal.toLocaleString(
                         'en-ZM'
                       )}{' '}
                       shops
@@ -710,7 +901,7 @@ export default function ShopsPage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                  {directory.stores.map(
+                  {marketplaceStores.map(
                     (store) => (
                       <StoreCard
                         key={store.key}
