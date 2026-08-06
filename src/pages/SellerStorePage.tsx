@@ -313,7 +313,7 @@ export default function SellerStorePage() {
                       Positive
                     </span>
                     <span className="font-display text-sm font-black text-green-800">
-                      {store.stats.feedback.positive.toLocaleString('en-ZM')}
+                      {(store.stats.feedback?.positive || 0).toLocaleString('en-ZM')}
                     </span>
                   </div>
 
@@ -323,7 +323,7 @@ export default function SellerStorePage() {
                       Neutral
                     </span>
                     <span className="font-display text-sm font-black text-amber-800">
-                      {store.stats.feedback.neutral.toLocaleString('en-ZM')}
+                      {(store.stats.feedback?.neutral || 0).toLocaleString('en-ZM')}
                     </span>
                   </div>
 
@@ -333,7 +333,7 @@ export default function SellerStorePage() {
                       Negative
                     </span>
                     <span className="font-display text-sm font-black text-red-800">
-                      {store.stats.feedback.negative.toLocaleString('en-ZM')}
+                      {(store.stats.feedback?.negative || 0).toLocaleString('en-ZM')}
                     </span>
                   </div>
                 </div>

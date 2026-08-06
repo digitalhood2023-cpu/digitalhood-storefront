@@ -7,6 +7,80 @@ const API_ORIGIN =
     ''
   )
 
+const PUBLIC_SELLER_CACHE_TTL_MS =
+  5 * 60 * 1000
+
+type TimedCacheEntry<T> = {
+  expiresAt: number
+  value: T
+}
+
+const publicSellerStoreCache =
+  new Map<
+    string,
+    TimedCacheEntry<PublicSellerStore>
+  >()
+
+const publicSellerStoreRequests =
+  new Map<
+    string,
+    Promise<PublicSellerStore>
+  >()
+
+const publicSellerDirectoryCache =
+  new Map<
+    string,
+    TimedCacheEntry<PublicStoreDirectoryResponse>
+  >()
+
+const publicSellerDirectoryRequests =
+  new Map<
+    string,
+    Promise<PublicStoreDirectoryResponse>
+  >()
+
+function getTimedCacheValue<T>(
+  cache: Map<
+    string,
+    TimedCacheEntry<T>
+  >,
+  key: string
+) {
+  const entry =
+    cache.get(key)
+
+  if (
+    !entry ||
+    entry.expiresAt <= Date.now()
+  ) {
+    cache.delete(key)
+    return null
+  }
+
+  return entry.value
+}
+
+function setTimedCacheValue<T>(
+  cache: Map<
+    string,
+    TimedCacheEntry<T>
+  >,
+  key: string,
+  value: T
+) {
+  cache.set(
+    key,
+    {
+      expiresAt:
+        Date.now() +
+        PUBLIC_SELLER_CACHE_TTL_MS,
+      value,
+    }
+  )
+
+  return value
+}
+
 export function resolvePublicSellerAssetUrl(
   value?: string
 ) {
@@ -120,16 +194,15 @@ export type PublicSellerStore = {
   count: number
 }
 
-export async function fetchPublicSellerStore(sellerKey: string): Promise<PublicSellerStore> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(sellerKey)}`
-  )
-
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(data?.error || 'Unable to load seller store.')
-  }
+function normalizePublicSellerStore(
+  data: any
+): PublicSellerStore {
+  const feedback =
+    data?.stats?.feedback &&
+    typeof data.stats.feedback ===
+      'object'
+      ? data.stats.feedback
+      : {}
 
   return {
     ...data,
@@ -139,7 +212,125 @@ export async function fetchPublicSellerStore(sellerKey: string): Promise<PublicS
             data.seller
           )
         : data?.seller,
+    stats: {
+      productsLive:
+        Number(
+          data?.stats?.productsLive ||
+            0
+        ) || 0,
+      itemsSold:
+        Number(
+          data?.stats?.itemsSold ||
+            0
+        ) || 0,
+      ratingAverage:
+        data?.stats?.ratingAverage ===
+          null ||
+        data?.stats?.ratingAverage ===
+          undefined
+          ? null
+          : Number(
+              data.stats
+                .ratingAverage
+            ) || 0,
+      ratingCount:
+        Number(
+          data?.stats?.ratingCount ||
+            0
+        ) || 0,
+      feedback: {
+        positive:
+          Number(
+            feedback.positive || 0
+          ) || 0,
+        neutral:
+          Number(
+            feedback.neutral || 0
+          ) || 0,
+        negative:
+          Number(
+            feedback.negative || 0
+          ) || 0,
+        total:
+          Number(
+            feedback.total || 0
+          ) || 0,
+      },
+    },
+    products:
+      Array.isArray(data?.products)
+        ? data.products
+        : [],
+    count:
+      Number(data?.count || 0) || 0,
   }
+}
+
+export async function fetchPublicSellerStore(
+  sellerKey: string
+): Promise<PublicSellerStore> {
+  const normalizedKey =
+    String(sellerKey || '')
+      .trim()
+      .toLowerCase()
+
+  const cached =
+    getTimedCacheValue(
+      publicSellerStoreCache,
+      normalizedKey
+    )
+
+  if (cached) {
+    return cached
+  }
+
+  const existingRequest =
+    publicSellerStoreRequests.get(
+      normalizedKey
+    )
+
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const request = fetch(
+    `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(
+      sellerKey
+    )}?per_page=24`
+  )
+    .then(async (response) => {
+      const data =
+        await response
+          .json()
+          .catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            'Unable to load seller store.'
+        )
+      }
+
+      return setTimedCacheValue(
+        publicSellerStoreCache,
+        normalizedKey,
+        normalizePublicSellerStore(
+          data
+        )
+      )
+    })
+    .finally(() => {
+      publicSellerStoreRequests.delete(
+        normalizedKey
+      )
+    })
+
+  publicSellerStoreRequests.set(
+    normalizedKey,
+    request
+  )
+
+  return request
 }
 
 export type PublicStoreDirectoryFacet = {
@@ -212,30 +403,75 @@ export async function fetchPublicSellerDirectory(
     params.set('per_page', String(query.perPage))
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/public/sellers?${params.toString()}`
+  const cacheKey =
+    params.toString()
+
+  const cached =
+    getTimedCacheValue(
+      publicSellerDirectoryCache,
+      cacheKey
+    )
+
+  if (cached) {
+    return cached
+  }
+
+  const existingRequest =
+    publicSellerDirectoryRequests.get(
+      cacheKey
+    )
+
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const request = fetch(
+    `${API_BASE_URL}/api/public/sellers?${cacheKey}`
+  )
+    .then(async (response) => {
+      const data =
+        await response
+          .json()
+          .catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            'Unable to load marketplace shops.'
+        )
+      }
+
+      return setTimedCacheValue(
+        publicSellerDirectoryCache,
+        cacheKey,
+        {
+          ...data,
+          stores:
+            Array.isArray(
+              data?.stores
+            )
+              ? data.stores.map(
+                  (
+                    store: PublicStoreDirectoryCard
+                  ) =>
+                    normalizeSellerBranding(
+                      store
+                    )
+                )
+              : [],
+        }
+      )
+    })
+    .finally(() => {
+      publicSellerDirectoryRequests.delete(
+        cacheKey
+      )
+    })
+
+  publicSellerDirectoryRequests.set(
+    cacheKey,
+    request
   )
 
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(
-      data?.error || 'Unable to load marketplace shops.'
-    )
-  }
-
-  return {
-    ...data,
-    stores:
-      Array.isArray(data?.stores)
-        ? data.stores.map(
-            (
-              store: PublicStoreDirectoryCard
-            ) =>
-              normalizeSellerBranding(
-                store
-              )
-          )
-        : [],
-  }
+  return request
 }
