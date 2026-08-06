@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -11,7 +11,6 @@ import {
   MessageCircle,
   PackageCheck,
   ShieldCheck,
-  Search,
   ShoppingCart,
   SlidersHorizontal,
   Star,
@@ -25,6 +24,7 @@ import {
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
+import SellerStoreSearchAutocomplete from '@/components/search/SellerStoreSearchAutocomplete'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -116,6 +116,7 @@ export default function SellerStorePage() {
   const [maxPrice, setMaxPrice] = useState('')
   const [sort, setSort] = useState('featured')
   const [addedProductId, setAddedProductId] = useState<string | number | null>(null)
+  const filterRequestIdRef = useRef(0)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
 
@@ -205,6 +206,13 @@ export default function SellerStorePage() {
   ) {
     if (!sellerKey) return
 
+    const requestId =
+      filterRequestIdRef.current +
+      1
+
+    filterRequestIdRef.current =
+      requestId
+
     setIsFiltering(true)
     setFilterError('')
     setLoadMoreError('')
@@ -218,26 +226,52 @@ export default function SellerStorePage() {
           nextFilters
         )
 
+      if (
+        requestId !==
+        filterRequestIdRef.current
+      ) {
+        return
+      }
+
       setStore(nextStore)
       setIsFilterDrawerOpen(false)
     } catch (requestError) {
+      if (
+        requestId !==
+        filterRequestIdRef.current
+      ) {
+        return
+      }
+
       setFilterError(
         requestError instanceof Error
           ? requestError.message
           : 'Unable to filter this store.'
       )
     } finally {
-      setIsFiltering(false)
+      if (
+        requestId ===
+        filterRequestIdRef.current
+      ) {
+        setIsFiltering(false)
+      }
     }
   }
 
-  function handleSearchSubmit(
-    event: React.FormEvent<HTMLFormElement>
+  function submitStoreSearch(
+    nextValue: string
   ) {
-    event.preventDefault()
-
     const normalizedSearch =
-      searchDraft.trim()
+      String(nextValue || '')
+        .trim()
+        .slice(
+          0,
+          80
+        )
+
+    setSearchDraft(
+      normalizedSearch
+    )
 
     setSearchQuery(
       normalizedSearch
@@ -245,7 +279,45 @@ export default function SellerStorePage() {
 
     void loadFilteredStore({
       ...currentFilters,
-      q: normalizedSearch,
+      q:
+        normalizedSearch,
+    })
+  }
+
+  function selectStoreSearchCategory(
+    nextCategory: {
+      name: string
+      slug: string
+      count: number
+    },
+    nextSearch: string
+  ) {
+    const normalizedSearch =
+      String(nextSearch || '')
+        .trim()
+        .slice(
+          0,
+          80
+        )
+
+    setSearchDraft(
+      normalizedSearch
+    )
+
+    setSearchQuery(
+      normalizedSearch
+    )
+
+    setCategory(
+      nextCategory.slug
+    )
+
+    void loadFilteredStore({
+      ...currentFilters,
+      q:
+        normalizedSearch,
+      category:
+        nextCategory.slug,
     })
   }
 
@@ -675,37 +747,33 @@ export default function SellerStorePage() {
 
                 <div className="mb-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100 sm:p-4">
                   <div className="flex items-center gap-2">
-                    <form
-                      onSubmit={handleSearchSubmit}
-                      className="relative min-w-0 flex-1"
-                    >
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-
-                      <Input
-                        value={searchDraft}
-                        onChange={(event) =>
-                          setSearchDraft(
-                            event.target.value
-                          )
-                        }
-                        placeholder={`Search in ${seller.storeName}`}
-                        aria-label={`Search products in ${seller.storeName}`}
-                        className="h-10 rounded-full border-gray-200 bg-gray-50 pl-9 pr-10 text-sm font-semibold focus-visible:ring-dh-primary"
-                      />
-
-                      {searchDraft && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSearchDraft('')
-                          }
-                          aria-label="Clear search text"
-                          className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-dh-primary"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </form>
+                    <SellerStoreSearchAutocomplete
+                      sellerKey={
+                        sellerKey ||
+                        seller.key
+                      }
+                      storeName={
+                        seller.storeName
+                      }
+                      value={
+                        searchDraft
+                      }
+                      onValueChange={
+                        setSearchDraft
+                      }
+                      onSearch={
+                        submitStoreSearch
+                      }
+                      onCategorySelect={
+                        selectStoreSearchCategory
+                      }
+                      popularCategories={
+                        store.facets.categories
+                      }
+                      isSearching={
+                        isFiltering
+                      }
+                    />
 
                     <Button
                       type="button"
@@ -726,20 +794,7 @@ export default function SellerStorePage() {
                       )}
                     </Button>
 
-                    <Button
-                      type="submit"
-                      form="seller-product-search"
-                      className="hidden"
-                    >
-                      Search
-                    </Button>
                   </div>
-
-                  <form
-                    id="seller-product-search"
-                    onSubmit={handleSearchSubmit}
-                    className="hidden"
-                  />
 
                   <div className="mt-3 hidden grid-cols-[minmax(150px,1fr)_minmax(130px,0.7fr)_110px_110px_minmax(145px,0.8fr)_auto] gap-2 lg:grid">
                     <label className="sr-only" htmlFor="seller-category">

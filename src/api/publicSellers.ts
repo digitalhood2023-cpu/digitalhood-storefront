@@ -164,6 +164,44 @@ export type PublicSellerProduct = {
   categories?: Array<{ id: number | string; name: string; slug?: string }>
 }
 
+export type PublicSellerStoreSuggestionProduct = {
+  id: string | number
+  name: string
+  slug?: string
+  price: number
+  regularPrice?: number
+  salePrice?: number
+  image?: string
+  stockStatus?: string
+  stockLabel?: string
+  canAddToCart?: boolean
+  category?: {
+    name: string
+    slug: string
+  } | null
+}
+
+export type PublicSellerStoreSuggestionCategory = {
+  name: string
+  slug: string
+  count: number
+}
+
+export type PublicSellerStoreSuggestionsResponse = {
+  success: boolean
+  query: string
+  normalizedQuery: string
+  correctedQuery: string
+  didYouMean: string
+  suggestions: PublicSellerStoreSuggestionProduct[]
+  categories: PublicSellerStoreSuggestionCategory[]
+  seller?: {
+    key: string
+    storeName: string
+  }
+  cacheStatus?: string
+}
+
 export type PublicSellerStoreFilters = {
   q?: string
   category?: string
@@ -616,6 +654,374 @@ export async function fetchPublicSellerStore(
   )
 
   return request
+}
+
+const PUBLIC_SELLER_SUGGESTION_CACHE_TTL_MS =
+  2 * 60 * 1000
+
+const publicSellerSuggestionCache =
+  new Map<
+    string,
+    {
+      createdAt: number
+      value: PublicSellerStoreSuggestionsResponse
+    }
+  >()
+
+function normalizePublicSellerSuggestionResponse(
+  data: any
+): PublicSellerStoreSuggestionsResponse {
+  return {
+    success:
+      data?.success === true,
+    query:
+      String(
+        data?.query || ''
+      ),
+    normalizedQuery:
+      String(
+        data?.normalizedQuery || ''
+      ),
+    correctedQuery:
+      String(
+        data?.correctedQuery || ''
+      ),
+    didYouMean:
+      String(
+        data?.didYouMean || ''
+      ),
+    suggestions:
+      Array.isArray(
+        data?.suggestions
+      )
+        ? data.suggestions
+            .map(
+              (
+                product: any
+              ): PublicSellerStoreSuggestionProduct => ({
+                id:
+                  product?.id,
+                name:
+                  String(
+                    product?.name || ''
+                  ).trim(),
+                slug:
+                  String(
+                    product?.slug || ''
+                  ).trim(),
+                price:
+                  Number(
+                    product?.price || 0
+                  ) || 0,
+                regularPrice:
+                  Number(
+                    product?.regularPrice || 0
+                  ) || 0,
+                salePrice:
+                  Number(
+                    product?.salePrice || 0
+                  ) || 0,
+                image:
+                  String(
+                    product?.image || ''
+                  ).trim(),
+                stockStatus:
+                  String(
+                    product?.stockStatus || ''
+                  ).trim(),
+                stockLabel:
+                  String(
+                    product?.stockLabel || ''
+                  ).trim(),
+                canAddToCart:
+                  product?.canAddToCart !==
+                    false,
+                category:
+                  product?.category &&
+                  typeof product.category ===
+                    'object'
+                    ? {
+                        name:
+                          String(
+                            product.category
+                              .name || ''
+                          ).trim(),
+                        slug:
+                          String(
+                            product.category
+                              .slug || ''
+                          ).trim(),
+                      }
+                    : null,
+              })
+            )
+            .filter(
+              (
+                product: PublicSellerStoreSuggestionProduct
+              ) =>
+                Boolean(
+                  product.id &&
+                    product.name
+                )
+            )
+        : [],
+    categories:
+      Array.isArray(
+        data?.categories
+      )
+        ? data.categories
+            .map(
+              (
+                category: any
+              ): PublicSellerStoreSuggestionCategory => ({
+                name:
+                  String(
+                    category?.name || ''
+                  ).trim(),
+                slug:
+                  String(
+                    category?.slug || ''
+                  ).trim(),
+                count:
+                  Math.max(
+                    0,
+                    Number(
+                      category?.count || 0
+                    ) || 0
+                  ),
+              })
+            )
+            .filter(
+              (
+                category: PublicSellerStoreSuggestionCategory
+              ) =>
+                Boolean(
+                  category.name &&
+                    category.slug
+                )
+            )
+        : [],
+    seller:
+      data?.seller &&
+      typeof data.seller ===
+        'object'
+        ? {
+            key:
+              String(
+                data.seller.key || ''
+              ).trim(),
+            storeName:
+              String(
+                data.seller.storeName || ''
+              ).trim(),
+          }
+        : undefined,
+    cacheStatus:
+      String(
+        data?.cacheStatus || ''
+      ),
+  }
+}
+
+export async function fetchPublicSellerStoreSuggestions(
+  sellerKey: string,
+  search: string,
+  limit = 8,
+  options: {
+    signal?: AbortSignal
+  } = {}
+): Promise<PublicSellerStoreSuggestionsResponse> {
+  const normalizedKey =
+    String(sellerKey || '')
+      .trim()
+      .toLowerCase()
+      .slice(
+        0,
+        180
+      )
+
+  const normalizedSearch =
+    String(search || '')
+      .trim()
+      .slice(
+        0,
+        80
+      )
+
+  const normalizedLimit =
+    Math.max(
+      1,
+      Math.min(
+        10,
+        Math.floor(
+          Number(limit || 8) ||
+            8
+        )
+      )
+    )
+
+  if (!normalizedKey) {
+    throw new Error(
+      'Seller key is required.'
+    )
+  }
+
+  if (
+    normalizedSearch.length < 2
+  ) {
+    return {
+      success: true,
+      query:
+        normalizedSearch,
+      normalizedQuery: '',
+      correctedQuery: '',
+      didYouMean: '',
+      suggestions: [],
+      categories: [],
+      cacheStatus: 'SKIP',
+    }
+  }
+
+  const cacheKey = [
+    normalizedKey,
+    normalizedSearch
+      .toLowerCase(),
+    normalizedLimit,
+  ].join('|')
+
+  const cached =
+    publicSellerSuggestionCache.get(
+      cacheKey
+    )
+
+  if (
+    cached &&
+    Date.now() -
+      cached.createdAt <=
+      PUBLIC_SELLER_SUGGESTION_CACHE_TTL_MS
+  ) {
+    return cached.value
+  }
+
+  if (cached) {
+    publicSellerSuggestionCache.delete(
+      cacheKey
+    )
+  }
+
+  const params =
+    new URLSearchParams({
+      q:
+        normalizedSearch,
+      limit:
+        String(
+          normalizedLimit
+        ),
+    })
+
+  const requestSuggestions =
+    async () => {
+      const response =
+        await fetch(
+          `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(
+            normalizedKey
+          )}/suggestions?${params.toString()}`,
+          {
+            signal:
+              options.signal,
+            headers: {
+              Accept:
+                'application/json',
+            },
+          }
+        )
+
+      const data =
+        await response
+          .json()
+          .catch(() => ({}))
+
+      return {
+        response,
+        data,
+      }
+    }
+
+  let {
+    response,
+    data,
+  } =
+    await requestSuggestions()
+
+  if (
+    response.status === 409 &&
+    data?.code ===
+      'STORE_SEARCH_WARMING'
+  ) {
+    const warmParams =
+      new URLSearchParams({
+        page: '1',
+        per_page: '1',
+        fresh: '1',
+      })
+
+    const warmResponse =
+      await fetch(
+        `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(
+          normalizedKey
+        )}?${warmParams.toString()}`,
+        {
+          signal:
+            options.signal,
+          headers: {
+            Accept:
+              'application/json',
+          },
+        }
+      )
+
+    const warmData =
+      await warmResponse
+        .json()
+        .catch(() => ({}))
+
+    if (!warmResponse.ok) {
+      throw new Error(
+        warmData?.error ||
+          'Unable to prepare store search.'
+      )
+    }
+
+    ;({
+      response,
+      data,
+    } =
+      await requestSuggestions())
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error ||
+        'Unable to load store search suggestions.'
+    )
+  }
+
+  const normalized =
+    normalizePublicSellerSuggestionResponse(
+      data
+    )
+
+  publicSellerSuggestionCache.set(
+    cacheKey,
+    {
+      createdAt:
+        Date.now(),
+      value:
+        normalized,
+    }
+  )
+
+  return normalized
 }
 
 export type PublicStoreDirectoryFacet = {
