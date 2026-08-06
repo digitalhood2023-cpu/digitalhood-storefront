@@ -3,18 +3,23 @@ import { Link, useParams } from 'react-router-dom'
 import {
   ArrowRight,
   BadgeCheck,
+  Check,
+  Filter,
   Heart,
   LifeBuoy,
   Loader2,
   MessageCircle,
   PackageCheck,
   ShieldCheck,
+  Search,
   ShoppingCart,
+  SlidersHorizontal,
   Star,
   Store,
   ThumbsDown,
   ThumbsUp,
   MinusCircle,
+  X,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -22,6 +27,16 @@ import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
 import {
@@ -90,6 +105,16 @@ export default function SellerStorePage() {
   const [error, setError] = useState('')
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState('')
+  const [isFiltering, setIsFiltering] = useState(false)
+  const [filterError, setFilterError] = useState('')
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [category, setCategory] = useState('')
+  const [availability, setAvailability] = useState('')
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [sort, setSort] = useState('featured')
   const [addedProductId, setAddedProductId] = useState<string | number | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
@@ -121,6 +146,48 @@ export default function SellerStorePage() {
   const seller = store?.seller
   const products = store?.products || []
 
+  const currentFilters = {
+    q: searchQuery,
+    category,
+    availability,
+    minPrice,
+    maxPrice,
+    sort,
+  }
+
+  const activeFilterCount = [
+    searchQuery,
+    category,
+    availability,
+    minPrice,
+    maxPrice,
+    sort !== 'featured'
+      ? sort
+      : '',
+  ].filter(Boolean).length
+
+  const hasActiveFilters =
+    activeFilterCount > 0
+
+  const selectedCategory =
+    store?.facets.categories.find(
+      (item) =>
+        item.slug === category
+    )
+
+  const resultDescription =
+    hasActiveFilters
+      ? `${store?.count || 0} matching product${
+          store?.count === 1
+            ? ''
+            : 's'
+        }`
+      : `${store?.count || 0} live product${
+          store?.count === 1
+            ? ''
+            : 's'
+        }`
+
   const hasMoreProducts =
     store
       ? store.page <
@@ -128,15 +195,143 @@ export default function SellerStorePage() {
         products.length <
           store.count
       : false
-  const featuredProducts = useMemo(
-    () =>
-      [...products].sort((a, b) => {
-        const scoreA = safeNumber(a.totalSales) + safeNumber(a.averageRating)
-        const scoreB = safeNumber(b.totalSales) + safeNumber(b.averageRating)
-        return scoreB - scoreA
-      }),
+  const visibleProducts = useMemo(
+    () => [...products],
     [products]
   )
+
+  async function loadFilteredStore(
+    nextFilters = currentFilters
+  ) {
+    if (!sellerKey) return
+
+    setIsFiltering(true)
+    setFilterError('')
+    setLoadMoreError('')
+
+    try {
+      const nextStore =
+        await fetchPublicSellerStore(
+          sellerKey,
+          1,
+          24,
+          nextFilters
+        )
+
+      setStore(nextStore)
+      setIsFilterDrawerOpen(false)
+    } catch (requestError) {
+      setFilterError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to filter this store.'
+      )
+    } finally {
+      setIsFiltering(false)
+    }
+  }
+
+  function handleSearchSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault()
+
+    const normalizedSearch =
+      searchDraft.trim()
+
+    setSearchQuery(
+      normalizedSearch
+    )
+
+    void loadFilteredStore({
+      ...currentFilters,
+      q: normalizedSearch,
+    })
+  }
+
+  function applyFilters() {
+    void loadFilteredStore(
+      currentFilters
+    )
+  }
+
+  function handleSortChange(
+    nextSort: string
+  ) {
+    setSort(nextSort)
+
+    void loadFilteredStore({
+      ...currentFilters,
+      sort: nextSort,
+    })
+  }
+
+  function clearAllFilters() {
+    setSearchDraft('')
+    setSearchQuery('')
+    setCategory('')
+    setAvailability('')
+    setMinPrice('')
+    setMaxPrice('')
+    setSort('featured')
+
+    void loadFilteredStore({
+      q: '',
+      category: '',
+      availability: '',
+      minPrice: '',
+      maxPrice: '',
+      sort: 'featured',
+    })
+  }
+
+  function removeFilter(
+    key:
+      | 'search'
+      | 'category'
+      | 'availability'
+      | 'price'
+      | 'sort'
+  ) {
+    const nextFilters = {
+      ...currentFilters,
+    }
+
+    if (key === 'search') {
+      setSearchDraft('')
+      setSearchQuery('')
+      nextFilters.q = ''
+    }
+
+    if (key === 'category') {
+      setCategory('')
+      nextFilters.category = ''
+    }
+
+    if (
+      key === 'availability'
+    ) {
+      setAvailability('')
+      nextFilters.availability = ''
+    }
+
+    if (key === 'price') {
+      setMinPrice('')
+      setMaxPrice('')
+      nextFilters.minPrice = ''
+      nextFilters.maxPrice = ''
+    }
+
+    if (key === 'sort') {
+      setSort('featured')
+      nextFilters.sort =
+        'featured'
+    }
+
+    void loadFilteredStore(
+      nextFilters
+    )
+  }
 
   async function handleLoadMore() {
     if (
@@ -156,7 +351,8 @@ export default function SellerStorePage() {
         await fetchPublicSellerStore(
           sellerKey,
           store.page + 1,
-          store.perPage || 24
+          store.perPage || 24,
+          currentFilters
         )
 
       setStore((currentStore) => {
@@ -453,12 +649,18 @@ export default function SellerStorePage() {
                             'en-ZM'
                           )} of ${store.count.toLocaleString(
                             'en-ZM'
-                          )} live product${
+                          )} ${
+                            hasActiveFilters
+                              ? 'matching'
+                              : 'live'
+                          } product${
                             store.count === 1
                               ? ''
                               : 's'
-                          } from this seller.`
-                        : 'No live products from this seller yet.'}
+                          }.`
+                        : hasActiveFilters
+                          ? 'No products match the current search and filters.'
+                          : 'No live products from this seller yet.'}
                     </p>
                   </div>
 
@@ -471,20 +673,569 @@ export default function SellerStorePage() {
                   </Link>
                 </div>
 
-                {featuredProducts.length === 0 ? (
+                <div className="mb-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <form
+                      onSubmit={handleSearchSubmit}
+                      className="relative min-w-0 flex-1"
+                    >
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+
+                      <Input
+                        value={searchDraft}
+                        onChange={(event) =>
+                          setSearchDraft(
+                            event.target.value
+                          )
+                        }
+                        placeholder={`Search in ${seller.storeName}`}
+                        aria-label={`Search products in ${seller.storeName}`}
+                        className="h-10 rounded-full border-gray-200 bg-gray-50 pl-9 pr-10 text-sm font-semibold focus-visible:ring-dh-primary"
+                      />
+
+                      {searchDraft && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSearchDraft('')
+                          }
+                          aria-label="Clear search text"
+                          className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-dh-primary"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </form>
+
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        setIsFilterDrawerOpen(
+                          true
+                        )
+                      }
+                      variant="outline"
+                      className="relative h-10 shrink-0 rounded-full border-dh-primary/20 px-3 font-black text-dh-primary lg:hidden"
+                    >
+                      <Filter className="mr-1.5 h-4 w-4" />
+                      Filters
+                      {activeFilterCount > 0 && (
+                        <span className="ml-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ffb54a] px-1 text-[10px] font-black text-dh-primary">
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="submit"
+                      form="seller-product-search"
+                      className="hidden"
+                    >
+                      Search
+                    </Button>
+                  </div>
+
+                  <form
+                    id="seller-product-search"
+                    onSubmit={handleSearchSubmit}
+                    className="hidden"
+                  />
+
+                  <div className="mt-3 hidden grid-cols-[minmax(150px,1fr)_minmax(130px,0.7fr)_110px_110px_minmax(145px,0.8fr)_auto] gap-2 lg:grid">
+                    <label className="sr-only" htmlFor="seller-category">
+                      Product category
+                    </label>
+
+                    <select
+                      id="seller-category"
+                      value={category}
+                      onChange={(event) =>
+                        setCategory(
+                          event.target.value
+                        )
+                      }
+                      className="h-10 min-w-0 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
+                    >
+                      <option value="">
+                        All categories
+                      </option>
+                      {store.facets.categories.map(
+                        (item) => (
+                          <option
+                            key={item.slug}
+                            value={item.slug}
+                          >
+                            {item.name} ({item.count})
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                    <label className="sr-only" htmlFor="seller-availability">
+                      Availability
+                    </label>
+
+                    <select
+                      id="seller-availability"
+                      value={availability}
+                      onChange={(event) =>
+                        setAvailability(
+                          event.target.value
+                        )
+                      }
+                      className="h-10 min-w-0 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
+                    >
+                      <option value="">
+                        All stock
+                      </option>
+                      <option value="instock">
+                        Available ({store.facets.availability.inStock})
+                      </option>
+                      <option value="on_sale">
+                        On sale ({store.facets.availability.onSale})
+                      </option>
+                    </select>
+
+                    <Input
+                      value={minPrice}
+                      onChange={(event) =>
+                        setMinPrice(
+                          event.target.value
+                        )
+                      }
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      placeholder="Min K"
+                      aria-label="Minimum price"
+                      className="h-10 rounded-full border-gray-200 bg-gray-50 text-sm font-semibold"
+                    />
+
+                    <Input
+                      value={maxPrice}
+                      onChange={(event) =>
+                        setMaxPrice(
+                          event.target.value
+                        )
+                      }
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      placeholder="Max K"
+                      aria-label="Maximum price"
+                      className="h-10 rounded-full border-gray-200 bg-gray-50 text-sm font-semibold"
+                    />
+
+                    <label className="sr-only" htmlFor="seller-sort">
+                      Sort products
+                    </label>
+
+                    <select
+                      id="seller-sort"
+                      value={sort}
+                      onChange={(event) =>
+                        handleSortChange(
+                          event.target.value
+                        )
+                      }
+                      className="h-10 min-w-0 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
+                    >
+                      <option value="featured">
+                        Featured
+                      </option>
+                      <option value="popular">
+                        Most popular
+                      </option>
+                      <option value="rating">
+                        Best rated
+                      </option>
+                      <option value="price_asc">
+                        Price: low to high
+                      </option>
+                      <option value="price_desc">
+                        Price: high to low
+                      </option>
+                      <option value="name_asc">
+                        Name: A to Z
+                      </option>
+                    </select>
+
+                    <Button
+                      type="button"
+                      onClick={applyFilters}
+                      disabled={isFiltering}
+                      className="h-10 rounded-full bg-dh-primary px-5 font-black text-white hover:bg-[#ffb54a] hover:text-dh-primary"
+                    >
+                      {isFiltering ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <SlidersHorizontal className="mr-1.5 h-4 w-4" />
+                          Apply
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between gap-2 lg:hidden">
+                    <p className="truncate text-xs font-semibold text-gray-500">
+                      {resultDescription}
+                    </p>
+
+                    <select
+                      value={sort}
+                      onChange={(event) =>
+                        handleSortChange(
+                          event.target.value
+                        )
+                      }
+                      aria-label="Sort store products"
+                      className="h-8 max-w-[145px] rounded-full border border-gray-200 bg-gray-50 px-2 text-xs font-black text-dh-primary outline-none"
+                    >
+                      <option value="featured">
+                        Featured
+                      </option>
+                      <option value="popular">
+                        Popular
+                      </option>
+                      <option value="rating">
+                        Best rated
+                      </option>
+                      <option value="price_asc">
+                        Price low
+                      </option>
+                      <option value="price_desc">
+                        Price high
+                      </option>
+                      <option value="name_asc">
+                        A to Z
+                      </option>
+                    </select>
+                  </div>
+
+                  {(hasActiveFilters ||
+                    filterError) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFilter(
+                              'search'
+                            )
+                          }
+                          className="inline-flex max-w-full items-center gap-1 rounded-full bg-dh-primary/8 px-3 py-1.5 text-xs font-black text-dh-primary"
+                        >
+                          Search: “{searchQuery}”
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {category && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFilter(
+                              'category'
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-full bg-dh-primary/8 px-3 py-1.5 text-xs font-black text-dh-primary"
+                        >
+                          {selectedCategory?.name ||
+                            category}
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {availability && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFilter(
+                              'availability'
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1.5 text-xs font-black text-green-700"
+                        >
+                          {availability ===
+                          'on_sale'
+                            ? 'On sale'
+                            : 'Available'}
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {(minPrice ||
+                        maxPrice) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFilter(
+                              'price'
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-full bg-[#ffb54a]/15 px-3 py-1.5 text-xs font-black text-[#9a6200]"
+                        >
+                          K{minPrice || '0'} – K{maxPrice || 'Any'}
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {sort !==
+                        'featured' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFilter(
+                              'sort'
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-600"
+                        >
+                          Sorted
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {hasActiveFilters && (
+                        <button
+                          type="button"
+                          onClick={
+                            clearAllFilters
+                          }
+                          className="text-xs font-black text-red-600 hover:text-red-700"
+                        >
+                          Clear all
+                        </button>
+                      )}
+
+                      {filterError && (
+                        <p
+                          role="alert"
+                          className="w-full text-xs font-bold text-red-600"
+                        >
+                          {filterError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Drawer
+                  open={isFilterDrawerOpen}
+                  onOpenChange={
+                    setIsFilterDrawerOpen
+                  }
+                >
+                  <DrawerContent className="max-h-[88vh]">
+                    <DrawerHeader className="text-left">
+                      <DrawerTitle className="font-display text-xl font-black text-dh-primary">
+                        Filter this store
+                      </DrawerTitle>
+                      <DrawerDescription>
+                        Narrow {seller.storeName} products without leaving the store.
+                      </DrawerDescription>
+                    </DrawerHeader>
+
+                    <div className="overflow-y-auto px-4 pb-2">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-500">
+                            Category
+                          </label>
+
+                          <select
+                            value={category}
+                            onChange={(event) =>
+                              setCategory(
+                                event.target.value
+                              )
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
+                          >
+                            <option value="">
+                              All categories
+                            </option>
+                            {store.facets.categories.map(
+                              (item) => (
+                                <option
+                                  key={item.slug}
+                                  value={item.slug}
+                                >
+                                  {item.name} ({item.count})
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <p className="mb-1.5 text-xs font-black uppercase tracking-wide text-gray-500">
+                            Availability
+                          </p>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              ['', 'All'],
+                              ['instock', 'Available'],
+                              ['on_sale', 'On sale'],
+                            ].map(
+                              ([value, label]) => (
+                                <button
+                                  key={
+                                    value ||
+                                    'all'
+                                  }
+                                  type="button"
+                                  onClick={() =>
+                                    setAvailability(
+                                      value
+                                    )
+                                  }
+                                  className={`flex h-10 items-center justify-center rounded-xl border px-2 text-xs font-black ${
+                                    availability ===
+                                    value
+                                      ? 'border-dh-primary bg-dh-primary text-white'
+                                      : 'border-gray-200 bg-gray-50 text-gray-600'
+                                  }`}
+                                >
+                                  {availability ===
+                                    value && (
+                                    <Check className="mr-1 h-3.5 w-3.5" />
+                                  )}
+                                  {label}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="mb-1.5 text-xs font-black uppercase tracking-wide text-gray-500">
+                            Price range
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              value={minPrice}
+                              onChange={(event) =>
+                                setMinPrice(
+                                  event.target.value
+                                )
+                              }
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              placeholder="Minimum K"
+                              className="h-11 rounded-xl bg-gray-50"
+                            />
+
+                            <Input
+                              value={maxPrice}
+                              onChange={(event) =>
+                                setMaxPrice(
+                                  event.target.value
+                                )
+                              }
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              placeholder="Maximum K"
+                              className="h-11 rounded-xl bg-gray-50"
+                            />
+                          </div>
+
+                          {store.facets.price.max >
+                            0 && (
+                            <p className="mt-1.5 text-xs font-semibold text-gray-400">
+                              Store range: {formatPrice(
+                                store.facets.price.min
+                              )} – {formatPrice(
+                                store.facets.price.max
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <DrawerFooter className="border-t border-gray-100">
+                      <Button
+                        type="button"
+                        onClick={applyFilters}
+                        disabled={isFiltering}
+                        className="h-11 rounded-full bg-dh-primary font-black text-white"
+                      >
+                        {isFiltering ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Applying filters...
+                          </>
+                        ) : (
+                          <>
+                            <Filter className="mr-2 h-4 w-4" />
+                            Show matching products
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={
+                            clearAllFilters
+                          }
+                          className="rounded-full font-black"
+                        >
+                          Clear
+                        </Button>
+
+                        <DrawerClose asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-full font-black"
+                          >
+                            Close
+                          </Button>
+                        </DrawerClose>
+                      </div>
+                    </DrawerFooter>
+                  </DrawerContent>
+                </Drawer>
+
+                {visibleProducts.length === 0 ? (
                   <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
                     <PackageCheck className="mx-auto h-12 w-12 text-dh-primary" />
                     <h3 className="mt-4 font-display text-2xl font-black text-dh-primary">
-                      No live products yet
+                      {hasActiveFilters
+                        ? 'No matching products'
+                        : 'No live products yet'}
                     </h3>
                     <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">
-                      Products will appear here once this seller has live marketplace items.
+                      {hasActiveFilters
+                        ? 'Try another search, category or price range.'
+                        : 'Products will appear here once this seller has live marketplace items.'}
                     </p>
+
+                    {hasActiveFilters && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={
+                          clearAllFilters
+                        }
+                        className="mt-5 rounded-full border-dh-primary font-black text-dh-primary"
+                      >
+                        Clear store filters
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <>
                     <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                    {featuredProducts.map((product) => {
+                    {visibleProducts.map((product) => {
                       const image = getFastProductImage(product, 'card')
                       const imageSrcSet = getFastProductSrcSet(product)
                       const productUrl = getProductUrl(product)

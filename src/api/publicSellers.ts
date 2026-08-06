@@ -164,6 +164,21 @@ export type PublicSellerProduct = {
   categories?: Array<{ id: number | string; name: string; slug?: string }>
 }
 
+export type PublicSellerStoreFilters = {
+  q?: string
+  category?: string
+  availability?: string
+  minPrice?: string | number
+  maxPrice?: string | number
+  sort?: string
+}
+
+export type PublicSellerStoreFacetCategory = {
+  name: string
+  slug: string
+  count: number
+}
+
 export type PublicSellerStore = {
   seller: {
     id: string | number
@@ -195,6 +210,25 @@ export type PublicSellerStore = {
   page: number
   perPage: number
   totalPages: number
+  facets: {
+    categories: PublicSellerStoreFacetCategory[]
+    availability: {
+      inStock: number
+      onSale: number
+    }
+    price: {
+      min: number
+      max: number
+    }
+  }
+  appliedFilters: {
+    q: string
+    category: string
+    availability: string
+    minPrice: number | null
+    maxPrice: number | null
+    sort: string
+  }
 }
 
 function normalizePublicSellerStore(
@@ -284,13 +318,126 @@ function normalizePublicSellerStore(
           data?.totalPages || 1
         ) || 1
       ),
+    facets: {
+      categories:
+        Array.isArray(
+          data?.facets?.categories
+        )
+          ? data.facets.categories
+              .map((category: any) => ({
+                name:
+                  String(
+                    category?.name || ''
+                  ).trim(),
+                slug:
+                  String(
+                    category?.slug || ''
+                  ).trim(),
+                count:
+                  Math.max(
+                    0,
+                    Number(
+                      category?.count || 0
+                    ) || 0
+                  ),
+              }))
+              .filter(
+                (
+                  category: PublicSellerStoreFacetCategory
+                ) =>
+                  category.name &&
+                  category.slug
+              )
+          : [],
+      availability: {
+        inStock:
+          Math.max(
+            0,
+            Number(
+              data?.facets
+                ?.availability
+                ?.inStock || 0
+            ) || 0
+          ),
+        onSale:
+          Math.max(
+            0,
+            Number(
+              data?.facets
+                ?.availability
+                ?.onSale || 0
+            ) || 0
+          ),
+      },
+      price: {
+        min:
+          Math.max(
+            0,
+            Number(
+              data?.facets?.price
+                ?.min || 0
+            ) || 0
+          ),
+        max:
+          Math.max(
+            0,
+            Number(
+              data?.facets?.price
+                ?.max || 0
+            ) || 0
+          ),
+      },
+    },
+    appliedFilters: {
+      q:
+        String(
+          data?.appliedFilters?.q ||
+            ''
+        ),
+      category:
+        String(
+          data?.appliedFilters
+            ?.category || ''
+        ),
+      availability:
+        String(
+          data?.appliedFilters
+            ?.availability || ''
+        ),
+      minPrice:
+        data?.appliedFilters
+          ?.minPrice === null ||
+        data?.appliedFilters
+          ?.minPrice === undefined
+          ? null
+          : Number(
+              data.appliedFilters
+                .minPrice
+            ),
+      maxPrice:
+        data?.appliedFilters
+          ?.maxPrice === null ||
+        data?.appliedFilters
+          ?.maxPrice === undefined
+          ? null
+          : Number(
+              data.appliedFilters
+                .maxPrice
+            ),
+      sort:
+        String(
+          data?.appliedFilters
+            ?.sort || 'featured'
+        ),
+    },
   }
 }
 
 export async function fetchPublicSellerStore(
   sellerKey: string,
   page = 1,
-  perPage = 24
+  perPage = 24,
+  filters: PublicSellerStoreFilters = {}
 ): Promise<PublicSellerStore> {
   const normalizedKey =
     String(sellerKey || '')
@@ -312,10 +459,104 @@ export async function fetchPublicSellerStore(
       )
     )
 
+  const normalizedFilters = {
+    q:
+      String(filters.q || '')
+        .trim(),
+    category:
+      String(
+        filters.category || ''
+      ).trim(),
+    availability:
+      String(
+        filters.availability || ''
+      ).trim(),
+    minPrice:
+      String(
+        filters.minPrice ?? ''
+      ).trim(),
+    maxPrice:
+      String(
+        filters.maxPrice ?? ''
+      ).trim(),
+    sort:
+      String(
+        filters.sort || 'featured'
+      ).trim(),
+  }
+
+  const query =
+    new URLSearchParams({
+      page:
+        String(normalizedPage),
+      per_page:
+        String(normalizedPerPage),
+    })
+
+  if (normalizedFilters.q) {
+    query.set(
+      'q',
+      normalizedFilters.q
+    )
+  }
+
+  if (
+    normalizedFilters.category
+  ) {
+    query.set(
+      'category',
+      normalizedFilters.category
+    )
+  }
+
+  if (
+    normalizedFilters.availability
+  ) {
+    query.set(
+      'availability',
+      normalizedFilters.availability
+    )
+  }
+
+  if (normalizedFilters.minPrice) {
+    query.set(
+      'min_price',
+      normalizedFilters.minPrice
+    )
+  }
+
+  if (normalizedFilters.maxPrice) {
+    query.set(
+      'max_price',
+      normalizedFilters.maxPrice
+    )
+  }
+
+  if (
+    normalizedFilters.sort &&
+    normalizedFilters.sort !==
+      'featured'
+  ) {
+    query.set(
+      'sort',
+      normalizedFilters.sort
+    )
+  }
+
   const cacheKey = [
     normalizedKey,
     normalizedPage,
     normalizedPerPage,
+    normalizedFilters.q
+      .toLowerCase(),
+    normalizedFilters.category
+      .toLowerCase(),
+    normalizedFilters.availability
+      .toLowerCase(),
+    normalizedFilters.minPrice,
+    normalizedFilters.maxPrice,
+    normalizedFilters.sort
+      .toLowerCase(),
   ].join('|')
 
   const cached =
@@ -340,7 +581,7 @@ export async function fetchPublicSellerStore(
   const request = fetch(
     `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(
       sellerKey
-    )}?page=${normalizedPage}&per_page=${normalizedPerPage}`
+    )}?${query.toString()}`
   )
     .then(async (response) => {
       const data =
