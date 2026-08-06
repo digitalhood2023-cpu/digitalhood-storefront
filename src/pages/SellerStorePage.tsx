@@ -88,6 +88,8 @@ export default function SellerStorePage() {
   const [store, setStore] = useState<PublicSellerStore | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState('')
   const [addedProductId, setAddedProductId] = useState<string | number | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
@@ -97,8 +99,14 @@ export default function SellerStorePage() {
 
     setIsLoading(true)
     setError('')
+    setLoadMoreError('')
+    setStore(null)
 
-    fetchPublicSellerStore(sellerKey)
+    fetchPublicSellerStore(
+      sellerKey,
+      1,
+      24
+    )
       .then(setStore)
       .catch((requestError) => {
         setError(
@@ -112,6 +120,14 @@ export default function SellerStorePage() {
 
   const seller = store?.seller
   const products = store?.products || []
+
+  const hasMoreProducts =
+    store
+      ? store.page <
+          store.totalPages &&
+        products.length <
+          store.count
+      : false
   const featuredProducts = useMemo(
     () =>
       [...products].sort((a, b) => {
@@ -121,6 +137,77 @@ export default function SellerStorePage() {
       }),
     [products]
   )
+
+  async function handleLoadMore() {
+    if (
+      !sellerKey ||
+      !store ||
+      isLoadingMore ||
+      !hasMoreProducts
+    ) {
+      return
+    }
+
+    setIsLoadingMore(true)
+    setLoadMoreError('')
+
+    try {
+      const nextPage =
+        await fetchPublicSellerStore(
+          sellerKey,
+          store.page + 1,
+          store.perPage || 24
+        )
+
+      setStore((currentStore) => {
+        if (!currentStore) {
+          return nextPage
+        }
+
+        const productsById =
+          new Map<
+            string,
+            PublicSellerProduct
+          >()
+
+        for (const product of [
+          ...currentStore.products,
+          ...nextPage.products,
+        ]) {
+          productsById.set(
+            String(product.id),
+            product
+          )
+        }
+
+        return {
+          ...currentStore,
+          ...nextPage,
+          seller:
+            nextPage.seller ||
+            currentStore.seller,
+          stats:
+            nextPage.stats ||
+            currentStore.stats,
+          products:
+            Array.from(
+              productsById.values()
+            ),
+          count:
+            nextPage.count ||
+            currentStore.count,
+        }
+      })
+    } catch (requestError) {
+      setLoadMoreError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to load more products.'
+      )
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   function handleAddToCart(product: PublicSellerProduct) {
     if (!seller) return
@@ -362,8 +449,14 @@ export default function SellerStorePage() {
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
                       {products.length
-                        ? `${products.length.toLocaleString('en-ZM')} live product${
-                            products.length === 1 ? '' : 's'
+                        ? `Showing ${products.length.toLocaleString(
+                            'en-ZM'
+                          )} of ${store.count.toLocaleString(
+                            'en-ZM'
+                          )} live product${
+                            store.count === 1
+                              ? ''
+                              : 's'
                           } from this seller.`
                         : 'No live products from this seller yet.'}
                     </p>
@@ -389,7 +482,8 @@ export default function SellerStorePage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                  <>
+                    <div className="mx-auto grid max-w-none grid-cols-2 gap-3 sm:grid-cols-3 lg:mx-0 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                     {featuredProducts.map((product) => {
                       const image = getFastProductImage(product, 'card')
                       const imageSrcSet = getFastProductSrcSet(product)
@@ -505,7 +599,50 @@ export default function SellerStorePage() {
                         </article>
                       )
                     })}
-                  </div>
+                    </div>
+
+                    {(hasMoreProducts ||
+                      loadMoreError) && (
+                      <div className="mt-6 flex flex-col items-center gap-3">
+                        {loadMoreError && (
+                          <p
+                            role="alert"
+                            className="text-center text-sm font-semibold text-red-600"
+                          >
+                            {loadMoreError}
+                          </p>
+                        )}
+
+                        {hasMoreProducts && (
+                          <Button
+                            type="button"
+                            onClick={
+                              handleLoadMore
+                            }
+                            disabled={
+                              isLoadingMore
+                            }
+                            className="min-w-[220px] rounded-full bg-dh-primary px-6 py-3 font-black text-white hover:bg-[#ffb54a] hover:text-dh-primary"
+                          >
+                            {isLoadingMore ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading products...
+                              </>
+                            ) : (
+                              `Load more products (${Math.max(
+                                0,
+                                store.count -
+                                  products.length
+                              ).toLocaleString(
+                                'en-ZM'
+                              )} remaining)`
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </section>
             </section>

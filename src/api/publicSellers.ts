@@ -192,6 +192,9 @@ export type PublicSellerStore = {
   }
   products: PublicSellerProduct[]
   count: number
+  page: number
+  perPage: number
+  totalPages: number
 }
 
 function normalizePublicSellerStore(
@@ -263,21 +266,62 @@ function normalizePublicSellerStore(
         : [],
     count:
       Number(data?.count || 0) || 0,
+    page:
+      Math.max(
+        1,
+        Number(data?.page || 1) || 1
+      ),
+    perPage:
+      Math.max(
+        1,
+        Number(data?.perPage || 24) ||
+          24
+      ),
+    totalPages:
+      Math.max(
+        1,
+        Number(
+          data?.totalPages || 1
+        ) || 1
+      ),
   }
 }
 
 export async function fetchPublicSellerStore(
-  sellerKey: string
+  sellerKey: string,
+  page = 1,
+  perPage = 24
 ): Promise<PublicSellerStore> {
   const normalizedKey =
     String(sellerKey || '')
       .trim()
       .toLowerCase()
 
+  const normalizedPage =
+    Math.max(
+      1,
+      Number(page || 1) || 1
+    )
+
+  const normalizedPerPage =
+    Math.max(
+      1,
+      Math.min(
+        96,
+        Number(perPage || 24) || 24
+      )
+    )
+
+  const cacheKey = [
+    normalizedKey,
+    normalizedPage,
+    normalizedPerPage,
+  ].join('|')
+
   const cached =
     getTimedCacheValue(
       publicSellerStoreCache,
-      normalizedKey
+      cacheKey
     )
 
   if (cached) {
@@ -286,7 +330,7 @@ export async function fetchPublicSellerStore(
 
   const existingRequest =
     publicSellerStoreRequests.get(
-      normalizedKey
+      cacheKey
     )
 
   if (existingRequest) {
@@ -296,7 +340,7 @@ export async function fetchPublicSellerStore(
   const request = fetch(
     `${API_BASE_URL}/api/public/sellers/${encodeURIComponent(
       sellerKey
-    )}?per_page=24`
+    )}?page=${normalizedPage}&per_page=${normalizedPerPage}`
   )
     .then(async (response) => {
       const data =
@@ -313,7 +357,7 @@ export async function fetchPublicSellerStore(
 
       return setTimedCacheValue(
         publicSellerStoreCache,
-        normalizedKey,
+        cacheKey,
         normalizePublicSellerStore(
           data
         )
@@ -321,12 +365,12 @@ export async function fetchPublicSellerStore(
     })
     .finally(() => {
       publicSellerStoreRequests.delete(
-        normalizedKey
+        cacheKey
       )
     })
 
   publicSellerStoreRequests.set(
-    normalizedKey,
+    cacheKey,
     request
   )
 
