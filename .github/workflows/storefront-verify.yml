@@ -19,7 +19,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -45,14 +45,27 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=critical
 
-      - name: Smoke-test rendered SEO responses
+      - name: Build production container
+        run: docker build --tag digitalhood-storefront:test .
+
+      - name: Smoke-test production container
         shell: bash
         run: |
           set -euo pipefail
 
-          npm start > /tmp/digitalhood-storefront.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill "$SERVER_PID" 2>/dev/null || true; cat /tmp/digitalhood-storefront.log' EXIT
+          CONTAINER_NAME="digitalhood-storefront-test-${GITHUB_RUN_ID}"
+          docker run \
+            --detach \
+            --rm \
+            --name "$CONTAINER_NAME" \
+            --publish 127.0.0.1:3000:3000 \
+            digitalhood-storefront:test
+
+          trap 'docker logs "$CONTAINER_NAME" 2>/dev/null || true; docker stop "$CONTAINER_NAME" 2>/dev/null || true' EXIT
+
+          docker exec "$CONTAINER_NAME" test -f /app/server/marketplaceSeo.js
+          docker exec "$CONTAINER_NAME" sh -c 'tr "\\0" " " < /proc/1/cmdline' |
+            grep -F 'node server.js'
 
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/ > /tmp/home.html; then
@@ -71,4 +84,5 @@ jobs:
           grep -F 'https://store.digitalhood.info/shop' /tmp/sitemap.xml
 
           curl -fsSI http://127.0.0.1:3000/checkout > /tmp/checkout-headers.txt
-          tr -d '\r' < /tmp/checkout-headers.txt | grep -Fi 'x-robots-tag: noindex, nofollow'
+          tr -d '\r' < /tmp/checkout-headers.txt |
+            grep -Fi 'x-robots-tag: noindex, nofollow'
