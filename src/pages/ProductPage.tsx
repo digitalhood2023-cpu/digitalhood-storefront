@@ -49,6 +49,8 @@ import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
+import { getAccountToken } from '@/api/account'
+import { openProductConversation } from '@/api/chat'
 
 import gsap from 'gsap'
 import { getFastProductImage } from '@/lib/productImages'
@@ -214,6 +216,7 @@ export default function ProductPage() {
   const [activeTab, setActiveTab] = useState('description')
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
+  const [isOpeningChat, setIsOpeningChat] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showVariations, setShowVariations] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -350,6 +353,41 @@ export default function ProductPage() {
 
     return () => ctx.revert()
   }, [product])
+
+  async function handleOpenSellerChat() {
+    if (!product || isOpeningChat) return
+
+    if (!getAccountToken()) {
+      const redirect = `/product/${encodeURIComponent(product.slug || String(product.id))}`
+
+      navigate(
+        `/login?redirect=${encodeURIComponent(redirect)}`
+      )
+
+      return
+    }
+
+    setIsOpeningChat(true)
+
+    try {
+      const response =
+        await openProductConversation(
+          product.id
+        )
+
+      navigate(
+        `/account/messages/${response.conversationId}`
+      )
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to open seller chat.'
+      )
+    } finally {
+      setIsOpeningChat(false)
+    }
+  }
 
   const hasVariations = Boolean(product?.variations?.length)
 
@@ -1113,11 +1151,17 @@ export default function ProductPage() {
 
                         <button
                           type="button"
-                          onClick={() => alert('Seller chat is coming soon.')}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary"
+                          onClick={handleOpenSellerChat}
+                          disabled={isOpeningChat}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <MessageCircle className="h-3.5 w-3.5" />
-                          Chat
+                          {isOpeningChat ? (
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                          ) : (
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          )}
+
+                          {isOpeningChat ? 'Opening...' : 'Chat'}
                         </button>
                       </div>
                     </div>

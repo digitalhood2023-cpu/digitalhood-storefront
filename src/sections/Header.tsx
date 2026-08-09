@@ -357,6 +357,12 @@ export default function Header() {
                       </DropdownMenuItem>
 
                       <DropdownMenuItem asChild>
+                        <Link to="/account/messages" className="cursor-pointer">
+                          Messages
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
                         <Link to="/track-order" className="cursor-pointer">
                           <PackageCheck className="mr-2 h-4 w-4" />
                           Track Order
@@ -516,6 +522,13 @@ export default function Header() {
                       className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
                     >
                       My Orders
+                    </Link>
+
+                    <Link
+                      to="/account/messages"
+                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                    >
+                      Messages
                     </Link>
                   </>
                 ) : (
