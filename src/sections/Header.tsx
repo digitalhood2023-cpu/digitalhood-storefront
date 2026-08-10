@@ -14,6 +14,7 @@ import {
   LogOut,
   UserPlus,
   ShoppingBag,
+  MessageCircle,
 } from 'lucide-react'
 
 import { useWishlist } from '@/context/WishlistContext'
@@ -60,6 +61,7 @@ export default function Header() {
   const [lastScrollY, setLastScrollY] = useState(0)
   const [menuCategories, setMenuCategories] = useState<WooCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0)
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -104,6 +106,130 @@ export default function Header() {
   const { customer, isAuthenticated, logout } = useAccount()
 
   const customerDisplayName = getCustomerDisplayName(customer)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMessageUnreadCount(0)
+      return
+    }
+
+    let cancelled = false
+    let activeSocket:
+      ReturnType<
+        (
+          typeof import('@/api/chat')
+        )['createBuyerChatSocket']
+      > | null = null
+
+    const chatModulePromise =
+      import('@/api/chat')
+
+    async function refreshUnreadCount() {
+      try {
+        const {
+          getBuyerInbox
+        } =
+          await chatModulePromise
+
+        const response =
+          await getBuyerInbox(100)
+
+        if (cancelled) {
+          return
+        }
+
+        const unread =
+          response.conversations.reduce(
+            (total, conversation) =>
+              total +
+              Math.max(
+                0,
+                conversation.unreadCount || 0
+              ),
+            0
+          )
+
+        setMessageUnreadCount(
+          unread
+        )
+      } catch {
+        if (!cancelled) {
+          setMessageUnreadCount(0)
+        }
+      }
+    }
+
+    const handleUnreadRefresh =
+      () => {
+        void refreshUnreadCount()
+      }
+
+    async function connectUnreadSocket() {
+      try {
+        const {
+          createBuyerChatSocket
+        } =
+          await chatModulePromise
+
+        if (cancelled) {
+          return
+        }
+
+        const nextSocket =
+          createBuyerChatSocket()
+
+        activeSocket =
+          nextSocket
+
+        nextSocket.on(
+          'conversation:changed',
+          handleUnreadRefresh
+        )
+
+        nextSocket.on(
+          'connect',
+          handleUnreadRefresh
+        )
+
+        if (!nextSocket.connected) {
+          nextSocket.connect()
+        }
+      } catch {
+        activeSocket = null
+      }
+    }
+
+    void refreshUnreadCount()
+    void connectUnreadSocket()
+
+    window.addEventListener(
+      'digitalhood:chat-unread-refresh',
+      handleUnreadRefresh
+    )
+
+    return () => {
+      cancelled = true
+
+      window.removeEventListener(
+        'digitalhood:chat-unread-refresh',
+        handleUnreadRefresh
+      )
+
+      if (activeSocket) {
+        activeSocket.off(
+          'conversation:changed',
+          handleUnreadRefresh
+        )
+
+        activeSocket.off(
+          'connect',
+          handleUnreadRefresh
+        )
+
+        activeSocket.disconnect()
+      }
+    }
+  }, [isAuthenticated])
 
   const dismissMobileMenu = useBackButtonDismiss({
     id: 'mobile-menu',
@@ -357,8 +483,22 @@ export default function Header() {
                       </DropdownMenuItem>
 
                       <DropdownMenuItem asChild>
-                        <Link to="/account/messages" className="cursor-pointer">
-                          Messages
+                        <Link
+                          to="/account/messages"
+                          className="flex cursor-pointer items-center justify-between gap-3"
+                        >
+                          <span className="flex items-center">
+                            <MessageCircle className="mr-2 h-4 w-4" />
+                            Messages
+                          </span>
+
+                          {messageUnreadCount > 0 && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ffb54a] px-1.5 text-[10px] font-black text-[#26248c]">
+                              {messageUnreadCount > 99
+                                ? '99+'
+                                : messageUnreadCount}
+                            </span>
+                          )}
                         </Link>
                       </DropdownMenuItem>
 
@@ -526,9 +666,20 @@ export default function Header() {
 
                     <Link
                       to="/account/messages"
-                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                      className="flex items-center justify-between gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
                     >
-                      Messages
+                      <span className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Messages
+                      </span>
+
+                      {messageUnreadCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ffb54a] px-1.5 text-[10px] font-black text-[#26248c]">
+                          {messageUnreadCount > 99
+                            ? '99+'
+                            : messageUnreadCount}
+                        </span>
+                      )}
                     </Link>
                   </>
                 ) : (

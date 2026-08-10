@@ -36,6 +36,7 @@ import {
   sendBuyerMessage,
   type ChatInboxItem,
   type ChatMessage,
+  type ChatReceiptSummary,
 } from '@/api/chat'
 import {
   getAccountToken
@@ -158,6 +159,36 @@ function ProductContextCard({
   )
 }
 
+function mergeChatMessages(
+  current: ChatMessage[],
+  incoming: ChatMessage[]
+) {
+  const bySequence =
+    new Map<number, ChatMessage>()
+
+  for (const message of current) {
+    bySequence.set(
+      message.sequence,
+      message
+    )
+  }
+
+  for (const message of incoming) {
+    bySequence.set(
+      message.sequence,
+      message
+    )
+  }
+
+  return Array.from(
+    bySequence.values()
+  ).sort(
+    (left, right) =>
+      left.sequence -
+      right.sequence
+  )
+}
+
 export default function AccountMessagesPage() {
   const {
     conversationId
@@ -209,6 +240,44 @@ export default function AccountMessagesPage() {
     error,
     setError
   ] = useState('')
+
+  const [
+    connectionState,
+    setConnectionState
+  ] = useState<
+    'connecting' |
+    'connected' |
+    'reconnecting' |
+    'offline'
+  >('connecting')
+
+  const [
+    counterpartyReceipt,
+    setCounterpartyReceipt
+  ] = useState<ChatReceiptSummary>({
+    deliveredSequence: 0,
+    readSequence: 0
+  })
+
+  const [
+    sellerOnline,
+    setSellerOnline
+  ] = useState<boolean | null>(
+    null
+  )
+
+  const [
+    sellerTyping,
+    setSellerTyping
+  ] = useState(false)
+
+  const activeConversationRef =
+    useRef<string | undefined>(
+      conversationId
+    )
+
+  const latestSequenceRef =
+    useRef(0)
 
   const socketRef =
     useRef<Socket | null>(
@@ -302,6 +371,20 @@ export default function AccountMessagesPage() {
               }
             )
 
+          if (
+            activeConversationRef.current !==
+            targetConversationId
+          ) {
+            return
+          }
+
+          setCounterpartyReceipt(
+            response.counterpartyReceipt || {
+              deliveredSequence: 0,
+              readSequence: 0
+            }
+          )
+
           setMessages(
             response.messages
           )
@@ -318,6 +401,9 @@ export default function AccountMessagesPage() {
                 ),
               0
             )
+
+          latestSequenceRef.current =
+            latest
 
           if (latest > 0) {
             await Promise.allSettled([
@@ -344,6 +430,125 @@ export default function AccountMessagesPage() {
         } finally {
           setIsLoadingMessages(
             false
+          )
+        }
+      },
+      []
+    )
+
+  const syncConversation =
+    useCallback(
+      async (
+        targetConversationId: string
+      ) => {
+        let cursor =
+          latestSequenceRef.current
+
+        let acknowledgedSequence =
+          cursor
+
+        try {
+          for (
+            let batch = 0;
+            batch < 20;
+            batch += 1
+          ) {
+            const response =
+              await getBuyerMessages(
+                targetConversationId,
+                {
+                  limit: 100,
+                  afterSequence:
+                    cursor
+                }
+              )
+
+            if (
+              activeConversationRef.current !==
+              targetConversationId
+            ) {
+              return
+            }
+
+            setCounterpartyReceipt(
+              response.counterpartyReceipt || {
+                deliveredSequence: 0,
+                readSequence: 0
+              }
+            )
+
+            if (
+              response.messages.length ===
+              0
+            ) {
+              break
+            }
+
+            setMessages(
+              current =>
+                mergeChatMessages(
+                  current,
+                  response.messages
+                )
+            )
+
+            const newest =
+              response.messages.reduce(
+                (
+                  highest,
+                  message
+                ) =>
+                  Math.max(
+                    highest,
+                    message.sequence
+                  ),
+                cursor
+              )
+
+            cursor =
+              newest
+
+            acknowledgedSequence =
+              Math.max(
+                acknowledgedSequence,
+                newest
+              )
+
+            latestSequenceRef.current =
+              Math.max(
+                latestSequenceRef.current,
+                newest
+              )
+
+            if (
+              response.messages.length <
+              100
+            ) {
+              break
+            }
+          }
+
+          if (
+            acknowledgedSequence > 0
+          ) {
+            await Promise.allSettled([
+              markBuyerDelivered(
+                targetConversationId,
+                acknowledgedSequence
+              ),
+
+              markBuyerRead(
+                targetConversationId,
+                acknowledgedSequence
+              )
+            ])
+          }
+        } catch (
+          requestError
+        ) {
+          console.error(
+            '[buyer-chat] realtime sync failed',
+            requestError
           )
         }
       },
@@ -383,8 +588,22 @@ export default function AccountMessagesPage() {
 
   useEffect(
     () => {
+      activeConversationRef.current =
+        conversationId
+
+      latestSequenceRef.current =
+        0
+
+      setCounterpartyReceipt({
+        deliveredSequence: 0,
+        readSequence: 0
+      })
+
+      setSellerOnline(null)
+      setSellerTyping(false)
+      setMessages([])
+
       if (!conversationId) {
-        setMessages([])
         return
       }
 
@@ -406,25 +625,81 @@ export default function AccountMessagesPage() {
         return
       }
 
-      let socket:
-        Socket | null = null
+      setConnectionState(
+        'connecting'
+      )
 
       try {
-        socket =
+        const socket =
           createBuyerChatSocket()
 
         socketRef.current =
           socket
 
-        socket.on(
-          'conversation:changed',
+        const handleConnect =
+          () => {
+            setConnectionState(
+              'connected'
+            )
+
+            const activeConversation =
+              activeConversationRef.current
+
+            if (
+              activeConversation
+            ) {
+              socket.emit(
+                'conversation:join',
+                {
+                  conversationId:
+                    activeConversation
+                }
+              )
+
+              void syncConversation(
+                activeConversation
+              )
+            }
+
+            void loadInbox()
+          }
+
+        const handleDisconnect =
+          () => {
+            setSellerOnline(null)
+            setSellerTyping(false)
+
+            setConnectionState(
+              navigator.onLine
+                ? 'reconnecting'
+                : 'offline'
+            )
+          }
+
+        const handleConnectError =
+          () => {
+            setConnectionState(
+              navigator.onLine
+                ? 'reconnecting'
+                : 'offline'
+            )
+          }
+
+        const handleReconnectAttempt =
+          () => {
+            setConnectionState(
+              navigator.onLine
+                ? 'reconnecting'
+                : 'offline'
+            )
+          }
+
+        const handleConversationChanged =
           () => {
             void loadInbox()
           }
-        )
 
-        socket.on(
-          'message:available',
+        const handleMessageAvailable =
           (
             event: {
               conversationId?: string
@@ -433,45 +708,242 @@ export default function AccountMessagesPage() {
           ) => {
             void loadInbox()
 
+            const activeConversation =
+              activeConversationRef.current
+
             if (
-              event
-                .conversationId &&
-              event
-                .conversationId ===
-                conversationId
+              event.conversationId &&
+              activeConversation &&
+              event.conversationId ===
+                activeConversation
             ) {
-              void loadConversation(
-                event
-                  .conversationId
+              void syncConversation(
+                activeConversation
               )
             }
           }
+
+        const handleReceiptUpdated =
+          (
+            event: {
+              conversationId?: string
+              actorType?: string
+              deliveredSequence?: number
+              readSequence?: number
+            }
+          ) => {
+            if (
+              event.conversationId !==
+                activeConversationRef.current ||
+              event.actorType !==
+                'seller'
+            ) {
+              return
+            }
+
+            const deliveredSequence =
+              Number(
+                event.deliveredSequence ||
+                0
+              )
+
+            const readSequence =
+              Number(
+                event.readSequence ||
+                0
+              )
+
+            setCounterpartyReceipt(
+              current => ({
+                deliveredSequence:
+                  Math.max(
+                    current.deliveredSequence,
+                    deliveredSequence
+                  ),
+
+                readSequence:
+                  Math.max(
+                    current.readSequence,
+                    readSequence
+                  )
+              })
+            )
+          }
+
+        const handleTypingUpdated =
+          (
+            event: {
+              conversationId?: string
+              actorType?: string
+              isTyping?: boolean
+            }
+          ) => {
+            if (
+              event.conversationId !==
+                activeConversationRef.current ||
+              event.actorType !==
+                'seller'
+            ) {
+              return
+            }
+
+            setSellerTyping(
+              event.isTyping === true
+            )
+          }
+
+        const handlePresenceUpdated =
+          (
+            event: {
+              conversationId?: string
+              actorType?: string
+              online?: boolean
+            }
+          ) => {
+            if (
+              event.conversationId !==
+                activeConversationRef.current ||
+              event.actorType !==
+                'seller'
+            ) {
+              return
+            }
+
+            setSellerOnline(
+              event.online === true
+            )
+
+            if (
+              event.online !== true
+            ) {
+              setSellerTyping(false)
+            }
+          }
+
+        const handleOffline =
+          () => {
+            setSellerOnline(null)
+            setSellerTyping(false)
+            setConnectionState(
+              'offline'
+            )
+          }
+
+        const handleOnline =
+          () => {
+            if (
+              !socket.connected
+            ) {
+              setConnectionState(
+                'reconnecting'
+              )
+
+              socket.connect()
+            }
+          }
+
+        socket.on(
+          'connect',
+          handleConnect
+        )
+
+        socket.on(
+          'disconnect',
+          handleDisconnect
+        )
+
+        socket.on(
+          'connect_error',
+          handleConnectError
+        )
+
+        socket.on(
+          'conversation:changed',
+          handleConversationChanged
+        )
+
+        socket.on(
+          'message:available',
+          handleMessageAvailable
+        )
+
+        socket.on(
+          'receipt:updated',
+          handleReceiptUpdated
+        )
+
+        socket.on(
+          'typing:updated',
+          handleTypingUpdated
+        )
+
+        socket.on(
+          'presence:updated',
+          handlePresenceUpdated
+        )
+
+        socket.io.on(
+          'reconnect_attempt',
+          handleReconnectAttempt
+        )
+
+        window.addEventListener(
+          'offline',
+          handleOffline
+        )
+
+        window.addEventListener(
+          'online',
+          handleOnline
         )
 
         socket.connect()
+
+        return () => {
+          window.removeEventListener(
+            'offline',
+            handleOffline
+          )
+
+          window.removeEventListener(
+            'online',
+            handleOnline
+          )
+
+          socket.io.off(
+            'reconnect_attempt',
+            handleReconnectAttempt
+          )
+
+          socket.removeAllListeners()
+          socket.disconnect()
+
+          if (
+            socketRef.current ===
+            socket
+          ) {
+            socketRef.current =
+              null
+          }
+        }
       } catch (
         connectionError
       ) {
+        setConnectionState(
+          navigator.onLine
+            ? 'reconnecting'
+            : 'offline'
+        )
+
         console.error(
           '[buyer-chat] realtime connection failed',
           connectionError
         )
       }
-
-      return () => {
-        if (socket) {
-          socket.removeAllListeners()
-          socket.disconnect()
-        }
-
-        socketRef.current =
-          null
-      }
     },
     [
-      conversationId,
-      loadConversation,
-      loadInbox
+      loadInbox,
+      syncConversation
     ]
   )
 
@@ -482,35 +954,20 @@ export default function AccountMessagesPage() {
 
       if (
         !socket ||
-        !conversationId
+        !conversationId ||
+        !socket.connected
       ) {
         return
       }
 
-      const join = () => {
-        socket.emit(
-          'conversation:join',
-          {
-            conversationId
-          }
-        )
-      }
-
-      if (socket.connected) {
-        join()
-      } else {
-        socket.once(
-          'connect',
-          join
-        )
-      }
+      socket.emit(
+        'conversation:join',
+        {
+          conversationId
+        }
+      )
 
       return () => {
-        socket.off(
-          'connect',
-          join
-        )
-
         if (
           socket.connected
         ) {
@@ -582,6 +1039,13 @@ export default function AccountMessagesPage() {
 
     setIsSending(true)
     setError('')
+
+    socketRef.current?.emit(
+      'typing:stop',
+      {
+        conversationId
+      }
+    )
 
     try {
       await sendBuyerMessage(
@@ -816,8 +1280,21 @@ export default function AccountMessagesPage() {
                         )}
                       </h2>
 
-                      <p className="text-xs font-semibold text-green-700">
-                        Marketplace conversation
+                      <p className="text-xs font-semibold text-slate-500">
+                        {sellerTyping
+                          ? 'Seller is typing…'
+                          : connectionState === 'connected'
+                            ? sellerOnline === true
+                              ? 'Seller online'
+                              : sellerOnline === false
+                                ? 'Seller offline'
+                                : 'Connected'
+                            : connectionState === 'reconnecting'
+                              ? 'Reconnecting…'
+                              : connectionState === 'offline'
+                                ? 'Offline'
+                                : 'Connecting…'}
+                        {' · Marketplace conversation'}
                       </p>
                     </div>
                   </header>
@@ -859,11 +1336,12 @@ export default function AccountMessagesPage() {
                                 ?.type ===
                               'buyer'
 
+                            const messageKind =
+                              message.messageType ||
+                              message.type
+
                             const isSystem =
-                              !message.sender ||
-                              message.messageType ===
-                                'system_notice' ||
-                              message.type ===
+                              messageKind ===
                                 'system_notice'
 
                             if (isSystem) {
@@ -915,6 +1393,19 @@ export default function AccountMessagesPage() {
                                     {formatChatTime(
                                       message.createdAt
                                     )}
+
+                                    {isBuyer && (
+                                      <>
+                                        {' · '}
+                                        {message.sequence <=
+                                        counterpartyReceipt.readSequence
+                                          ? 'Read'
+                                          : message.sequence <=
+                                              counterpartyReceipt.deliveredSequence
+                                            ? 'Delivered'
+                                            : 'Sent'}
+                                      </>
+                                    )}
                                   </p>
                                 </div>
                               </div>
@@ -942,14 +1433,48 @@ export default function AccountMessagesPage() {
                         value={
                           draft
                         }
-                        onChange={event =>
-                          setDraft(
+                        onChange={event => {
+                          const nextDraft =
                             event.target.value.slice(
                               0,
                               4000
                             )
+
+                          setDraft(
+                            nextDraft
                           )
-                        }
+
+                          const socket =
+                            socketRef.current
+
+                          if (
+                            !conversationId ||
+                            !socket?.connected
+                          ) {
+                            return
+                          }
+
+                          socket.emit(
+                            nextDraft.trim()
+                              ? 'typing:start'
+                              : 'typing:stop',
+                            {
+                              conversationId
+                            }
+                          )
+                        }}
+                        onBlur={() => {
+                          if (
+                            conversationId
+                          ) {
+                            socketRef.current?.emit(
+                              'typing:stop',
+                              {
+                                conversationId
+                              }
+                            )
+                          }
+                        }}
                         onKeyDown={event => {
                           if (
                             event.key ===

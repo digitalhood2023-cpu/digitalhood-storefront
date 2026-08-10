@@ -34,6 +34,11 @@ export type ChatMessage = {
   createdAt?: string
 }
 
+export type ChatReceiptSummary = {
+  deliveredSequence: number
+  readSequence: number
+}
+
 export type ChatInboxItem = {
   conversationId: string
   conversationType?: string
@@ -514,8 +519,28 @@ export async function getBuyerMessages(
       ? response.messages
       : []
 
+  const receiptRow =
+    asRecord(
+      response.counterpartyReceipt
+    )
+
   return {
     ...response,
+
+    counterpartyReceipt:
+      Object.keys(receiptRow).length
+        ? {
+            deliveredSequence:
+              numberValue(
+                receiptRow.deliveredSequence
+              ),
+
+            readSequence:
+              numberValue(
+                receiptRow.readSequence
+              )
+          } satisfies ChatReceiptSummary
+        : null,
 
     messages:
       source
@@ -593,15 +618,29 @@ export function markBuyerDelivered(
   )
 }
 
-export function markBuyerRead(
+export async function markBuyerRead(
   conversationId: string,
   sequence?: number
 ) {
-  return updateBuyerReceipt(
-    conversationId,
-    'read',
-    sequence
-  )
+  const receipt =
+    await updateBuyerReceipt(
+      conversationId,
+      'read',
+      sequence
+    )
+
+  if (
+    typeof window !==
+    'undefined'
+  ) {
+    window.dispatchEvent(
+      new Event(
+        'digitalhood:chat-unread-refresh'
+      )
+    )
+  }
+
+  return receipt
 }
 
 export function createBuyerChatSocket():
