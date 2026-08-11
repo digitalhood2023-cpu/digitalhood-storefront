@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import {
   useParams,
 } from 'react-router-dom'
 import {
+  ArrowDown,
   ArrowLeft,
   Loader2,
   MessageCircle,
@@ -232,6 +234,21 @@ export default function AccountMessagesPage() {
   ] = useState(false)
 
   const [
+    isLoadingOlder,
+    setIsLoadingOlder
+  ] = useState(false)
+
+  const [
+    hasOlderMessages,
+    setHasOlderMessages
+  ] = useState(false)
+
+  const [
+    showScrollToBottom,
+    setShowScrollToBottom
+  ] = useState(false)
+
+  const [
     draft,
     setDraft
   ] = useState('')
@@ -291,6 +308,28 @@ export default function AccountMessagesPage() {
 
   const joinAttemptRef =
     useRef(0)
+
+  const messageScrollRef =
+    useRef<HTMLDivElement | null>(
+      null
+    )
+
+  const loadingOlderRef =
+    useRef(false)
+
+  const isNearBottomRef =
+    useRef(true)
+
+  const scrollToBottomRef =
+    useRef(false)
+
+  const preserveScrollRef =
+    useRef<{
+      scrollHeight: number
+      scrollTop: number
+    } | null>(
+      null
+    )
 
   const messageEndRef =
     useRef<HTMLDivElement | null>(
@@ -375,7 +414,7 @@ export default function AccountMessagesPage() {
             await getBuyerMessages(
               targetConversationId,
               {
-                limit: 100
+                limit: 50
               }
             )
 
@@ -391,6 +430,25 @@ export default function AccountMessagesPage() {
               deliveredSequence: 0,
               readSequence: 0
             }
+          )
+
+          setHasOlderMessages(
+            response.page.hasMore &&
+            (
+              response.page
+                .firstSequence ||
+              0
+            ) > 1
+          )
+
+          isNearBottomRef.current =
+            true
+
+          scrollToBottomRef.current =
+            true
+
+          setShowScrollToBottom(
+            false
           )
 
           setMessages(
@@ -436,12 +494,141 @@ export default function AccountMessagesPage() {
               : 'Unable to load this conversation.'
           )
         } finally {
-          setIsLoadingMessages(
-            false
-          )
+          if (
+            activeConversationRef.current ===
+              targetConversationId
+          ) {
+            setIsLoadingMessages(
+              false
+            )
+          }
         }
       },
       []
+    )
+
+  const loadOlderMessages =
+    useCallback(
+      async () => {
+        if (
+          !conversationId ||
+          !hasOlderMessages ||
+          loadingOlderRef.current
+        ) {
+          return
+        }
+
+        const firstSequence =
+          messages[0]?.sequence
+
+        if (!firstSequence) {
+          setHasOlderMessages(
+            false
+          )
+
+          return
+        }
+
+        loadingOlderRef.current =
+          true
+
+        setIsLoadingOlder(
+          true
+        )
+
+        try {
+          const response =
+            await getBuyerMessages(
+              conversationId,
+              {
+                limit: 50,
+                beforeSequence:
+                  firstSequence
+              }
+            )
+
+          if (
+            activeConversationRef.current !==
+              conversationId
+          ) {
+            return
+          }
+
+          setCounterpartyReceipt(
+            response.counterpartyReceipt || {
+              deliveredSequence: 0,
+              readSequence: 0
+            }
+          )
+
+          if (
+            response.messages.length ===
+              0
+          ) {
+            setHasOlderMessages(
+              false
+            )
+
+            return
+          }
+
+          const scrollContainer =
+            messageScrollRef.current
+
+          if (scrollContainer) {
+            preserveScrollRef.current = {
+              scrollHeight:
+                scrollContainer
+                  .scrollHeight,
+
+              scrollTop:
+                scrollContainer
+                  .scrollTop
+            }
+          }
+
+          setHasOlderMessages(
+            response.page.hasMore &&
+            (
+              response.page
+                .firstSequence ||
+              0
+            ) > 1
+          )
+
+          setMessages(
+            current =>
+              mergeChatMessages(
+                response.messages,
+                current
+              )
+          )
+        } catch (
+          requestError
+        ) {
+          console.error(
+            '[buyer-chat] older history load failed',
+            requestError
+          )
+        } finally {
+          loadingOlderRef.current =
+            false
+
+          if (
+            activeConversationRef.current ===
+              conversationId
+          ) {
+            setIsLoadingOlder(
+              false
+            )
+          }
+        }
+      },
+      [
+        conversationId,
+        hasOlderMessages,
+        messages
+      ]
     )
 
   const syncConversation =
@@ -490,6 +677,17 @@ export default function AccountMessagesPage() {
               0
             ) {
               break
+            }
+
+            if (
+              isNearBottomRef.current
+            ) {
+              scrollToBottomRef.current =
+                true
+            } else {
+              setShowScrollToBottom(
+                true
+              )
             }
 
             setMessages(
@@ -541,11 +739,6 @@ export default function AccountMessagesPage() {
           ) {
             await Promise.allSettled([
               markBuyerDelivered(
-                targetConversationId,
-                acknowledgedSequence
-              ),
-
-              markBuyerRead(
                 targetConversationId,
                 acknowledgedSequence
               )
@@ -609,6 +802,22 @@ export default function AccountMessagesPage() {
 
       setSellerOnline(null)
       setSellerTyping(false)
+
+      loadingOlderRef.current =
+        false
+
+      preserveScrollRef.current =
+        null
+
+      scrollToBottomRef.current =
+        false
+
+      isNearBottomRef.current =
+        true
+
+      setIsLoadingOlder(false)
+      setHasOlderMessages(false)
+      setShowScrollToBottom(false)
       setMessages([])
 
       if (!conversationId) {
@@ -1113,40 +1322,145 @@ export default function AccountMessagesPage() {
     [conversationId]
   )
 
-  useEffect(
+  const markVisibleMessagesRead =
+    useCallback(
+      () => {
+        const activeConversation =
+          activeConversationRef.current
+
+        const latest =
+          latestSequenceRef.current
+
+        if (
+          !activeConversation ||
+          latest < 1
+        ) {
+          return
+        }
+
+        void markBuyerRead(
+          activeConversation,
+          latest
+        ).then(
+          () =>
+            loadInbox()
+        ).catch(
+          () => undefined
+        )
+      },
+      [
+        loadInbox
+      ]
+    )
+
+  useLayoutEffect(
     () => {
-      messageEndRef
-        .current
-        ?.scrollIntoView({
-          behavior: 'smooth'
-        })
+      const container =
+        messageScrollRef.current
+
+      /*
+       * Initial history may be populated before
+       * receipt acknowledgement finishes.
+       *
+       * Keep the pending scroll-to-bottom flag
+       * until the real message list replaces the
+       * loading placeholder.
+       */
+      if (
+        !container ||
+        isLoadingMessages
+      ) {
+        return
+      }
+
+      const preserved =
+        preserveScrollRef.current
+
+      if (preserved) {
+        const addedHeight =
+          container.scrollHeight -
+          preserved.scrollHeight
+
+        container.scrollTop =
+          preserved.scrollTop +
+          addedHeight
+
+        preserveScrollRef.current =
+          null
+
+        return
+      }
+
+      if (
+        scrollToBottomRef.current
+      ) {
+        container.scrollTop =
+          container.scrollHeight
+
+        scrollToBottomRef.current =
+          false
+
+        isNearBottomRef.current =
+          true
+
+        setShowScrollToBottom(
+          false
+        )
+      }
     },
-    [messages.length]
+    [
+      messages,
+      isLoadingMessages
+    ]
   )
+
+  const scrollToLatest =
+    useCallback(
+      () => {
+        const container =
+          messageScrollRef.current
+
+        if (!container) {
+          return
+        }
+
+        container.scrollTo({
+          top:
+            container.scrollHeight,
+          behavior:
+            'smooth'
+        })
+
+        isNearBottomRef.current =
+          true
+
+        setShowScrollToBottom(
+          false
+        )
+
+        markVisibleMessagesRead()
+      },
+      [
+        markVisibleMessagesRead
+      ]
+    )
 
   useEffect(
     () => {
       if (
         !conversationId ||
-        latestSequence < 1
+        latestSequence < 1 ||
+        !isNearBottomRef.current
       ) {
         return
       }
 
-      void markBuyerRead(
-        conversationId,
-        latestSequence
-      ).then(
-        () =>
-          loadInbox()
-      ).catch(
-        () => undefined
-      )
+      markVisibleMessagesRead()
     },
     [
       conversationId,
       latestSequence,
-      loadInbox
+      markVisibleMessagesRead
     ]
   )
 
@@ -1242,7 +1556,7 @@ export default function AccountMessagesPage() {
             </div>
           )}
 
-          <div className="grid min-h-[68vh] overflow-hidden rounded-[2rem] bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="grid h-[72vh] min-h-[560px] max-h-[760px] overflow-hidden rounded-[2rem] bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)]">
             <aside
               className={`border-r border-slate-100 ${
                 conversationId
@@ -1373,7 +1687,7 @@ export default function AccountMessagesPage() {
                 conversationId
                   ? 'flex'
                   : 'hidden md:flex'
-              } min-w-0 flex-col`}
+              } min-h-0 min-w-0 flex-col`}
             >
               {!conversationId ? (
                 <div className="flex flex-1 items-center justify-center p-8 text-center">
@@ -1444,7 +1758,49 @@ export default function AccountMessagesPage() {
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5">
+                  <div className="relative min-h-0 flex-1">
+                    <div
+                      ref={messageScrollRef}
+                      onScroll={event => {
+                        const container =
+                          event.currentTarget
+
+                        const distanceFromBottom =
+                          container.scrollHeight -
+                          container.scrollTop -
+                          container.clientHeight
+
+                        const nearBottom =
+                          distanceFromBottom <=
+                          140
+
+                        const wasNearBottom =
+                          isNearBottomRef.current
+
+                        isNearBottomRef.current =
+                          nearBottom
+
+                        if (nearBottom) {
+                          setShowScrollToBottom(
+                            false
+                          )
+
+                          if (!wasNearBottom) {
+                            markVisibleMessagesRead()
+                          }
+                        }
+
+                        if (
+                          container.scrollTop <=
+                            72 &&
+                          hasOlderMessages &&
+                          !loadingOlderRef.current
+                        ) {
+                          void loadOlderMessages()
+                        }
+                      }}
+                      className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-5"
+                    >
                     {isLoadingMessages ? (
                       <div className="flex h-full min-h-64 items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-dh-primary" />
@@ -1554,6 +1910,28 @@ export default function AccountMessagesPage() {
                           }
                         />
                       </div>
+                    )}
+                    </div>
+
+                    {isLoadingOlder && (
+                      <div className="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/95 px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading earlier messages…
+                      </div>
+                    )}
+
+                    {showScrollToBottom && (
+                      <button
+                        type="button"
+                        onClick={
+                          scrollToLatest
+                        }
+                        className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white shadow-lg transition hover:bg-dh-secondary"
+                        aria-label="Scroll to latest messages"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                        New messages
+                      </button>
                     )}
                   </div>
 

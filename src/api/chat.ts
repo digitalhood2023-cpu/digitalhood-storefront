@@ -39,6 +39,13 @@ export type ChatReceiptSummary = {
   readSequence: number
 }
 
+export type ChatMessagePage = {
+  count: number
+  hasMore: boolean
+  firstSequence: number | null
+  latestSequence: number | null
+}
+
 export type ChatInboxItem = {
   conversationId: string
   conversationType?: string
@@ -90,6 +97,20 @@ function stringValue(
   }
 
   return ''
+}
+
+function nullableSequence(
+  value: unknown
+): number | null {
+  const parsed =
+    Number(value)
+
+  return (
+    Number.isFinite(parsed) &&
+    parsed > 0
+  )
+    ? parsed
+    : null
 }
 
 function numberValue(
@@ -524,6 +545,11 @@ export async function getBuyerMessages(
       response.counterpartyReceipt
     )
 
+  const pageRow =
+    asRecord(
+      response.page
+    )
+
   return {
     ...response,
 
@@ -552,7 +578,27 @@ export async function getBuyerMessages(
             value
           ): value is ChatMessage =>
             value !== null
+        ),
+
+    page: {
+      count:
+        numberValue(
+          pageRow.count
+        ),
+
+      hasMore:
+        pageRow.hasMore === true,
+
+      firstSequence:
+        nullableSequence(
+          pageRow.firstSequence
+        ),
+
+      latestSequence:
+        nullableSequence(
+          pageRow.latestSequence
         )
+    } satisfies ChatMessagePage
   }
 }
 
