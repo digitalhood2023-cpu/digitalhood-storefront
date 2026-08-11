@@ -284,6 +284,14 @@ export default function AccountMessagesPage() {
       null
     )
 
+  const joinedConversationRef =
+    useRef<string | null>(
+      null
+    )
+
+  const joinAttemptRef =
+    useRef(0)
+
   const messageEndRef =
     useRef<HTMLDivElement | null>(
       null
@@ -645,6 +653,12 @@ export default function AccountMessagesPage() {
             const activeConversation =
               activeConversationRef.current
 
+            joinedConversationRef.current =
+              null
+
+            const joinAttempt =
+              ++joinAttemptRef.current
+
             if (
               activeConversation
             ) {
@@ -653,11 +667,55 @@ export default function AccountMessagesPage() {
                 {
                   conversationId:
                     activeConversation
-                }
-              )
+                },
+                (
+                  response: unknown
+                ) => {
+                  const ack =
+                    response &&
+                    typeof response ===
+                      'object'
+                      ? response as
+                          Record<
+                            string,
+                            unknown
+                          >
+                      : null
 
-              void syncConversation(
-                activeConversation
+                  if (
+                    joinAttemptRef.current !==
+                      joinAttempt ||
+                    !socket.connected ||
+                    activeConversationRef
+                      .current !==
+                      activeConversation
+                  ) {
+                    return
+                  }
+
+                  if (
+                    ack?.ok !== true ||
+                    String(
+                      ack.conversationId ||
+                      ''
+                    ) !==
+                      activeConversation
+                  ) {
+                    joinedConversationRef
+                      .current =
+                        null
+
+                    return
+                  }
+
+                  joinedConversationRef
+                    .current =
+                      activeConversation
+
+                  void syncConversation(
+                    activeConversation
+                  )
+                }
               )
             }
 
@@ -666,6 +724,11 @@ export default function AccountMessagesPage() {
 
         const handleDisconnect =
           () => {
+            joinAttemptRef.current += 1
+
+            joinedConversationRef.current =
+              null
+
             setSellerOnline(null)
             setSellerTyping(false)
 
@@ -960,14 +1023,81 @@ export default function AccountMessagesPage() {
         return
       }
 
+      joinedConversationRef.current =
+        null
+
+      const joinAttempt =
+        ++joinAttemptRef.current
+
       socket.emit(
         'conversation:join',
         {
           conversationId
+        },
+        (
+          response: unknown
+        ) => {
+          const ack =
+            response &&
+            typeof response ===
+              'object'
+              ? response as
+                  Record<
+                    string,
+                    unknown
+                  >
+              : null
+
+          if (
+            joinAttemptRef.current !==
+              joinAttempt ||
+            !socket.connected ||
+            activeConversationRef
+              .current !==
+              conversationId
+          ) {
+            return
+          }
+
+          if (
+            ack?.ok === true &&
+            String(
+              ack.conversationId ||
+              ''
+            ) ===
+              conversationId
+          ) {
+            joinedConversationRef
+              .current =
+                conversationId
+          }
         }
       )
 
       return () => {
+        if (
+          joinAttemptRef.current ===
+            joinAttempt
+        ) {
+          joinAttemptRef.current += 1
+        }
+
+        if (
+          joinedConversationRef
+            .current ===
+              conversationId
+        ) {
+          socket.emit(
+            'typing:stop',
+            {
+              conversationId
+            }
+          )
+
+          joinedConversationRef.current =
+            null
+        }
+
         if (
           socket.connected
         ) {
@@ -1040,12 +1170,17 @@ export default function AccountMessagesPage() {
     setIsSending(true)
     setError('')
 
-    socketRef.current?.emit(
-      'typing:stop',
-      {
+    if (
+      joinedConversationRef.current ===
         conversationId
-      }
-    )
+    ) {
+      socketRef.current?.emit(
+        'typing:stop',
+        {
+          conversationId
+        }
+      )
+    }
 
     try {
       await sendBuyerMessage(
@@ -1449,7 +1584,10 @@ export default function AccountMessagesPage() {
 
                           if (
                             !conversationId ||
-                            !socket?.connected
+                            !socket?.connected ||
+                            joinedConversationRef
+                              .current !==
+                                conversationId
                           ) {
                             return
                           }
@@ -1465,7 +1603,10 @@ export default function AccountMessagesPage() {
                         }}
                         onBlur={() => {
                           if (
-                            conversationId
+                            conversationId &&
+                            joinedConversationRef
+                              .current ===
+                                conversationId
                           ) {
                             socketRef.current?.emit(
                               'typing:stop',
