@@ -46,6 +46,14 @@ export type ChatMessagePage = {
   latestSequence: number | null
 }
 
+export type ChatCounterparty = {
+  type: string
+  id: string
+  displayName: string | null
+  avatarUrl: string | null
+  lastSeenAt: string | null
+}
+
 export type ChatInboxItem = {
   conversationId: string
   conversationType?: string
@@ -54,6 +62,7 @@ export type ChatInboxItem = {
   storeName?: string
   sellerStoreName?: string
   counterpartyName?: string
+  counterparty: ChatCounterparty | null
   latestSequence: number
   unreadCount: number
   preview?: string | null
@@ -258,6 +267,52 @@ export async function getBuyerInbox(
           return null
         }
 
+        const counterpartyRow =
+          asRecord(
+            row.counterparty
+          )
+
+        const counterpartyType =
+          stringValue(
+            counterpartyRow.type
+          )
+
+        const counterpartyId =
+          stringValue(
+            counterpartyRow.id
+          )
+
+        const counterparty:
+          ChatCounterparty | null =
+            counterpartyType &&
+            counterpartyId
+              ? {
+                  type:
+                    counterpartyType,
+
+                  id:
+                    counterpartyId,
+
+                  displayName:
+                    stringValue(
+                      counterpartyRow
+                        .displayName
+                    ) || null,
+
+                  avatarUrl:
+                    stringValue(
+                      counterpartyRow
+                        .avatarUrl
+                    ) || null,
+
+                  lastSeenAt:
+                    stringValue(
+                      counterpartyRow
+                        .lastSeenAt
+                    ) || null
+                }
+              : null
+
         return {
           conversationId,
 
@@ -280,6 +335,7 @@ export async function getBuyerInbox(
 
           storeName:
             stringValue(
+              counterparty?.displayName,
               row.storeName,
               row.sellerStoreName,
               row.counterpartyName
@@ -293,10 +349,13 @@ export async function getBuyerInbox(
 
           counterpartyName:
             stringValue(
+              counterparty?.displayName,
               row.counterpartyName,
               row.storeName,
               row.sellerStoreName
             ),
+
+          counterparty,
 
           latestSequence:
             numberValue(

@@ -16,6 +16,8 @@ import {
 import {
   ArrowDown,
   ArrowLeft,
+  Check,
+  CheckCheck,
   Loader2,
   MessageCircle,
   RefreshCw,
@@ -68,10 +70,103 @@ function getConversationTitle(
   item?: ChatInboxItem
 ) {
   return (
+    item?.counterparty?.displayName ||
     item?.counterpartyName ||
     item?.storeName ||
     item?.sellerStoreName ||
     'Marketplace seller'
+  )
+}
+
+function formatLastSeen(
+  value?: string | null
+) {
+  if (!value) {
+    return 'Seller offline'
+  }
+
+  return `Last seen ${formatChatTime(
+    value
+  )}`
+}
+
+function getInitials(
+  value: string,
+  fallback: string
+) {
+  const parts =
+    value
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+
+  if (parts.length === 0) {
+    return fallback
+  }
+
+  return parts
+    .slice(0, 2)
+    .map(
+      part =>
+        part
+          .charAt(0)
+          .toUpperCase()
+    )
+    .join('')
+}
+
+function ConversationAvatar({
+  item,
+  online = false,
+  size = 'md',
+}: {
+  item?: ChatInboxItem
+  online?: boolean
+  size?: 'sm' | 'md'
+}) {
+  const name =
+    getConversationTitle(item)
+
+  const avatarUrl =
+    item?.counterparty
+      ?.avatarUrl ||
+    ''
+
+  const sizeClass =
+    size === 'sm'
+      ? 'h-10 w-10 text-xs'
+      : 'h-11 w-11 text-sm'
+
+  return (
+    <div
+      className={`relative flex ${sizeClass} shrink-0 items-center justify-center overflow-visible rounded-full bg-dh-secondary/15 font-black text-dh-primary`}
+    >
+      <span>
+        {getInitials(
+          name,
+          'S'
+        )}
+      </span>
+
+      {avatarUrl && (
+        <img
+          src={avatarUrl}
+          alt={`${name} avatar`}
+          className="absolute inset-0 h-full w-full rounded-full object-cover"
+          onError={event => {
+            event.currentTarget.style.display =
+              'none'
+          }}
+        />
+      )}
+
+      {online && (
+        <span
+          className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"
+          aria-label="Online"
+        />
+      )}
+    </div>
   )
 }
 
@@ -1089,6 +1184,8 @@ export default function AccountMessagesPage() {
               event.online !== true
             ) {
               setSellerTyping(false)
+
+              void loadInbox()
             }
           }
 
@@ -1633,15 +1730,15 @@ export default function AccountMessagesPage() {
                           }`}
                         >
                           <div className="flex items-start gap-3">
-                            <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                                active
-                                  ? 'bg-white/15'
-                                  : 'bg-dh-secondary/15 text-dh-primary'
-                              }`}
-                            >
-                              <Store className="h-4 w-4" />
-                            </div>
+                            <ConversationAvatar
+                              item={item}
+                              size="sm"
+                              online={
+                                active &&
+                                sellerOnline ===
+                                  true
+                              }
+                            />
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-2">
@@ -1718,9 +1815,14 @@ export default function AccountMessagesPage() {
                       <ArrowLeft className="h-4 w-4" />
                     </button>
 
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-dh-primary text-white">
-                      <Store className="h-5 w-5" />
-                    </div>
+                    <ConversationAvatar
+                      item={
+                        selectedConversation
+                      }
+                      online={
+                        sellerOnline === true
+                      }
+                    />
 
                     <div className="min-w-0 flex-1">
                       <h2 className="truncate font-display text-lg font-black text-dh-primary">
@@ -1734,9 +1836,13 @@ export default function AccountMessagesPage() {
                           ? 'Seller is typing…'
                           : connectionState === 'connected'
                             ? sellerOnline === true
-                              ? 'Seller online'
+                              ? 'Online'
                               : sellerOnline === false
-                                ? 'Seller offline'
+                                ? formatLastSeen(
+                                    selectedConversation
+                                      ?.counterparty
+                                      ?.lastSeenAt
+                                  )
                                 : 'Connected'
                             : connectionState === 'reconnecting'
                               ? 'Reconnecting…'
@@ -1888,13 +1994,25 @@ export default function AccountMessagesPage() {
                                     {isBuyer && (
                                       <>
                                         {' · '}
+
                                         {message.sequence <=
-                                        counterpartyReceipt.readSequence
-                                          ? 'Read'
-                                          : message.sequence <=
-                                              counterpartyReceipt.deliveredSequence
-                                            ? 'Delivered'
-                                            : 'Sent'}
+                                        counterpartyReceipt.readSequence ? (
+                                          <CheckCheck
+                                            className="inline h-3.5 w-3.5 align-[-2px] text-dh-secondary"
+                                            aria-label="Read"
+                                          />
+                                        ) : message.sequence <=
+                                          counterpartyReceipt.deliveredSequence ? (
+                                          <CheckCheck
+                                            className="inline h-3.5 w-3.5 align-[-2px] text-white/60"
+                                            aria-label="Delivered"
+                                          />
+                                        ) : (
+                                          <Check
+                                            className="inline h-3.5 w-3.5 align-[-2px] text-white/60"
+                                            aria-label="Sent"
+                                          />
+                                        )}
                                       </>
                                     )}
                                   </p>
