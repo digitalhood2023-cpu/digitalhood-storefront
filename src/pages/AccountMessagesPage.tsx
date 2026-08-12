@@ -24,6 +24,7 @@ import {
   Send,
   ShieldCheck,
   Store,
+  X,
 } from 'lucide-react'
 import type {
   Socket
@@ -38,13 +39,21 @@ import {
   markBuyerDelivered,
   markBuyerRead,
   sendBuyerMessage,
+  sendBuyerProduct,
   type ChatInboxItem,
   type ChatMessage,
+  type ChatProductIntent,
   type ChatReceiptSummary,
 } from '@/api/chat'
 import {
   getAccountToken
 } from '@/api/account'
+
+type PendingProductIntent =
+  ChatProductIntent & {
+    conversationId: string
+    clientMessageId: string
+  }
 
 function formatChatTime(
   value?: string
@@ -327,6 +336,18 @@ export default function AccountMessagesPage() {
     isSending,
     setIsSending
   ] = useState(false)
+
+  const [
+    isSendingProduct,
+    setIsSendingProduct
+  ] = useState(false)
+
+  const [
+    pendingProduct,
+    setPendingProduct
+  ] = useState<
+    PendingProductIntent | null
+  >(null)
 
   const [
     isLoadingOlder,
@@ -853,6 +874,52 @@ export default function AccountMessagesPage() {
 
   useEffect(
     () => {
+      const state =
+        location.state as {
+          pendingProduct?:
+            ChatProductIntent
+        } | null
+
+      const product =
+        state?.pendingProduct
+
+      if (
+        !conversationId ||
+        !product?.id
+      ) {
+        return
+      }
+
+      setPendingProduct({
+        ...product,
+
+        conversationId,
+
+        clientMessageId:
+          window.crypto
+            .randomUUID()
+      })
+
+      navigate(
+        location.pathname +
+          location.search,
+        {
+          replace: true,
+          state: null
+        }
+      )
+    },
+    [
+      conversationId,
+      location.pathname,
+      location.search,
+      location.state,
+      navigate
+    ]
+  )
+
+  useEffect(
+    () => {
       if (
         !getAccountToken()
       ) {
@@ -913,6 +980,16 @@ export default function AccountMessagesPage() {
       setIsLoadingOlder(false)
       setHasOlderMessages(false)
       setShowScrollToBottom(false)
+      setIsSendingProduct(false)
+
+      setPendingProduct(
+        current =>
+          current?.conversationId ===
+            conversationId
+            ? current
+            : null
+      )
+
       setMessages([])
 
       if (!conversationId) {
@@ -1573,7 +1650,8 @@ export default function AccountMessagesPage() {
     if (
       !conversationId ||
       !text ||
-      isSending
+      isSending ||
+      isSendingProduct
     ) {
       return
     }
@@ -1618,6 +1696,51 @@ export default function AccountMessagesPage() {
       )
     } finally {
       setIsSending(false)
+    }
+  }
+
+  async function handleSendProduct() {
+    if (
+      !conversationId ||
+      !pendingProduct ||
+      pendingProduct
+        .conversationId !==
+          conversationId ||
+      isSendingProduct ||
+      isSending
+    ) {
+      return
+    }
+
+    setIsSendingProduct(true)
+    setError('')
+
+    try {
+      await sendBuyerProduct(
+        conversationId,
+        pendingProduct.id,
+        pendingProduct.clientMessageId
+      )
+
+      setPendingProduct(null)
+
+      await Promise.all([
+        loadConversation(
+          conversationId
+        ),
+        loadInbox()
+      ])
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestError
+          instanceof Error
+          ? requestError.message
+          : 'Unable to send this product.'
+      )
+    } finally {
+      setIsSendingProduct(false)
     }
   }
 
@@ -1974,7 +2097,9 @@ export default function AccountMessagesPage() {
                                     }
                                   />
 
-                                  {message.text && (
+                                  {message.text &&
+                                    messageKind !==
+                                      'product_card' && (
                                     <p className="whitespace-pre-wrap break-words text-sm font-medium leading-6">
                                       {message.text}
                                     </p>
@@ -2059,6 +2184,81 @@ export default function AccountMessagesPage() {
                     }
                     className="border-t border-slate-100 bg-white p-3 sm:p-4"
                   >
+                    {pendingProduct &&
+                      pendingProduct
+                        .conversationId ===
+                          conversationId && (
+                      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-dh-secondary/30 bg-dh-secondary/10 p-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
+                          {pendingProduct.imageUrl ? (
+                            <img
+                              src={
+                                pendingProduct.imageUrl
+                              }
+                              alt={
+                                pendingProduct.name
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Store className="h-5 w-5 text-dh-primary" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-dh-primary">
+                            Product ready to share
+                          </p>
+
+                          <p className="truncate text-sm font-black text-dh-primary">
+                            {
+                              pendingProduct.name
+                            }
+                          </p>
+
+                          {pendingProduct.price && (
+                            <p className="mt-0.5 text-xs font-bold text-slate-500">
+                              {
+                                pendingProduct.price
+                              }
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleSendProduct()
+                          }
+                          disabled={
+                            isSendingProduct ||
+                            isSending
+                          }
+                          className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isSendingProduct
+                            ? 'Sending…'
+                            : 'Send product'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPendingProduct(
+                              null
+                            )
+                          }
+                          disabled={
+                            isSendingProduct
+                          }
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-dh-primary disabled:opacity-50"
+                          aria-label="Dismiss product"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex items-end gap-2">
                       <textarea
                         value={
@@ -2135,6 +2335,7 @@ export default function AccountMessagesPage() {
                         type="submit"
                         disabled={
                           isSending ||
+                          isSendingProduct ||
                           !draft.trim()
                         }
                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-dh-primary text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"

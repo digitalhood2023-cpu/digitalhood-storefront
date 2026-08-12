@@ -376,7 +376,13 @@ export default function ProductPage() {
         )
 
       navigate(
-        `/account/messages/${response.conversationId}`
+        `/account/messages/${response.conversationId}`,
+        {
+          state: {
+            pendingProduct:
+              response.product
+          }
+        }
       )
     } catch (error) {
       window.alert(

@@ -46,6 +46,13 @@ export type ChatMessagePage = {
   latestSequence: number | null
 }
 
+export type ChatProductIntent = {
+  id: string
+  name: string
+  price: string
+  imageUrl: string
+}
+
 export type ChatCounterparty = {
   type: string
   id: string
@@ -226,9 +233,40 @@ export async function openProductConversation(
     )
   }
 
+  const productRow =
+    asRecord(
+      response.product
+    )
+
+  const product:
+    ChatProductIntent = {
+      id:
+        stringValue(
+          productRow.id,
+          productId
+        ),
+
+      name:
+        stringValue(
+          productRow.name,
+          'Marketplace product'
+        ),
+
+      price:
+        stringValue(
+          productRow.price
+        ),
+
+      imageUrl:
+        stringValue(
+          productRow.imageUrl
+        )
+    }
+
   return {
     ...response,
-    conversationId
+    conversationId,
+    product
   }
 }
 
@@ -659,6 +697,27 @@ export async function getBuyerMessages(
         )
     } satisfies ChatMessagePage
   }
+}
+
+export async function sendBuyerProduct(
+  conversationId: string,
+  productId: string | number,
+  clientMessageId: string
+) {
+  return chatFetch<RawRecord>(
+    `/api/conversations/${encodeURIComponent(
+      conversationId
+    )}/product`,
+    {
+      method: 'POST',
+
+      body:
+        JSON.stringify({
+          productId,
+          clientMessageId
+        })
+    }
+  )
 }
 
 export async function sendBuyerMessage(
