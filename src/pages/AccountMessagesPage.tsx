@@ -20,6 +20,7 @@ import {
   CheckCheck,
   Loader2,
   MessageCircle,
+  PackageCheck,
   RefreshCw,
   Send,
   ShieldCheck,
@@ -39,9 +40,11 @@ import {
   markBuyerDelivered,
   markBuyerRead,
   sendBuyerMessage,
+  sendBuyerOrder,
   sendBuyerProduct,
   type ChatInboxItem,
   type ChatMessage,
+  type ChatOrderIntent,
   type ChatProductIntent,
   type ChatReceiptSummary,
 } from '@/api/chat'
@@ -51,6 +54,12 @@ import {
 
 type PendingProductIntent =
   ChatProductIntent & {
+    conversationId: string
+    clientMessageId: string
+  }
+
+type PendingOrderIntent =
+  ChatOrderIntent & {
     conversationId: string
     clientMessageId: string
   }
@@ -265,6 +274,219 @@ function ProductContextCard({
   )
 }
 
+function formatOrderAmount(
+  value: unknown,
+  currency = 'ZMW'
+) {
+  const numeric =
+    Number(value)
+
+  if (!Number.isFinite(numeric)) {
+    return String(
+      value || ''
+    )
+  }
+
+  const amount =
+    numeric.toLocaleString(
+      'en-ZM',
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }
+    )
+
+  return currency === 'ZMW'
+    ? `K${amount}`
+    : `${currency} ${amount}`
+}
+
+function OrderContextCard({
+  message,
+}: {
+  message: ChatMessage
+}) {
+  const snapshot =
+    getContextSnapshot(
+      message
+    )
+
+  if (!snapshot) {
+    return null
+  }
+
+  const orderNumber =
+    String(
+      snapshot.orderNumber ||
+      snapshot.orderId ||
+      'Order'
+    )
+
+  const statusLabel =
+    String(
+      snapshot.statusLabel ||
+      snapshot.status ||
+      ''
+    )
+
+  const storeName =
+    String(
+      snapshot.sellerStoreName ||
+      'Marketplace seller'
+    )
+
+  const currency =
+    String(
+      snapshot.currency ||
+      'ZMW'
+    )
+
+  const storeTotal =
+    snapshot.storeTotal !==
+      undefined &&
+    snapshot.storeTotal !==
+      null
+      ? formatOrderAmount(
+          snapshot.storeTotal,
+          currency
+        )
+      : ''
+
+  const rawItems =
+    Array.isArray(
+      snapshot.items
+    )
+      ? snapshot.items
+      : []
+
+  const items =
+    rawItems
+      .map(entry => {
+        const row =
+          entry &&
+          typeof entry ===
+            'object'
+            ? entry as
+                Record<
+                  string,
+                  unknown
+                >
+            : {}
+
+        return {
+          id:
+            String(
+              row.id || ''
+            ),
+
+          name:
+            String(
+              row.name ||
+              'Order item'
+            ),
+
+          quantity:
+            Number(
+              row.quantity ||
+              0
+            ),
+
+          imageUrl:
+            String(
+              row.imageUrl ||
+              ''
+            )
+        }
+      })
+      .filter(
+        item =>
+          Boolean(item.id)
+      )
+
+  return (
+    <div className="mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm">
+      <div className="border-b border-slate-100 p-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-dh-secondary/15 text-dh-primary">
+            <PackageCheck className="h-5 w-5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-wide text-dh-secondary">
+              Order inquiry
+            </p>
+
+            <p className="truncate text-sm font-black text-dh-primary">
+              Order #{orderNumber}
+            </p>
+
+            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+              {storeName}
+            </p>
+          </div>
+
+          {statusLabel && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">
+              {statusLabel}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {items.length > 0 && (
+        <div className="divide-y divide-slate-100">
+          {items
+            .slice(0, 2)
+            .map(item => (
+              <div
+                key={item.id}
+                className="flex items-center gap-2.5 px-3 py-2"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
+                  {item.imageUrl ? (
+                    <img
+                      src={
+                        item.imageUrl
+                      }
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <PackageCheck className="h-4 w-4 text-dh-primary" />
+                  )}
+                </div>
+
+                <p className="min-w-0 flex-1 truncate text-xs font-bold text-dh-primary">
+                  {item.name}
+                </p>
+
+                <span className="shrink-0 text-[10px] font-bold text-slate-500">
+                  Qty {item.quantity}
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-2">
+        <span className="text-[10px] font-bold text-slate-500">
+          {items.length}
+          {' '}
+          {items.length === 1
+            ? 'item'
+            : 'items'}
+        </span>
+
+        {storeTotal && (
+          <span className="text-xs font-black text-dh-primary">
+            {storeTotal}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function mergeChatMessages(
   current: ChatMessage[],
   incoming: ChatMessage[]
@@ -347,6 +569,18 @@ export default function AccountMessagesPage() {
     setPendingProduct
   ] = useState<
     PendingProductIntent | null
+  >(null)
+
+  const [
+    isSendingOrder,
+    setIsSendingOrder
+  ] = useState(false)
+
+  const [
+    pendingOrder,
+    setPendingOrder
+  ] = useState<
+    PendingOrderIntent | null
   >(null)
 
   const [
@@ -878,27 +1112,50 @@ export default function AccountMessagesPage() {
         location.state as {
           pendingProduct?:
             ChatProductIntent
+
+          pendingOrder?:
+            ChatOrderIntent
         } | null
 
       const product =
         state?.pendingProduct
 
+      const order =
+        state?.pendingOrder
+
       if (
         !conversationId ||
-        !product?.id
+        (!product?.id &&
+          !order?.id)
       ) {
         return
       }
 
-      setPendingProduct({
-        ...product,
+      if (product?.id) {
+        setPendingProduct({
+          ...product,
 
-        conversationId,
+          conversationId,
 
-        clientMessageId:
-          window.crypto
-            .randomUUID()
-      })
+          clientMessageId:
+            window.crypto
+              .randomUUID()
+        })
+
+        setPendingOrder(null)
+      } else if (order?.id) {
+        setPendingOrder({
+          ...order,
+
+          conversationId,
+
+          clientMessageId:
+            window.crypto
+              .randomUUID()
+        })
+
+        setPendingProduct(null)
+      }
 
       navigate(
         location.pathname +
@@ -981,8 +1238,17 @@ export default function AccountMessagesPage() {
       setHasOlderMessages(false)
       setShowScrollToBottom(false)
       setIsSendingProduct(false)
+      setIsSendingOrder(false)
 
       setPendingProduct(
+        current =>
+          current?.conversationId ===
+            conversationId
+            ? current
+            : null
+      )
+
+      setPendingOrder(
         current =>
           current?.conversationId ===
             conversationId
@@ -1651,7 +1917,8 @@ export default function AccountMessagesPage() {
       !conversationId ||
       !text ||
       isSending ||
-      isSendingProduct
+      isSendingProduct ||
+      isSendingOrder
     ) {
       return
     }
@@ -1707,6 +1974,7 @@ export default function AccountMessagesPage() {
         .conversationId !==
           conversationId ||
       isSendingProduct ||
+      isSendingOrder ||
       isSending
     ) {
       return
@@ -1741,6 +2009,52 @@ export default function AccountMessagesPage() {
       )
     } finally {
       setIsSendingProduct(false)
+    }
+  }
+
+  async function handleSendOrder() {
+    if (
+      !conversationId ||
+      !pendingOrder ||
+      pendingOrder
+        .conversationId !==
+          conversationId ||
+      isSendingOrder ||
+      isSendingProduct ||
+      isSending
+    ) {
+      return
+    }
+
+    setIsSendingOrder(true)
+    setError('')
+
+    try {
+      await sendBuyerOrder(
+        conversationId,
+        pendingOrder.id,
+        pendingOrder.clientMessageId
+      )
+
+      setPendingOrder(null)
+
+      await Promise.all([
+        loadConversation(
+          conversationId
+        ),
+        loadInbox()
+      ])
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestError
+          instanceof Error
+          ? requestError.message
+          : 'Unable to send this order.'
+      )
+    } finally {
+      setIsSendingOrder(false)
     }
   }
 
@@ -2091,15 +2405,29 @@ export default function AccountMessagesPage() {
                                       : 'rounded-bl-md bg-white text-slate-800 shadow-sm'
                                   }`}
                                 >
-                                  <ProductContextCard
-                                    message={
-                                      message
-                                    }
-                                  />
+                                  {messageKind ===
+                                    'product_card' && (
+                                    <ProductContextCard
+                                      message={
+                                        message
+                                      }
+                                    />
+                                  )}
+
+                                  {messageKind ===
+                                    'order_card' && (
+                                    <OrderContextCard
+                                      message={
+                                        message
+                                      }
+                                    />
+                                  )}
 
                                   {message.text &&
                                     messageKind !==
-                                      'product_card' && (
+                                      'product_card' &&
+                                    messageKind !==
+                                      'order_card' && (
                                     <p className="whitespace-pre-wrap break-words text-sm font-medium leading-6">
                                       {message.text}
                                     </p>
@@ -2184,6 +2512,99 @@ export default function AccountMessagesPage() {
                     }
                     className="border-t border-slate-100 bg-white p-3 sm:p-4"
                   >
+                    {pendingOrder &&
+                      pendingOrder
+                        .conversationId ===
+                          conversationId && (
+                      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-dh-primary/20 bg-dh-primary/5 p-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-dh-primary">
+                          {pendingOrder
+                            .items[0]
+                            ?.imageUrl ? (
+                            <img
+                              src={
+                                pendingOrder
+                                  .items[0]
+                                  .imageUrl
+                              }
+                              alt={
+                                pendingOrder
+                                  .items[0]
+                                  .name ||
+                                'Order item'
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <PackageCheck className="h-5 w-5" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-dh-primary">
+                            Order ready to share
+                          </p>
+
+                          <p className="truncate text-sm font-black text-dh-primary">
+                            Order #
+                            {
+                              pendingOrder.number
+                            }
+                          </p>
+
+                          <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
+                            {
+                              pendingOrder.storeName
+                            }
+                            {' · '}
+                            {
+                              pendingOrder
+                                .items.length
+                            }
+                            {' '}
+                            {pendingOrder
+                              .items.length ===
+                            1
+                              ? 'item'
+                              : 'items'}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleSendOrder()
+                          }
+                          disabled={
+                            isSendingOrder ||
+                            isSendingProduct ||
+                            isSending
+                          }
+                          className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isSendingOrder
+                            ? 'Sending…'
+                            : 'Send order'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPendingOrder(
+                              null
+                            )
+                          }
+                          disabled={
+                            isSendingOrder
+                          }
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-dh-primary disabled:opacity-50"
+                          aria-label="Dismiss order"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
                     {pendingProduct &&
                       pendingProduct
                         .conversationId ===
@@ -2232,6 +2653,7 @@ export default function AccountMessagesPage() {
                           }
                           disabled={
                             isSendingProduct ||
+                            isSendingOrder ||
                             isSending
                           }
                           className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
@@ -2336,6 +2758,7 @@ export default function AccountMessagesPage() {
                         disabled={
                           isSending ||
                           isSendingProduct ||
+                          isSendingOrder ||
                           !draft.trim()
                         }
                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-dh-primary text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"

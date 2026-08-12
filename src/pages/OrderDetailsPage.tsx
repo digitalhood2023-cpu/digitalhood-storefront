@@ -42,7 +42,13 @@ import {
   type AccountOrderItem,
 } from '@/api/account'
 
-import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
+import {
+  openOrderConversation,
+} from '@/api/chat'
+
+import {
+  groupOrderItemsByStore,
+} from '@/lib/orderStoreOwnership'
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
@@ -387,6 +393,11 @@ export default function OrderDetailsPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [highlightedItemId, setHighlightedItemId] = useState('')
 
+  const [
+    openingOrderChatKey,
+    setOpeningOrderChatKey,
+  ] = useState('')
+
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false)
   const [isCaseDataLoading, setIsCaseDataLoading] = useState(false)
   const [isCaseSubmitting, setIsCaseSubmitting] = useState(false)
@@ -496,6 +507,60 @@ export default function OrderDetailsPage() {
   const orderStoreGroups = useMemo(() => {
     return groupOrderItemsByStore(order?.items || [])
   }, [order])
+
+  async function handleOpenOrderChat(
+    item: AccountOrderItem
+  ) {
+    if (
+      !order ||
+      openingOrderChatKey
+    ) {
+      return
+    }
+
+    const itemId =
+      String(
+        item.id || ''
+      ).trim()
+
+    if (!itemId) {
+      window.alert(
+        'This order item cannot be linked to seller chat.'
+      )
+
+      return
+    }
+
+    setOpeningOrderChatKey(
+      itemId
+    )
+
+    try {
+      const response =
+        await openOrderConversation(
+          order.id,
+          itemId
+        )
+
+      navigate(
+        `/account/messages/${response.conversationId}`,
+        {
+          state: {
+            pendingOrder:
+              response.order
+          }
+        }
+      )
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to open seller chat for this order.'
+      )
+    } finally {
+      setOpeningOrderChatKey('')
+    }
+  }
 
   const requestedItemId = useMemo(() => {
     const queryItem =
@@ -1250,6 +1315,33 @@ export default function OrderDetailsPage() {
                                   <span className="rounded-full bg-dh-gray px-2.5 py-1 text-[11px] font-black text-dh-primary">
                                     Qty {item.quantity}
                                   </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void handleOpenOrderChat(
+                                        item
+                                      )
+                                    }
+                                    disabled={
+                                      Boolean(
+                                        openingOrderChatKey
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-dh-primary px-2.5 py-1.5 text-[11px] font-black text-dh-primary transition hover:bg-dh-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {openingOrderChatKey ===
+                                    String(item.id) ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                    )}
+
+                                    {openingOrderChatKey ===
+                                    String(item.id)
+                                      ? 'Opening…'
+                                      : 'Message seller'}
+                                  </button>
                                 </div>
                               </div>
                             </article>

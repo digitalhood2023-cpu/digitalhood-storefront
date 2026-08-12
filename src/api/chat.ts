@@ -53,6 +53,30 @@ export type ChatProductIntent = {
   imageUrl: string
 }
 
+export type ChatOrderItemIntent = {
+  id: string
+  productId: string
+  variationId: string
+  name: string
+  quantity: number
+  total: string
+  imageUrl: string
+}
+
+export type ChatOrderIntent = {
+  id: string
+  number: string
+  status: string
+  statusLabel: string
+  dateCreated: string
+  currency: string
+  storeId: string
+  storeName: string
+  storeTotal: string
+  items: ChatOrderItemIntent[]
+}
+
+
 export type ChatCounterparty = {
   type: string
   id: string
@@ -267,6 +291,198 @@ export async function openProductConversation(
     ...response,
     conversationId,
     product
+  }
+}
+
+export async function openOrderConversation(
+  orderId: string | number,
+  itemId: string | number
+) {
+  const response =
+    await chatFetch<{
+      ok: boolean
+      conversation: RawRecord
+      order?: RawRecord
+    }>(
+      '/api/conversations/order',
+      {
+        method: 'POST',
+
+        body:
+          JSON.stringify({
+            orderId,
+            itemId
+          })
+      }
+    )
+
+  const conversation =
+    asRecord(
+      response.conversation
+    )
+
+  const conversationId =
+    stringValue(
+      conversation.conversationId,
+      conversation.id
+    )
+
+  if (!conversationId) {
+    throw new Error(
+      'Chat conversation was created without an identifier.'
+    )
+  }
+
+  const orderRow =
+    asRecord(
+      response.order
+    )
+
+  const storeRow =
+    asRecord(
+      orderRow.store
+    )
+
+  const normalizedOrderId =
+    stringValue(
+      orderRow.id,
+      orderId
+    )
+
+  const storeId =
+    stringValue(
+      storeRow.id
+    )
+
+  if (
+    !normalizedOrderId ||
+    !storeId
+  ) {
+    throw new Error(
+      'Chat order context was returned without a valid order or seller.'
+    )
+  }
+
+  const rawItems =
+    Array.isArray(
+      orderRow.items
+    )
+      ? orderRow.items
+      : []
+
+  const items =
+    rawItems.reduce<
+      ChatOrderItemIntent[]
+    >(
+      (
+        current,
+        entry
+      ) => {
+        const row =
+          asRecord(entry)
+
+        const id =
+          stringValue(
+            row.id
+          )
+
+        if (!id) {
+          return current
+        }
+
+        current.push({
+          id,
+
+          productId:
+            stringValue(
+              row.productId
+            ),
+
+          variationId:
+            stringValue(
+              row.variationId
+            ),
+
+          name:
+            stringValue(
+              row.name,
+              'Order item'
+            ),
+
+          quantity:
+            numberValue(
+              row.quantity
+            ),
+
+          total:
+            stringValue(
+              row.total
+            ),
+
+          imageUrl:
+            stringValue(
+              row.imageUrl
+            )
+        })
+
+        return current
+      },
+      []
+    )
+
+  const order:
+    ChatOrderIntent = {
+      id:
+        normalizedOrderId,
+
+      number:
+        stringValue(
+          orderRow.number,
+          normalizedOrderId
+        ),
+
+      status:
+        stringValue(
+          orderRow.status
+        ),
+
+      statusLabel:
+        stringValue(
+          orderRow.statusLabel,
+          orderRow.status
+        ),
+
+      dateCreated:
+        stringValue(
+          orderRow.dateCreated
+        ),
+
+      currency:
+        stringValue(
+          orderRow.currency,
+          'ZMW'
+        ),
+
+      storeId,
+
+      storeName:
+        stringValue(
+          storeRow.name,
+          'Marketplace seller'
+        ),
+
+      storeTotal:
+        stringValue(
+          orderRow.storeTotal
+        ),
+
+      items
+    }
+
+  return {
+    ...response,
+    conversationId,
+    order
   }
 }
 
@@ -714,6 +930,27 @@ export async function sendBuyerProduct(
       body:
         JSON.stringify({
           productId,
+          clientMessageId
+        })
+    }
+  )
+}
+
+export async function sendBuyerOrder(
+  conversationId: string,
+  orderId: string | number,
+  clientMessageId: string
+) {
+  return chatFetch<RawRecord>(
+    `/api/conversations/${encodeURIComponent(
+      conversationId
+    )}/order`,
+    {
+      method: 'POST',
+
+      body:
+        JSON.stringify({
+          orderId,
           clientMessageId
         })
     }
