@@ -22,6 +22,7 @@ import {
   MessageCircle,
   PackageCheck,
   RefreshCw,
+  Search,
   Send,
   ShieldCheck,
   Store,
@@ -693,6 +694,11 @@ export default function AccountMessagesPage() {
   >([])
 
   const [
+    query,
+    setQuery
+  ] = useState('')
+
+  const [
     isLoadingInbox,
     setIsLoadingInbox
   ] = useState(true)
@@ -866,6 +872,46 @@ export default function AccountMessagesPage() {
       [
         conversations,
         conversationId
+      ]
+    )
+
+  const filteredConversations =
+    useMemo(
+      () => {
+        const needle =
+          query
+            .trim()
+            .toLowerCase()
+
+        if (!needle) {
+          return conversations
+        }
+
+        return conversations.filter(
+          item =>
+            [
+              getConversationTitle(
+                item
+              ),
+              item.storeName,
+              item.sellerStoreName,
+              item.counterpartyName,
+              item.counterparty
+                ?.displayName,
+              item.preview,
+              item.latestMessagePreview,
+              item.storeId,
+              item.status
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(needle)
+        )
+      },
+      [
+        conversations,
+        query
       ]
     )
 
@@ -2571,7 +2617,10 @@ export default function AccountMessagesPage() {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+            <div
+              role="alert"
+              className="mb-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700"
+            >
               {error}
             </div>
           )}
@@ -2611,25 +2660,57 @@ export default function AccountMessagesPage() {
                 </button>
               </div>
 
+              <div className="border-b border-slate-100 px-3 pb-3">
+                <label className="flex items-center gap-2 rounded-2xl bg-dh-gray px-3 py-2.5">
+                  <Search className="h-4 w-4 text-slate-400" />
+
+                  <input
+                    value={query}
+                    onChange={event =>
+                      setQuery(
+                        event.target.value
+                      )
+                    }
+                    type="search"
+                    aria-label="Search conversations"
+                    placeholder="Search conversations..."
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                  />
+                </label>
+              </div>
+
               <div className="flex-1 overflow-y-auto p-2">
                 {isLoadingInbox ? (
-                  <div className="flex h-44 items-center justify-center">
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex h-44 items-center justify-center"
+                  >
                     <Loader2 className="h-7 w-7 animate-spin text-dh-primary" />
+                    <span className="sr-only">
+                      Loading conversations
+                    </span>
                   </div>
-                ) : conversations.length === 0 ? (
+                ) : filteredConversations.length === 0 ? (
                   <div className="p-6 text-center">
                     <MessageCircle className="mx-auto h-10 w-10 text-dh-primary" />
 
                     <p className="mt-3 font-black text-dh-primary">
-                      No conversations yet
+                      {query.trim() &&
+                      conversations.length > 0
+                        ? 'No matching conversations'
+                        : 'No conversations yet'}
                     </p>
 
                     <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                      Open a product and choose Chat to start a secure conversation with its seller.
+                      {query.trim() &&
+                      conversations.length > 0
+                        ? 'Try another store name or message keyword.'
+                        : 'Open a product and choose Chat to start a secure conversation with its seller.'}
                     </p>
                   </div>
                 ) : (
-                  conversations.map(
+                  filteredConversations.map(
                     item => {
                       const active =
                         item.conversationId ===
@@ -2734,6 +2815,7 @@ export default function AccountMessagesPage() {
                         )
                       }
                       className="rounded-full bg-dh-gray p-2 text-dh-primary md:hidden"
+                      aria-label="Back to conversations"
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </button>
