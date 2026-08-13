@@ -26,6 +26,9 @@ export type ChatMessage = {
   messageType?: string
   type?: string
   text: string
+  replyToMessageId?: string | null
+  editedAt?: string | null
+  deleted?: boolean
   sender?: {
     type?: string
     id?: string
@@ -759,6 +762,19 @@ function normalizeMessage(
         row.text
       ),
 
+    replyToMessageId:
+      stringValue(
+        row.replyToMessageId
+      ) || null,
+
+    editedAt:
+      stringValue(
+        row.editedAt
+      ) || null,
+
+    deleted:
+      row.deleted === true,
+
     sender:
       Object.keys(
         senderRecord
@@ -959,7 +975,8 @@ export async function sendBuyerOrder(
 
 export async function sendBuyerMessage(
   conversationId: string,
-  text: string
+  text: string,
+  replyToMessageId?: string
 ) {
   return chatFetch<RawRecord>(
     `/api/conversations/${encodeURIComponent(
@@ -976,7 +993,57 @@ export async function sendBuyerMessage(
             window.crypto
               .randomUUID(),
 
+          ...(replyToMessageId
+            ? {
+                replyToMessageId
+              }
+            : {}),
+
           text
+        })
+    }
+  )
+}
+
+export async function editBuyerMessage(
+  conversationId: string,
+  messageId: string,
+  text: string
+) {
+  return chatFetch<RawRecord>(
+    `/api/conversations/${encodeURIComponent(
+      conversationId
+    )}/messages/${encodeURIComponent(
+      messageId
+    )}`,
+    {
+      method: 'PATCH',
+
+      body:
+        JSON.stringify({
+          kind: 'buyer',
+          text
+        })
+    }
+  )
+}
+
+export async function deleteBuyerMessage(
+  conversationId: string,
+  messageId: string
+) {
+  return chatFetch<RawRecord>(
+    `/api/conversations/${encodeURIComponent(
+      conversationId
+    )}/messages/${encodeURIComponent(
+      messageId
+    )}`,
+    {
+      method: 'DELETE',
+
+      body:
+        JSON.stringify({
+          kind: 'buyer'
         })
     }
   )

@@ -35,6 +35,8 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 import {
   createBuyerChatSocket,
+  deleteBuyerMessage,
+  editBuyerMessage,
   getBuyerInbox,
   getBuyerMessages,
   markBuyerDelivered,
@@ -82,6 +84,142 @@ function formatChatTime(
   } catch {
     return value
   }
+}
+
+function chatMessageDateKey(
+  value?: string
+) {
+  if (!value) return ''
+
+  const date =
+    new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return ''
+  }
+
+  return [
+    date.getFullYear(),
+    String(
+      date.getMonth() + 1
+    ).padStart(2, '0'),
+    String(
+      date.getDate()
+    ).padStart(2, '0')
+  ].join('-')
+}
+
+function formatMessageDate(
+  value?: string
+) {
+  if (!value) return ''
+
+  const date =
+    new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value
+  }
+
+  const today =
+    new Date()
+
+  const yesterday =
+    new Date()
+
+  yesterday.setDate(
+    today.getDate() - 1
+  )
+
+  const key =
+    chatMessageDateKey(value)
+
+  if (
+    key ===
+    chatMessageDateKey(
+      today.toISOString()
+    )
+  ) {
+    return 'Today'
+  }
+
+  if (
+    key ===
+    chatMessageDateKey(
+      yesterday.toISOString()
+    )
+  ) {
+    return 'Yesterday'
+  }
+
+  return new Intl.DateTimeFormat(
+    'en-ZM',
+    {
+      dateStyle: 'medium'
+    }
+  ).format(date)
+}
+
+function formatMessageTime(
+  value?: string
+) {
+  if (!value) return ''
+
+  try {
+    return new Intl.DateTimeFormat(
+      'en-ZM',
+      {
+        timeStyle: 'short'
+      }
+    ).format(
+      new Date(value)
+    )
+  } catch {
+    return value
+  }
+}
+
+function getReplyPreviewText(
+  message?: ChatMessage | null
+) {
+  if (!message) {
+    return 'Earlier message'
+  }
+
+  if (message.deleted) {
+    return 'Message deleted'
+  }
+
+  const messageKind =
+    message.messageType ||
+    message.type
+
+  if (
+    messageKind ===
+    'product_card'
+  ) {
+    return 'Product shared'
+  }
+
+  if (
+    messageKind ===
+    'order_card'
+  ) {
+    return 'Order shared'
+  }
+
+  return (
+    message.text ||
+    'Message'
+  )
 }
 
 function getConversationTitle(
@@ -517,6 +655,16 @@ function mergeChatMessages(
   )
 }
 
+function getChatMessageId(
+  message: ChatMessage
+) {
+  return (
+    message.messageId ||
+    message.id ||
+    ''
+  )
+}
+
 export default function AccountMessagesPage() {
   const {
     conversationId
@@ -602,6 +750,27 @@ export default function AccountMessagesPage() {
     draft,
     setDraft
   ] = useState('')
+
+  const [
+    replyingTo,
+    setReplyingTo
+  ] = useState<ChatMessage | null>(
+    null
+  )
+
+  const [
+    editingMessage,
+    setEditingMessage
+  ] = useState<ChatMessage | null>(
+    null
+  )
+
+  const [
+    mutationMessageId,
+    setMutationMessageId
+  ] = useState<string | null>(
+    null
+  )
 
   const [
     error,
@@ -716,6 +885,47 @@ export default function AccountMessagesPage() {
         ),
       [messages]
     )
+
+  const messagesById =
+    useMemo(
+      () => {
+        const byId =
+          new Map<
+            string,
+            ChatMessage
+          >()
+
+        for (
+          const message
+          of messages
+        ) {
+          const messageId =
+            getChatMessageId(
+              message
+            )
+
+          if (messageId) {
+            byId.set(
+              messageId,
+              message
+            )
+          }
+        }
+
+        return byId
+      },
+      [messages]
+    )
+
+  useEffect(
+    () => {
+      setReplyingTo(null)
+      setEditingMessage(null)
+      setMutationMessageId(null)
+      setDraft('')
+    },
+    [conversationId]
+  )
 
   const loadInbox =
     useCallback(
@@ -1106,6 +1316,70 @@ export default function AccountMessagesPage() {
       []
     )
 
+  const refreshChangedMessage =
+    useCallback(
+      async (
+        targetConversationId: string,
+        sequence: number
+      ) => {
+        if (
+          !Number.isSafeInteger(sequence) ||
+          sequence < 1
+        ) {
+          return
+        }
+
+        try {
+          const response =
+            await getBuyerMessages(
+              targetConversationId,
+              {
+                limit: 1,
+                afterSequence:
+                  Math.max(
+                    0,
+                    sequence - 1
+                  )
+              }
+            )
+
+          if (
+            activeConversationRef.current !==
+              targetConversationId
+          ) {
+            return
+          }
+
+          const changedMessage =
+            response.messages.find(
+              message =>
+                message.sequence ===
+                sequence
+            )
+
+          if (!changedMessage) {
+            return
+          }
+
+          setMessages(
+            current =>
+              mergeChatMessages(
+                current,
+                [changedMessage]
+              )
+          )
+        } catch (
+          requestError
+        ) {
+          console.error(
+            '[buyer-chat] mutation refresh failed',
+            requestError
+          )
+        }
+      },
+      []
+    )
+
   useEffect(
     () => {
       const state =
@@ -1433,6 +1707,43 @@ export default function AccountMessagesPage() {
             }
           }
 
+        const handleMessageChanged =
+          (
+            event: {
+              conversationId?: string
+              sequence?: number
+              change?:
+                | 'edited'
+                | 'deleted'
+            }
+          ) => {
+            void loadInbox()
+
+            const activeConversation =
+              activeConversationRef.current
+
+            const sequence =
+              Number(
+                event.sequence || 0
+              )
+
+            if (
+              event.conversationId &&
+              activeConversation &&
+              event.conversationId ===
+                activeConversation &&
+              Number.isSafeInteger(
+                sequence
+              ) &&
+              sequence > 0
+            ) {
+              void refreshChangedMessage(
+                activeConversation,
+                sequence
+              )
+            }
+          }
+
         const handleReceiptUpdated =
           (
             event: {
@@ -1577,6 +1888,11 @@ export default function AccountMessagesPage() {
         socket.on(
           'message:available',
           handleMessageAvailable
+        )
+
+        socket.on(
+          'message:changed',
+          handleMessageChanged
         )
 
         socket.on(
@@ -1918,7 +2234,8 @@ export default function AccountMessagesPage() {
       !text ||
       isSending ||
       isSendingProduct ||
-      isSendingOrder
+      isSendingOrder ||
+      mutationMessageId
     ) {
       return
     }
@@ -1939,17 +2256,56 @@ export default function AccountMessagesPage() {
     }
 
     try {
-      await sendBuyerMessage(
-        conversationId,
-        text
-      )
+      if (editingMessage) {
+        const messageId =
+          getChatMessageId(
+            editingMessage
+          )
+
+        if (!messageId) {
+          throw new Error(
+            'This message cannot be edited.'
+          )
+        }
+
+        await editBuyerMessage(
+          conversationId,
+          messageId,
+          text
+        )
+
+        await refreshChangedMessage(
+          conversationId,
+          editingMessage.sequence
+        )
+
+        setEditingMessage(null)
+      } else {
+        const replyToMessageId =
+          replyingTo
+            ? getChatMessageId(
+                replyingTo
+              )
+            : ''
+
+        await sendBuyerMessage(
+          conversationId,
+          text,
+          replyToMessageId ||
+            undefined
+        )
+
+        setReplyingTo(null)
+      }
 
       setDraft('')
 
       await Promise.all([
-        loadConversation(
-          conversationId
-        ),
+        editingMessage
+          ? Promise.resolve()
+          : loadConversation(
+              conversationId
+            ),
         loadInbox()
       ])
     } catch (
@@ -1959,10 +2315,140 @@ export default function AccountMessagesPage() {
         requestError
           instanceof Error
           ? requestError.message
-          : 'Unable to send your message.'
+          : editingMessage
+            ? 'Unable to edit your message.'
+            : 'Unable to send your message.'
       )
     } finally {
       setIsSending(false)
+    }
+  }
+
+  function beginReply(
+    message: ChatMessage
+  ) {
+    if (
+      message.deleted ||
+      !getChatMessageId(message)
+    ) {
+      return
+    }
+
+    setEditingMessage(null)
+    setReplyingTo(message)
+    setDraft('')
+  }
+
+  function beginEdit(
+    message: ChatMessage
+  ) {
+    const messageKind =
+      message.messageType ||
+      message.type
+
+    if (
+      message.deleted ||
+      message.sender?.type !==
+        'buyer' ||
+      messageKind !== 'text' ||
+      !message.text ||
+      !getChatMessageId(message)
+    ) {
+      return
+    }
+
+    setReplyingTo(null)
+    setEditingMessage(message)
+    setDraft(
+      message.text.slice(
+        0,
+        4000
+      )
+    )
+  }
+
+  async function handleDeleteMessage(
+    message: ChatMessage
+  ) {
+    if (!conversationId) {
+      return
+    }
+
+    const messageId =
+      getChatMessageId(message)
+
+    const messageKind =
+      message.messageType ||
+      message.type
+
+    if (
+      !messageId ||
+      message.deleted ||
+      message.sender?.type !==
+        'buyer' ||
+      messageKind !== 'text' ||
+      mutationMessageId
+    ) {
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        'Delete this message?'
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    setMutationMessageId(
+      messageId
+    )
+    setError('')
+
+    try {
+      await deleteBuyerMessage(
+        conversationId,
+        messageId
+      )
+
+      await Promise.all([
+        refreshChangedMessage(
+          conversationId,
+          message.sequence
+        ),
+        loadInbox()
+      ])
+
+      if (
+        editingMessage &&
+        getChatMessageId(
+          editingMessage
+        ) === messageId
+      ) {
+        setEditingMessage(null)
+        setDraft('')
+      }
+
+      if (
+        replyingTo &&
+        getChatMessageId(
+          replyingTo
+        ) === messageId
+      ) {
+        setReplyingTo(null)
+      }
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestError
+          instanceof Error
+          ? requestError.message
+          : 'Unable to delete this message.'
+      )
+    } finally {
+      setMutationMessageId(null)
     }
   }
 
@@ -2363,7 +2849,8 @@ export default function AccountMessagesPage() {
                       <div className="space-y-3">
                         {messages.map(
                           (
-                            message
+                            message,
+                            index
                           ) => {
                             const isBuyer =
                               message.sender
@@ -2378,13 +2865,58 @@ export default function AccountMessagesPage() {
                               messageKind ===
                                 'system_notice'
 
+                            const messageId =
+                              getChatMessageId(
+                                message
+                              )
+
+                            const previousMessage =
+                              index > 0
+                                ? messages[
+                                    index - 1
+                                  ]
+                                : undefined
+
+                            const showDateSeparator =
+                              chatMessageDateKey(
+                                previousMessage
+                                  ?.createdAt
+                              ) !==
+                              chatMessageDateKey(
+                                message.createdAt
+                              )
+
+                            const replyTarget =
+                              message
+                                .replyToMessageId
+                                ? messagesById.get(
+                                    message
+                                      .replyToMessageId
+                                  )
+                                : undefined
+
+                            const dateSeparator =
+                              showDateSeparator ? (
+                                <div className="flex items-center justify-center py-1">
+                                  <span className="rounded-full bg-slate-200/80 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                                    {formatMessageDate(
+                                      message.createdAt
+                                    )}
+                                  </span>
+                                </div>
+                              ) : null
+
                             if (isSystem) {
                               return (
                                 <div
                                   key={`${message.messageId}-${message.sequence}`}
-                                  className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-semibold leading-5 text-slate-500"
+                                  className="space-y-3"
                                 >
-                                  {message.text}
+                                  {dateSeparator}
+
+                                  <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-semibold leading-5 text-slate-500">
+                                    {message.text}
+                                  </div>
                                 </div>
                               )
                             }
@@ -2392,7 +2924,12 @@ export default function AccountMessagesPage() {
                             return (
                               <div
                                 key={`${message.messageId}-${message.sequence}`}
-                                className={`flex ${
+                                className="space-y-2"
+                              >
+                                {dateSeparator}
+
+                                <div
+                                  className={`flex ${
                                   isBuyer
                                     ? 'justify-end'
                                     : 'justify-start'
@@ -2405,7 +2942,53 @@ export default function AccountMessagesPage() {
                                       : 'rounded-bl-md bg-white text-slate-800 shadow-sm'
                                   }`}
                                 >
-                                  {messageKind ===
+                                  {!message.deleted &&
+                                    message.replyToMessageId && (
+                                    <div
+                                      className={`mb-2 rounded-xl border px-3 py-2 ${
+                                        isBuyer
+                                          ? 'border-white/15 bg-white/10'
+                                          : 'border-slate-200 bg-slate-50'
+                                      }`}
+                                    >
+                                      <p
+                                        className={`text-[9px] font-black uppercase tracking-wide ${
+                                          isBuyer
+                                            ? 'text-white/60'
+                                            : 'text-dh-secondary'
+                                        }`}
+                                      >
+                                        Reply
+                                      </p>
+
+                                      <p
+                                        className={`mt-0.5 truncate text-xs font-semibold ${
+                                          isBuyer
+                                            ? 'text-white/85'
+                                            : 'text-slate-600'
+                                        }`}
+                                      >
+                                        {getReplyPreviewText(
+                                          replyTarget
+                                        )}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {message.deleted && (
+                                    <p
+                                      className={`text-sm font-medium italic ${
+                                        isBuyer
+                                          ? 'text-white/70'
+                                          : 'text-slate-400'
+                                      }`}
+                                    >
+                                      Message deleted
+                                    </p>
+                                  )}
+
+                                  {!message.deleted &&
+                                    messageKind ===
                                     'product_card' && (
                                     <ProductContextCard
                                       message={
@@ -2414,7 +2997,8 @@ export default function AccountMessagesPage() {
                                     />
                                   )}
 
-                                  {messageKind ===
+                                  {!message.deleted &&
+                                    messageKind ===
                                     'order_card' && (
                                     <OrderContextCard
                                       message={
@@ -2423,7 +3007,8 @@ export default function AccountMessagesPage() {
                                     />
                                   )}
 
-                                  {message.text &&
+                                  {!message.deleted &&
+                                    message.text &&
                                     messageKind !==
                                       'product_card' &&
                                     messageKind !==
@@ -2440,8 +3025,15 @@ export default function AccountMessagesPage() {
                                         : 'text-slate-400'
                                     }`}
                                   >
-                                    {formatChatTime(
+                                    {formatMessageTime(
                                       message.createdAt
+                                    )}
+
+                                    {message.editedAt &&
+                                      !message.deleted && (
+                                      <>
+                                        {' · edited'}
+                                      </>
                                     )}
 
                                     {isBuyer && (
@@ -2469,8 +3061,73 @@ export default function AccountMessagesPage() {
                                       </>
                                     )}
                                   </p>
+
+                                  {!message.deleted && (
+                                    <div
+                                      className={`mt-2 flex items-center gap-3 text-[10px] font-black ${
+                                        isBuyer
+                                          ? 'text-white/70'
+                                          : 'text-slate-400'
+                                      }`}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          beginReply(
+                                            message
+                                          )
+                                        }
+                                        className="transition hover:underline"
+                                      >
+                                        Reply
+                                      </button>
+
+                                      {isBuyer &&
+                                        messageKind ===
+                                          'text' &&
+                                        messageId && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              beginEdit(
+                                                message
+                                              )
+                                            }
+                                            disabled={
+                                              mutationMessageId ===
+                                                messageId
+                                            }
+                                            className="transition hover:underline disabled:opacity-50"
+                                          >
+                                            Edit
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void handleDeleteMessage(
+                                                message
+                                              )
+                                            }
+                                            disabled={
+                                              mutationMessageId ===
+                                                messageId
+                                            }
+                                            className="transition hover:underline disabled:opacity-50"
+                                          >
+                                            {mutationMessageId ===
+                                            messageId
+                                              ? 'Deleting…'
+                                              : 'Delete'}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
+                            </div>
                             )
                           }
                         )}
@@ -2512,6 +3169,52 @@ export default function AccountMessagesPage() {
                     }
                     className="border-t border-slate-100 bg-white p-3 sm:p-4"
                   >
+                    {(replyingTo ||
+                      editingMessage) && (
+                      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <div className="min-w-0 flex-1 border-l-4 border-dh-secondary pl-3">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-dh-secondary">
+                            {editingMessage
+                              ? 'Editing message'
+                              : 'Replying to message'}
+                          </p>
+
+                          <p className="mt-0.5 truncate text-xs font-semibold text-slate-600">
+                            {getReplyPreviewText(
+                              editingMessage ||
+                                replyingTo
+                            )}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              editingMessage
+                            ) {
+                              setEditingMessage(
+                                null
+                              )
+                              setDraft('')
+                            } else {
+                              setReplyingTo(
+                                null
+                              )
+                            }
+                          }}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-dh-primary"
+                          aria-label={
+                            editingMessage
+                              ? 'Cancel editing'
+                              : 'Cancel reply'
+                          }
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
                     {pendingOrder &&
                       pendingOrder
                         .conversationId ===
@@ -2701,6 +3404,7 @@ export default function AccountMessagesPage() {
                             socketRef.current
 
                           if (
+                            editingMessage ||
                             !conversationId ||
                             !socket?.connected ||
                             joinedConversationRef
@@ -2748,7 +3452,13 @@ export default function AccountMessagesPage() {
                               ?.requestSubmit()
                           }
                         }}
-                        placeholder="Write a message..."
+                        placeholder={
+                          editingMessage
+                            ? 'Edit your message...'
+                            : replyingTo
+                              ? 'Write a reply...'
+                              : 'Write a message...'
+                        }
                         rows={1}
                         className="min-h-12 max-h-36 flex-1 resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-dh-primary focus:bg-white"
                       />
@@ -2759,6 +3469,9 @@ export default function AccountMessagesPage() {
                           isSending ||
                           isSendingProduct ||
                           isSendingOrder ||
+                          Boolean(
+                            mutationMessageId
+                          ) ||
                           !draft.trim()
                         }
                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-dh-primary text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
