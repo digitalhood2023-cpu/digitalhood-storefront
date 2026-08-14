@@ -12,11 +12,16 @@ import { useAccount } from '@/context/AccountContext'
 
 import {
   addCustomerRecentlyViewedItem,
+  getAccountToken,
   getCustomerRecentlyViewed,
   removeCustomerRecentlyViewedItem,
   removeCustomerRecentlyViewedItems,
   type AccountProduct,
 } from '@/api/account'
+import {
+  ACCOUNT_STATE_CLEARED_EVENT,
+  RECENTLY_VIEWED_STORAGE_KEY,
+} from '@/lib/marketplaceBrowserState'
 
 export type RecentlyViewedProduct = Product & {
   slug?: string
@@ -34,7 +39,6 @@ interface RecentlyViewedContextType {
 const RecentlyViewedContext =
   createContext<RecentlyViewedContextType | undefined>(undefined)
 
-const STORAGE_KEY = 'digitalhood_recently_viewed'
 const MAX_ITEMS = 50
 
 function accountProductToRecentlyViewed(product: AccountProduct): RecentlyViewedProduct {
@@ -56,7 +60,7 @@ function readLocalItems() {
   if (typeof window === 'undefined') return []
 
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(RECENTLY_VIEWED_STORAGE_KEY)
     const parsed = stored ? JSON.parse(stored) : []
 
     return Array.isArray(parsed) ? parsed.slice(0, MAX_ITEMS) : []
@@ -69,11 +73,14 @@ function saveLocalItems(items: RecentlyViewedProduct[]) {
   if (typeof window === 'undefined') return
 
   if (items.length === 0) {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY)
     return
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_ITEMS)))
+  localStorage.setItem(
+    RECENTLY_VIEWED_STORAGE_KEY,
+    JSON.stringify(items.slice(0, MAX_ITEMS))
+  )
 }
 
 function dedupeItems(items: RecentlyViewedProduct[]) {
@@ -89,13 +96,11 @@ function dedupeItems(items: RecentlyViewedProduct[]) {
 
 export function RecentlyViewedProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAccountLoading, customer } = useAccount()
-  const [items, setItems] = useState<RecentlyViewedProduct[]>(readLocalItems)
+  const [items, setItems] = useState<RecentlyViewedProduct[]>(() =>
+    getAccountToken() ? [] : readLocalItems()
+  )
   const previousCustomerIdRef = useRef('')
   const wasAuthenticatedRef = useRef(false)
-
-  useEffect(() => {
-    saveLocalItems(items)
-  }, [items])
 
   useEffect(() => {
     if (isAccountLoading) return
@@ -104,7 +109,7 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
 
     if (!isAuthenticated || !customerId) {
       if (wasAuthenticatedRef.current) {
-        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY)
         setItems([])
       }
 
@@ -156,6 +161,27 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
     }
   }, [customer?.id, isAccountLoading, isAuthenticated])
 
+  useEffect(() => {
+    if (isAccountLoading) return
+
+    if (isAuthenticated) {
+      localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY)
+      return
+    }
+
+    saveLocalItems(items)
+  }, [isAccountLoading, isAuthenticated, items])
+
+  useEffect(() => {
+    const clearItems = () => setItems([])
+
+    window.addEventListener(ACCOUNT_STATE_CLEARED_EVENT, clearItems)
+
+    return () => {
+      window.removeEventListener(ACCOUNT_STATE_CLEARED_EVENT, clearItems)
+    }
+  }, [])
+
   const addToRecentlyViewed = useCallback((product: RecentlyViewedProduct) => {
     setItems((prev) => {
       const next = dedupeItems([product, ...prev.filter((item) => item.id !== product.id)])
@@ -198,7 +224,7 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
     const productIds = items.map((item) => Number(item.id)).filter(Boolean)
 
     setItems([])
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY)
 
     if (isAuthenticated) {
       removeCustomerRecentlyViewedItems(productIds).catch(() => {

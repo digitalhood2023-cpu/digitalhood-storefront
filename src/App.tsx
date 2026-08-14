@@ -4,6 +4,7 @@ import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
+import { MarketplaceStateProvider } from '@/context/MarketplaceStateContext'
 import MarketplaceSEO from '@/components/MarketplaceSEO'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
@@ -108,14 +109,15 @@ function NavigationScrollManager() {
 function App() {
   return (
     <AccountProvider>
-      <WishlistProvider>
-        <RecentlyViewedProvider>
-          <MarketplaceSEO />
-          <NavigationScrollManager />
+      <MarketplaceStateProvider>
+        <WishlistProvider>
+          <RecentlyViewedProvider>
+            <MarketplaceSEO />
+            <NavigationScrollManager />
 
-          <div className="pt-[88px] md:pt-[122px]">
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+            <div className="pt-[88px] md:pt-[122px]">
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<ShopPage />} />
                 <Route path="/search" element={<ShopPage />} />
@@ -180,11 +182,12 @@ function App() {
                 <Route path="/phone-repair-lusaka" element={<ScreenRepairPage />} />
 
                 <Route path="*" element={<Home />} />
-              </Routes>
-            </Suspense>
-          </div>
-        </RecentlyViewedProvider>
-      </WishlistProvider>
+                </Routes>
+              </Suspense>
+            </div>
+          </RecentlyViewedProvider>
+        </WishlistProvider>
+      </MarketplaceStateProvider>
     </AccountProvider>
   )
 }

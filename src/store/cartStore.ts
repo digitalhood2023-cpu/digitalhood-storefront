@@ -1,5 +1,8 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
+
+import { getAccountToken } from '@/api/account'
+import { CART_STORAGE_KEY } from '@/lib/marketplaceBrowserState'
 
 export type StockTone = 'success' | 'warning' | 'danger' | 'muted'
 
@@ -107,6 +110,7 @@ type CartStore = {
   increaseQuantity: (productId: number) => void
   decreaseQuantity: (productId: number) => void
   clearCart: () => void
+  replaceItems: (items: CartItem[]) => void
 
   getCartCount: () => number
   getSubtotal: () => number
@@ -348,6 +352,38 @@ const getVariationLabel = (product: CartProduct): string => {
   )
 }
 
+const guestCartStorage = {
+  getItem(name: string) {
+    if (typeof window === 'undefined' || getAccountToken()) return null
+    return window.localStorage.getItem(name)
+  },
+
+  setItem(name: string, value: string) {
+    if (typeof window === 'undefined') return
+
+    let hasItems = true
+
+    try {
+      const parsed = JSON.parse(value)
+      hasItems = Array.isArray(parsed?.state?.items) && parsed.state.items.length > 0
+    } catch {
+      hasItems = true
+    }
+
+    if (getAccountToken() || !hasItems) {
+      window.localStorage.removeItem(name)
+      return
+    }
+
+    window.localStorage.setItem(name, value)
+  },
+
+  removeItem(name: string) {
+    if (typeof window === 'undefined') return
+    window.localStorage.removeItem(name)
+  },
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -481,6 +517,8 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => set({ items: [] }),
 
+      replaceItems: (items) => set({ items }),
+
       getCartCount: () => {
         return get().items.reduce(
           (total, item) => total + item.quantity,
@@ -496,7 +534,8 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'digitalhood-cart',
+      name: CART_STORAGE_KEY,
+      storage: createJSONStorage(() => guestCartStorage),
     }
   )
 )

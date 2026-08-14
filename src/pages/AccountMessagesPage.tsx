@@ -67,6 +67,28 @@ type PendingOrderIntent =
     clientMessageId: string
   }
 
+const MESSAGE_MUTATION_WINDOW_MS =
+  10 * 60 * 1000
+
+function canMutateMessage(
+  message: ChatMessage,
+  now = Date.now()
+) {
+  const createdAt = new Date(
+    message.createdAt || ''
+  ).getTime()
+
+  return (
+    !message.deleted &&
+    message.sender?.type === 'buyer' &&
+    (message.messageType || message.type) === 'text' &&
+    Boolean(message.text) &&
+    Boolean(getChatMessageId(message)) &&
+    Number.isFinite(createdAt) &&
+    now - createdAt <= MESSAGE_MUTATION_WINDOW_MS
+  )
+}
+
 function formatChatTime(
   value?: string
 ) {
@@ -324,6 +346,45 @@ function ConversationAvatar({
         />
       )}
     </div>
+  )
+}
+
+function MessageAvatar({
+  message,
+  fallbackItem,
+  fallbackLabel,
+}: {
+  message: ChatMessage
+  fallbackItem?: ChatInboxItem
+  fallbackLabel: string
+}) {
+  const displayName =
+    message.sender?.displayName ||
+    (message.sender?.type === 'seller'
+      ? getConversationTitle(fallbackItem)
+      : fallbackLabel)
+  const avatarUrl =
+    message.sender?.avatarUrl ||
+    (message.sender?.type === 'seller'
+      ? fallbackItem?.counterparty?.avatarUrl
+      : null)
+
+  return (
+    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary shadow-sm ring-1 ring-slate-200">
+      {getInitials(displayName, message.sender?.type === 'seller' ? 'S' : 'B')}
+      {avatarUrl && (
+        <img
+          src={avatarUrl}
+          alt={`${displayName} profile`}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none'
+          }}
+        />
+      )}
+    </span>
   )
 }
 
@@ -784,6 +845,11 @@ export default function AccountMessagesPage() {
   ] = useState('')
 
   const [
+    messageClock,
+    setMessageClock
+  ] = useState(() => Date.now())
+
+  const [
     connectionState,
     setConnectionState
   ] = useState<
@@ -792,6 +858,15 @@ export default function AccountMessagesPage() {
     'reconnecting' |
     'offline'
   >('connecting')
+
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setMessageClock(Date.now()),
+      10_000
+    )
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   const [
     counterpartyReceipt,
@@ -2017,6 +2092,7 @@ export default function AccountMessagesPage() {
     },
     [
       loadInbox,
+      refreshChangedMessage,
       syncConversation
     ]
   )
@@ -2349,7 +2425,7 @@ export default function AccountMessagesPage() {
       await Promise.all([
         editingMessage
           ? Promise.resolve()
-          : loadConversation(
+          : syncConversation(
               conversationId
             ),
         loadInbox()
@@ -2393,12 +2469,11 @@ export default function AccountMessagesPage() {
       message.type
 
     if (
-      message.deleted ||
-      message.sender?.type !==
-        'buyer' ||
-      messageKind !== 'text' ||
-      !message.text ||
-      !getChatMessageId(message)
+      !canMutateMessage(
+        message,
+        Date.now()
+      ) ||
+      messageKind !== 'text'
     ) {
       return
     }
@@ -2433,6 +2508,10 @@ export default function AccountMessagesPage() {
       message.sender?.type !==
         'buyer' ||
       messageKind !== 'text' ||
+      !canMutateMessage(
+        message,
+        Date.now()
+      ) ||
       mutationMessageId
     ) {
       return
@@ -2440,7 +2519,7 @@ export default function AccountMessagesPage() {
 
     const confirmed =
       window.confirm(
-        'Delete this message?'
+        'Recall this message for everyone? Recall is available for 10 minutes after sending.'
       )
 
     if (!confirmed) {
@@ -2491,7 +2570,7 @@ export default function AccountMessagesPage() {
         requestError
           instanceof Error
           ? requestError.message
-          : 'Unable to delete this message.'
+          : 'Unable to recall this message.'
       )
     } finally {
       setMutationMessageId(null)
@@ -2525,7 +2604,7 @@ export default function AccountMessagesPage() {
       setPendingProduct(null)
 
       await Promise.all([
-        loadConversation(
+        syncConversation(
           conversationId
         ),
         loadInbox()
@@ -2571,7 +2650,7 @@ export default function AccountMessagesPage() {
       setPendingOrder(null)
 
       await Promise.all([
-        loadConversation(
+        syncConversation(
           conversationId
         ),
         loadInbox()
@@ -3011,17 +3090,25 @@ export default function AccountMessagesPage() {
                                 {dateSeparator}
 
                                 <div
-                                  className={`flex ${
+                                  className={`flex items-end gap-2 ${
                                   isBuyer
                                     ? 'justify-end'
                                     : 'justify-start'
                                 }`}
                               >
+                                {!isBuyer && (
+                                  <MessageAvatar
+                                    message={message}
+                                    fallbackItem={selectedConversation || undefined}
+                                    fallbackLabel="Marketplace seller"
+                                  />
+                                )}
+
                                 <div
-                                  className={`max-w-[88%] rounded-3xl px-4 py-3 sm:max-w-[72%] ${
+                                  className={`max-w-[78%] rounded-3xl border px-4 py-3 shadow-sm sm:max-w-[68%] ${
                                     isBuyer
-                                      ? 'rounded-br-md bg-dh-primary text-white'
-                                      : 'rounded-bl-md bg-white text-slate-800 shadow-sm'
+                                      ? 'rounded-br-md border-indigo-950 bg-[#312e81] text-white'
+                                      : 'rounded-bl-md border-slate-200 bg-white text-slate-950'
                                   }`}
                                 >
                                   {!message.deleted &&
@@ -3095,7 +3182,7 @@ export default function AccountMessagesPage() {
                                       'product_card' &&
                                     messageKind !==
                                       'order_card' && (
-                                    <p className="whitespace-pre-wrap break-words text-sm font-medium leading-6">
+                                    <p className="whitespace-pre-wrap break-words font-sans text-[15px] font-medium leading-6 tracking-[-0.01em]">
                                       {message.text}
                                     </p>
                                   )}
@@ -3169,45 +3256,62 @@ export default function AccountMessagesPage() {
                                           'text' &&
                                         messageId && (
                                         <>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              beginEdit(
-                                                message
-                                              )
-                                            }
-                                            disabled={
-                                              mutationMessageId ===
-                                                messageId
-                                            }
-                                            className="transition hover:underline disabled:opacity-50"
-                                          >
-                                            Edit
-                                          </button>
+                                          {canMutateMessage(
+                                            message,
+                                            messageClock
+                                          ) && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                beginEdit(
+                                                  message
+                                                )
+                                              }
+                                              disabled={
+                                                mutationMessageId ===
+                                                  messageId
+                                              }
+                                              className="transition hover:underline disabled:opacity-50"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
 
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              void handleDeleteMessage(
-                                                message
-                                              )
-                                            }
-                                            disabled={
-                                              mutationMessageId ===
-                                                messageId
-                                            }
-                                            className="transition hover:underline disabled:opacity-50"
-                                          >
-                                            {mutationMessageId ===
-                                            messageId
-                                              ? 'Deleting…'
-                                              : 'Delete'}
-                                          </button>
+                                          {canMutateMessage(
+                                            message,
+                                            messageClock
+                                          ) && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void handleDeleteMessage(
+                                                  message
+                                                )
+                                              }
+                                              disabled={
+                                                mutationMessageId ===
+                                                  messageId
+                                              }
+                                              className="transition hover:underline disabled:opacity-50"
+                                            >
+                                              {mutationMessageId ===
+                                              messageId
+                                                ? 'Recalling…'
+                                                : 'Recall'}
+                                            </button>
+                                          )}
                                         </>
                                       )}
                                     </div>
                                   )}
                                 </div>
+
+                                {isBuyer && (
+                                  <MessageAvatar
+                                    message={message}
+                                    fallbackLabel="You"
+                                  />
+                                )}
                               </div>
                             </div>
                             )
@@ -3542,7 +3646,7 @@ export default function AccountMessagesPage() {
                               : 'Write a message...'
                         }
                         rows={1}
-                        className="min-h-12 max-h-36 flex-1 resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-dh-primary focus:bg-white"
+                        className="min-h-12 max-h-36 flex-1 resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 font-sans text-[15px] font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
                       />
 
                       <button
@@ -3556,7 +3660,7 @@ export default function AccountMessagesPage() {
                           ) ||
                           !draft.trim()
                         }
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-dh-primary text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#312e81] text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isSending ? (
                           <Loader2 className="h-5 w-5 animate-spin" />

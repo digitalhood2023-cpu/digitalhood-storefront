@@ -35,6 +35,7 @@ import {
   type WooCategory,
   type WooProduct,
 } from '@/lib/woocommerce';
+import { saveMarketplaceSearch } from '@/lib/marketplaceBrowserState';
 import {
   getCategoryInsightLabel,
   sortCategoriesForMarketplace,
@@ -835,20 +836,7 @@ export default function ShopPage() {
   };
 
   const saveSearchHistory = (value: string) => {
-    if (typeof window === 'undefined' || value.trim().length < 2) return;
-
-    try {
-      const key = 'digitalhood-shop-searches';
-      const previous = JSON.parse(window.localStorage.getItem(key) || '[]');
-      const next = [
-        value.trim(),
-        ...previous.filter((item: string) => item !== value.trim()),
-      ].slice(0, 20);
-
-      window.localStorage.setItem(key, JSON.stringify(next));
-    } catch {
-      // Ignore local storage issues.
-    }
+    saveMarketplaceSearch(value);
   };
 
   const submitShopSearch = (value = searchQuery) => {
