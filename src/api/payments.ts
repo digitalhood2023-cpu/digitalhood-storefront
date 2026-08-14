@@ -16,6 +16,10 @@ type AddressPayload = {
   country: string
   email?: string
   phone: string
+  latitude?: number | null
+  longitude?: number | null
+  locationAccuracy?: number | null
+  mapUrl?: string
 }
 
 type CreateOrderLineItem = {

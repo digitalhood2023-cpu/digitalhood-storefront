@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 
@@ -93,6 +93,13 @@ type CheckoutCartItem = {
   sellerCustomerId?: string | number
   sellerAvatarUrl?: string
   sellerFeedbackText?: string
+}
+
+type DeliveryLocationPin = {
+  latitude: number
+  longitude: number
+  accuracy: number
+  mapUrl: string
 }
 
 function getCartItemStockObject(item: CheckoutCartItem) {
@@ -267,6 +274,7 @@ function getAddressLine(address?: SavedCustomerAddress | null) {
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const pageRef = useRef<HTMLDivElement>(null)
   const lencoPollingRef = useRef<number | null>(null)
   const hasPrefilledAccountRef = useRef(false)
@@ -278,13 +286,38 @@ export default function CheckoutPage() {
   } = useAccount()
 
   const items = useCartStore((state) => state.items)
-  const clearCart = useCartStore((state) => state.clearCart)
-  const getSubtotal = useCartStore((state) => state.getSubtotal)
-
-  const subtotal = getSubtotal()
-  const checkoutItems = items as CheckoutCartItem[]
+  const removeItem = useCartStore((state) => state.removeItem)
+  const selectedItemParam = searchParams.get('items') || ''
+  const requestedItemIds = useMemo(
+    () =>
+      new Set(
+        selectedItemParam
+          .split(',')
+          .map((itemId) => Number(itemId))
+          .filter(Boolean)
+      ),
+    [selectedItemParam]
+  )
+  const checkoutItems = useMemo(
+    () =>
+      (items as CheckoutCartItem[]).filter(
+        (item) =>
+          requestedItemIds.size === 0 || requestedItemIds.has(Number(item.id))
+      ),
+    [items, requestedItemIds]
+  )
+  const subtotal = checkoutItems.reduce(
+    (total, item) => total + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  )
   const checkoutStoreGroups = groupCheckoutItemsByStore(checkoutItems)
   const hasUnavailableItems = checkoutItems.some(isUnavailable)
+
+  const removeCheckedOutItems = () => {
+    for (const item of checkoutItems) {
+      removeItem(Number(item.id))
+    }
+  }
 
   const accountSavedAddresses = customer?.savedAddresses || []
   const [checkoutSavedAddresses, setCheckoutSavedAddresses] =
@@ -305,6 +338,9 @@ export default function CheckoutPage() {
   const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false)
   const [isAddingCheckoutAddress, setIsAddingCheckoutAddress] = useState(false)
   const [isSavingCheckoutAddress, setIsSavingCheckoutAddress] = useState(false)
+  const [isLocatingAddress, setIsLocatingAddress] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  const [locationPin, setLocationPin] = useState<DeliveryLocationPin | null>(null)
   const [saveCheckoutAddressAsDefault, setSaveCheckoutAddressAsDefault] =
     useState(false)
 
@@ -420,6 +456,29 @@ export default function CheckoutPage() {
       paymentPhone: current.paymentPhone || address.phone || current.phone,
     }))
 
+    if (
+      typeof address.latitude === 'number' &&
+      typeof address.longitude === 'number' &&
+      Number.isFinite(address.latitude) &&
+      Number.isFinite(address.longitude)
+    ) {
+      const latitude = Number(address.latitude)
+      const longitude = Number(address.longitude)
+
+      setLocationPin({
+        latitude,
+        longitude,
+        accuracy: Number(address.locationAccuracy || 0),
+        mapUrl:
+          address.mapUrl ||
+          `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
+      })
+    } else {
+      setLocationPin(null)
+    }
+
+    setLocationError('')
+
     setCardClientSecret('')
     setCardPaymentIntentId('')
     setCreatedOrderId(null)
@@ -432,6 +491,8 @@ export default function CheckoutPage() {
     setIsAddingCheckoutAddress(true)
     setSelectedSavedAddressId('')
     setSaveCheckoutAddressAsDefault(savedAddresses.length === 0)
+    setLocationPin(null)
+    setLocationError('')
 
     setFormData((current) => ({
       ...current,
@@ -457,6 +518,66 @@ export default function CheckoutPage() {
     if (selectedSavedAddress) {
       applySavedAddressToForm(selectedSavedAddress)
     }
+  }
+
+  const handleUseCurrentLocation = () => {
+    setLocationError('')
+
+    if (!navigator.geolocation) {
+      setLocationError('Current location is not supported by this browser.')
+      return
+    }
+
+    setIsLocatingAddress(true)
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const latitude = Number(coords.latitude.toFixed(6))
+        const longitude = Number(coords.longitude.toFixed(6))
+        const accuracy = Math.max(0, Math.round(coords.accuracy || 0))
+        const coordinateText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+        const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+
+        setLocationPin({ latitude, longitude, accuracy, mapUrl })
+        setFormData((current) => ({
+          ...current,
+          address:
+            !current.address.trim() || current.address.startsWith('Pinned GPS location:')
+              ? `Pinned GPS location: ${coordinateText}`
+              : current.address,
+          address2: current.address2.includes('GPS pin:')
+            ? current.address2
+            : [
+                current.address2.trim(),
+                `GPS pin: ${coordinateText}${accuracy ? ` (accuracy ±${accuracy} m)` : ''}`,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+        }))
+        setSelectedSavedAddressId('')
+        setCardClientSecret('')
+        setCardPaymentIntentId('')
+        setCreatedOrderId(null)
+        setCompletedOrderTotal(null)
+        setIsLocatingAddress(false)
+      },
+      (error) => {
+        const message =
+          error.code === error.PERMISSION_DENIED
+            ? 'Location access was denied. Allow location access in your browser and try again.'
+            : error.code === error.TIMEOUT
+              ? 'Getting your precise location took too long. Move to an open area and try again.'
+              : 'Your current location could not be determined. Please try again.'
+
+        setLocationError(message)
+        setIsLocatingAddress(false)
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 20000,
+      }
+    )
   }
 
   const handleSaveCheckoutAddress = async () => {
@@ -500,6 +621,10 @@ export default function CheckoutPage() {
         province: formData.province.trim(),
         postcode: formData.postcode.trim() || DEFAULT_POSTCODE,
         country: 'ZM',
+        latitude: locationPin?.latitude ?? null,
+        longitude: locationPin?.longitude ?? null,
+        locationAccuracy: locationPin?.accuracy ?? null,
+        mapUrl: locationPin?.mapUrl || '',
         isDefault: savedAddresses.length === 0 || saveCheckoutAddressAsDefault,
       })
 
@@ -677,7 +802,7 @@ export default function CheckoutPage() {
   }
 
   const validateCheckout = () => {
-    if (items.length === 0) return 'Your cart is empty.'
+    if (checkoutItems.length === 0) return 'No checkout items were selected.'
 
     if (hasUnavailableItems) {
       return 'Some items in your cart are no longer available. Please go back to cart and remove or update them before checkout.'
@@ -724,6 +849,10 @@ export default function CheckoutPage() {
       country: 'ZM',
       email: getCheckoutEmail(),
       phone: formData.phone.trim(),
+      latitude: locationPin?.latitude ?? null,
+      longitude: locationPin?.longitude ?? null,
+      locationAccuracy: locationPin?.accuracy ?? null,
+      mapUrl: locationPin?.mapUrl || '',
     }
   }
 
@@ -876,7 +1005,7 @@ export default function CheckoutPage() {
           setOrderComplete(true)
           setCreatedOrderId(orderId)
           setCompletedOrderTotal(finalTotal)
-          clearCart()
+          removeCheckedOutItems()
           return
         }
 
@@ -1013,7 +1142,7 @@ export default function CheckoutPage() {
       setSuccessState(getSuccessState('card'))
       setOrderComplete(true)
       setCompletedOrderTotal(finalTotal)
-      clearCart()
+      removeCheckedOutItems()
     } catch (error) {
       setCheckoutError(
         error instanceof Error
@@ -1075,7 +1204,7 @@ export default function CheckoutPage() {
         if (paymentConfirmed) {
           setSuccessState(getSuccessState('mobile-confirmed'))
           setOrderComplete(true)
-          clearCart()
+          removeCheckedOutItems()
           return
         }
 
@@ -1112,7 +1241,7 @@ export default function CheckoutPage() {
       setSuccessState(getSuccessState(paymentMethod))
       setOrderComplete(true)
       setCompletedOrderTotal(finalTotal)
-      clearCart()
+      removeCheckedOutItems()
     } catch (error) {
       setCheckoutError(
         error instanceof Error
@@ -1124,7 +1253,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (items.length === 0 && !orderComplete) {
+  if (checkoutItems.length === 0 && !orderComplete) {
     return (
       <div className="min-h-screen bg-dh-gray">
         <Header />
@@ -1140,14 +1269,14 @@ export default function CheckoutPage() {
             </h1>
 
             <p className="text-dh-dark-gray mb-6">
-              Add items to your cart before checkout.
+              The selected items are no longer in your cart. Choose the items you want to pay for.
             </p>
 
             <Button
               onClick={() => navigate('/cart')}
               className="rounded-full bg-dh-primary px-8 text-white hover:bg-dh-secondary"
             >
-              Go to Cart
+              Return to cart
             </Button>
           </div>
         </main>
@@ -1718,6 +1847,57 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2 rounded-2xl border border-dh-primary/15 bg-white p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="font-semibold text-dh-primary">
+                              Pin your precise delivery location
+                            </p>
+                            <p className="mt-1 text-sm text-dh-dark-gray">
+                              We use your device GPS so the seller or courier can open exact directions.
+                            </p>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleUseCurrentLocation}
+                            disabled={isLocatingAddress}
+                            className="shrink-0 rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                          >
+                            {isLocatingAddress ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <MapPin className="mr-2 h-4 w-4" />
+                            )}
+                            {isLocatingAddress ? 'Getting location...' : 'Use current location'}
+                          </Button>
+                        </div>
+
+                        {locationPin && (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+                            <span>
+                              Location pinned to 6 decimal places
+                              {locationPin.accuracy ? ` · accuracy ±${locationPin.accuracy} m` : ''}
+                            </span>
+                            <a
+                              href={locationPin.mapUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-black underline"
+                            >
+                              Preview in Maps
+                            </a>
+                          </div>
+                        )}
+
+                        {locationError && (
+                          <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                            {locationError}
+                          </p>
+                        )}
+                      </div>
+
                       <div className="sm:col-span-2">
                         <Label htmlFor="fullName">Full Name</Label>
                         <Input
@@ -2232,7 +2412,7 @@ export default function CheckoutPage() {
         </div>
       </main>
 
-      {!orderComplete && items.length > 0 && paymentMethod !== 'card' && (
+      {!orderComplete && checkoutItems.length > 0 && paymentMethod !== 'card' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-dh-light-gray bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
           <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3">
             <div className="min-w-0 flex-1">

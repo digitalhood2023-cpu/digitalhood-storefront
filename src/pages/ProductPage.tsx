@@ -25,6 +25,7 @@ import {
 
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
+import RecentlyViewed from '@/sections/RecentlyViewed'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +41,9 @@ import {
 import {
   fetchWooProductBySlug,
   fetchWooProducts,
+  fetchWooProductReviews,
   type WooProduct,
+  type WooProductReview,
   type WooProductVariation,
 } from '@/lib/woocommerce'
 
@@ -49,7 +52,7 @@ import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
-import { getAccountToken } from '@/api/account'
+import { useAccount } from '@/context/AccountContext'
 import { openProductConversation } from '@/api/chat'
 
 import gsap from 'gsap'
@@ -197,6 +200,61 @@ function sortByHotSelling(products: WooProduct[]) {
   })
 }
 
+function getRecommendationBuckets(
+  currentProduct: WooProduct,
+  candidates: WooProduct[]
+) {
+  const currentCategoryIds = new Set(currentProduct.categoryIds || [])
+  const currentOptions = new Set(
+    (currentProduct.attributes || [])
+      .flatMap((attribute) => attribute.options || [])
+      .map((option) => option.toLowerCase())
+  )
+  const uniqueCandidates = Array.from(
+    new Map(
+      candidates
+        .filter((candidate) => candidate.id !== currentProduct.id)
+        .map((candidate) => [candidate.id, candidate])
+    ).values()
+  )
+  const scored = uniqueCandidates
+    .map((candidate) => {
+      const categoryMatches = (candidate.categoryIds || []).filter((categoryId) =>
+        currentCategoryIds.has(categoryId)
+      ).length
+      const optionMatches = (candidate.attributes || [])
+        .flatMap((attribute) => attribute.options || [])
+        .filter((option) => currentOptions.has(option.toLowerCase())).length
+      const sameSeller =
+        currentProduct.sellerKey && candidate.sellerKey === currentProduct.sellerKey
+          ? 1
+          : 0
+      const score =
+        categoryMatches * 8 +
+        optionMatches * 2 +
+        sameSeller +
+        Number(candidate.averageRating || 0) +
+        Math.log10(Number(candidate.totalSales || 0) + 1)
+
+      return { candidate, score }
+    })
+    .sort((left, right) => right.score - left.score)
+    .map(({ candidate }) => candidate)
+
+  const similar = scored.slice(0, 8)
+  const usedIds = new Set(similar.map((item) => item.id))
+  const remaining = uniqueCandidates.filter((item) => !usedIds.has(item.id))
+  const newArrivals = sortByNewest(remaining).slice(0, 8)
+
+  for (const item of newArrivals) usedIds.add(item.id)
+
+  const hotSelling = sortByHotSelling(
+    uniqueCandidates.filter((item) => !usedIds.has(item.id))
+  ).slice(0, 8)
+
+  return { similar, newArrivals, hotSelling }
+}
+
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
@@ -205,6 +263,9 @@ export default function ProductPage() {
   const [recommendedProducts, setRecommendedProducts] = useState<WooProduct[]>([])
   const [newArrivalProducts, setNewArrivalProducts] = useState<WooProduct[]>([])
   const [hotSellingProducts, setHotSellingProducts] = useState<WooProduct[]>([])
+  const [productReviews, setProductReviews] = useState<WooProductReview[]>([])
+  const [areReviewsLoading, setAreReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState('')
   const [selectedImage, setSelectedImage] = useState(0)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [galleryScale, setGalleryScale] = useState(1)
@@ -225,9 +286,9 @@ export default function ProductPage() {
     useState<Record<string, string>>({})
 
   const addItem = useCartStore((state) => state.addItem)
-  const clearCart = useCartStore((state) => state.clearCart)
   const { toggleWishlist, isInWishlist } = useWishlist()
   const { addToRecentlyViewed } = useRecentlyViewed()
+  const { isAuthenticated } = useAccount()
 
   const pageRef = useRef<HTMLDivElement>(null)
   const galleryHistoryStateRef = useRef(false)
@@ -252,6 +313,8 @@ export default function ProductPage() {
     setRecommendedProducts([])
     setNewArrivalProducts([])
     setHotSellingProducts([])
+    setProductReviews([])
+    setReviewsError('')
 
     fetchWooProductBySlug(slug)
       .then((item) => {
@@ -264,30 +327,41 @@ export default function ProductPage() {
         setProduct(item)
         window.scrollTo(0, 0)
 
+        setAreReviewsLoading(true)
+        fetchWooProductReviews(item.id)
+          .then(setProductReviews)
+          .catch((error) => {
+            console.error(error)
+            setReviewsError('Buyer feedback is temporarily unavailable.')
+          })
+          .finally(() => setAreReviewsLoading(false))
+
         const categoryId = item.categoryIds?.[0] || item.categories?.[0]?.id || null
 
-        fetchWooProducts(16, 1, '', categoryId)
+        fetchWooProducts(32, 1, '', categoryId)
           .then(({ products }) => {
             const filtered = products.filter(
               (recommended) => recommended.id !== item.id
             )
 
-            setRecommendedProducts(filtered.slice(0, 8))
-            setNewArrivalProducts(sortByNewest(filtered).slice(0, 8))
-            setHotSellingProducts(sortByHotSelling(filtered).slice(0, 8))
+            const buckets = getRecommendationBuckets(item, filtered)
+            setRecommendedProducts(buckets.similar)
+            setNewArrivalProducts(buckets.newArrivals)
+            setHotSellingProducts(buckets.hotSelling)
           })
           .catch((error) => {
             console.error(error)
 
-            fetchWooProducts(16, 1)
+            fetchWooProducts(32, 1)
               .then(({ products }) => {
                 const filtered = products.filter(
                   (recommended) => recommended.id !== item.id
                 )
 
-                setRecommendedProducts(filtered.slice(0, 8))
-                setNewArrivalProducts(sortByNewest(filtered).slice(0, 8))
-                setHotSellingProducts(sortByHotSelling(filtered).slice(0, 8))
+                const buckets = getRecommendationBuckets(item, filtered)
+                setRecommendedProducts(buckets.similar)
+                setNewArrivalProducts(buckets.newArrivals)
+                setHotSellingProducts(buckets.hotSelling)
               })
               .catch((fallbackError) => {
                 console.error(fallbackError)
@@ -357,7 +431,7 @@ export default function ProductPage() {
   async function handleOpenSellerChat() {
     if (!product || isOpeningChat) return
 
-    if (!getAccountToken()) {
+    if (!isAuthenticated) {
       const redirect = `/product/${encodeURIComponent(product.slug || String(product.id))}`
 
       navigate(
@@ -451,6 +525,39 @@ export default function ProductPage() {
 
   const soldText = product ? getSoldText(product) : ''
   const ratingText = product ? getRatingText(product) : ''
+  const productDetailRows = useMemo(() => {
+    if (!product) return []
+
+    const rows = (product.attributes || []).map((attribute) => ({
+      label: attribute.name,
+      value: (attribute.options || []).join(', '),
+    }))
+    const existingLabels = new Set(rows.map((row) => row.label.toLowerCase()))
+
+    const addDetail = (label: string, value?: string) => {
+      if (!value || existingLabels.has(label.toLowerCase())) return
+      rows.push({ label, value })
+      existingLabels.add(label.toLowerCase())
+    }
+
+    addDetail('Condition', product.condition)
+    addDetail('Brand', product.brand)
+    addDetail('SKU', product.sku)
+
+    return rows.filter((row) => row.value)
+  }, [product])
+  const verifiedReviews = useMemo(
+    () => productReviews.filter((review) => review.verified),
+    [productReviews]
+  )
+  const verifiedRating = useMemo(() => {
+    if (verifiedReviews.length === 0) return 0
+
+    return (
+      verifiedReviews.reduce((sum, review) => sum + review.rating, 0) /
+      verifiedReviews.length
+    )
+  }, [verifiedReviews])
   const sellerDisplay = product
     ? getProductSellerDisplay(product)
     : {
@@ -798,13 +905,12 @@ export default function ProductPage() {
 
     if (!cartProduct) return
 
-    clearCart()
-
     const addedToCart = addItem(cartProduct, quantity)
 
     if (!addedToCart) return
 
-    navigate('/checkout')
+    const checkoutItemId = Number(cartProduct.variationId || cartProduct.id)
+    navigate(`/checkout?items=${checkoutItemId}`)
   }
 
   const ProductRow = ({
@@ -1515,7 +1621,7 @@ export default function ProductPage() {
                     </TabsTrigger>
 
                     <TabsTrigger value="trust">
-                      Trust
+                      Trust/Feedback
                     </TabsTrigger>
                   </TabsList>
 
@@ -1562,6 +1668,20 @@ export default function ProductPage() {
                         </span>
                       </div>
 
+                      {productDetailRows.map((detail) => (
+                        <div
+                          key={`${detail.label}-${detail.value}`}
+                          className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3"
+                        >
+                          <span className="text-sm font-semibold text-dh-dark-gray">
+                            {detail.label}
+                          </span>
+                          <span className="text-right font-medium break-words">
+                            {detail.value}
+                          </span>
+                        </div>
+                      ))}
+
                       <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
                         <span className="text-sm font-semibold text-dh-dark-gray">
                           Availability
@@ -1601,6 +1721,93 @@ export default function ProductPage() {
 
                   <TabsContent value="trust" className="mt-3 rounded-2xl bg-white p-4">
                     <div className="grid gap-3">
+                      <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-dh-dark-gray">
+                              Verified buyer feedback
+                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="font-display text-3xl font-black text-dh-primary">
+                                {verifiedRating > 0 ? verifiedRating.toFixed(1) : '—'}
+                              </span>
+                              <span className="flex items-center gap-0.5" aria-label={`${verifiedRating.toFixed(1)} out of 5 stars`}>
+                                {Array.from({ length: 5 }).map((_, index) => (
+                                  <Star
+                                    key={index}
+                                    className={`h-4 w-4 ${
+                                      index < Math.round(verifiedRating)
+                                        ? 'fill-[#ffb54a] text-[#ffb54a]'
+                                        : 'text-gray-300'
+                                    }`}
+                                  />
+                                ))}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-dh-primary shadow-sm">
+                            {verifiedReviews.length} verified purchase{verifiedReviews.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+
+                        {areReviewsLoading ? (
+                          <p className="mt-4 text-sm font-semibold text-dh-dark-gray">
+                            Loading buyer feedback...
+                          </p>
+                        ) : reviewsError ? (
+                          <p className="mt-4 text-sm font-semibold text-red-700">
+                            {reviewsError}
+                          </p>
+                        ) : verifiedReviews.length > 0 ? (
+                          <div className="mt-4 grid gap-3">
+                            {verifiedReviews.slice(0, 8).map((review) => (
+                              <article key={review.id} className="rounded-2xl bg-white p-4 shadow-sm">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <p className="font-black text-dh-primary">
+                                      {review.reviewer}
+                                    </p>
+                                    <div className="mt-1 flex items-center gap-1">
+                                      {Array.from({ length: 5 }).map((_, index) => (
+                                        <Star
+                                          key={index}
+                                          className={`h-3.5 w-3.5 ${
+                                            index < review.rating
+                                              ? 'fill-[#ffb54a] text-[#ffb54a]'
+                                              : 'text-gray-300'
+                                          }`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
+                                    <BadgeCheck className="h-3.5 w-3.5" />
+                                    Verified purchase
+                                  </span>
+                                </div>
+                                {review.review && (
+                                  <p className="mt-3 text-sm leading-6 text-dh-dark-gray">
+                                    {review.review}
+                                  </p>
+                                )}
+                                {review.dateCreated && (
+                                  <p className="mt-2 text-xs font-semibold text-gray-500">
+                                    {new Date(review.dateCreated).toLocaleDateString('en-ZM', {
+                                      dateStyle: 'medium',
+                                    })}
+                                  </p>
+                                )}
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm text-dh-dark-gray">
+                            No verified purchase feedback has been posted for this product yet.
+                          </p>
+                        )}
+                      </div>
+
                       <div className="flex items-start gap-3 rounded-2xl bg-green-50 p-4">
                         <Check className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                         <div>
@@ -1648,6 +1855,10 @@ export default function ProductPage() {
           )}
         </div>
       </main>
+
+      {product && !isLoading && !loadError && (
+        <RecentlyViewed excludeProductId={String(product.id)} />
+      )}
 
       {product && !isLoading && !loadError && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-dh-light-gray bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">

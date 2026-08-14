@@ -16,6 +16,10 @@ export type AccountAddress = {
   country?: string
   email?: string
   phone?: string
+  latitude?: number | null
+  longitude?: number | null
+  locationAccuracy?: number | null
+  mapUrl?: string
 }
 
 export type SavedCustomerAddress = {
@@ -29,6 +33,10 @@ export type SavedCustomerAddress = {
   province: string
   postcode?: string
   country?: string
+  latitude?: number | null
+  longitude?: number | null
+  locationAccuracy?: number | null
+  mapUrl?: string
   isDefault?: boolean
   createdAt?: string
   updatedAt?: string
@@ -372,6 +380,29 @@ export async function loginCustomerWithGoogle(credential: string) {
   setAccountToken(response.token)
 
   return response
+}
+
+export async function requestCustomerPasswordReset(email: string) {
+  return accountFetch<{ success: boolean; message: string }>(
+    '/api/auth/forgot-password',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }
+  )
+}
+
+export async function resetCustomerPassword(payload: {
+  token: string
+  password: string
+}) {
+  return accountFetch<{ success: boolean; message: string }>(
+    '/api/auth/reset-password',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
 }
 
 export async function getCurrentCustomer() {
