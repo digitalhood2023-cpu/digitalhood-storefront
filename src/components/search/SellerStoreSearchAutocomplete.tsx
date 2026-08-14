@@ -26,6 +26,11 @@ import {
   type PublicSellerStoreSuggestionCategory,
   type PublicSellerStoreSuggestionProduct,
 } from '@/api/publicSellers'
+import {
+  SEARCH_HISTORY_CHANGED_EVENT,
+  readMarketplaceSearchHistory,
+  saveMarketplaceSearch,
+} from '@/lib/marketplaceBrowserState'
 
 type SellerStoreSearchAutocompleteProps = {
   sellerKey: string
@@ -106,109 +111,22 @@ function normalizeComparableSearch(
     )
 }
 
-function getHistoryKey(
-  sellerKey: string
-) {
-  return `digitalhood-store-searches:${normalizeComparableSearch(
-    sellerKey
-  )}`
-}
-
 function readRecentSearches(
   sellerKey: string
 ) {
-  if (
-    typeof window ===
-    'undefined'
-  ) {
-    return []
-  }
-
-  try {
-    const stored =
-      JSON.parse(
-        window.localStorage.getItem(
-          getHistoryKey(
-            sellerKey
-          )
-        ) || '[]'
-      )
-
-    return Array.isArray(stored)
-      ? stored
-          .map(
-            (item) =>
-              String(
-                item || ''
-              ).trim()
-          )
-          .filter(
-            (item) =>
-              item.length >= 2
-          )
-          .slice(
-            0,
-            5
-          )
-      : []
-  } catch {
-    return []
-  }
+  return readMarketplaceSearchHistory(
+    sellerKey
+  )
 }
 
 function saveRecentSearch(
   sellerKey: string,
   value: string
 ) {
-  const cleaned =
-    String(value || '')
-      .trim()
-      .slice(
-        0,
-        80
-      )
-
-  if (
-    typeof window ===
-      'undefined' ||
-    cleaned.length < 2
-  ) {
-    return
-  }
-
-  try {
-    const previous =
-      readRecentSearches(
-        sellerKey
-      )
-
-    const comparable =
-      normalizeComparableSearch(
-        cleaned
-      )
-
-    const next = [
-      cleaned,
-      ...previous.filter(
-        (item) =>
-          normalizeComparableSearch(
-            item
-          ) !== comparable
-      ),
-    ].slice(
-      0,
-      5
-    )
-
-    window.localStorage.setItem(
-      getHistoryKey(
-        sellerKey
-      ),
-      JSON.stringify(next)
-    )
-  } catch {
-    // Search must continue even when storage is unavailable.
-  }
+  saveMarketplaceSearch(
+    value,
+    sellerKey
+  )
 }
 
 export default function SellerStoreSearchAutocomplete({
@@ -308,11 +226,27 @@ export default function SellerStoreSearchAutocomplete({
     )
 
   useEffect(() => {
-    setRecentSearches(
-      readRecentSearches(
-        sellerKey
+    const refreshHistory = () => {
+      setRecentSearches(
+        readRecentSearches(
+          sellerKey
+        )
       )
+    }
+
+    refreshHistory()
+
+    window.addEventListener(
+      SEARCH_HISTORY_CHANGED_EVENT,
+      refreshHistory
     )
+
+    return () => {
+      window.removeEventListener(
+        SEARCH_HISTORY_CHANGED_EVENT,
+        refreshHistory
+      )
+    }
   }, [
     sellerKey,
   ])

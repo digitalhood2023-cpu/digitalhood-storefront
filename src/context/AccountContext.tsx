@@ -15,6 +15,8 @@ import {
   setAccountToken,
   type AccountCustomer,
 } from '@/api/account'
+import { clearMarketplacePersonalBrowserState } from '@/lib/marketplaceBrowserState'
+import { useCartStore } from '@/store/cartStore'
 
 type AccountContextValue = {
   customer: AccountCustomer | null
@@ -68,6 +70,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       return response.customer
     } catch (requestError) {
       clearAccountToken()
+      useCartStore.getState().clearCart()
+      clearMarketplacePersonalBrowserState()
       setCustomer(null)
 
       setError(
@@ -85,13 +89,17 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     setIsLoading(true)
     setError('')
+    useCartStore.getState().clearCart()
+    clearMarketplacePersonalBrowserState()
+    setCustomer(null)
 
     try {
       await logoutCustomerAccount()
     } catch {
       clearAccountToken()
     } finally {
-      setCustomer(null)
+      useCartStore.getState().clearCart()
+      clearMarketplacePersonalBrowserState()
       setIsLoading(false)
     }
   }, [])

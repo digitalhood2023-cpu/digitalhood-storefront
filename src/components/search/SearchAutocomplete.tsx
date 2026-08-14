@@ -16,6 +16,7 @@ import {
   type SearchSuggestionProduct,
 } from '@/lib/woocommerce'
 import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
+import { saveMarketplaceSearch } from '@/lib/marketplaceBrowserState'
 
 type SearchAutocompleteProps = {
   compact?: boolean
@@ -37,20 +38,7 @@ function formatPrice(price: string | number) {
 }
 
 function saveSearchHistory(value: string) {
-  if (typeof window === 'undefined' || value.trim().length < 2) return
-
-  try {
-    const key = 'digitalhood-shop-searches'
-    const previous = JSON.parse(window.localStorage.getItem(key) || '[]')
-    const next = [
-      value.trim(),
-      ...previous.filter((item: string) => item !== value.trim()),
-    ].slice(0, 20)
-
-    window.localStorage.setItem(key, JSON.stringify(next))
-  } catch {
-    // Ignore local storage issues.
-  }
+  saveMarketplaceSearch(value)
 }
 
 export default function SearchAutocomplete({

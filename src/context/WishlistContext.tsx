@@ -10,12 +10,17 @@ import React, {
 
 import {
   addCustomerWishlistItem,
+  getAccountToken,
   getCustomerWishlist,
   removeCustomerWishlistItem,
 } from '@/api/account'
 
 import { useAccount } from '@/context/AccountContext'
 import type { Product } from '@/types'
+import {
+  ACCOUNT_STATE_CLEARED_EVENT,
+  WISHLIST_STORAGE_KEY,
+} from '@/lib/marketplaceBrowserState'
 
 interface WishlistContextType {
   items: Product[]
@@ -29,8 +34,6 @@ interface WishlistContextType {
   openWishlistDrawer: () => void
   closeWishlistDrawer: () => void
 }
-
-const WISHLIST_STORAGE_KEY = 'digitalhood-wishlist'
 
 const WishlistContext = createContext<WishlistContextType | undefined>(
   undefined
@@ -152,17 +155,15 @@ function normalizeBackendWishlistProducts(products: any[]): Product[] {
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAccountLoading, customer } = useAccount()
 
-  const [items, setItems] = useState<Product[]>(() => loadStoredWishlist())
+  const [items, setItems] = useState<Product[]>(() =>
+    getAccountToken() ? [] : loadStoredWishlist()
+  )
   const [isSyncing, setIsSyncing] = useState(false)
   const [isWishlistDrawerOpen, setIsWishlistDrawerOpen] = useState(false)
 
   const hasMergedLocalWishlistRef = useRef(false)
   const previousCustomerIdRef = useRef<string>('')
   const wasAuthenticatedRef = useRef(false)
-
-  useEffect(() => {
-    saveStoredWishlist(items)
-  }, [items])
 
   const refreshWishlist = useCallback(async () => {
     if (!isAuthenticated) {
@@ -176,11 +177,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const response = await getCustomerWishlist()
       const backendProducts = normalizeBackendWishlistProducts(response.products || [])
 
-      setItems((current) => {
-        const merged = dedupeProducts([...backendProducts, ...current])
-        saveStoredWishlist(merged)
-        return merged
-      })
+      setItems(backendProducts)
     } catch (error) {
       console.error(error)
     } finally {
@@ -250,7 +247,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
           if (mounted) {
             setItems(mergedProducts)
-            saveStoredWishlist(mergedProducts)
           }
 
           return
@@ -267,7 +263,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
         if (mounted) {
           setItems(mergedProducts)
-          saveStoredWishlist(mergedProducts)
         }
       } catch (error) {
         console.error(error)
@@ -284,6 +279,30 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       mounted = false
     }
   }, [customer?.id, isAccountLoading, isAuthenticated])
+
+  useEffect(() => {
+    if (isAccountLoading) return
+
+    if (isAuthenticated) {
+      window.localStorage.removeItem(WISHLIST_STORAGE_KEY)
+      return
+    }
+
+    saveStoredWishlist(items)
+  }, [isAccountLoading, isAuthenticated, items])
+
+  useEffect(() => {
+    const clearItems = () => {
+      setItems([])
+      setIsWishlistDrawerOpen(false)
+    }
+
+    window.addEventListener(ACCOUNT_STATE_CLEARED_EVENT, clearItems)
+
+    return () => {
+      window.removeEventListener(ACCOUNT_STATE_CLEARED_EVENT, clearItems)
+    }
+  }, [])
 
   const addToWishlist = useCallback(
     (product: Product) => {

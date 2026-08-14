@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   fetchPublicSellerDirectory,
+  fetchPublicSellerStore,
   type PublicStoreDirectoryCard,
   type PublicStoreDirectoryResponse,
 } from '@/api/publicSellers'
@@ -163,12 +164,23 @@ function StoreCard({
     store.description ||
     'Approved seller on DigitalHood Marketplace.'
 
+  const prefetchStore = () => {
+    void fetchPublicSellerStore(
+      store.key,
+      1,
+      24
+    ).catch(() => undefined)
+  }
+
   return (
     <Link
       to={
         store.url ||
         `/seller/${store.key}`
       }
+      onMouseEnter={prefetchStore}
+      onFocus={prefetchStore}
+      onTouchStart={prefetchStore}
       className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-dh-secondary/70 hover:shadow-lg"
     >
       <div className="relative">

@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
+  BadgeCheck,
   Minus,
   Plus,
   ShieldCheck,
@@ -34,6 +36,12 @@ type CartDrawerItem = {
   stockLabel?: string
   stockTone?: string
   canAddToCart?: boolean
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerAvatarUrl?: string
+  sellerFeedbackText?: string
 }
 
 function formatPrice(price: number) {
@@ -80,6 +88,62 @@ function getVariationText(item: CartDrawerItem) {
   return `Variation ID: ${item.variationId}`
 }
 
+function getStoreInitials(storeName: string) {
+  return storeName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('') || 'DH'
+}
+
+function groupCartItemsByStore(items: CartDrawerItem[]) {
+  const groups = new Map<
+    string,
+    {
+      key: string
+      storeName: string
+      sellerUrl: string
+      avatarUrl: string
+      verified: boolean
+      feedbackText: string
+      items: CartDrawerItem[]
+      subtotal: number
+    }
+  >()
+
+  for (const item of items) {
+    const storeName = item.sellerStoreName || 'DigitalHood'
+    const sellerKey =
+      item.sellerKey ||
+      (storeName.toLowerCase() === 'digitalhood' ? 'digitalhood' : '')
+    const key = sellerKey || storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const isDigitalHood = key === 'digitalhood'
+    const current = groups.get(key) || {
+      key,
+      storeName,
+      sellerUrl:
+        item.sellerUrl ||
+        (sellerKey
+          ? `/seller/${encodeURIComponent(sellerKey)}`
+          : '/seller/digitalhood'),
+      avatarUrl: item.sellerAvatarUrl || (isDigitalHood ? '/logo.jpg' : ''),
+      verified: Boolean(item.sellerVerified || isDigitalHood),
+      feedbackText:
+        item.sellerFeedbackText || (isDigitalHood ? '100% positive' : 'New seller'),
+      items: [],
+      subtotal: 0,
+    }
+
+    current.items.push(item)
+    current.subtotal += Number(item.price || 0) * Number(item.quantity || 1)
+    groups.set(key, current)
+  }
+
+  return Array.from(groups.values())
+}
+
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -91,6 +155,10 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0)
   const hasUnavailableItems = items.some((item) =>
     isUnavailable(item as CartDrawerItem)
+  )
+  const storeGroups = useMemo(
+    () => groupCartItemsByStore(items as CartDrawerItem[]),
+    [items]
   )
   const dismissDrawer = useBackButtonDismiss({
     id: 'cart-drawer',
@@ -163,8 +231,54 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {items.map((rawItem) => {
+            <div className="grid gap-4">
+              {storeGroups.map((group) => (
+                <section
+                  key={group.key}
+                  className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-dh-light-gray/80"
+                >
+                  <div className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-slate-50 px-3 py-3">
+                    <Link
+                      to={group.sellerUrl}
+                      onClick={onClose}
+                      className="flex min-w-0 items-center gap-2.5"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[11px] font-black text-dh-primary ring-1 ring-dh-light-gray">
+                        {group.avatarUrl ? (
+                          <img
+                            src={group.avatarUrl}
+                            alt={group.storeName}
+                            className="h-full w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          getStoreInitials(group.storeName)
+                        )}
+                      </span>
+
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1 truncate text-sm font-black text-dh-primary">
+                          <span className="truncate">{group.storeName}</span>
+                          {group.verified && (
+                            <BadgeCheck className="h-4 w-4 shrink-0 text-green-600" />
+                          )}
+                        </span>
+                        <span className="block truncate text-[11px] font-bold text-green-700">
+                          {group.feedbackText} · {group.items.length}{' '}
+                          {group.items.length === 1 ? 'item' : 'items'}
+                        </span>
+                      </span>
+                    </Link>
+
+                    <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-dh-primary ring-1 ring-dh-light-gray">
+                      {formatPrice(group.subtotal)}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 p-2.5">
+              {group.items.map((rawItem) => {
                 const item = rawItem as CartDrawerItem
                 const unavailable = isUnavailable(item)
                 const variationText = getVariationText(item)
@@ -172,7 +286,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 return (
                   <article
                     key={item.id}
-                    className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ${
+                    className={`overflow-hidden rounded-2xl bg-white ring-1 ${
                       unavailable ? 'ring-red-200' : 'ring-transparent'
                     }`}
                   >
@@ -279,6 +393,9 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   </article>
                 )
               })}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </div>

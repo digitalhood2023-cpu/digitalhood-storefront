@@ -5,6 +5,22 @@ export const CHAT_API_URL =
   import.meta.env.VITE_CHAT_API_URL ||
   'https://chat.digitalhood.info'
 
+const PAYMENTS_API_URL =
+  import.meta.env.VITE_PAYMENTS_API_URL ||
+  'https://payments.digitalhood.info'
+
+function resolveChatAvatarUrl(value: unknown) {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+
+  if (!normalized) return ''
+  if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized
+  if (normalized.startsWith('/')) {
+    return `${PAYMENTS_API_URL.replace(/\/+$/, '')}${normalized}`
+  }
+
+  return normalized
+}
+
 export type ChatKind =
   | 'buyer'
   | 'seller'
@@ -32,6 +48,8 @@ export type ChatMessage = {
   sender?: {
     type?: string
     id?: string
+    displayName?: string | null
+    avatarUrl?: string | null
   } | null
   contexts?: ChatContext[]
   createdAt?: string
@@ -213,8 +231,8 @@ async function chatFetch<T>(
 
   if (!response.ok) {
     const error =
-      data?.error ||
       data?.message ||
+      data?.error ||
       `Chat request failed with status ${response.status}`
 
     throw new Error(
@@ -557,7 +575,7 @@ export async function getBuyerInbox(
                     ) || null,
 
                   avatarUrl:
-                    stringValue(
+                    resolveChatAvatarUrl(
                       counterpartyRow
                         .avatarUrl
                     ) || null,
@@ -788,7 +806,17 @@ function normalizeMessage(
             id:
               stringValue(
                 senderRecord.id
-              )
+              ),
+
+            displayName:
+              stringValue(
+                senderRecord.displayName
+              ) || null,
+
+            avatarUrl:
+              resolveChatAvatarUrl(
+                senderRecord.avatarUrl
+              ) || null
           }
         : null,
 

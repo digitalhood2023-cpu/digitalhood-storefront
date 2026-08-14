@@ -277,6 +277,43 @@ export type WishlistResponse = {
   products: AccountProduct[]
 }
 
+export type AccountMarketplaceCartItem = {
+  id: number
+  productId: number
+  variationId?: number
+  variationLabel?: string
+  name: string
+  slug?: string
+  price: number
+  regularPrice: number
+  image: string
+  quantity: number
+  stockStatus?: string
+  stockQuantity?: number | null
+  stockLabel?: string
+  stockTone?: 'success' | 'warning' | 'danger' | 'muted'
+  canAddToCart?: boolean
+  sellerStoreName?: string
+  sellerKey?: string
+  sellerUrl?: string
+  sellerVerified?: boolean
+  sellerCustomerId?: string | number
+  sellerAvatarUrl?: string
+  sellerFeedbackText?: string
+}
+
+export type CustomerMarketplaceState = {
+  cartItems: AccountMarketplaceCartItem[]
+  recentSearches: string[]
+  storeSearches: Record<string, string[]>
+  updatedAt?: string
+}
+
+export type CustomerMarketplaceStateResponse = {
+  success: boolean
+  state: CustomerMarketplaceState
+}
+
 export type SavedAddressesResponse = {
   success: boolean
   addresses: SavedCustomerAddress[]
@@ -673,4 +710,22 @@ export async function removeCustomerRecentlyViewedItems(productIds: number[]) {
     method: 'DELETE',
     body: JSON.stringify({ productIds }),
   })
+}
+
+export async function getCustomerMarketplaceState() {
+  return accountFetch<CustomerMarketplaceStateResponse>(
+    '/api/account/marketplace-state'
+  )
+}
+
+export async function updateCustomerMarketplaceState(
+  state: Partial<CustomerMarketplaceState>
+) {
+  return accountFetch<CustomerMarketplaceStateResponse>(
+    '/api/account/marketplace-state',
+    {
+      method: 'PUT',
+      body: JSON.stringify(state),
+    }
+  )
 }
