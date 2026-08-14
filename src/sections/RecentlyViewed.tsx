@@ -15,10 +15,17 @@ function getProductUrl(product: { id: string | number; slug?: string }) {
   return `/product/${product.slug || product.id}`
 }
 
-export default function RecentlyViewed() {
+export default function RecentlyViewed({
+  excludeProductId,
+}: {
+  excludeProductId?: string | number
+}) {
   const { items, hasItems, removeRecentlyViewed } = useRecentlyViewed()
+  const visibleItems = items.filter(
+    (item) => String(item.id) !== String(excludeProductId || '')
+  )
 
-  if (!hasItems) return null
+  if (!hasItems || visibleItems.length === 0) return null
 
   return (
     <section className="bg-gradient-to-b from-white via-dh-gray/60 to-white py-6 lg:py-8">
@@ -50,7 +57,7 @@ export default function RecentlyViewed() {
 
         <div className="-mx-4 overflow-x-auto px-4 pb-3 [scrollbar-width:thin]">
           <div className="flex gap-4">
-            {items.slice(0, 10).map((product) => (
+            {visibleItems.slice(0, 10).map((product) => (
               <article
                 key={product.id}
                 className="group relative w-40 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-dh-light-gray transition-all duration-300 hover:-translate-y-1 hover:ring-dh-primary/20 hover:shadow-lg sm:w-48"

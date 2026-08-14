@@ -59,6 +59,11 @@ function loadStoredWishlist(): Product[] {
 function saveStoredWishlist(items: Product[]) {
   if (typeof window === 'undefined') return
 
+  if (items.length === 0) {
+    window.localStorage.removeItem(WISHLIST_STORAGE_KEY)
+    return
+  }
+
   window.localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(items))
 }
 
@@ -145,7 +150,7 @@ function normalizeBackendWishlistProducts(products: any[]): Product[] {
 
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, customer } = useAccount()
+  const { isAuthenticated, isLoading: isAccountLoading, customer } = useAccount()
 
   const [items, setItems] = useState<Product[]>(() => loadStoredWishlist())
   const [isSyncing, setIsSyncing] = useState(false)
@@ -153,6 +158,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
   const hasMergedLocalWishlistRef = useRef(false)
   const previousCustomerIdRef = useRef<string>('')
+  const wasAuthenticatedRef = useRef(false)
 
   useEffect(() => {
     saveStoredWishlist(items)
@@ -185,16 +191,31 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const customerId = customer?.id ? String(customer.id) : ''
 
+    if (isAccountLoading) return
+
     if (!isAuthenticated || !customerId) {
+      if (wasAuthenticatedRef.current) {
+        window.localStorage.removeItem(WISHLIST_STORAGE_KEY)
+        setItems([])
+      }
+
+      wasAuthenticatedRef.current = false
       hasMergedLocalWishlistRef.current = false
       previousCustomerIdRef.current = ''
       return
     }
 
+    const isSwitchingAccounts = Boolean(
+      previousCustomerIdRef.current &&
+        previousCustomerIdRef.current !== customerId
+    )
+
     if (previousCustomerIdRef.current !== customerId) {
       hasMergedLocalWishlistRef.current = false
       previousCustomerIdRef.current = customerId
     }
+
+    wasAuthenticatedRef.current = true
 
     let mounted = true
 
@@ -202,7 +223,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       setIsSyncing(true)
 
       try {
-        const localItems = loadStoredWishlist()
+        const localItems = isSwitchingAccounts ? [] : loadStoredWishlist()
         const response = await getCustomerWishlist()
         const backendProducts = normalizeBackendWishlistProducts(response.products || [])
         const backendProductIds = new Set(
@@ -262,7 +283,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false
     }
-  }, [customer?.id, isAuthenticated])
+  }, [customer?.id, isAccountLoading, isAuthenticated])
 
   const addToWishlist = useCallback(
     (product: Product) => {

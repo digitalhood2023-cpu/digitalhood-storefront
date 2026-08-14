@@ -1410,6 +1410,18 @@ export default function OrderDetailsPage() {
                   </p>
 
                   {order.shipping?.postcode && <p>{order.shipping.postcode}</p>}
+
+                  {order.shipping?.mapUrl && (
+                    <a
+                      href={order.shipping.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex items-center gap-2 rounded-full bg-dh-primary px-4 py-2 text-xs font-black text-white transition hover:bg-dh-secondary"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Open address in Maps
+                    </a>
+                  )}
                 </div>
 
                 <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">

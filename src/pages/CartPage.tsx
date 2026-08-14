@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -161,21 +162,82 @@ export default function CartPage() {
   const getSubtotal = useCartStore((state) => state.getSubtotal)
 
   const subtotal = getSubtotal()
-  const shipping = getShippingDetails({ subtotal })
-  const estimatedTotal = subtotal + shipping.fee
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0)
-  const hasUnavailableItems = items.some((item) =>
+  const cartHasUnavailableItems = items.some((item) =>
     isUnavailable(item as CartPageItem)
   )
   const storeGroups = groupCartItemsByStore(items as CartPageItem[])
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<number>>(
+    () => new Set()
+  )
 
-  const handleCheckout = () => {
-    if (hasUnavailableItems) {
+  const selectedItems = useMemo(
+    () =>
+      (items as CartPageItem[]).filter((item) =>
+        !excludedItemIds.has(Number(item.id))
+      ),
+    [excludedItemIds, items]
+  )
+  const selectedSubtotal = selectedItems.reduce(
+    (total, item) => total + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  )
+  const selectedQuantity = selectedItems.reduce(
+    (total, item) => total + Number(item.quantity || 1),
+    0
+  )
+  const hasUnavailableItems = selectedItems.some(isUnavailable)
+  const shipping = getShippingDetails({ subtotal: selectedSubtotal })
+  const estimatedTotal = selectedSubtotal + shipping.fee
+  const allItemsSelected =
+    items.length > 0 &&
+    items.every((item) => !excludedItemIds.has(Number(item.id)))
+
+  const toggleItem = (itemId: number) => {
+    setExcludedItemIds((previous) => {
+      const next = new Set(previous)
+
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+
+      return next
+    })
+  }
+
+  const toggleStore = (itemIds: number[]) => {
+    setExcludedItemIds((previous) => {
+      const next = new Set(previous)
+      const everySelected = itemIds.every((itemId) => !next.has(itemId))
+
+      for (const itemId of itemIds) {
+        if (everySelected) next.add(itemId)
+        else next.delete(itemId)
+      }
+
+      return next
+    })
+  }
+
+  const handleCheckout = (requestedItemIds?: number[]) => {
+    const requestedItems = (items as CartPageItem[]).filter((item) =>
+      requestedItemIds
+        ? requestedItemIds.includes(Number(item.id))
+        : !excludedItemIds.has(Number(item.id))
+    )
+
+    if (requestedItems.length === 0) {
+      alert('Select at least one item to checkout.')
+      return
+    }
+
+    if (requestedItems.some(isUnavailable)) {
       alert('Please remove unavailable items before checkout.')
       return
     }
 
-    navigate('/checkout')
+    navigate(
+      `/checkout?items=${requestedItems.map((item) => Number(item.id)).join(',')}`
+    )
   }
 
   return (
@@ -268,7 +330,29 @@ export default function CartPage() {
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_400px]">
               <section className="grid gap-4">
-                {hasUnavailableItems && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-dh-light-gray/70 sm:px-4">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-black text-dh-primary">
+                    <input
+                      type="checkbox"
+                      checked={allItemsSelected}
+                      onChange={() =>
+                        setExcludedItemIds(
+                          allItemsSelected
+                            ? new Set(items.map((item) => Number(item.id)))
+                            : new Set()
+                        )
+                      }
+                      className="h-4 w-4 rounded border-dh-light-gray accent-dh-primary"
+                    />
+                    Select all items
+                  </label>
+
+                  <p className="text-xs font-bold text-dh-dark-gray">
+                    {selectedQuantity} selected · {formatPrice(selectedSubtotal)}
+                  </p>
+                </div>
+
+                {cartHasUnavailableItems && (
                   <div className="rounded-3xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -286,11 +370,24 @@ export default function CartPage() {
 
                 {storeGroups.map((group) => (
                   <div key={group.key} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-dh-light-gray/70">
-                    <Link
-                      to={group.sellerUrl}
-                      className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-white px-3 py-2.5 transition hover:bg-dh-gray sm:px-4"
-                    >
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-dh-light-gray bg-white px-3 py-2.5 sm:px-4">
                       <div className="flex min-w-0 items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={group.items.every((item) =>
+                            !excludedItemIds.has(Number(item.id))
+                          )}
+                          onChange={() =>
+                            toggleStore(group.items.map((item) => Number(item.id)))
+                          }
+                          aria-label={`Select all items from ${group.storeName}`}
+                          className="h-4 w-4 rounded border-dh-light-gray accent-dh-primary"
+                        />
+
+                        <Link
+                          to={group.sellerUrl}
+                          className="flex min-w-0 items-center gap-3 rounded-xl transition hover:opacity-80"
+                        >
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-dh-gray text-[11px] font-black text-dh-primary">
                           {group.avatarUrl ? (
                             <img
@@ -311,12 +408,24 @@ export default function CartPage() {
                             {group.feedbackText}
                           </span>
                         </span>
+                        </Link>
                       </div>
 
-                      <span className="shrink-0 rounded-full bg-dh-gray px-3 py-1 text-xs font-black text-dh-primary">
-                        {formatPrice(group.subtotal)}
-                      </span>
-                    </Link>
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 rounded-full bg-dh-gray px-3 py-1 text-xs font-black text-dh-primary">
+                          {formatPrice(group.subtotal)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCheckout(group.items.map((item) => Number(item.id)))
+                          }
+                          className="rounded-full bg-dh-primary px-3 py-1.5 text-xs font-black text-white transition hover:bg-dh-secondary"
+                        >
+                          Checkout this store
+                        </button>
+                      </div>
+                    </div>
 
                     <div className="grid gap-2.5 p-2.5 sm:p-3">
                       {group.items.map((rawItem) => {
@@ -328,9 +437,23 @@ export default function CartPage() {
                     <article
                       key={item.id}
                       className={`relative overflow-hidden rounded-xl bg-white ring-1 transition ${
-                        unavailable ? 'ring-red-200' : 'ring-dh-light-gray/80'
+                        unavailable
+                          ? 'ring-red-200'
+                          : !excludedItemIds.has(Number(item.id))
+                            ? 'ring-dh-primary/40'
+                            : 'opacity-70 ring-dh-light-gray/80'
                       }`}
                     >
+                      <label className="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-dh-light-gray">
+                        <input
+                          type="checkbox"
+                          checked={!excludedItemIds.has(Number(item.id))}
+                          onChange={() => toggleItem(Number(item.id))}
+                          aria-label={`Select ${item.name} for checkout`}
+                          className="h-4 w-4 rounded border-dh-light-gray accent-dh-primary"
+                        />
+                      </label>
+
                       <button
                         type="button"
                         onClick={() => removeItem(item.id)}
@@ -452,15 +575,15 @@ export default function CartPage() {
 
               <aside>
                 <div className="sticky top-24 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                  <h2 className="font-display text-xl font-black text-dh-primary">
-                    Order summary
-                  </h2>
+                    <h2 className="font-display text-xl font-black text-dh-primary">
+                    Selected order
+                    </h2>
 
                   <div className="mt-4 space-y-3 border-b border-dh-light-gray pb-4">
                     <div className="flex justify-between text-sm text-dh-dark-gray">
-                      <span>Subtotal</span>
+                      <span>{selectedQuantity} selected</span>
                       <span className="font-semibold text-dh-primary">
-                        {formatPrice(subtotal)}
+                        {formatPrice(selectedSubtotal)}
                       </span>
                     </div>
 
@@ -493,6 +616,12 @@ export default function CartPage() {
                     <span>{formatPrice(estimatedTotal)}</span>
                   </div>
 
+                  {selectedItems.length === 0 && (
+                    <div className="mt-5 rounded-2xl border border-yellow-100 bg-yellow-50 p-3 text-sm text-yellow-800">
+                      Select the products you want to pay for now.
+                    </div>
+                  )}
+
                   {hasUnavailableItems && (
                     <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
                       Remove unavailable items before checkout.
@@ -500,17 +629,19 @@ export default function CartPage() {
                   )}
 
                   <Button
-                    onClick={handleCheckout}
-                    disabled={hasUnavailableItems}
+                    onClick={() => handleCheckout()}
+                    disabled={hasUnavailableItems || selectedItems.length === 0}
                     className={`mt-5 h-11 w-full rounded-full font-semibold ${
-                      hasUnavailableItems
+                      hasUnavailableItems || selectedItems.length === 0
                         ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
                         : 'bg-dh-primary text-white hover:bg-dh-secondary'
                     }`}
                   >
                     {hasUnavailableItems
                       ? 'Checkout unavailable'
-                      : 'Proceed to checkout'}
+                      : selectedItems.length === 0
+                        ? 'Select items to checkout'
+                        : `Checkout ${selectedQuantity} selected`}
                   </Button>
 
                   <Link to="/shop">

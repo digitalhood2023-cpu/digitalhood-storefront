@@ -92,6 +92,9 @@ export type WooProduct = {
   averageRating: number;
   ratingCount: number;
   reviewCount: number;
+  sku?: string;
+  brand?: string;
+  condition?: string;
 
   seller?: {
     id?: string;
@@ -134,6 +137,15 @@ export type WooProduct = {
   average_rating?: string;
   rating_count?: number;
   review_count?: number;
+};
+
+export type WooProductReview = {
+  id: number;
+  reviewer: string;
+  review: string;
+  rating: number;
+  verified: boolean;
+  dateCreated?: string;
 };
 
 export type WooCategory = {
@@ -613,6 +625,11 @@ export function mapWooProduct(product: any): WooProduct {
     );
 
   const categories = mapCategories(product);
+  const mappedAttributes = mapWooAttributes(product);
+  const getAttributeValue = (name: string) =>
+    mappedAttributes.find(
+      (attribute) => attribute.name.toLowerCase() === name.toLowerCase()
+    )?.options?.[0] || '';
   const images = getProductGalleryImages(product);
   const primaryImage = getPrimaryProductImage(product, images);
   const stockStatus = getStockStatus(product);
@@ -686,10 +703,13 @@ shortDescriptionHtml:
     averageRating,
     ratingCount,
     reviewCount: Number(product.review_count || product.reviewCount || ratingCount),
+    sku: String(product.sku || ''),
+    brand: String(product.brand || getAttributeValue('Brand') || ''),
+    condition: String(product.condition || getAttributeValue('Condition') || ''),
 
     categoryIds: categories.map((category: any) => category.id),
     categories,
-    attributes: mapWooAttributes(product),
+    attributes: mappedAttributes,
     variations: variations.filter(
       (variation: any) => typeof variation === 'object'
     ) as WooProductVariation[],
@@ -950,6 +970,31 @@ export async function fetchWooProductBySlug(
   }
 
   return fetchWooProductById(Number(foundProduct.id));
+}
+
+export async function fetchWooProductReviews(
+  productId: number,
+  limit = 20
+): Promise<WooProductReview[]> {
+  if (!productId) return [];
+
+  const params = new URLSearchParams({
+    per_page: String(Math.max(1, Math.min(50, limit))),
+  });
+  const response = await fetch(
+    `${MARKETPLACE_PRODUCTS_API}/${productId}/reviews?${params.toString()}`
+  );
+  const data = await parseJsonResponse(response);
+  const reviews = Array.isArray(data.reviews) ? data.reviews : [];
+
+  return reviews.map((review: any) => ({
+    id: Number(review.id),
+    reviewer: String(review.reviewer || 'Marketplace buyer'),
+    review: stripHtml(String(review.review || '')),
+    rating: Math.max(0, Math.min(5, Number(review.rating || 0))),
+    verified: Boolean(review.verified),
+    dateCreated: review.dateCreated || review.date_created || '',
+  }));
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {

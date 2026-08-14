@@ -3,10 +3,12 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react'
 
 import type { Product } from '@/types'
+import { useAccount } from '@/context/AccountContext'
 
 import {
   addCustomerRecentlyViewedItem,
@@ -66,6 +68,11 @@ function readLocalItems() {
 function saveLocalItems(items: RecentlyViewedProduct[]) {
   if (typeof window === 'undefined') return
 
+  if (items.length === 0) {
+    localStorage.removeItem(STORAGE_KEY)
+    return
+  }
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_ITEMS)))
 }
 
@@ -81,31 +88,73 @@ function dedupeItems(items: RecentlyViewedProduct[]) {
 }
 
 export function RecentlyViewedProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading: isAccountLoading, customer } = useAccount()
   const [items, setItems] = useState<RecentlyViewedProduct[]>(readLocalItems)
+  const previousCustomerIdRef = useRef('')
+  const wasAuthenticatedRef = useRef(false)
 
   useEffect(() => {
     saveLocalItems(items)
   }, [items])
 
   useEffect(() => {
+    if (isAccountLoading) return
+
+    const customerId = customer?.id ? String(customer.id) : ''
+
+    if (!isAuthenticated || !customerId) {
+      if (wasAuthenticatedRef.current) {
+        localStorage.removeItem(STORAGE_KEY)
+        setItems([])
+      }
+
+      wasAuthenticatedRef.current = false
+      previousCustomerIdRef.current = ''
+      return
+    }
+
+    const isSwitchingAccounts = Boolean(
+      previousCustomerIdRef.current &&
+        previousCustomerIdRef.current !== customerId
+    )
+
+    previousCustomerIdRef.current = customerId
+    wasAuthenticatedRef.current = true
+
     let mounted = true
 
-    getCustomerRecentlyViewed()
-      .then((response) => {
-        if (!mounted) return
+    async function syncRecentlyViewed() {
+      try {
+        const localItems = isSwitchingAccounts ? [] : readLocalItems()
+        const response = await getCustomerRecentlyViewed()
+        const backendIds = new Set((response.productIds || []).map(String))
 
-        const backendItems = (response.products || []).map(accountProductToRecentlyViewed)
+        for (const product of [...localItems].reverse()) {
+          if (!backendIds.has(String(product.id))) {
+            await addCustomerRecentlyViewedItem(Number(product.id))
+          }
+        }
 
-        setItems((current) => dedupeItems([...backendItems, ...current]))
-      })
-      .catch(() => {
-        // Guest users or signed-out users continue with local history.
-      })
+        const updatedResponse =
+          localItems.length > 0 ? await getCustomerRecentlyViewed() : response
+        const backendItems = (updatedResponse.products || []).map(
+          accountProductToRecentlyViewed
+        )
+
+        if (mounted) {
+          setItems(dedupeItems([...backendItems, ...localItems]))
+        }
+      } catch {
+        // Keep the local copy available if account synchronization is offline.
+      }
+    }
+
+    syncRecentlyViewed()
 
     return () => {
       mounted = false
     }
-  }, [])
+  }, [customer?.id, isAccountLoading, isAuthenticated])
 
   const addToRecentlyViewed = useCallback((product: RecentlyViewedProduct) => {
     setItems((prev) => {
@@ -113,18 +162,22 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
       return next
     })
 
-    addCustomerRecentlyViewedItem(Number(product.id)).catch(() => {
-      // Local history still works for guests/offline sessions.
-    })
-  }, [])
+    if (isAuthenticated) {
+      addCustomerRecentlyViewedItem(Number(product.id)).catch(() => {
+        // Local history still works while account synchronization is offline.
+      })
+    }
+  }, [isAuthenticated])
 
   const removeRecentlyViewed = useCallback((productId: string | number) => {
     setItems((prev) => prev.filter((item) => String(item.id) !== String(productId)))
 
-    removeCustomerRecentlyViewedItem(Number(productId)).catch(() => {
-      // Local delete still works.
-    })
-  }, [])
+    if (isAuthenticated) {
+      removeCustomerRecentlyViewedItem(Number(productId)).catch(() => {
+        // Local delete still works.
+      })
+    }
+  }, [isAuthenticated])
 
   const removeSelectedRecentlyViewed = useCallback(
     (productIds: Array<string | number>) => {
@@ -132,11 +185,13 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
 
       setItems((prev) => prev.filter((item) => !ids.includes(String(item.id))))
 
-      removeCustomerRecentlyViewedItems(productIds.map(Number).filter(Boolean)).catch(() => {
-        // Local delete still works.
-      })
+      if (isAuthenticated) {
+        removeCustomerRecentlyViewedItems(productIds.map(Number).filter(Boolean)).catch(() => {
+          // Local delete still works.
+        })
+      }
     },
-    []
+    [isAuthenticated]
   )
 
   const clearRecentlyViewed = useCallback(() => {
@@ -145,10 +200,12 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
     setItems([])
     localStorage.removeItem(STORAGE_KEY)
 
-    removeCustomerRecentlyViewedItems(productIds).catch(() => {
-      // Local clear still works.
-    })
-  }, [items])
+    if (isAuthenticated) {
+      removeCustomerRecentlyViewedItems(productIds).catch(() => {
+        // Local clear still works.
+      })
+    }
+  }, [isAuthenticated, items])
 
   const hasItems = items.length > 0
 

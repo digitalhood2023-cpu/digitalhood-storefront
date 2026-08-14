@@ -23,6 +23,8 @@ const AccountDetailsPage = lazy(() => import('@/pages/AccountDetailsPage'))
 const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPage'))
 const AccountMessagesPage = lazy(() => import('@/pages/AccountMessagesPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
 const OrderDetailsPage = lazy(() => import('@/pages/OrderDetailsPage'))
@@ -137,6 +139,8 @@ function App() {
                 <Route path="/account/messages" element={<AccountMessagesPage />} />
                 <Route path="/account/messages/:conversationId" element={<AccountMessagesPage />} />
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
