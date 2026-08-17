@@ -249,7 +249,7 @@ export default function Home() {
       <Header />
 
       <main>
-        <Hero />
+        <Hero products={products} />
 
         <RecentlyViewed />
 

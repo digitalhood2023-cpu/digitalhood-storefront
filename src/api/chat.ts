@@ -9,16 +9,37 @@ const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL ||
   'https://payments.digitalhood.info'
 
+const STOREFRONT_URL =
+  import.meta.env.VITE_STOREFRONT_URL ||
+  'https://store.digitalhood.info'
+
 function resolveChatAvatarUrl(value: unknown) {
   const normalized = typeof value === 'string' ? value.trim() : ''
 
   if (!normalized) return ''
   if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized
   if (normalized.startsWith('/')) {
+    if (/^\/(?:logo(?:\.[a-z0-9]+)?|favicon(?:\.[a-z0-9]+)?|apple-touch-icon(?:\.[a-z0-9]+)?|android-chrome-)/i.test(normalized)) {
+      return `${STOREFRONT_URL.replace(/\/+$/, '')}${normalized}`
+    }
+
     return `${PAYMENTS_API_URL.replace(/\/+$/, '')}${normalized}`
   }
 
   return normalized
+}
+
+function resolveChatMediaUrl(value: unknown) {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+
+  if (!normalized) return ''
+  if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized
+
+  try {
+    return new URL(normalized, `${CHAT_API_URL.replace(/\/+$/, '')}/`).toString()
+  } catch {
+    return ''
+  }
 }
 
 export type ChatKind =
@@ -51,8 +72,21 @@ export type ChatMessage = {
     displayName?: string | null
     avatarUrl?: string | null
   } | null
+  attachments: ChatAttachment[]
   contexts?: ChatContext[]
   createdAt?: string
+}
+
+export type ChatAttachment = {
+  id: string
+  kind: 'image' | 'video'
+  mimeType: string
+  sizeBytes: number
+  fileName: string
+  width: number | null
+  height: number | null
+  expiresAt: string | null
+  url: string | null
 }
 
 export type ChatReceiptSummary = {
@@ -189,6 +223,59 @@ function numberValue(
   }
 
   return 0
+}
+
+function getMediaUploadErrorMessage(
+  data: RawRecord,
+  status: number
+) {
+  const code = stringValue(
+    data.code,
+    data.errorCode,
+    data.error_code,
+    data.error
+  ).toUpperCase()
+
+  if (code === 'MEDIA_TYPE_NOT_ALLOWED') {
+    return 'Use a JPEG, PNG or WebP image, or an MP4 or WebM video.'
+  }
+
+  if (code === 'MEDIA_TOO_LARGE' || status === 413) {
+    return 'This file is too large. Images can be up to 5 MB and videos up to 20 MB.'
+  }
+
+  if (code === 'MEDIA_EMPTY') {
+    return 'This file is empty. Choose another image or video.'
+  }
+
+  if (code === 'MEDIA_SIGNATURE_MISMATCH') {
+    return 'The file contents do not match its file type. Choose the original image or video and try again.'
+  }
+
+  if (code === 'MEDIA_IMAGE_INVALID') {
+    return 'This image could not be read safely. Choose another JPEG, PNG or WebP image.'
+  }
+
+  if (code === 'MEDIA_IMAGE_DIMENSIONS_EXCEEDED') {
+    return 'This image is too wide or tall to upload. Resize it and try again.'
+  }
+
+  if (
+    code.startsWith('MEDIA_STORAGE_') ||
+    code === 'MEDIA_UNAVAILABLE'
+  ) {
+    return 'Media storage is temporarily unavailable. Please try again shortly.'
+  }
+
+  const serverMessage = stringValue(data.message)
+
+  if (serverMessage && !/^MEDIA_[A-Z0-9_]+$/.test(serverMessage)) {
+    return serverMessage
+  }
+
+  return status === 401 || status === 403
+    ? 'Your session can no longer upload media. Sign in again and retry.'
+    : 'Unable to upload this media. Please try again.'
 }
 
 async function chatFetch<T>(
@@ -577,7 +664,13 @@ export async function getBuyerInbox(
                   avatarUrl:
                     resolveChatAvatarUrl(
                       counterpartyRow
-                        .avatarUrl
+                        .avatarUrl ||
+                      counterpartyRow
+                        .avatar_url ||
+                      row.counterpartyAvatarUrl ||
+                      row.counterparty_avatar_url ||
+                      row.sellerAvatarUrl ||
+                      row.seller_avatar_url
                     ) || null,
 
                   lastSeenAt:
@@ -719,6 +812,34 @@ function normalizeContext(
   }
 }
 
+function normalizeAttachment(
+  value: unknown
+): ChatAttachment | null {
+  const row = asRecord(value)
+  const id = stringValue(row.id, row.attachmentId, row.attachment_id)
+  const kind = stringValue(row.kind, row.mediaKind, row.media_kind)
+
+  if (!id || (kind !== 'image' && kind !== 'video')) {
+    return null
+  }
+
+  const width = Number(row.width)
+  const height = Number(row.height)
+  const url = resolveChatMediaUrl(stringValue(row.url, row.mediaUrl, row.media_url))
+
+  return {
+    id,
+    kind,
+    mimeType: stringValue(row.mimeType, row.mime_type),
+    sizeBytes: numberValue(row.sizeBytes, row.size_bytes),
+    fileName: stringValue(row.fileName, row.file_name) || (kind === 'image' ? 'Photo' : 'Video'),
+    width: Number.isFinite(width) && width > 0 ? width : null,
+    height: Number.isFinite(height) && height > 0 ? height : null,
+    expiresAt: stringValue(row.expiresAt, row.expires_at) || null,
+    url: url || null
+  }
+}
+
 function normalizeMessage(
   value: unknown
 ): ChatMessage | null {
@@ -742,6 +863,12 @@ function normalizeMessage(
     asRecord(
       row.sender
     )
+
+  const attachmentSource = Array.isArray(row.attachments)
+    ? row.attachments
+    : row.attachment
+      ? [row.attachment]
+      : []
 
   return {
     messageId:
@@ -815,10 +942,18 @@ function normalizeMessage(
 
             avatarUrl:
               resolveChatAvatarUrl(
-                senderRecord.avatarUrl
+                senderRecord.avatarUrl ||
+                senderRecord.avatar_url ||
+                row.senderAvatarUrl ||
+                row.sender_avatar_url
               ) || null
           }
         : null,
+
+    attachments: attachmentSource
+      .map(normalizeAttachment)
+      .filter((attachment): attachment is ChatAttachment => attachment !== null)
+      .slice(0, 1),
 
     contexts:
       Array.isArray(
@@ -1031,6 +1166,72 @@ export async function sendBuyerMessage(
         })
     }
   )
+}
+
+export function sendBuyerMedia(
+  conversationId: string,
+  file: File,
+  onProgress?: (percentage: number) => void,
+  replyToMessageId?: string
+): Promise<RawRecord> {
+  const token = getAccountToken()
+
+  if (!token) {
+    return Promise.reject(new Error('Please sign in to use marketplace chat.'))
+  }
+
+  const params = new URLSearchParams({
+    kind: 'buyer',
+    clientMessageId: window.crypto.randomUUID(),
+    fileName: file.name
+  })
+
+  if (replyToMessageId) {
+    params.set('replyToMessageId', replyToMessageId)
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+
+    request.open(
+      'POST',
+      `${CHAT_API_URL}/api/conversations/${encodeURIComponent(conversationId)}/media?${params.toString()}`
+    )
+    request.setRequestHeader('Authorization', `Bearer ${token}`)
+    request.setRequestHeader('Content-Type', file.type)
+    request.timeout = 180_000
+
+    request.upload.onprogress = event => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+      }
+    }
+
+    request.onerror = () => reject(new Error('Unable to upload this media. Check your connection and try again.'))
+    request.ontimeout = () => reject(new Error('The media upload timed out. Please try again.'))
+    request.onabort = () => reject(new Error('The media upload was cancelled.'))
+    request.onload = () => {
+      const data: RawRecord = (() => {
+        try {
+          return request.responseText
+            ? JSON.parse(request.responseText) as RawRecord
+            : {}
+        } catch {
+          return {}
+        }
+      })()
+
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100)
+        resolve(data)
+        return
+      }
+
+      reject(new Error(getMediaUploadErrorMessage(data, request.status)))
+    }
+
+    request.send(file)
+  })
 }
 
 export async function editBuyerMessage(

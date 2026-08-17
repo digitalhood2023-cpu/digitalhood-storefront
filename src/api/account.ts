@@ -4,6 +4,12 @@ const PAYMENTS_API_URL =
 
 const ACCOUNT_TOKEN_KEY = 'digitalhood_customer_token'
 
+type AccountErrorPayload = {
+  details?: string
+  error?: string
+  message?: string
+}
+
 export type AccountAddress = {
   firstName?: string
   lastName?: string
@@ -146,11 +152,21 @@ export type AccountProduct = {
   stock_label?: string
   stock_tone?: string
   can_add_to_cart?: boolean
-  images?: Array<{
-    id?: number
-    src?: string
-    alt?: string
-  }>
+  image?: string
+  imageThumb?: string
+  imageCard?: string
+  imageMedium?: string
+  imageLarge?: string
+  imageOriginal?: string
+  images?: Array<
+    | string
+    | {
+        id?: number
+        src?: string
+        url?: string
+        alt?: string
+      }
+  >
 }
 
 export type AuthResponse = {
@@ -354,7 +370,7 @@ async function accountFetch<T>(
     },
   })
 
-  let data: any = null
+  let data: AccountErrorPayload | T | null = null
 
   try {
     data = await response.json()
@@ -364,9 +380,9 @@ async function accountFetch<T>(
 
   if (!response.ok) {
     const message =
-      data?.details ||
-      data?.error ||
-      data?.message ||
+      (data as AccountErrorPayload | null)?.details ||
+      (data as AccountErrorPayload | null)?.error ||
+      (data as AccountErrorPayload | null)?.message ||
       `Account request failed with status ${response.status}`
 
     throw new Error(message)
@@ -581,7 +597,7 @@ export async function createCustomerOrderCase(
     }
   )
 
-  let data: any = null
+  let data: AccountErrorPayload | AccountOrderCase | null = null
 
   try {
     data = await response.json()
@@ -591,9 +607,9 @@ export async function createCustomerOrderCase(
 
   if (!response.ok) {
     throw new Error(
-      data?.details ||
-      data?.error ||
-      data?.message ||
+      (data as AccountErrorPayload | null)?.details ||
+      (data as AccountErrorPayload | null)?.error ||
+      (data as AccountErrorPayload | null)?.message ||
       `Order case request failed with status ${response.status}`
     )
   }
@@ -630,7 +646,7 @@ export async function replyToCustomerOrderCase(
     }
   )
 
-  let data: any = null
+  let data: AccountErrorPayload | AccountOrderCase | null = null
 
   try {
     data = await response.json()
@@ -640,9 +656,9 @@ export async function replyToCustomerOrderCase(
 
   if (!response.ok) {
     throw new Error(
-      data?.details ||
-        data?.error ||
-        data?.message ||
+      (data as AccountErrorPayload | null)?.details ||
+        (data as AccountErrorPayload | null)?.error ||
+        (data as AccountErrorPayload | null)?.message ||
         `Case reply failed with status ${response.status}`
     )
   }
