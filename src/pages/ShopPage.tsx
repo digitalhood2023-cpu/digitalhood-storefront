@@ -20,6 +20,12 @@ import {
 import Header from '@/sections/Header';
 import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss';
 import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
+import {
+  advanceProductImageFallback,
+  getFastProductImage,
+  getFastProductSrcSet,
+  getProductImageSizes,
+} from '@/lib/productImages';
 import Footer from '@/sections/Footer';
 import SEO from '@/components/SEO';
 import StockBadge from '@/components/StockBadge';
@@ -101,27 +107,23 @@ const COLLECTIONS: Record<
 
 const PRODUCTS_PER_PAGE = 48;
 
-type PriceRangeKey =
-  | 'all'
+type LegacyPriceRangeKey =
   | 'under-100'
   | '100-250'
   | '250-500'
   | '500-1000'
   | '1000-plus';
 
-const PRICE_FILTERS: Array<{
-  key: PriceRangeKey;
-  label: string;
+const LEGACY_PRICE_FILTERS: Record<LegacyPriceRangeKey, {
   min: number | null;
   max: number | null;
-}> = [
-  { key: 'all', label: 'Any price', min: null, max: null },
-  { key: 'under-100', label: 'Under K100', min: null, max: 100 },
-  { key: '100-250', label: 'K100 - K250', min: 100, max: 250 },
-  { key: '250-500', label: 'K250 - K500', min: 250, max: 500 },
-  { key: '500-1000', label: 'K500 - K1,000', min: 500, max: 1000 },
-  { key: '1000-plus', label: 'K1,000+', min: 1000, max: null },
-];
+}> = {
+  'under-100': { min: null, max: 100 },
+  '100-250': { min: 100, max: 250 },
+  '250-500': { min: 250, max: 500 },
+  '500-1000': { min: 500, max: 1000 },
+  '1000-plus': { min: 1000, max: null },
+};
 
 const STORAGE_FILTERS = ['32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'];
 
@@ -143,6 +145,86 @@ const COLOR_FILTERS = [
 function safeNumber(value: unknown, fallback = 0) {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function normalizePriceParameter(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === '') return '';
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue) && numericValue > 0
+    ? String(numericValue)
+    : '';
+}
+
+function formatCompactPrice(value: string) {
+  return `K${Number(value).toLocaleString('en-ZM', {
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function getCustomPriceLabel(minimum: string, maximum: string) {
+  if (minimum && maximum) {
+    return `${formatCompactPrice(minimum)} – ${formatCompactPrice(maximum)}`;
+  }
+
+  if (minimum) return `From ${formatCompactPrice(minimum)}`;
+  if (maximum) return `Up to ${formatCompactPrice(maximum)}`;
+
+  return '';
+}
+
+function getLegacyPriceBounds(value: string | null) {
+  if (!value || !(value in LEGACY_PRICE_FILTERS)) {
+    return { min: '', max: '' };
+  }
+
+  const range = LEGACY_PRICE_FILTERS[value as LegacyPriceRangeKey];
+
+  return {
+    min: normalizePriceParameter(range.min),
+    max: normalizePriceParameter(range.max),
+  };
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getRelatedCategorySlug(query: string, categories: WooCategory[]) {
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedQuery) return '';
+
+  const queryTokens = normalizedQuery
+    .split(' ')
+    .filter((token) => token.length > 1);
+
+  const ranked = categories
+    .map((category) => {
+      const categoryText = normalizeSearchText(
+        `${category.name} ${category.slug} ${category.description || ''}`
+      );
+      const categoryTokens = new Set(categoryText.split(' '));
+      const overlap = queryTokens.filter((token) =>
+        categoryTokens.has(token) || categoryText.includes(token)
+      ).length;
+      const phraseMatch =
+        categoryText.includes(normalizedQuery) ||
+        normalizedQuery.includes(normalizeSearchText(category.name));
+
+      return {
+        slug: category.slug,
+        score: overlap + (phraseMatch ? 5 : 0),
+      };
+    })
+    .filter((category) => category.score > 0)
+    .sort((left, right) => right.score - left.score);
+
+  return ranked[0]?.slug || '';
 }
 
 function getRatingText(product: WooProduct) {
@@ -262,20 +344,13 @@ export default function ShopPage() {
         'featured'
     );
 
-  const requestedPriceRange =
-    searchParams.get(
-      'price'
-    ) as PriceRangeKey | null;
-
-  const priceRangeFromUrl =
-    requestedPriceRange &&
-    PRICE_FILTERS.some(
-      (range) =>
-        range.key ===
-        requestedPriceRange
-    )
-      ? requestedPriceRange
-      : 'all';
+  const legacyPriceBounds = getLegacyPriceBounds(searchParams.get('price'));
+  const minPriceFromUrl =
+    normalizePriceParameter(searchParams.get('min_price')) ||
+    legacyPriceBounds.min;
+  const maxPriceFromUrl =
+    normalizePriceParameter(searchParams.get('max_price')) ||
+    legacyPriceBounds.max;
 
   const storageFromUrl =
     searchParams.get(
@@ -315,7 +390,11 @@ export default function ShopPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>(sortFromUrl);
-  const [priceRange, setPriceRange] = useState<PriceRangeKey>(priceRangeFromUrl);
+  const [appliedMinPrice, setAppliedMinPrice] = useState(minPriceFromUrl);
+  const [appliedMaxPrice, setAppliedMaxPrice] = useState(maxPriceFromUrl);
+  const [minimumPriceInput, setMinimumPriceInput] = useState(minPriceFromUrl);
+  const [maximumPriceInput, setMaximumPriceInput] = useState(maxPriceFromUrl);
+  const [priceFilterError, setPriceFilterError] = useState('');
   const [selectedStorage, setSelectedStorage] = useState(storageFromUrl);
   const [selectedColor, setSelectedColor] = useState(colorFromUrl);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -410,8 +489,8 @@ export default function ShopPage() {
   useEffect(() => {
     const matchesUrl =
       sortBy === sortFromUrl &&
-      priceRange ===
-        priceRangeFromUrl &&
+      appliedMinPrice === minPriceFromUrl &&
+      appliedMaxPrice === maxPriceFromUrl &&
       selectedStorage ===
         storageFromUrl &&
       selectedColor ===
@@ -424,9 +503,11 @@ export default function ShopPage() {
 
     setSortBy(sortFromUrl);
 
-    setPriceRange(
-      priceRangeFromUrl
-    );
+    setAppliedMinPrice(minPriceFromUrl);
+    setAppliedMaxPrice(maxPriceFromUrl);
+    setMinimumPriceInput(minPriceFromUrl);
+    setMaximumPriceInput(maxPriceFromUrl);
+    setPriceFilterError('');
 
     setSelectedStorage(
       storageFromUrl
@@ -437,7 +518,8 @@ export default function ShopPage() {
     );
   }, [
     sortFromUrl,
-    priceRangeFromUrl,
+    minPriceFromUrl,
+    maxPriceFromUrl,
     storageFromUrl,
     colorFromUrl,
   ]);
@@ -463,8 +545,8 @@ export default function ShopPage() {
 
     const matchesUrl =
       sortBy === sortFromUrl &&
-      priceRange ===
-        priceRangeFromUrl &&
+      appliedMinPrice === minPriceFromUrl &&
+      appliedMaxPrice === maxPriceFromUrl &&
       selectedStorage ===
         storageFromUrl &&
       selectedColor ===
@@ -492,15 +574,18 @@ export default function ShopPage() {
       params.delete('sort');
     }
 
-    if (
-      priceRange !== 'all'
-    ) {
-      params.set(
-        'price',
-        priceRange
-      );
+    params.delete('price');
+
+    if (appliedMinPrice) {
+      params.set('min_price', appliedMinPrice);
     } else {
-      params.delete('price');
+      params.delete('min_price');
+    }
+
+    if (appliedMaxPrice) {
+      params.set('max_price', appliedMaxPrice);
+    } else {
+      params.delete('max_price');
     }
 
     if (selectedStorage) {
@@ -533,11 +618,13 @@ export default function ShopPage() {
     );
   }, [
     sortBy,
-    priceRange,
+    appliedMinPrice,
+    appliedMaxPrice,
     selectedStorage,
     selectedColor,
     sortFromUrl,
-    priceRangeFromUrl,
+    minPriceFromUrl,
+    maxPriceFromUrl,
     storageFromUrl,
     colorFromUrl,
     collection?.sort,
@@ -574,17 +661,14 @@ export default function ShopPage() {
       submittedSearchQuery,
       categorySlugFromUrl,
       sortBy,
-      priceRange,
+      appliedMinPrice,
+      appliedMaxPrice,
       selectedStorage,
       selectedColor,
       onSaleFromUrl,
     ],
-    queryFn: () => {
-      const selectedRange = PRICE_FILTERS.find(
-        (range) => range.key === priceRange
-      );
-
-      return fetchMarketplaceProducts({
+    queryFn: () =>
+      fetchMarketplaceProducts({
         query: submittedSearchQuery,
         page,
         perPage: PRODUCTS_PER_PAGE,
@@ -592,11 +676,10 @@ export default function ShopPage() {
         category: categorySlugFromUrl || undefined,
         storage: selectedStorage || undefined,
         colour: selectedColor || undefined,
-        minPrice: selectedRange?.min,
-        maxPrice: selectedRange?.max,
+        minPrice: appliedMinPrice ? Number(appliedMinPrice) : null,
+        maxPrice: appliedMaxPrice ? Number(appliedMaxPrice) : null,
         onSale: onSaleFromUrl,
-      });
-    },
+      }),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 10,
@@ -636,7 +719,8 @@ export default function ShopPage() {
   }, [
     searchQuery,
     selectedCategoryId,
-    priceRange,
+    appliedMinPrice,
+    appliedMaxPrice,
     selectedStorage,
     selectedColor,
     sortBy,
@@ -739,7 +823,7 @@ export default function ShopPage() {
       ? marketplaceFacets.colours.map((option) => option.value)
       : COLOR_FILTERS;
   const activeSidebarFilterCount = [
-    priceRange !== 'all',
+    Boolean(appliedMinPrice || appliedMaxPrice),
     Boolean(selectedStorage),
     Boolean(selectedColor),
   ].filter(Boolean).length;
@@ -748,8 +832,9 @@ export default function ShopPage() {
       searchQuery.trim() ||
       activeSidebarFilterCount > 0
   );
-  const selectedPriceRange = PRICE_FILTERS.find(
-    (range) => range.key === priceRange
+  const customPriceLabel = getCustomPriceLabel(
+    appliedMinPrice,
+    appliedMaxPrice
   );
 
   const activeFilterChips = [
@@ -765,10 +850,10 @@ export default function ShopPage() {
           label: `Search: ${searchQuery.trim()}`,
         }
       : null,
-    selectedPriceRange && selectedPriceRange.key !== 'all'
+    customPriceLabel
       ? {
           key: 'price',
-          label: selectedPriceRange.label,
+          label: `Price: ${customPriceLabel}`,
         }
       : null,
     selectedStorage
@@ -784,6 +869,66 @@ export default function ShopPage() {
         }
       : null,
   ].filter(Boolean) as Array<{ key: string; label: string }>;
+
+  const relatedCategorySlug = useMemo(
+    () =>
+      categorySlugFromUrl ||
+      getRelatedCategorySlug(submittedSearchQuery, categories),
+    [categorySlugFromUrl, submittedSearchQuery, categories]
+  );
+  const shouldLoadRecommendations = Boolean(
+    productsResponse &&
+      !isLoading &&
+      products.length === 0 &&
+      (submittedSearchQuery.trim() || hasActiveFilters)
+  );
+  const {
+    data: recommendationData,
+    isLoading: recommendationsLoading,
+  } = useQuery({
+    queryKey: [
+      'marketplace-no-result-recommendations',
+      submittedSearchQuery,
+      relatedCategorySlug,
+    ],
+    enabled: shouldLoadRecommendations,
+    queryFn: async () => {
+      if (relatedCategorySlug) {
+        const relatedResponse = await fetchMarketplaceProducts({
+          page: 1,
+          perPage: 12,
+          sort: 'trending',
+          category: relatedCategorySlug,
+        });
+
+        if (relatedResponse.products.length > 0) {
+          return {
+            products: relatedResponse.products,
+            categorySlug: relatedCategorySlug,
+            kind: 'category' as const,
+          };
+        }
+      }
+
+      const popularResponse = await fetchMarketplaceProducts({
+        page: 1,
+        perPage: 12,
+        sort: 'trending',
+      });
+
+      return {
+        products: popularResponse.products,
+        categorySlug: '',
+        kind: 'popular' as const,
+      };
+    },
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+  });
+  const recommendedProducts = recommendationData?.products || [];
+  const recommendationCategory = categories.find(
+    (category) => category.slug === recommendationData?.categorySlug
+  );
 
   const updateShopUrl = (
     categorySlug?: string | null,
@@ -1025,7 +1170,11 @@ export default function ShopPage() {
     setSubmittedSearchQuery('');
     setSelectedCategoryId(null);
     setSortBy('featured');
-    setPriceRange('all');
+    setAppliedMinPrice('');
+    setAppliedMaxPrice('');
+    setMinimumPriceInput('');
+    setMaximumPriceInput('');
+    setPriceFilterError('');
     setSelectedStorage('');
     setSelectedColor('');
     setPage(1);
@@ -1034,12 +1183,46 @@ export default function ShopPage() {
   };
 
   const clearSidebarFilters = () => {
-    setPriceRange('all');
+    setAppliedMinPrice('');
+    setAppliedMaxPrice('');
+    setMinimumPriceInput('');
+    setMaximumPriceInput('');
+    setPriceFilterError('');
     setSelectedStorage('');
     setSelectedColor('');
   };
 
+  const applyCustomPriceRange = () => {
+    const minimumValue = Number(minimumPriceInput || 0);
+    const maximumValue = Number(maximumPriceInput || 0);
+
+    if (
+      minimumValue < 0 ||
+      maximumValue < 0 ||
+      !Number.isFinite(minimumValue) ||
+      !Number.isFinite(maximumValue)
+    ) {
+      setPriceFilterError('Enter valid prices of K0 or more.');
+      return false;
+    }
+
+    if (minimumValue > 0 && maximumValue > 0 && minimumValue > maximumValue) {
+      setPriceFilterError('Minimum price cannot be higher than maximum price.');
+      return false;
+    }
+
+    setAppliedMinPrice(normalizePriceParameter(minimumValue));
+    setAppliedMaxPrice(normalizePriceParameter(maximumValue));
+    setMinimumPriceInput(normalizePriceParameter(minimumValue));
+    setMaximumPriceInput(normalizePriceParameter(maximumValue));
+    setPriceFilterError('');
+
+    return true;
+  };
+
   const applyMobileFilters = () => {
+    if (!applyCustomPriceRange()) return;
+
     dismissMobileFilters();
 
     window.setTimeout(() => {
@@ -1102,7 +1285,11 @@ export default function ShopPage() {
     }
 
     if (key === 'price') {
-      setPriceRange('all');
+      setAppliedMinPrice('');
+      setAppliedMaxPrice('');
+      setMinimumPriceInput('');
+      setMaximumPriceInput('');
+      setPriceFilterError('');
       return;
     }
 
@@ -1293,26 +1480,98 @@ export default function ShopPage() {
         </div>
 
         <div className="border-t border-dh-light-gray pt-5">
-          <h3 className="mb-3 text-sm font-bold text-dh-primary">
-            Price
-          </h3>
-
-          <div className="space-y-2">
-            {PRICE_FILTERS.map((range) => (
-              <button
-                key={range.key}
-                type="button"
-                onClick={() => setPriceRange(range.key)}
-                className={`flex w-full items-center rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
-                  priceRange === range.key
-                    ? 'bg-dh-primary text-white'
-                    : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
+          <div className="mb-3 flex items-end justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-dh-primary">
+                Your price range
+              </h3>
+              <p className="mt-1 text-xs text-dh-dark-gray">
+                Enter any minimum or maximum.
+              </p>
+            </div>
+            {customPriceLabel && (
+              <span className="rounded-full bg-dh-secondary/15 px-2.5 py-1 text-[11px] font-black text-dh-primary">
+                {customPriceLabel}
+              </span>
+            )}
           </div>
+
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyCustomPriceRange();
+            }}
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-dh-dark-gray">
+                  Minimum
+                </span>
+                <span className="flex h-11 items-center rounded-xl border border-dh-light-gray bg-dh-gray px-3 focus-within:border-dh-primary focus-within:ring-2 focus-within:ring-dh-secondary/20">
+                  <span className="mr-1.5 text-sm font-black text-dh-primary">K</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={minimumPriceInput}
+                    onChange={(event) => {
+                      setMinimumPriceInput(event.target.value);
+                      setPriceFilterError('');
+                    }}
+                    placeholder="0"
+                    aria-label="Minimum product price in kwacha"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-bold text-dh-primary outline-none placeholder:text-dh-dark-gray/60"
+                  />
+                </span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-dh-dark-gray">
+                  Maximum
+                </span>
+                <span className="flex h-11 items-center rounded-xl border border-dh-light-gray bg-dh-gray px-3 focus-within:border-dh-primary focus-within:ring-2 focus-within:ring-dh-secondary/20">
+                  <span className="mr-1.5 text-sm font-black text-dh-primary">K</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={maximumPriceInput}
+                    onChange={(event) => {
+                      setMaximumPriceInput(event.target.value);
+                      setPriceFilterError('');
+                    }}
+                    placeholder="Any"
+                    aria-label="Maximum product price in kwacha"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-bold text-dh-primary outline-none placeholder:text-dh-dark-gray/60"
+                  />
+                </span>
+              </label>
+            </div>
+
+            {priceFilterError && (
+              <p role="alert" className="text-xs font-semibold text-red-600">
+                {priceFilterError}
+              </p>
+            )}
+
+            {marketplaceFacets?.price.max && marketplaceFacets.price.max > 0 ? (
+              <p className="text-[11px] font-semibold text-dh-dark-gray">
+                Available here: {formatCompactPrice(String(marketplaceFacets.price.min || 0))}
+                {' – '}
+                {formatCompactPrice(String(marketplaceFacets.price.max))}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              className="flex h-10 w-full items-center justify-center rounded-full bg-dh-primary px-4 text-sm font-black text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary"
+            >
+              Apply price range
+            </button>
+          </form>
         </div>
 
         <div className="border-t border-dh-light-gray pt-5">
@@ -1705,20 +1964,149 @@ export default function ShopPage() {
                 </Button>
               </div>
             ) : sortedProducts.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-10 h-10 text-gray-400" />
+              <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#07111f] via-[#102137] to-[#22354c] px-5 py-7 text-white sm:px-7 sm:py-9">
+                  <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#ffb54a]/20 blur-3xl" />
+                  <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="max-w-2xl">
+                      <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ffb54a] text-[#07111f]">
+                        <Search className="h-5 w-5" />
+                      </div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#ffd18e]">
+                        Keep discovering
+                      </p>
+                      <h3 className="mt-2 font-display text-2xl font-black leading-tight sm:text-3xl">
+                        {submittedSearchQuery.trim()
+                          ? `No exact match for “${submittedSearchQuery.trim()}”`
+                          : 'No products match these filters'}
+                      </h3>
+                      <p className="mt-2 max-w-xl text-sm font-medium leading-6 text-slate-300">
+                        We have not left you at a dead end. Try a broader search,
+                        adjust your filters, or explore the closest marketplace
+                        picks below.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        onClick={clearFilters}
+                        className="rounded-full bg-[#ffb54a] font-black text-[#07111f] hover:bg-[#ffd18e]"
+                      >
+                        View all products
+                      </Button>
+                      <Link
+                        to="/categories"
+                        className="inline-flex h-10 items-center rounded-full border border-white/25 bg-white/5 px-4 text-sm font-black text-white transition hover:bg-white/10"
+                      >
+                        Browse categories
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-black mb-2">
-                  No products found
-                </h3>
-                <p className="text-gray-500 mb-6">
-                  Try another search or choose a different category.
-                </p>
-                <Button onClick={clearFilters} variant="outline">
-                  Clear Filters
-                </Button>
-              </div>
+
+                <div className="p-4 sm:p-6">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#9a5b00]">
+                        Recommended next
+                      </p>
+                      <h4 className="mt-1 font-display text-xl font-black text-dh-primary sm:text-2xl">
+                        {recommendationCategory
+                          ? `Explore ${recommendationCategory.name}`
+                          : 'Popular marketplace finds'}
+                      </h4>
+                      <p className="mt-1 text-sm text-dh-dark-gray">
+                        {recommendationData?.kind === 'category'
+                          ? 'Related products from the closest matching category.'
+                          : 'Products shoppers are exploring across the marketplace.'}
+                      </p>
+                    </div>
+
+                    {recommendationCategory && (
+                      <Link
+                        to={`/category/${encodeURIComponent(recommendationCategory.slug)}`}
+                        className="inline-flex items-center text-sm font-black text-dh-primary hover:text-[#9a5b00]"
+                      >
+                        View this category
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    )}
+                  </div>
+
+                  {recommendationsLoading ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <div key={index} className="animate-pulse rounded-2xl bg-dh-gray p-3">
+                          <div className="aspect-[4/3] rounded-xl bg-slate-200" />
+                          <div className="mt-3 h-3 w-4/5 rounded-full bg-slate-200" />
+                          <div className="mt-2 h-4 w-2/5 rounded-full bg-slate-200" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : recommendedProducts.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                      {recommendedProducts.slice(0, 10).map((product) => (
+                        <Link
+                          key={product.id}
+                          to={`/product/${product.slug || product.id}`}
+                          className="group overflow-hidden rounded-2xl border border-dh-light-gray bg-white p-2.5 transition hover:-translate-y-0.5 hover:border-dh-primary/20 hover:shadow-lg"
+                        >
+                          <div className="aspect-[4/3] overflow-hidden rounded-xl bg-dh-gray">
+                            <img
+                              src={getFastProductImage(product, 'card')}
+                              srcSet={getFastProductSrcSet(product)}
+                              sizes={getProductImageSizes('card')}
+                              alt={product.name}
+                              loading="lazy"
+                              decoding="async"
+                              onError={(event) =>
+                                advanceProductImageFallback(
+                                  event.currentTarget,
+                                  product,
+                                  'card'
+                                )
+                              }
+                              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                            />
+                          </div>
+                          <div className="px-1 pb-1 pt-3">
+                            <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-dh-primary">
+                              {product.name}
+                            </p>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <span className="font-display text-base font-black text-dh-primary">
+                                {formatPrice(product.price)}
+                              </span>
+                              <span className="text-[11px] font-black text-[#9a5b00]">
+                                View
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-dh-gray p-5">
+                      <p className="text-sm font-black text-dh-primary">
+                        Try one of these popular departments
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {popularCategories.slice(0, 8).map((category) => (
+                          <Link
+                            key={category.id}
+                            to={`/category/${encodeURIComponent(category.slug)}`}
+                            className="rounded-full bg-white px-4 py-2 text-sm font-bold text-dh-primary shadow-sm transition hover:bg-dh-primary hover:text-white"
+                          >
+                            {category.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
             ) : (
               <>
                 <div
@@ -2001,14 +2389,18 @@ export default function ShopPage() {
                         >
                           <div className="aspect-square overflow-hidden rounded-2xl bg-dh-gray">
                             <img
-                              src={getOptimizedImageUrl(item.image, 'card')}
-                              srcSet={getImageSrcSet(item.image, 'card')}
+                              src={getFastProductImage(item, 'card')}
+                              srcSet={getFastProductSrcSet(item)}
                               sizes="(min-width: 1024px) 240px, 50vw"
                               alt={item.name}
                               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               loading="lazy"
                               onError={(event) => {
-                                event.currentTarget.src = '/logo.jpg';
+                                advanceProductImageFallback(
+                                  event.currentTarget,
+                                  item,
+                                  'card'
+                                );
                               }}
                             />
                           </div>

@@ -15,7 +15,12 @@ import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
 import { Button } from '@/components/ui/button'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
-import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
+import {
+  getFastProductImage,
+  getFastProductSrcSet,
+  getProductImageSizes,
+  advanceProductImageFallback,
+} from '@/lib/productImages'
 
 function formatPrice(price: number) {
   return `K${Number(price || 0).toLocaleString('en-ZM', {
@@ -235,7 +240,7 @@ export default function RecentlyViewedPage() {
                           decoding="async"
                           fetchPriority="low"
                           onError={(event) => {
-                            event.currentTarget.src = '/logo.jpg'
+                            advanceProductImageFallback(event.currentTarget, product, 'card')
                           }}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
@@ -313,7 +318,7 @@ export default function RecentlyViewedPage() {
                           decoding="async"
                           fetchPriority="low"
                           onError={(event) => {
-                            event.currentTarget.src = '/logo.jpg'
+                            advanceProductImageFallback(event.currentTarget, product, 'card')
                           }}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />

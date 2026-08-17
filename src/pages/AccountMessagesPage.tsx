@@ -18,14 +18,17 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  ImageIcon,
   Loader2,
   MessageCircle,
+  Paperclip,
   PackageCheck,
   RefreshCw,
   Search,
   Send,
   ShieldCheck,
   Store,
+  Video,
   X,
 } from 'lucide-react'
 import type {
@@ -43,9 +46,11 @@ import {
   markBuyerDelivered,
   markBuyerRead,
   sendBuyerMessage,
+  sendBuyerMedia,
   sendBuyerOrder,
   sendBuyerProduct,
   type ChatInboxItem,
+  type ChatAttachment,
   type ChatMessage,
   type ChatOrderIntent,
   type ChatProductIntent,
@@ -70,6 +75,17 @@ type PendingOrderIntent =
 const MESSAGE_MUTATION_WINDOW_MS =
   10 * 60 * 1000
 
+const CHAT_MEDIA_ACCEPT =
+  'image/jpeg,image/png,image/webp,video/mp4,video/webm'
+
+const CHAT_MEDIA_LIMITS: Record<string, number> = {
+  'image/jpeg': 5 * 1024 * 1024,
+  'image/png': 5 * 1024 * 1024,
+  'image/webp': 5 * 1024 * 1024,
+  'video/mp4': 20 * 1024 * 1024,
+  'video/webm': 20 * 1024 * 1024
+}
+
 function canMutateMessage(
   message: ChatMessage,
   now = Date.now()
@@ -87,6 +103,53 @@ function canMutateMessage(
     Number.isFinite(createdAt) &&
     now - createdAt <= MESSAGE_MUTATION_WINDOW_MS
   )
+}
+
+function canRecallMessage(
+  message: ChatMessage,
+  now = Date.now()
+) {
+  const createdAt = new Date(message.createdAt || '').getTime()
+  const messageKind = message.messageType || message.type
+
+  return (
+    !message.deleted &&
+    message.sender?.type === 'buyer' &&
+    ['text', 'image', 'video'].includes(messageKind || '') &&
+    Boolean(getChatMessageId(message)) &&
+    Number.isFinite(createdAt) &&
+    now - createdAt <= MESSAGE_MUTATION_WINDOW_MS
+  )
+}
+
+function validateChatMedia(file: File) {
+  const limit = CHAT_MEDIA_LIMITS[file.type]
+
+  if (!limit) {
+    return 'Use a JPEG, PNG or WebP image, or an MP4 or WebM video.'
+  }
+
+  if (file.size <= 0) {
+    return 'This file is empty. Choose another image or video.'
+  }
+
+  if (file.size > limit) {
+    return file.type.startsWith('image/')
+      ? 'Images must be 5 MB or smaller.'
+      : 'Videos must be 20 MB or smaller.'
+  }
+
+  return ''
+}
+
+function formatMediaSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return ''
+
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`
 }
 
 function formatChatTime(
@@ -239,6 +302,14 @@ function getReplyPreviewText(
     return 'Order shared'
   }
 
+  if (messageKind === 'image') {
+    return 'Photo'
+  }
+
+  if (messageKind === 'video') {
+    return 'Video'
+  }
+
   return (
     message.text ||
     'Message'
@@ -294,6 +365,15 @@ function getInitials(
     .join('')
 }
 
+function isDigitalHoodProfile(
+  value: string
+) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .includes('digitalhood')
+}
+
 function ConversationAvatar({
   item,
   online = false,
@@ -309,6 +389,9 @@ function ConversationAvatar({
   const avatarUrl =
     item?.counterparty
       ?.avatarUrl ||
+    (isDigitalHoodProfile(name)
+      ? '/logo.jpg'
+      : '') ||
     ''
 
   const sizeClass =
@@ -333,6 +416,15 @@ function ConversationAvatar({
           alt={`${name} avatar`}
           className="absolute inset-0 h-full w-full rounded-full object-cover"
           onError={event => {
+            if (
+              isDigitalHoodProfile(name) &&
+              event.currentTarget.dataset.fallbackApplied !== 'true'
+            ) {
+              event.currentTarget.dataset.fallbackApplied = 'true'
+              event.currentTarget.src = '/logo.jpg'
+              return
+            }
+
             event.currentTarget.style.display =
               'none'
           }}
@@ -367,6 +459,9 @@ function MessageAvatar({
     message.sender?.avatarUrl ||
     (message.sender?.type === 'seller'
       ? fallbackItem?.counterparty?.avatarUrl
+      : null) ||
+    (isDigitalHoodProfile(displayName)
+      ? '/logo.jpg'
       : null)
 
   return (
@@ -380,11 +475,96 @@ function MessageAvatar({
           loading="lazy"
           decoding="async"
           onError={(event) => {
+            if (
+              isDigitalHoodProfile(displayName) &&
+              event.currentTarget.dataset.fallbackApplied !== 'true'
+            ) {
+              event.currentTarget.dataset.fallbackApplied = 'true'
+              event.currentTarget.src = '/logo.jpg'
+              return
+            }
+
             event.currentTarget.style.display = 'none'
           }}
         />
       )}
     </span>
+  )
+}
+
+function MediaAttachmentCard({
+  attachment,
+  isMine,
+}: {
+  attachment: ChatAttachment
+  isMine: boolean
+}) {
+  const [failed, setFailed] = useState(false)
+  const unavailable = !attachment.url || failed
+  const meta = [attachment.fileName, formatMediaSize(attachment.sizeBytes)]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <div className="min-w-[190px] max-w-sm">
+      {unavailable ? (
+        <div
+          className={`flex min-h-32 flex-col items-center justify-center rounded-2xl border border-dashed p-4 text-center ${
+            isMine
+              ? 'border-white/30 bg-white/10 text-white/75'
+              : 'border-slate-300 bg-slate-50 text-slate-500'
+          }`}
+        >
+          {attachment.kind === 'image' ? (
+            <ImageIcon className="h-7 w-7" />
+          ) : (
+            <Video className="h-7 w-7" />
+          )}
+          <p className="mt-2 text-xs font-bold">Media unavailable</p>
+          <p className="mt-1 text-[10px] font-medium opacity-80">
+            This attachment may have expired.
+          </p>
+        </div>
+      ) : attachment.kind === 'image' ? (
+        <a
+          href={attachment.url || undefined}
+          target="_blank"
+          rel="noreferrer"
+          className="block overflow-hidden rounded-2xl bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-secondary"
+          aria-label={`Open ${attachment.fileName}`}
+        >
+          <img
+            src={attachment.url || ''}
+            alt={attachment.fileName || 'Shared photo'}
+            className="max-h-80 w-full object-contain"
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailed(true)}
+          />
+        </a>
+      ) : (
+        <video
+          src={attachment.url || undefined}
+          controls
+          playsInline
+          preload="metadata"
+          className="max-h-80 w-full rounded-2xl bg-black"
+          aria-label={attachment.fileName || 'Shared video'}
+          onError={() => setFailed(true)}
+        />
+      )}
+
+      {meta && (
+        <p
+          className={`mt-1.5 truncate text-[10px] font-semibold ${
+            isMine ? 'text-white/65' : 'text-slate-400'
+          }`}
+          title={meta}
+        >
+          {meta}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -775,6 +955,26 @@ export default function AccountMessagesPage() {
   ] = useState(false)
 
   const [
+    pendingMedia,
+    setPendingMedia
+  ] = useState<File | null>(null)
+
+  const [
+    pendingMediaPreview,
+    setPendingMediaPreview
+  ] = useState('')
+
+  const [
+    isSendingMedia,
+    setIsSendingMedia
+  ] = useState(false)
+
+  const [
+    mediaUploadProgress,
+    setMediaUploadProgress
+  ] = useState(0)
+
+  const [
     isSendingProduct,
     setIsSendingProduct
   ] = useState(false)
@@ -914,6 +1114,17 @@ export default function AccountMessagesPage() {
       null
     )
 
+  const mediaInputRef =
+    useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (pendingMediaPreview) {
+        URL.revokeObjectURL(pendingMediaPreview)
+      }
+    }
+  }, [pendingMediaPreview])
+
   const loadingOlderRef =
     useRef(false)
 
@@ -1044,6 +1255,13 @@ export default function AccountMessagesPage() {
       setEditingMessage(null)
       setMutationMessageId(null)
       setDraft('')
+      setPendingMedia(null)
+      setPendingMediaPreview('')
+      setMediaUploadProgress(0)
+
+      if (mediaInputRef.current) {
+        mediaInputRef.current.value = ''
+      }
     },
     [conversationId]
   )
@@ -2342,6 +2560,88 @@ export default function AccountMessagesPage() {
     ]
   )
 
+  function clearPendingMedia() {
+    setPendingMedia(null)
+    setPendingMediaPreview('')
+    setMediaUploadProgress(0)
+
+    if (mediaInputRef.current) {
+      mediaInputRef.current.value = ''
+    }
+  }
+
+  function handleMediaSelection(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0]
+
+    if (!file) return
+
+    const validationError = validateChatMedia(file)
+
+    if (validationError) {
+      setError(validationError)
+      event.target.value = ''
+      return
+    }
+
+    setError('')
+    setEditingMessage(null)
+    setDraft('')
+
+    if (joinedConversationRef.current === conversationId) {
+      socketRef.current?.emit('typing:stop', { conversationId })
+    }
+
+    setPendingMedia(file)
+    setPendingMediaPreview(URL.createObjectURL(file))
+    setMediaUploadProgress(0)
+  }
+
+  async function handleSendMedia() {
+    if (
+      !conversationId ||
+      !pendingMedia ||
+      isSendingMedia ||
+      isSending ||
+      isSendingProduct ||
+      isSendingOrder ||
+      mutationMessageId
+    ) {
+      return
+    }
+
+    setIsSendingMedia(true)
+    setMediaUploadProgress(0)
+    setError('')
+
+    try {
+      await sendBuyerMedia(
+        conversationId,
+        pendingMedia,
+        setMediaUploadProgress,
+        replyingTo ? getChatMessageId(replyingTo) || undefined : undefined
+      )
+
+      setReplyingTo(null)
+
+      await Promise.all([
+        syncConversation(conversationId),
+        loadInbox()
+      ])
+
+      clearPendingMedia()
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to send this media.'
+      )
+    } finally {
+      setIsSendingMedia(false)
+    }
+  }
+
   async function handleSend(
     event:
       FormEvent<HTMLFormElement>
@@ -2355,6 +2655,7 @@ export default function AccountMessagesPage() {
       !conversationId ||
       !text ||
       isSending ||
+      isSendingMedia ||
       isSendingProduct ||
       isSendingOrder ||
       mutationMessageId
@@ -2479,6 +2780,7 @@ export default function AccountMessagesPage() {
     }
 
     setReplyingTo(null)
+    clearPendingMedia()
     setEditingMessage(message)
     setDraft(
       message.text.slice(
@@ -2507,8 +2809,8 @@ export default function AccountMessagesPage() {
       message.deleted ||
       message.sender?.type !==
         'buyer' ||
-      messageKind !== 'text' ||
-      !canMutateMessage(
+      !['text', 'image', 'video'].includes(messageKind || '') ||
+      !canRecallMessage(
         message,
         Date.now()
       ) ||
@@ -2586,6 +2888,7 @@ export default function AccountMessagesPage() {
           conversationId ||
       isSendingProduct ||
       isSendingOrder ||
+      isSendingMedia ||
       isSending
     ) {
       return
@@ -2632,6 +2935,7 @@ export default function AccountMessagesPage() {
           conversationId ||
       isSendingOrder ||
       isSendingProduct ||
+      isSendingMedia ||
       isSending
     ) {
       return
@@ -2673,15 +2977,15 @@ export default function AccountMessagesPage() {
     <div className="min-h-screen bg-dh-gray">
       <Header />
 
-      <main className="py-5 lg:py-8">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <main className="py-4 lg:py-6">
+        <div className="container mx-auto max-w-[1536px] px-3 sm:px-5 lg:px-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-dh-secondary">
                 DigitalHood Marketplace
               </p>
 
-              <h1 className="mt-1 font-display text-3xl font-black text-dh-primary sm:text-4xl">
+              <h1 className="mt-0.5 font-display text-2xl font-black text-dh-primary sm:text-3xl">
                 Messages
               </h1>
             </div>
@@ -2704,7 +3008,7 @@ export default function AccountMessagesPage() {
             </div>
           )}
 
-          <div className="grid h-[72vh] min-h-[560px] max-h-[760px] overflow-hidden rounded-[2rem] bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="grid h-[calc(100dvh-10rem)] min-h-[680px] max-h-[920px] overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-md md:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[350px_minmax(0,1fr)]">
             <aside
               className={`border-r border-slate-100 ${
                 conversationId
@@ -2938,7 +3242,7 @@ export default function AccountMessagesPage() {
                     </div>
                   </header>
 
-                  <div className="border-b border-amber-100 bg-amber-50 px-4 py-3">
+                  <div className="border-b border-amber-100 bg-amber-50 px-4 py-2">
                     <div className="flex items-start gap-2">
                       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
 
@@ -2989,7 +3293,7 @@ export default function AccountMessagesPage() {
                           void loadOlderMessages()
                         }
                       }}
-                      className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-5"
+                      className="h-full overflow-y-auto bg-slate-50 p-3 sm:p-4"
                     >
                     {isLoadingMessages ? (
                       <div className="flex h-full min-h-64 items-center justify-center">
@@ -3007,7 +3311,7 @@ export default function AccountMessagesPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         {messages.map(
                           (
                             message,
@@ -3105,7 +3409,7 @@ export default function AccountMessagesPage() {
                                 )}
 
                                 <div
-                                  className={`max-w-[78%] rounded-3xl border px-4 py-3 shadow-sm sm:max-w-[68%] ${
+                                  className={`max-w-[82%] rounded-3xl border px-3.5 py-2.5 shadow-sm sm:max-w-[72%] ${
                                     isBuyer
                                       ? 'rounded-br-md border-indigo-950 bg-[#312e81] text-white'
                                       : 'rounded-bl-md border-slate-200 bg-white text-slate-950'
@@ -3177,11 +3481,31 @@ export default function AccountMessagesPage() {
                                   )}
 
                                   {!message.deleted &&
+                                    (messageKind === 'image' || messageKind === 'video') &&
+                                    (message.attachments?.[0] ? (
+                                      <MediaAttachmentCard
+                                        attachment={message.attachments[0]}
+                                        isMine={isBuyer}
+                                      />
+                                    ) : (
+                                      <div className="flex min-h-28 min-w-48 flex-col items-center justify-center rounded-2xl border border-dashed border-current/25 p-4 text-center opacity-75">
+                                        {messageKind === 'image' ? (
+                                          <ImageIcon className="h-7 w-7" />
+                                        ) : (
+                                          <Video className="h-7 w-7" />
+                                        )}
+                                        <p className="mt-2 text-xs font-bold">Media unavailable</p>
+                                      </div>
+                                    ))}
+
+                                  {!message.deleted &&
                                     message.text &&
                                     messageKind !==
                                       'product_card' &&
                                     messageKind !==
-                                      'order_card' && (
+                                      'order_card' &&
+                                    messageKind !== 'image' &&
+                                    messageKind !== 'video' && (
                                     <p className="whitespace-pre-wrap break-words font-sans text-[15px] font-medium leading-6 tracking-[-0.01em]">
                                       {message.text}
                                     </p>
@@ -3251,12 +3575,9 @@ export default function AccountMessagesPage() {
                                         Reply
                                       </button>
 
-                                      {isBuyer &&
-                                        messageKind ===
-                                          'text' &&
-                                        messageId && (
+                                      {isBuyer && messageId && (
                                         <>
-                                          {canMutateMessage(
+                                          {messageKind === 'text' && canMutateMessage(
                                             message,
                                             messageClock
                                           ) && (
@@ -3277,7 +3598,7 @@ export default function AccountMessagesPage() {
                                             </button>
                                           )}
 
-                                          {canMutateMessage(
+                                          {canRecallMessage(
                                             message,
                                             messageClock
                                           ) && (
@@ -3353,7 +3674,7 @@ export default function AccountMessagesPage() {
                     onSubmit={
                       handleSend
                     }
-                    className="border-t border-slate-100 bg-white p-3 sm:p-4"
+                    className="border-t border-slate-100 bg-white p-3"
                   >
                     {(replyingTo ||
                       editingMessage) && (
@@ -3395,6 +3716,70 @@ export default function AccountMessagesPage() {
                               ? 'Cancel editing'
                               : 'Cancel reply'
                           }
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {pendingMedia && pendingMediaPreview && (
+                      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-dh-primary/20 bg-dh-primary/5 p-3">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-950">
+                          {pendingMedia.type.startsWith('image/') ? (
+                            <img
+                              src={pendingMediaPreview}
+                              alt="Selected attachment preview"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={pendingMediaPreview}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="h-full w-full object-cover"
+                              aria-label="Selected video preview"
+                            />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-dh-primary">
+                            {pendingMedia.type.startsWith('image/') ? 'Photo ready to send' : 'Video ready to send'}
+                          </p>
+                          <p className="mt-0.5 truncate text-sm font-bold text-slate-800">
+                            {pendingMedia.name}
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                            {formatMediaSize(pendingMedia.size)}
+                            {isSendingMedia ? ` · Uploading ${mediaUploadProgress}%` : ''}
+                          </p>
+
+                          {isSendingMedia && (
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                              <div
+                                className="h-full rounded-full bg-dh-primary transition-[width]"
+                                style={{ width: `${mediaUploadProgress}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleSendMedia()}
+                          disabled={isSendingMedia}
+                          className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary hover:text-dh-primary disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSendingMedia ? 'Sending…' : 'Send'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={clearPendingMedia}
+                          disabled={isSendingMedia}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-red-600 disabled:opacity-50"
+                          aria-label="Remove selected media"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -3467,6 +3852,7 @@ export default function AccountMessagesPage() {
                           disabled={
                             isSendingOrder ||
                             isSendingProduct ||
+                            isSendingMedia ||
                             isSending
                           }
                           className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
@@ -3543,6 +3929,7 @@ export default function AccountMessagesPage() {
                           disabled={
                             isSendingProduct ||
                             isSendingOrder ||
+                            isSendingMedia ||
                             isSending
                           }
                           className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-50"
@@ -3571,7 +3958,34 @@ export default function AccountMessagesPage() {
                     )}
 
                     <div className="flex items-end gap-2">
+                      <input
+                        ref={mediaInputRef}
+                        type="file"
+                        accept={CHAT_MEDIA_ACCEPT}
+                        onChange={handleMediaSelection}
+                        className="sr-only"
+                        aria-label="Choose an image or video"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => mediaInputRef.current?.click()}
+                        disabled={
+                          isSendingMedia ||
+                          isSending ||
+                          isSendingProduct ||
+                          isSendingOrder ||
+                          Boolean(pendingMedia)
+                        }
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Attach an image or video"
+                        title="Attach photo or video"
+                      >
+                        <Paperclip className="h-5 w-5" />
+                      </button>
+
                       <textarea
+                        disabled={isSendingMedia || Boolean(pendingMedia)}
                         value={
                           draft
                         }
@@ -3639,7 +4053,9 @@ export default function AccountMessagesPage() {
                           }
                         }}
                         placeholder={
-                          editingMessage
+                          pendingMedia
+                            ? 'Send or remove the selected attachment first'
+                            : editingMessage
                             ? 'Edit your message...'
                             : replyingTo
                               ? 'Write a reply...'
@@ -3653,6 +4069,7 @@ export default function AccountMessagesPage() {
                         type="submit"
                         disabled={
                           isSending ||
+                          isSendingMedia ||
                           isSendingProduct ||
                           isSendingOrder ||
                           Boolean(

@@ -2,7 +2,12 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Clock3, Eye, X } from 'lucide-react'
 
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
-import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
+import {
+  getFastProductImage,
+  getFastProductSrcSet,
+  getProductImageSizes,
+  advanceProductImageFallback,
+} from '@/lib/productImages'
 
 function formatPrice(price: number) {
   return `K${Number(price || 0).toLocaleString('en-ZM', {
@@ -82,7 +87,7 @@ export default function RecentlyViewed({
                       decoding="async"
                       fetchPriority="low"
                       onError={(event) => {
-                        event.currentTarget.src = '/logo.jpg'
+                        advanceProductImageFallback(event.currentTarget, product, 'card')
                       }}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />

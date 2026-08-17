@@ -22,9 +22,15 @@ import {
   ACCOUNT_STATE_CLEARED_EVENT,
   RECENTLY_VIEWED_STORAGE_KEY,
 } from '@/lib/marketplaceBrowserState'
+import { getFastProductImage } from '@/lib/productImages'
 
 export type RecentlyViewedProduct = Product & {
   slug?: string
+  imageThumb?: string
+  imageCard?: string
+  imageMedium?: string
+  imageLarge?: string
+  imageOriginal?: string
 }
 
 interface RecentlyViewedContextType {
@@ -42,13 +48,36 @@ const RecentlyViewedContext =
 const MAX_ITEMS = 50
 
 function accountProductToRecentlyViewed(product: AccountProduct): RecentlyViewedProduct {
+  const images = (product.images || [])
+    .map((image) =>
+      typeof image === 'string'
+        ? image
+        : image?.src || image?.url || ''
+    )
+    .filter(Boolean)
+  const imageFields = {
+    image: product.image,
+    imageThumb: product.imageThumb,
+    imageCard: product.imageCard,
+    imageMedium: product.imageMedium,
+    imageLarge: product.imageLarge,
+    imageOriginal: product.imageOriginal,
+    images,
+  }
+
   return {
     id: String(product.id),
     name: product.name,
     slug: product.slug || String(product.id),
     price: Number(product.price || 0),
     originalPrice: product.regular_price ? Number(product.regular_price) : undefined,
-    image: product.images?.[0]?.src || '/logo.jpg',
+    image: getFastProductImage(imageFields, 'card'),
+    images,
+    imageThumb: product.imageThumb,
+    imageCard: product.imageCard,
+    imageMedium: product.imageMedium,
+    imageLarge: product.imageLarge,
+    imageOriginal: product.imageOriginal,
     rating: 0,
     reviews: 0,
     category: 'Marketplace',

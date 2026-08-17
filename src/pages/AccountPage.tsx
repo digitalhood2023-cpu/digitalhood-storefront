@@ -12,6 +12,7 @@ import {
   LifeBuoy,
   LockKeyhole,
   MapPin,
+  MessageCircle,
   PackageCheck,
   Plus,
   Save,
@@ -183,23 +184,36 @@ function DashboardCard({
   href?: string
 }) {
   const content = (
-    <div className="rounded-3xl bg-white p-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl sm:p-5">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+    <div className="group flex h-full items-center gap-3 rounded-2xl border border-white bg-white p-3 shadow-sm transition-all hover:border-dh-secondary/40 hover:shadow-md sm:p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dh-secondary/15 text-dh-primary transition-colors group-hover:bg-dh-secondary/25">
         {icon}
       </div>
 
-      <p className="text-sm font-medium text-dh-dark-gray">{label}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
+            {label}
+          </p>
+          <ChevronRight className="h-4 w-4 shrink-0 text-dh-light-gray transition group-hover:translate-x-0.5 group-hover:text-dh-primary" />
+        </div>
 
-      <p className="mt-1 line-clamp-1 font-display text-xl font-bold text-dh-primary sm:text-2xl">
-        {value}
-      </p>
+        <p className="mt-0.5 line-clamp-1 font-display text-lg font-bold text-dh-primary">
+          {value}
+        </p>
 
-      <p className="mt-2 text-sm text-dh-dark-gray">{helper}</p>
+        <p className="mt-0.5 line-clamp-1 text-xs text-dh-dark-gray">
+          {helper}
+        </p>
+      </div>
     </div>
   )
 
   if (href) {
-    return <Link to={href}>{content}</Link>
+    return (
+      <Link to={href} className="block h-full rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2">
+        {content}
+      </Link>
+    )
   }
 
   return content
@@ -222,7 +236,7 @@ function AddressCard({
 }) {
   return (
     <article
-      className={`rounded-3xl border bg-white p-4 shadow-sm transition-all sm:p-5 ${
+      className={`rounded-2xl border bg-white p-4 shadow-sm transition-all ${
         isDefault
           ? 'border-dh-primary ring-2 ring-dh-secondary/30'
           : 'border-dh-light-gray hover:border-dh-primary'
@@ -273,7 +287,7 @@ function AddressCard({
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl bg-dh-gray p-3 text-sm text-dh-dark-gray sm:p-4">
+      <div className="mt-3 rounded-xl bg-dh-gray p-3 text-sm text-dh-dark-gray">
         <p>{address.address1}</p>
 
         {address.address2 && <p>{address.address2}</p>}
@@ -291,7 +305,7 @@ function AddressCard({
           variant="outline"
           onClick={onSetDefault}
           disabled={isBusy}
-          className="mt-4 h-10 rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white disabled:opacity-50"
+          className="mt-3 h-9 rounded-full border-dh-primary px-4 text-dh-primary hover:bg-dh-primary hover:text-white disabled:opacity-50"
         >
           <Star className="mr-2 h-4 w-4" />
           Use as default
@@ -677,9 +691,9 @@ export default function AccountPage() {
     <div className="min-h-screen bg-dh-gray">
       <Header />
 
-      <main className="py-5 lg:py-8">
+      <main className="py-4 lg:py-6">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
+          <nav className="mb-4 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
             <Link to="/" className="hover:text-dh-primary">
               Home
             </Link>
@@ -689,76 +703,83 @@ export default function AccountPage() {
             <span className="font-medium text-dh-primary">My Account</span>
           </nav>
 
-          <section className="rounded-[2rem] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <section className="rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-dh-secondary/15 text-dh-primary">
-                  <UserRound className="h-7 w-7" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
+                  <UserRound className="h-6 w-6" />
                 </div>
 
                 <div>
-                  <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+                  <div className="mb-1.5 inline-flex items-center gap-2 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Active customer profile
                   </div>
 
-                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary sm:text-3xl">
+                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary">
                     Welcome back, {displayName}
                   </h1>
 
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
-                    Access your orders, saved products, delivery addresses and
-                    personal account settings.
+                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
+                    Orders, messages, saved products and delivery details in one place.
                   </p>
                 </div>
               </div>
 
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  to="/account/messages"
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-dh-primary px-4 text-sm font-bold text-white transition hover:bg-dh-secondary hover:text-dh-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2"
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Messages
+                </Link>
+
+                <Link
+                  to="/orders"
+                  className="inline-flex h-10 items-center justify-center rounded-full border border-dh-primary px-4 text-sm font-bold text-dh-primary transition hover:bg-dh-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2"
+                >
+                  <PackageCheck className="mr-2 h-4 w-4" />
+                  Orders
+                </Link>
+              </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3 border-t border-dh-light-gray pt-5">
-              <Link to="/orders">
-                <Button className="h-11 rounded-full bg-dh-primary px-6 font-semibold text-white hover:bg-dh-secondary">
-                  <PackageCheck className="mr-2 h-5 w-5" />
-                  View orders
-                </Button>
-              </Link>
-
-              <Link to="/shop">
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-full border-dh-primary px-6 font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
-                >
-                  <ShoppingBag className="mr-2 h-5 w-5" />
-                  Continue shopping
-                </Button>
-              </Link>
-
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dh-light-gray pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={scrollToSavedAddresses}
-                className="h-11 rounded-full border-dh-primary px-6 font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
+                className="h-9 rounded-full border-dh-light-gray px-4 text-sm font-semibold text-dh-primary hover:border-dh-primary hover:bg-dh-primary hover:text-white"
               >
-                <MapPin className="mr-2 h-5 w-5" />
+                <MapPin className="mr-2 h-4 w-4" />
                 Manage addresses
               </Button>
+
+              <Link
+                to="/shop"
+                className="inline-flex h-9 items-center justify-center rounded-full border border-dh-light-gray px-4 text-sm font-semibold text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary hover:text-white"
+              >
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                Shop
+              </Link>
 
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleLogout}
                 disabled={isSigningOut}
-                className="h-11 rounded-full border-red-200 px-6 font-semibold text-red-600 hover:bg-red-50"
+                className="h-9 rounded-full border-red-100 px-4 text-sm font-semibold text-red-600 hover:bg-red-50"
               >
-                <LockKeyhole className="mr-2 h-5 w-5" />
+                <LockKeyhole className="mr-2 h-4 w-4" />
                 {isSigningOut ? 'Signing out...' : 'Sign out'}
               </Button>
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <section aria-label="Account shortcuts" className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <DashboardCard
-              icon={<ShoppingBag className="h-6 w-6" />}
+              icon={<ShoppingBag className="h-5 w-5" />}
               label="Orders"
               value={String(orders.length)}
               helper="Purchases connected to your account."
@@ -766,7 +787,15 @@ export default function AccountPage() {
             />
 
             <DashboardCard
-              icon={<Heart className="h-6 w-6" />}
+              icon={<MessageCircle className="h-5 w-5" />}
+              label="Messages"
+              value="Open inbox"
+              helper="Chat with marketplace sellers."
+              href="/account/messages"
+            />
+
+            <DashboardCard
+              icon={<Heart className="h-5 w-5" />}
               label="Wishlist"
               value={String(wishlistCount)}
               helper="Products saved for later."
@@ -775,7 +804,7 @@ export default function AccountPage() {
 
             <button type="button" onClick={scrollToSavedAddresses} className="text-left">
               <DashboardCard
-                icon={<Home className="h-6 w-6" />}
+                icon={<Home className="h-5 w-5" />}
                 label="Saved Addresses"
                 value={`${displayAddresses.length}/5`}
                 helper="Manage delivery locations."
@@ -783,7 +812,7 @@ export default function AccountPage() {
             </button>
 
             <DashboardCard
-              icon={<UserRound className="h-6 w-6" />}
+              icon={<UserRound className="h-5 w-5" />}
               label="Account details"
               value="Manage"
               helper="Update your personal information."
@@ -791,7 +820,7 @@ export default function AccountPage() {
             />
 
             <DashboardCard
-              icon={<LifeBuoy className="h-6 w-6" />}
+              icon={<LifeBuoy className="h-5 w-5" />}
               label="Support cases"
               value="Track"
               helper="View case status and support replies."
@@ -800,7 +829,7 @@ export default function AccountPage() {
           </section>
 
           {(errorMessage || successMessage) && (
-            <section className="mt-8">
+            <section className="mt-4">
               {errorMessage && (
                 <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
                   <div className="flex gap-2">
@@ -821,12 +850,12 @@ export default function AccountPage() {
             </section>
           )}
 
-          <section className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="space-y-8">
-              <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-3xl bg-white p-6 shadow-sm sm:p-8">
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <section className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+            <div>
+              <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="font-display text-2xl font-bold text-dh-primary">
+                    <h2 className="font-display text-xl font-bold text-dh-primary">
                       Delivery addresses
                     </h2>
 
@@ -840,7 +869,7 @@ export default function AccountPage() {
                       type="button"
                       variant="outline"
                       onClick={() => setIsAddressManagerOpen((current) => !current)}
-                      className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                      className="h-9 rounded-full border-dh-primary px-4 text-sm text-dh-primary hover:bg-dh-primary hover:text-white"
                     >
                       {isAddressManagerOpen ? (
                         <>
@@ -859,7 +888,7 @@ export default function AccountPage() {
                       type="button"
                       onClick={openNewAddressForm}
                       disabled={!canAddAddress}
-                      className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
+                      className="h-9 rounded-full bg-dh-primary px-4 text-sm text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add address
@@ -867,16 +896,16 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-dh-light-gray bg-dh-gray p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/20 text-dh-primary">
-                        <MapPin className="h-6 w-6" />
+                <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dh-secondary/20 text-dh-primary">
+                        <MapPin className="h-5 w-5" />
                       </div>
 
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-display text-lg font-bold text-dh-primary">
+                          <p className="font-display font-bold text-dh-primary">
                             {defaultAddress?.label || 'No default address'}
                           </p>
 
@@ -910,7 +939,7 @@ export default function AccountPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-white px-4 py-3 text-sm text-dh-dark-gray shadow-sm">
+                    <div className="rounded-xl bg-white px-3 py-2 text-xs text-dh-dark-gray shadow-sm">
                       <p className="font-semibold text-dh-primary">
                         {displayAddresses.length}/5 saved
                       </p>
@@ -927,7 +956,7 @@ export default function AccountPage() {
                 )}
 
                 {isAddressManagerOpen && (
-                  <div className="mt-6 rounded-3xl border border-dh-light-gray bg-white p-4 sm:p-5">
+                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-white p-4">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h3 className="font-display text-xl font-bold text-dh-primary">
@@ -996,7 +1025,7 @@ export default function AccountPage() {
                 {isAddressFormOpen && (
                   <form
                     onSubmit={handleSaveAddress}
-                    className="mt-6 rounded-3xl border border-dh-light-gray bg-dh-gray p-5 sm:p-6"
+                    className="mt-4 rounded-2xl border border-dh-light-gray bg-dh-gray p-4 sm:p-5"
                   >
                     <div className="mb-5 flex items-center justify-between gap-4">
                       <div>
@@ -1170,11 +1199,11 @@ export default function AccountPage() {
               </section>
             </div>
 
-            <aside className="space-y-6">
-              <div className="rounded-3xl bg-white p-6 shadow-sm">
-                <div className="mb-5 flex items-center justify-between gap-4">
+            <aside className="space-y-4">
+              <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-4">
                   <div>
-                    <h2 className="font-display text-xl font-bold text-dh-primary">
+                    <h2 className="font-display text-lg font-bold text-dh-primary">
                       Recent orders
                     </h2>
 
@@ -1204,7 +1233,7 @@ export default function AccountPage() {
                       <Link
                         key={order.id}
                         to={`/orders/${order.id}`}
-                        className="block rounded-2xl border border-dh-light-gray p-4 transition-all hover:border-dh-primary hover:shadow-md"
+                        className="block rounded-xl border border-dh-light-gray p-3 transition-all hover:border-dh-primary hover:shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -1261,58 +1290,23 @@ export default function AccountPage() {
                 )}
               </div>
 
-              <div className="rounded-3xl bg-white p-6 shadow-sm">
-                <h2 className="font-display text-xl font-bold text-dh-primary">
-                  Default checkout address
-                </h2>
-
-                <div className="mt-5 rounded-2xl bg-dh-gray p-4">
-                  {defaultAddress ? (
-                    <>
-                      <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                        <Star className="h-3.5 w-3.5 fill-current" />
-                        Default
-                      </div>
-
-                      <p className="font-semibold text-dh-primary">
-                        {defaultAddress.label}
-                      </p>
-
-                      <p className="mt-1 text-sm text-dh-dark-gray">
-                        {defaultAddress.fullName}
-                      </p>
-
-                      <p className="text-sm text-dh-dark-gray">
-                        {defaultAddress.phone}
-                      </p>
-
-                      <p className="mt-2 text-sm text-dh-dark-gray">
-                        {getAddressLine(defaultAddress)}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <MapPin className="mb-3 h-8 w-8 text-dh-primary" />
-                      <p className="font-semibold text-dh-primary">
-                        No default address yet
-                      </p>
-                      <p className="mt-1 text-sm text-dh-dark-gray">
-                        Add an address and set it as default for faster checkout.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-3xl bg-white p-6 shadow-sm">
-                <h2 className="font-display text-xl font-bold text-dh-primary">
+              <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+                <h2 className="font-display text-lg font-bold text-dh-primary">
                   Quick actions
                 </h2>
 
-                <div className="mt-5 grid gap-3">
+                <div className="mt-3 grid gap-2">
+                  <Link
+                    to="/account/messages"
+                    className="flex items-center justify-between rounded-xl bg-dh-primary p-3 text-sm font-semibold text-white transition hover:bg-dh-secondary hover:text-dh-primary"
+                  >
+                    Open messages
+                    <MessageCircle className="h-5 w-5" />
+                  </Link>
+
                   <Link
                     to="/track-order"
-                    className="flex items-center justify-between rounded-2xl bg-dh-gray p-4 font-semibold text-dh-primary hover:bg-dh-secondary/15"
+                    className="flex items-center justify-between rounded-xl bg-dh-gray p-3 text-sm font-semibold text-dh-primary hover:bg-dh-secondary/15"
                   >
                     Track an order
                     <PackageCheck className="h-5 w-5" />
@@ -1320,7 +1314,7 @@ export default function AccountPage() {
 
                   <Link
                     to="/wishlist"
-                    className="flex items-center justify-between rounded-2xl bg-dh-gray p-4 font-semibold text-dh-primary hover:bg-dh-secondary/15"
+                    className="flex items-center justify-between rounded-xl bg-dh-gray p-3 text-sm font-semibold text-dh-primary hover:bg-dh-secondary/15"
                   >
                     View wishlist
                     <Heart className="h-5 w-5" />
@@ -1328,7 +1322,7 @@ export default function AccountPage() {
 
                   <Link
                     to="/shop"
-                    className="flex items-center justify-between rounded-2xl bg-dh-gray p-4 font-semibold text-dh-primary hover:bg-dh-secondary/15"
+                    className="flex items-center justify-between rounded-xl bg-dh-gray p-3 text-sm font-semibold text-dh-primary hover:bg-dh-secondary/15"
                   >
                     Continue shopping
                     <ShoppingBag className="h-5 w-5" />
