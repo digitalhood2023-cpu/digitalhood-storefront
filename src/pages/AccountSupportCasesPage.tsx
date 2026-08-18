@@ -448,7 +448,7 @@ export default function AccountSupportCasesPage() {
 
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
-      <div className="min-h-screen bg-dh-gray">
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="flex min-h-[60vh] items-center justify-center px-4">
@@ -467,7 +467,7 @@ export default function AccountSupportCasesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="py-5 lg:py-8">
