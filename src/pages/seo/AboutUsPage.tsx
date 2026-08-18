@@ -16,7 +16,7 @@ export default function AboutUsPage() {
   }, []);
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-white">
+    <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-white">
       <Header />
       
       <main className="pt-6 pb-16">
