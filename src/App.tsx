@@ -115,7 +115,7 @@ function App() {
             <MarketplaceSEO />
             <NavigationScrollManager />
 
-            <div className="pt-[88px] md:pt-[122px]">
+            <div className="min-h-[100svh]">
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 <Route path="/" element={<Home />} />
