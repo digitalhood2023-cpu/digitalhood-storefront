@@ -525,7 +525,7 @@ export default function SellerStorePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-[100svh] flex-col bg-gray-50">
       <SEO
         title={seller?.storeName || 'Seller Store'}
         description={
