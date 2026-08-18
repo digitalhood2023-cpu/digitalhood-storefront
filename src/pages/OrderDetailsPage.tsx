@@ -949,7 +949,7 @@ export default function OrderDetailsPage() {
 
   if (isLoading || isOrderLoading) {
     return (
-      <div className="min-h-screen bg-dh-gray">
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="flex min-h-[60vh] items-center justify-center px-4">
@@ -973,7 +973,7 @@ export default function OrderDetailsPage() {
 
   if (errorMessage || !order) {
     return (
-      <div className="min-h-screen bg-dh-gray">
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="py-12">
@@ -1016,7 +1016,7 @@ export default function OrderDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="py-8 lg:py-12">
@@ -1276,21 +1276,23 @@ export default function OrderDetailsPage() {
                                   : ''
                               }`}
                             >
-                              <img
-                                src={item.image || '/logo.jpg'}
-                                alt={item.name}
-                                className="h-16 w-16 shrink-0 rounded-xl bg-dh-gray object-contain p-1.5"
-                                onError={(event) => {
-                                  event.currentTarget.src = '/logo.jpg'
-                                }}
-                              />
+                              <Link to={`/product/${item.productId || item.id}`} aria-label={`View ${item.name}`}>
+                                <img
+                                  src={item.image || '/logo.jpg'}
+                                  alt={item.name}
+                                  className="h-16 w-16 shrink-0 rounded-xl bg-dh-gray object-contain p-1.5 transition hover:ring-2 hover:ring-dh-secondary"
+                                  onError={(event) => {
+                                    event.currentTarget.src = '/logo.jpg'
+                                  }}
+                                />
+                              </Link>
 
                               <div className="min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
-                                    <p className="line-clamp-2 text-sm font-black leading-tight text-dh-primary">
+                                    <Link to={`/product/${item.productId || item.id}`} className="line-clamp-2 text-sm font-black leading-tight text-dh-primary hover:text-dh-secondary hover:underline">
                                       {item.name}
-                                    </p>
+                                    </Link>
 
                                     {metaLines.length > 0 && (
                                       <div className="mt-1 space-y-0.5">
