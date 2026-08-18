@@ -42,6 +42,7 @@ import {
   type WooProduct,
 } from '@/lib/woocommerce';
 import { saveMarketplaceSearch } from '@/lib/marketplaceBrowserState';
+import { acquireBodyScrollLock } from '@/lib/bodyScrollLock';
 import {
   getCategoryInsightLabel,
   sortCategoriesForMarketplace,
@@ -782,17 +783,9 @@ export default function ShopPage() {
   }, [isFetching, page, products.length]);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return;
+    if (!showMobileFilters) return;
 
-    if (showMobileFilters) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
+    return acquireBodyScrollLock();
   }, [showMobileFilters]);
 
   const selectedCategory = useMemo(

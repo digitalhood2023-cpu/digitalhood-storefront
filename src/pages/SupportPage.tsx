@@ -368,7 +368,7 @@ export default function SupportPage() {
       ? 'track'
       : 'create'
   })
-  const [startedAt] = useState(Date.now())
+  const [startedAt] = useState(() => Date.now())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLookingUp, setIsLookingUp] = useState(false)
   const [error, setError] = useState('')
@@ -405,39 +405,47 @@ export default function SupportPage() {
 
     const validType = typeParam && supportTypes.some((item) => item.value === typeParam)
 
-    if (location.pathname.includes('/track') || modeParam === 'track' || caseNumberParam) {
-      setMode('track')
-    } else if (modeParam === 'create' || validType || orderNumberParam || subjectParam || messageParam) {
-      setMode('create')
-    }
+    const syncTimer = window.setTimeout(() => {
+      if (location.pathname.includes('/track') || modeParam === 'track' || caseNumberParam) {
+        setMode('track')
+      } else if (modeParam === 'create' || validType || orderNumberParam || subjectParam || messageParam) {
+        setMode('create')
+      }
 
-    if (validType || orderNumberParam || subjectParam || messageParam) {
-      setForm((current) => ({
-        ...current,
-        type: validType ? typeParam : current.type,
-        orderNumber: orderNumberParam || current.orderNumber,
-        subject: subjectParam || current.subject,
-        message: messageParam || current.message,
-      }))
-    }
+      if (validType || orderNumberParam || subjectParam || messageParam) {
+        setForm((current) => ({
+          ...current,
+          type: validType ? typeParam : current.type,
+          orderNumber: orderNumberParam || current.orderNumber,
+          subject: subjectParam || current.subject,
+          message: messageParam || current.message,
+        }))
+      }
 
-    if (caseNumberParam || emailParam) {
-      setTrackForm((current) => ({
-        ...current,
-        caseNumber: caseNumberParam || current.caseNumber,
-        email: emailParam || current.email,
-      }))
-    }
+      if (caseNumberParam || emailParam) {
+        setTrackForm((current) => ({
+          ...current,
+          caseNumber: caseNumberParam || current.caseNumber,
+          email: emailParam || current.email,
+        }))
+      }
+    }, 0)
+
+    return () => window.clearTimeout(syncTimer)
   }, [location.pathname, searchParams])
 
   useEffect(() => {
-    if (successCaseNumber) {
+    if (!successCaseNumber) return
+
+    const syncTimer = window.setTimeout(() => {
       setTrackForm((current) => ({
         ...current,
         caseNumber: successCaseNumber,
         email: form.email,
       }))
-    }
+    }, 0)
+
+    return () => window.clearTimeout(syncTimer)
   }, [successCaseNumber, form.email])
 
   const selectedType = useMemo(() => {
@@ -810,8 +818,11 @@ export default function SupportPage() {
                       <p className="mt-1 text-sm font-black text-slate-800">{cleanLabel(lookedUpCase.type)}</p>
                     </div>
                     <div className="rounded-2xl bg-white p-4">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Priority</p>
-                      <p className="mt-1 text-sm font-black text-slate-800">{cleanLabel(lookedUpCase.priority)}</p>
+                      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Updates</p>
+                      <p className="mt-1 text-sm font-black text-slate-800">
+                        {lookedUpCase.messages?.length || 0} support update
+                        {(lookedUpCase.messages?.length || 0) === 1 ? '' : 's'}
+                      </p>
                     </div>
                     <div className="rounded-2xl bg-white p-4">
                       <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Created</p>

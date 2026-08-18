@@ -49,6 +49,7 @@ import {
 import {
   groupOrderItemsByStore,
 } from '@/lib/orderStoreOwnership'
+import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
@@ -357,16 +358,21 @@ function getItemMetaText(item: AccountOrderItem) {
 }
 
 function DetailCard({
+  id,
   icon,
   title,
   children,
 }: {
+  id?: string
   icon: React.ReactNode
   title: string
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-3xl bg-white p-6 shadow-sm">
+    <section
+      id={id}
+      className="scroll-mt-32 rounded-3xl bg-white p-6 shadow-sm"
+    >
       <div className="mb-5 flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
           {icon}
@@ -478,6 +484,19 @@ export default function OrderDetailsPage() {
       mounted = false
     }
   }, [isAuthenticated, orderId])
+
+  useEffect(() => {
+    if (!order || location.hash !== '#order-support') return
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('order-support')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.hash, order])
 
   useEffect(() => {
     if (!order) return
@@ -665,12 +684,7 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     if (!isCaseModalOpen) return
 
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
+    return acquireBodyScrollLock()
   }, [isCaseModalOpen])
 
   async function loadOrderCases(
@@ -1465,6 +1479,7 @@ export default function OrderDetailsPage() {
               </DetailCard>
 
               <DetailCard
+                id="order-support"
                 icon={<ShieldCheck className="h-6 w-6" />}
                 title={
                   existingOrderCase

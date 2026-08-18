@@ -206,7 +206,7 @@ export default function ContactPage() {
           <div className="mt-5 space-y-3">
             {[
               'You receive a DigitalHood case number.',
-              'Our admin team can update status and priority.',
+              'Our support team keeps the case status up to date.',
               'Replies are saved against the case and sent by email.',
               'You can track the case later using your email address.',
             ].map((item) => (

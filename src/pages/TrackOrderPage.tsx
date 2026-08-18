@@ -1,18 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertCircle,
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock,
-  CreditCard,
   Mail,
   MapPin,
   PackageCheck,
   ReceiptText,
   Search,
   ShieldCheck,
+  ShoppingBag,
   Truck,
 } from 'lucide-react'
 
@@ -28,6 +29,11 @@ import {
   type CustomerOrder,
   type CustomerOrderItem,
 } from '@/api/orders'
+import {
+  getCustomerOrders,
+  type AccountOrder,
+} from '@/api/account'
+import { useAccount } from '@/context/AccountContext'
 
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 
@@ -127,7 +133,7 @@ function moveToNextDeliveryDay(date: Date) {
 }
 
 function addDeliveryBusinessDays(startDate: Date, daysToAdd: number) {
-  let current = moveToNextDeliveryDay(startDate)
+  const current = moveToNextDeliveryDay(startDate)
   let addedDays = 0
 
   while (addedDays < daysToAdd) {
@@ -385,12 +391,200 @@ function getItemMetaText(item: CustomerOrderItem) {
   return usefulMeta
 }
 
+function accountOrderSearchText(order: CustomerOrder) {
+  return [
+    order.number,
+    order.id,
+    order.status,
+    order.statusLabel,
+    order.billing?.email,
+    ...(order.items || []).map((item) => item.name),
+  ]
+    .join(' ')
+    .toLowerCase()
+}
+
+function AccountTrackingCard({
+  order,
+  isSelected,
+  onTrack,
+}: {
+  order: CustomerOrder
+  isSelected: boolean
+  onTrack: () => void
+}) {
+  const status = getStatusStyles(order.status)
+  const previewItems = (order.items || []).slice(0, 3)
+
+  return (
+    <article
+      className={`rounded-2xl border bg-white p-3.5 transition sm:p-4 ${
+        isSelected
+          ? 'border-dh-primary shadow-md'
+          : 'border-dh-light-gray hover:border-dh-primary/30 hover:shadow-sm'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-dh-dark-gray">
+            Order #{order.number || order.id}
+          </p>
+          <p className="mt-1 text-sm font-black text-dh-primary">
+            {formatPrice(order.total, order.currency)}
+          </p>
+          <p className="mt-0.5 text-xs text-dh-dark-gray">
+            {formatDate(order.dateCreated)}
+          </p>
+        </div>
+
+        <span
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${status.badge}`}
+        >
+          {status.icon}
+          {order.statusLabel || order.status}
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-center">
+        {previewItems.map((item, index) => (
+          <span
+            key={item.id}
+            className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border-2 border-white bg-dh-gray ${
+              index > 0 ? '-ml-2' : ''
+            }`}
+          >
+            {item.image ? (
+              <img
+                src={item.image}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <ShoppingBag className="h-4 w-4 text-dh-primary" />
+            )}
+          </span>
+        ))}
+
+        <div className="ml-3 min-w-0 flex-1">
+          <p className="line-clamp-1 text-xs font-bold text-dh-primary">
+            {order.items?.[0]?.name || 'Order items'}
+          </p>
+          <p className="mt-0.5 text-[11px] text-dh-dark-gray">
+            {order.items?.length || 0} item
+            {(order.items?.length || 0) === 1 ? '' : 's'} ·{' '}
+            {order.deliveryEstimate?.label || 'Delivery estimate pending'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onTrack}
+          className="inline-flex h-9 items-center justify-center rounded-xl bg-dh-primary px-3 text-xs font-bold text-white transition hover:bg-dh-secondary hover:text-black"
+        >
+          Track order
+          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+        </button>
+
+        <Link
+          to={`/orders/${order.id}#order-support`}
+          className="inline-flex h-9 items-center justify-center rounded-xl border border-dh-light-gray px-3 text-xs font-bold text-dh-primary transition hover:border-dh-primary"
+        >
+          Report issue
+        </Link>
+      </div>
+    </article>
+  )
+}
+
 export default function TrackOrderPage() {
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: isAccountLoading,
+  } = useAccount()
   const [email, setEmail] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [order, setOrder] = useState<CustomerOrder | null>(null)
+  const [accountOrders, setAccountOrders] = useState<CustomerOrder[]>([])
+  const [accountQuery, setAccountQuery] = useState('')
+  const [isAccountOrdersLoading, setIsAccountOrdersLoading] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    let cancelled = false
+
+    async function loadAccountOrders() {
+      setIsAccountOrdersLoading(true)
+      setErrorMessage('')
+
+      try {
+        const response = await getCustomerOrders()
+        const nextOrders = response.orders as Array<
+          AccountOrder & CustomerOrder
+        >
+
+        if (cancelled) return
+
+        setAccountOrders(nextOrders)
+        setOrder((current) => {
+          if (
+            current &&
+            nextOrders.some((item) => item.id === current.id)
+          ) {
+            return current
+          }
+
+          return nextOrders[0] || null
+        })
+      } catch (error) {
+        if (cancelled) return
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load the orders on your account.'
+        )
+      } finally {
+        if (!cancelled) setIsAccountOrdersLoading(false)
+      }
+    }
+
+    const startupTimer = window.setTimeout(() => {
+      void loadAccountOrders()
+    }, 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(startupTimer)
+    }
+  }, [isAuthenticated])
+
+  const filteredAccountOrders = useMemo(() => {
+    const query = accountQuery.trim().toLowerCase()
+
+    if (!query) return accountOrders
+
+    return accountOrders.filter((item) =>
+      accountOrderSearchText(item).includes(query)
+    )
+  }, [accountOrders, accountQuery])
+
+  const selectAccountOrder = (nextOrder: CustomerOrder) => {
+    setOrder(nextOrder)
+
+    window.requestAnimationFrame(() => {
+      document.getElementById('tracked-order-details')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
 
   const handleLookup = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -416,7 +610,7 @@ export default function TrackOrderPage() {
         orderNumber: orderNumber.trim(),
       })
 
-      setOrder(response.order)
+      selectAccountOrder(response.order)
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -452,148 +646,221 @@ export default function TrackOrderPage() {
           </nav>
 
           <div className="mx-auto max-w-5xl">
-            <section className="mb-8 overflow-hidden rounded-3xl bg-white">
-              <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="p-6 sm:p-8 lg:p-10">
-                  <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
-                    <PackageCheck className="h-4 w-4" />
-                    DigitalHood Order Tracking
+            {isAccountLoading ? (
+              <section className="mb-6 flex min-h-64 items-center justify-center rounded-3xl bg-white">
+                <div className="text-center">
+                  <Clock className="mx-auto h-8 w-8 animate-pulse text-dh-secondary" />
+                  <p className="mt-3 text-sm font-semibold text-dh-dark-gray">
+                    Loading your tracking workspace...
+                  </p>
+                </div>
+              </section>
+            ) : isAuthenticated ? (
+              <section className="mb-7 space-y-4">
+                <div className="overflow-hidden rounded-3xl bg-dh-primary text-white shadow-sm">
+                  <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_0.85fr] lg:items-end">
+                    <div>
+                      <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-dh-secondary">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Account order tracking
+                      </div>
+                      <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">
+                        Your orders, ready to track
+                      </h1>
+                      <p className="mt-1 max-w-xl text-sm leading-6 text-white/70">
+                        Signed in as {customer?.email}. Select any order to see
+                        its full payment and delivery journey—no email or order
+                        number required.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="accountOrderSearch"
+                        className="text-xs font-bold uppercase tracking-[0.12em] text-white/65"
+                      >
+                        Find one of your orders
+                      </label>
+                      <div className="relative mt-2">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
+                        <Input
+                          id="accountOrderSearch"
+                          value={accountQuery}
+                          onChange={(event) => setAccountQuery(event.target.value)}
+                          placeholder="Order number, product or status"
+                          className="h-11 rounded-xl border-white/15 bg-white/10 pl-10 text-white placeholder:text-white/45 focus-visible:ring-dh-secondary"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <h1 className="font-display text-3xl font-bold text-dh-primary lg:text-4xl">
-                    Track your order
-                  </h1>
-
-                  <p className="mt-3 max-w-2xl text-dh-dark-gray">
-                    Enter the email address used at checkout and your order number
-                    to see payment, processing, shipping, delivery, and expected
-                    delivery details.
-                  </p>
-
-                  <form onSubmit={handleLookup} className="mt-8 grid gap-4">
-                    <div>
-                      <Label htmlFor="orderEmail">Email address</Label>
-
-                      <div className="relative mt-1">
-                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
-
-                        <Input
-                          id="orderEmail"
-                          type="email"
-                          value={email}
-                          onChange={(event) => setEmail(event.target.value)}
-                          placeholder="you@example.com"
-                          className="pl-10"
-                        />
-                      </div>
+                  <div className="grid grid-cols-3 border-t border-white/10 bg-white/[0.06] text-center">
+                    <div className="px-3 py-3">
+                      <p className="font-display text-xl font-bold">{accountOrders.length}</p>
+                      <p className="text-[11px] font-semibold text-white/60">All orders</p>
                     </div>
-
-                    <div>
-                      <Label htmlFor="orderNumber">Order number</Label>
-
-                      <div className="relative mt-1">
-                        <ReceiptText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
-
-                        <Input
-                          id="orderNumber"
-                          value={orderNumber}
-                          onChange={(event) =>
-                            setOrderNumber(event.target.value)
-                          }
-                          placeholder="e.g. 1234 or #1234"
-                          className="pl-10"
-                        />
-                      </div>
+                    <div className="border-x border-white/10 px-3 py-3">
+                      <p className="font-display text-xl font-bold">
+                        {accountOrders.filter((item) =>
+                          !['completed', 'delivered', 'cancelled', 'refunded'].includes(
+                            normalizeOrderStatus(item.status)
+                          )
+                        ).length}
+                      </p>
+                      <p className="text-[11px] font-semibold text-white/60">In progress</p>
                     </div>
+                    <div className="px-3 py-3">
+                      <p className="font-display text-xl font-bold">
+                        {accountOrders.filter((item) =>
+                          ['completed', 'delivered'].includes(
+                            normalizeOrderStatus(item.status)
+                          )
+                        ).length}
+                      </p>
+                      <p className="text-[11px] font-semibold text-white/60">Delivered</p>
+                    </div>
+                  </div>
+                </div>
 
-                    {errorMessage && (
-                      <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-                        <div className="flex gap-2">
+                {errorMessage && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>{errorMessage}</p>
+                  </div>
+                )}
+
+                {isAccountOrdersLoading ? (
+                  <div className="rounded-3xl bg-white p-8 text-center text-sm font-semibold text-dh-dark-gray">
+                    Loading your orders...
+                  </div>
+                ) : filteredAccountOrders.length ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {filteredAccountOrders.map((item) => (
+                      <AccountTrackingCard
+                        key={item.id}
+                        order={item}
+                        isSelected={order?.id === item.id}
+                        onTrack={() => selectAccountOrder(item)}
+                      />
+                    ))}
+                  </div>
+                ) : accountOrders.length ? (
+                  <div className="rounded-3xl bg-white p-8 text-center">
+                    <Search className="mx-auto h-8 w-8 text-dh-dark-gray" />
+                    <p className="mt-3 font-bold text-dh-primary">No matching order</p>
+                    <p className="mt-1 text-sm text-dh-dark-gray">
+                      Try another order number, product name or status.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-3xl bg-white p-8 text-center">
+                    <ShoppingBag className="mx-auto h-9 w-9 text-dh-secondary" />
+                    <p className="mt-3 font-bold text-dh-primary">No orders yet</p>
+                    <p className="mt-1 text-sm text-dh-dark-gray">
+                      Orders placed with this account will appear here automatically.
+                    </p>
+                    <Link
+                      to="/shop"
+                      className="mt-4 inline-flex rounded-full bg-dh-primary px-5 py-2.5 text-sm font-bold text-white"
+                    >
+                      Explore marketplace
+                    </Link>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <section className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm">
+                <div className="grid lg:grid-cols-[1fr_0.72fr]">
+                  <div className="p-5 sm:p-7">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-3 py-1.5 text-xs font-bold text-dh-primary">
+                      <ReceiptText className="h-4 w-4" />
+                      Guest order lookup
+                    </div>
+                    <h1 className="mt-3 font-display text-2xl font-bold text-dh-primary sm:text-3xl">
+                      Track an order placed as a guest
+                    </h1>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-dh-dark-gray">
+                      Use the email from checkout and the order number on your
+                      receipt. Account customers can sign in to see every order
+                      automatically.
+                    </p>
+
+                    <form onSubmit={handleLookup} className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="orderEmail">Checkout email</Label>
+                        <div className="relative mt-1">
+                          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
+                          <Input
+                            id="orderEmail"
+                            type="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            placeholder="you@example.com"
+                            className="h-11 rounded-xl pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="orderNumber">Order number</Label>
+                        <div className="relative mt-1">
+                          <ReceiptText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
+                          <Input
+                            id="orderNumber"
+                            value={orderNumber}
+                            onChange={(event) => setOrderNumber(event.target.value)}
+                            placeholder="e.g. #1234"
+                            className="h-11 rounded-xl pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      {errorMessage && (
+                        <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">
                           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                           <p>{errorMessage}</p>
                         </div>
-                      </div>
-                    )}
-
-                    <Button
-                      type="submit"
-                      disabled={isLoading}
-                      className="h-12 rounded-xl bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
-                    >
-                      {isLoading ? (
-                        'Checking order...'
-                      ) : (
-                        <>
-                          <Search className="mr-2 h-5 w-5" />
-                          Track Order
-                        </>
                       )}
-                    </Button>
-                  </form>
-                </div>
 
-                <div className="bg-dh-primary p-6 text-white sm:p-8 lg:p-10">
-                  <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-                    <ShieldCheck className="mb-4 h-10 w-10 text-dh-secondary" />
+                      <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="h-11 rounded-xl bg-dh-primary text-white hover:bg-dh-secondary sm:col-span-2"
+                      >
+                        <Search className="mr-2 h-4 w-4" />
+                        {isLoading ? 'Checking order...' : 'Find guest order'}
+                      </Button>
+                    </form>
+                  </div>
 
-                    <h2 className="font-display text-xl font-bold">
-                      Buyer confidence
-                    </h2>
-
-                    <p className="mt-2 text-sm text-white/80">
-                      DigitalHood tracks order status from checkout to payment
-                      confirmation, dispatch, and delivery.
-                    </p>
-
-                    <div className="mt-6 grid gap-4 text-sm">
-                      <div className="flex gap-3">
-                        <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-                        <div>
-                          <p className="font-semibold">Payment visibility</p>
-                          <p className="text-white/70">
-                            See whether your order is awaiting payment,
-                            processing, shipped, or delivered.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <Truck className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-                        <div>
-                          <p className="font-semibold">Delivery tracking</p>
-                          <p className="text-white/70">
-                            View shipping progress and expected delivery dates.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-                        <div>
-                          <p className="font-semibold">Smart delivery dates</p>
-                          <p className="text-white/70">
-                            Delivery estimates count Monday to Saturday and skip Sundays.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <PackageCheck className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-                        <div>
-                          <p className="font-semibold">Order items</p>
-                          <p className="text-white/70">
-                            Confirm the products and quantities in your order.
-                          </p>
-                        </div>
-                      </div>
+                  <div className="flex flex-col justify-between bg-dh-primary p-5 text-white sm:p-7">
+                    <div>
+                      <ShieldCheck className="h-8 w-8 text-dh-secondary" />
+                      <h2 className="mt-3 font-display text-xl font-bold">
+                        Have a DigitalHood account?
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-white/70">
+                        Sign in once to track every account order, open the full
+                        order, and report an issue without entering checkout details.
+                      </p>
                     </div>
+                    <Link
+                      to="/login?redirect=/track-order"
+                      className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-dh-secondary px-5 text-sm font-bold text-black"
+                    >
+                      Sign in to track all orders
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
             {order && statusStyles && deliveryDetails && (
-              <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <section
+                id="tracked-order-details"
+                className="scroll-mt-32 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]"
+              >
                 <div className="space-y-6">
                   <div className="rounded-3xl bg-white p-6 sm:p-8">
                     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -939,10 +1206,14 @@ export default function TrackOrderPage() {
 
                     {order.caseEligibility?.canOpenCase ? (
                       <Link
-                        to={buildOrderSupportUrl(order)}
+                        to={
+                          isAuthenticated
+                            ? `/orders/${order.id}#order-support`
+                            : buildOrderSupportUrl(order)
+                        }
                         className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
                       >
-                        Open Order Case
+                        {isAuthenticated ? 'Report an issue' : 'Open Order Case'}
                       </Link>
                     ) : (
                       <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">

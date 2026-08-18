@@ -34,6 +34,7 @@ import {
   type PublicStoreDirectoryCard,
   type PublicStoreDirectoryResponse,
 } from '@/api/publicSellers'
+import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
 
 const EMPTY_DIRECTORY: PublicStoreDirectoryResponse = {
   success: true,
@@ -316,12 +317,9 @@ export default function ShopsPage() {
   ] = useState(false)
 
   useEffect(() => {
-    if (!isFilterDrawerOpen) {
-      return
-    }
+    if (!isFilterDrawerOpen) return
 
-    const previousOverflow =
-      document.body.style.overflow
+    const releaseScrollLock = acquireBodyScrollLock()
 
     const closeOnEscape = (
       event: KeyboardEvent
@@ -331,17 +329,13 @@ export default function ShopsPage() {
       }
     }
 
-    document.body.style.overflow =
-      'hidden'
-
     window.addEventListener(
       'keydown',
       closeOnEscape
     )
 
     return () => {
-      document.body.style.overflow =
-        previousOverflow
+      releaseScrollLock()
 
       window.removeEventListener(
         'keydown',
