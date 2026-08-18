@@ -60,7 +60,7 @@ export default function ContactPage() {
     <>
       <Header />
 
-      <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/60">
+      <main className="flex min-h-[100svh] flex-col bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/60">
       <SEO
         title="Contact DigitalHood Zambia | Support Center"
         description="Contact DigitalHood Marketplace Zambia or create and track a support case for orders, payments, delivery, warranty, returns, quotations and seller support."
