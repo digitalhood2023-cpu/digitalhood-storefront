@@ -58,6 +58,7 @@ import { openProductConversation } from '@/api/chat'
 
 import gsap from 'gsap'
 import { getFastProductImage } from '@/lib/productImages'
+import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
 
 function getVariationLabel(variation: WooProductVariation) {
   const values = Object.values(variation.attributes || {}).filter(Boolean)
@@ -775,8 +776,7 @@ export default function ProductPage() {
   useEffect(() => {
     if (!isGalleryOpen) return
 
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const releaseScrollLock = acquireBodyScrollLock()
 
     const handleGalleryKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -832,7 +832,7 @@ export default function ProductPage() {
 
     return () => {
       document.removeEventListener('keydown', handleGalleryKeyDown)
-      document.body.style.overflow = previousOverflow
+      releaseScrollLock()
     }
   }, [displayImages.length, isGalleryOpen])
 
