@@ -176,7 +176,7 @@ export default function CategoriesPage() {
   ).length
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-[100svh] flex-col bg-gray-50">
       <SEO
         title="Technology Departments | DigitalHood Marketplace Zambia"
         description="Browse DigitalHood technology departments covering phones, laptops, accessories, charging, gaming, audio, repairs, office equipment and future marketplace categories."
