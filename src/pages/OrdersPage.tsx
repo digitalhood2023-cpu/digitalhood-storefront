@@ -27,6 +27,7 @@ import {
   getCustomerOrders,
   type AccountOrder,
 } from '@/api/account'
+import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
@@ -126,6 +127,8 @@ function getOrderItemPreview(order: AccountOrder) {
 }
 
 function OrderCard({ order }: { order: AccountOrder }) {
+  const storeGroups = groupOrderItemsByStore(order.items || [])
+
   return (
     <article className="rounded-3xl border border-transparent bg-white p-4 shadow-sm transition-all hover:border-dh-primary/20 hover:shadow-lg sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -150,6 +153,35 @@ function OrderCard({ order }: { order: AccountOrder }) {
           {order.statusLabel || order.status}
         </span>
       </div>
+
+      {storeGroups.length > 0 && (
+        <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100">
+          {storeGroups.slice(0, 2).map((group) => (
+            <section key={group.key} className="p-3">
+              <Link to={group.sellerUrl} className="mb-2 flex items-center gap-2 text-xs font-black text-dh-primary hover:text-dh-secondary">
+                <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-dh-gray text-[9px]">
+                  {group.avatarUrl ? <img src={group.avatarUrl} alt="" className="h-full w-full object-cover" /> : group.initials}
+                </div>
+                <span className="truncate">{group.storeName}</span>
+                <span className="ml-auto text-[10px] font-bold text-slate-400">View store →</span>
+              </Link>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {group.items.slice(0, 3).map((item) => (
+                  <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex min-w-0 items-center gap-2 rounded-xl bg-dh-gray p-2 transition hover:bg-dh-primary/5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
+                      {item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" loading="lazy" /> : <ShoppingBag className="h-4 w-4 text-dh-primary" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold text-dh-primary">{item.name}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold text-slate-500">Qty {item.quantity} · {formatPrice(item.total, order.currency)}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
@@ -313,7 +345,7 @@ export default function OrdersPage() {
 
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
-      <div className="min-h-screen bg-dh-gray">
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="flex min-h-[60vh] items-center justify-center px-4">
@@ -336,7 +368,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="py-5 lg:py-8">
