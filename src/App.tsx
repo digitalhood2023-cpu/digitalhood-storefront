@@ -20,6 +20,8 @@ const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
 const WishlistPage = lazy(() => import('@/pages/WishlistPage'))
 const RecentlyViewedPage = lazy(() => import('@/pages/RecentlyViewedPage'))
 const TrackOrderPage = lazy(() => import('@/pages/TrackOrderPage'))
+const OrderTrackingDetailsPage = lazy(() => import('@/pages/OrderTrackingDetailsPage'))
+const OrderPaymentRetryPage = lazy(() => import('@/pages/OrderPaymentRetryPage'))
 const AccountPage = lazy(() => import('@/pages/AccountPage'))
 const AccountDetailsPage = lazy(() => import('@/pages/AccountDetailsPage'))
 const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPage'))
@@ -137,6 +139,7 @@ function App() {
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/recently-viewed" element={<RecentlyViewedPage />} />
                 <Route path="/track-order" element={<TrackOrderPage />} />
+                <Route path="/track-order/:orderId" element={<OrderTrackingDetailsPage />} />
 
                 <Route path="/account" element={<AccountPage />} />
                 <Route path="/account/details" element={<AccountDetailsPage />} />
@@ -149,6 +152,7 @@ function App() {
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+                <Route path="/orders/:orderId/pay" element={<OrderPaymentRetryPage />} />
 
                 <Route path="/help" element={<InfoPage />} />
                 <Route path="/faqs" element={<InfoPage />} />

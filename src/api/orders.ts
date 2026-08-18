@@ -48,6 +48,24 @@ export type CustomerOrderCaseEligibility = {
   final?: boolean
 }
 
+export type CustomerOrderPaymentRetry = {
+  eligible: boolean
+  method?: 'card' | 'mobile' | null
+  reasonCode?: string
+  message?: string
+  deadline?: string | null
+  remainingSeconds?: number
+  windowHours?: number
+}
+
+export type CustomerOrderMarketplaceState = {
+  key: string
+  category: 'in-progress' | 'shipped' | 'delivered' | 'closed' | string
+  label: string
+  trackable: boolean
+  closed: boolean
+}
+
 export type CustomerOrder = {
   id: number
   number: string
@@ -64,6 +82,8 @@ export type CustomerOrder = {
   customerNote?: string
   deliveryEstimate?: CustomerOrderDeliveryEstimate
   caseEligibility?: CustomerOrderCaseEligibility
+  paymentRetry?: CustomerOrderPaymentRetry
+  marketplaceState?: CustomerOrderMarketplaceState
   dateCompleted?: string | null
   billing?: {
     firstName?: string
@@ -90,6 +110,12 @@ export type LookupOrderResponse = {
   order: CustomerOrder
 }
 
+type OrderErrorPayload = {
+  details?: string
+  error?: string
+  message?: string
+}
+
 async function ordersFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -102,7 +128,7 @@ async function ordersFetch<T>(
     },
   })
 
-  let data: any = null
+  let data: T | OrderErrorPayload | null = null
 
   try {
     data = await response.json()
@@ -112,9 +138,9 @@ async function ordersFetch<T>(
 
   if (!response.ok) {
     const message =
-      data?.details ||
-      data?.error ||
-      data?.message ||
+      (data as OrderErrorPayload | null)?.details ||
+      (data as OrderErrorPayload | null)?.error ||
+      (data as OrderErrorPayload | null)?.message ||
       `Order request failed with status ${response.status}`
 
     throw new Error(message)
