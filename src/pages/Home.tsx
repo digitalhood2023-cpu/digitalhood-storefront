@@ -245,7 +245,7 @@ export default function Home() {
   }, [products])
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="flex min-h-[100svh] flex-col bg-white">
       <Header />
 
       <main>
