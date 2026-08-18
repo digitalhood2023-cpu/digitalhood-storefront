@@ -58,7 +58,13 @@
     scroll-behavior: smooth;
     font-size: 15px;
     min-height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
     background: #16145f;
+    overscroll-behavior-y: auto;
+    touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
   }
   
   body {
@@ -66,13 +72,19 @@
     font-family: 'Inter', sans-serif;
     line-height: 1.45;
     min-height: 100svh;
+    width: 100%;
     margin: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
     background: #16145f;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
+    touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
   }
 
   #root {
     min-height: 100svh;
+    width: 100%;
     background: white;
   }
   
