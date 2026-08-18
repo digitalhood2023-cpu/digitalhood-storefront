@@ -96,7 +96,7 @@ function LinkGroup({ title, links }: { title: string; links: FooterLinkItem[] })
 
 export default function Footer() {
   return (
-    <>
+    <div className="mt-auto bg-[#16145f] pb-[env(safe-area-inset-bottom)]">
       <section className="border-y border-gray-100 bg-gray-50 px-3 py-3 sm:px-5 lg:px-8">
         <div className="mx-auto grid max-w-[1500px] grid-cols-3 gap-2">
           {trustItems.map(item => {
@@ -172,6 +172,6 @@ export default function Footer() {
           </div>
         </div>
       </footer>
-    </>
+    </div>
   )
 }

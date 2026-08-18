@@ -434,7 +434,7 @@ export default function TrackOrderPage() {
   const orderStoreGroups = groupOrderItemsByStore(order?.items || [])
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="py-8 lg:py-12">

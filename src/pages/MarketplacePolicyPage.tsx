@@ -18,10 +18,10 @@ export default function MarketplacePolicyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="flex min-h-[100svh] flex-col bg-slate-50">
       <Header />
 
-      <main className="min-h-screen bg-slate-50">
+      <main className="flex min-h-[100svh] flex-col bg-slate-50">
       <SEO
         title={`${policy.title} | DigitalHood Marketplace Zambia`}
         description={policy.subtitle}

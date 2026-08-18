@@ -197,7 +197,7 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <SEO
         title="Wishlist | DigitalHood Marketplace"
         description="View your saved DigitalHood Marketplace products."

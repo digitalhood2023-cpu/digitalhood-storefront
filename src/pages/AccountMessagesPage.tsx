@@ -603,37 +603,41 @@ function ProductContextCard({
         )
       : ''
 
+  const productReference = String(
+    snapshot.slug ||
+    snapshot.productSlug ||
+    snapshot.productId ||
+    snapshot.id ||
+    ''
+  ).trim()
+
+  const card = (
+    <div className="flex items-center gap-3 p-3">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+        {image ? (
+          <img src={image} alt={name} className="h-full w-full object-cover" />
+        ) : (
+          <Store className="h-5 w-5 text-dh-primary" />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black uppercase tracking-wide text-dh-secondary">Product inquiry</p>
+        <p className="truncate text-sm font-black text-dh-primary">{name}</p>
+        {price && <p className="mt-1 text-xs font-bold text-slate-500">{price}</p>}
+      </div>
+
+      {productReference && <span className="shrink-0 text-[10px] font-black text-dh-primary">View →</span>}
+    </div>
+  )
+
   return (
     <div className="mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm">
-      <div className="flex items-center gap-3 p-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
-          {image ? (
-            <img
-              src={image}
-              alt={name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <Store className="h-5 w-5 text-dh-primary" />
-          )}
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-wide text-dh-secondary">
-            Product inquiry
-          </p>
-
-          <p className="truncate text-sm font-black text-dh-primary">
-            {name}
-          </p>
-
-          {price && (
-            <p className="mt-1 text-xs font-bold text-slate-500">
-              {price}
-            </p>
-          )}
-        </div>
-      </div>
+      {productReference ? (
+        <Link to={`/product/${encodeURIComponent(productReference)}`} className="block transition hover:bg-slate-50" aria-label={`View ${name}`}>
+          {card}
+        </Link>
+      ) : card}
     </div>
   )
 }
@@ -743,6 +747,14 @@ function OrderContextCard({
               row.id || ''
             ),
 
+          productId:
+            String(
+              row.productId ||
+              row.product_id ||
+              row.id ||
+              ''
+            ),
+
           name:
             String(
               row.name ||
@@ -802,8 +814,9 @@ function OrderContextCard({
           {items
             .slice(0, 2)
             .map(item => (
-              <div
+              <Link
                 key={item.id}
+                to={`/product/${encodeURIComponent(item.productId)}`}
                 className="flex items-center gap-2.5 px-3 py-2"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
@@ -827,7 +840,7 @@ function OrderContextCard({
                 <span className="shrink-0 text-[10px] font-bold text-slate-500">
                   Qty {item.quantity}
                 </span>
-              </div>
+              </Link>
             ))}
         </div>
       )}
@@ -946,6 +959,11 @@ export default function AccountMessagesPage() {
   const [
     isSendingMedia,
     setIsSendingMedia
+  ] = useState(false)
+
+  const [
+    isMediaBatchInConversation,
+    setIsMediaBatchInConversation
   ] = useState(false)
 
   const [isPreparingMedia, setIsPreparingMedia] = useState(false)
@@ -1237,6 +1255,7 @@ export default function AccountMessagesPage() {
       setDraft('')
       pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
       setPendingMediaItems([])
+      setIsMediaBatchInConversation(false)
 
       if (mediaInputRef.current) {
         mediaInputRef.current.value = ''
@@ -2542,6 +2561,7 @@ export default function AccountMessagesPage() {
   function clearPendingMedia() {
     pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
     setPendingMediaItems([])
+    setIsMediaBatchInConversation(false)
 
     if (mediaInputRef.current) {
       mediaInputRef.current.value = ''
@@ -2622,7 +2642,9 @@ export default function AccountMessagesPage() {
     }
 
     setIsSendingMedia(true)
+    setIsMediaBatchInConversation(true)
     setError('')
+    requestAnimationFrame(scrollToLatest)
     const sentIds = new Set<string>()
     const failures: string[] = []
     const replyToMessageId = replyingTo ? getChatMessageId(replyingTo) || undefined : undefined
@@ -2652,7 +2674,7 @@ export default function AccountMessagesPage() {
         pendingMediaItems.filter(item => sentIds.has(item.id)).forEach(item => URL.revokeObjectURL(item.previewUrl))
         setPendingMediaItems(current => current.filter(item => !sentIds.has(item.id)))
       }
-      if (failures.length) setError(`${failures.length} attachment${failures.length === 1 ? '' : 's'} could not be sent. Tap Send again to retry.`)
+      if (failures.length) setError(`${failures.length} attachment${failures.length === 1 ? '' : 's'} could not be sent. Use Retry in the conversation.`)
     } finally {
       setIsSendingMedia(false)
     }
@@ -2990,7 +3012,7 @@ export default function AccountMessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="py-2 lg:py-3">
@@ -3645,6 +3667,41 @@ export default function AccountMessagesPage() {
                           }
                         )}
 
+                        {isMediaBatchInConversation && pendingMediaItems.length > 0 && (
+                          <div className="ml-auto flex max-w-[86%] justify-end sm:max-w-[68%]">
+                            <div className="w-full rounded-[22px] rounded-br-md bg-dh-primary p-2.5 text-white shadow-sm">
+                              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                                {pendingMediaItems.map(item => (
+                                  <div key={item.id} className="relative aspect-square overflow-hidden rounded-2xl bg-slate-900">
+                                    {item.file.type.startsWith('image/') ? (
+                                      <img src={item.previewUrl} alt={item.file.name} className={`h-full w-full object-cover transition ${item.status === 'uploading' ? 'scale-105 grayscale opacity-40' : ''}`} />
+                                    ) : (
+                                      <video src={item.previewUrl} muted playsInline preload="metadata" className={`h-full w-full object-cover ${item.status === 'uploading' ? 'grayscale opacity-40' : ''}`} aria-label={item.file.name} />
+                                    )}
+                                    {item.status === 'uploading' && (
+                                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/25 text-white">
+                                        <Loader2 className="mb-1 h-5 w-5 animate-spin" />
+                                        <span className="text-sm font-black drop-shadow">{item.progress}%</span>
+                                        <div className="mt-1.5 h-1.5 w-14 overflow-hidden rounded-full bg-white/30"><div className="h-full rounded-full bg-white transition-[width]" style={{ width: `${item.progress}%` }} /></div>
+                                      </div>
+                                    )}
+                                    {item.status === 'sent' && <div className="absolute inset-0 flex items-center justify-center bg-emerald-600/45"><Check className="h-6 w-6 text-white" /></div>}
+                                    {item.status === 'error' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-800/65 p-2 text-center"><span className="text-[10px] font-black">Upload failed</span></div>}
+                                    {!isSendingMedia && item.status === 'error' && (
+                                      <button type="button" onClick={() => void handleSendMedia()} className="absolute bottom-1.5 left-1.5 rounded-full bg-white px-2.5 py-1 text-[9px] font-black text-dh-primary shadow">Retry</button>
+                                    )}
+                                    {!isSendingMedia && (
+                                      <button type="button" onClick={() => removePendingMedia(item.id)} className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white" aria-label={`Remove ${item.file.name}`}><X className="h-3.5 w-3.5" /></button>
+                                    )}
+                                    <span className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[8px] font-bold text-white">{formatMediaSize(item.file.size)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="mt-2 px-1 text-[10px] font-bold text-white/75">{isSendingMedia ? 'Sending inside this conversation…' : 'Ready to retry or remove'}</p>
+                            </div>
+                          </div>
+                        )}
+
                         <div
                           ref={
                             messageEndRef
@@ -3734,7 +3791,7 @@ export default function AccountMessagesPage() {
                       </div>
                     )}
 
-                    {pendingMediaItems.length > 0 && (
+                    {pendingMediaItems.length > 0 && !isMediaBatchInConversation && (
                       <div className="mb-2 rounded-2xl border border-[#26248c]/15 bg-slate-50 p-2.5">
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
@@ -3976,7 +4033,7 @@ export default function AccountMessagesPage() {
                       </button>
 
                       <textarea
-                        disabled={isSendingMedia || pendingMediaItems.length > 0 || isPreparingMedia}
+                        disabled={isSendingMedia || (pendingMediaItems.length > 0 && !isMediaBatchInConversation) || isPreparingMedia}
                         value={
                           draft
                         }

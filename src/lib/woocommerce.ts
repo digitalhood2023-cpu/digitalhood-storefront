@@ -740,6 +740,29 @@ shortDescriptionHtml:
   };
 }
 
+export function isMarketplaceProductAvailable(product: WooProduct | null | undefined) {
+  if (!product) return false;
+
+  if (product.stockStatus !== 'instock' || product.stock_status === 'outofstock') {
+    return false;
+  }
+
+  if (product.purchasable === false || product.canAddToCart === false) {
+    return false;
+  }
+
+  if (
+    product.manageStock &&
+    product.stockQuantity !== null &&
+    product.stockQuantity !== undefined &&
+    product.stockQuantity <= 0
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function mapWooCategory(category: any): WooCategory {
   return {
     id: category.id,
@@ -838,11 +861,14 @@ export async function fetchMarketplaceProducts(
   const rawProducts = Array.isArray(data.products)
     ? data.products
     : [];
+  const availableProducts = rawProducts
+    .map(mapWooProduct)
+    .filter(isMarketplaceProductAvailable);
   const facets = data.facets || {};
 
   return {
-    products: rawProducts.map(mapWooProduct),
-    total: Number(data.total || 0),
+    products: availableProducts,
+    total: Number(data.total || availableProducts.length),
     totalPages: Math.max(1, Number(data.totalPages || 1)),
     page: Math.max(1, Number(data.page || request.page || 1)),
     perPage: Math.max(
@@ -898,10 +924,13 @@ export async function fetchWooProducts(
   const data = await parseJsonResponse(response);
 
   const rawProducts = Array.isArray(data.products) ? data.products : [];
+  const availableProducts = rawProducts
+    .map(mapWooProduct)
+    .filter(isMarketplaceProductAvailable);
 
   return {
-    products: rawProducts.map(mapWooProduct),
-    total: Number(data.total || rawProducts.length),
+    products: availableProducts,
+    total: Number(data.total || availableProducts.length),
     totalPages: Number(data.totalPages || 1),
   };
 }
@@ -932,6 +961,12 @@ export async function fetchWooProductById(
   }
 
   const product = mapWooProduct(foundProduct);
+
+  if (!isMarketplaceProductAvailable(product)) {
+    throw new Error(
+      'This product is out of stock and is no longer available on the marketplace.'
+    );
+  }
 
   const variations = Array.isArray(detailData.variations)
     ? detailData.variations.map(mapWooVariation)
@@ -1044,7 +1079,7 @@ export async function fetchWooProductsDirectFromStoreApi(
   }
 
   return {
-    products: products.map(mapWooProduct),
+    products: products.map(mapWooProduct).filter(isMarketplaceProductAvailable),
     total: Number(response.headers.get('X-WP-Total') || products.length),
     totalPages: Number(response.headers.get('X-WP-TotalPages') || 1),
   };

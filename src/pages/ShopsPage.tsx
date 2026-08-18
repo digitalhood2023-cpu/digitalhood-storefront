@@ -494,7 +494,7 @@ export default function ShopsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-[100svh] flex-col bg-gray-50">
       <SEO
         title="Marketplace Shops & Verified Sellers | DigitalHood Zambia"
         description="Search and browse verified technology shops and sellers on DigitalHood Marketplace Zambia."

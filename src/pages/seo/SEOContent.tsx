@@ -33,7 +33,7 @@ export default function SEOContent({ title, description, keywords, categoryFilte
   const formatPrice = (price: number) => `K${price.toLocaleString()}`;
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-white">
+    <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-white">
       <Header />
       
       {/* SEO Meta Tags - In a real app, use react-helmet */}

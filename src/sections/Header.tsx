@@ -253,6 +253,26 @@ export default function Header() {
     setIsMobileMenuOpen(false)
   }, [location])
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      if (isMobileMenuOpen) {
+        event.preventDefault()
+        dismissMobileMenu()
+      }
+
+      if (isCartOpen) {
+        event.preventDefault()
+        setIsCartOpen(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [dismissMobileMenu, isCartOpen, isMobileMenuOpen])
+
   const handleLogout = async () => {
     await logout()
     navigate('/')

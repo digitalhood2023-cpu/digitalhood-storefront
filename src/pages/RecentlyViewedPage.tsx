@@ -80,7 +80,7 @@ export default function RecentlyViewedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <SEO
         title="Recently Viewed | DigitalHood Marketplace"
         description="Review products you recently viewed on DigitalHood Marketplace."
