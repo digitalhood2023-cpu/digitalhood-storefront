@@ -1255,7 +1255,7 @@ export default function CheckoutPage() {
 
   if (checkoutItems.length === 0 && !orderComplete) {
     return (
-      <div className="min-h-screen bg-dh-gray">
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="py-10 lg:py-16">
@@ -1288,7 +1288,7 @@ export default function CheckoutPage() {
 
   if (orderComplete) {
     return (
-      <div ref={pageRef} className="min-h-screen bg-dh-gray">
+      <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="py-10 lg:py-16">
@@ -1532,7 +1532,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-dh-gray">
+    <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="pb-28 pt-5 lg:py-8">
