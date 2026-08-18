@@ -43,6 +43,7 @@ import {
   type AccountOrder,
   type SavedCustomerAddress,
 } from '@/api/account'
+import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 
 type AddressFormData = {
   label: string
@@ -131,6 +132,66 @@ function getStatusStyle(status?: string) {
   }
 
   return 'bg-gray-50 text-gray-700 border-gray-100'
+}
+
+function RecentOrderCard({ order }: { order: AccountOrder }) {
+  const storeGroups = groupOrderItemsByStore(order.items || [])
+  const visibleGroups = storeGroups.slice(0, 2)
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-dh-primary/30 hover:shadow-md">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-3.5 py-3">
+        <Link to={`/orders/${order.id}`} className="min-w-0 group">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Order #{order.number || order.id}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{formatDate(order.dateCreated)}</p>
+        </Link>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${getStatusStyle(order.status)}`}>
+            {order.statusLabel || order.status}
+          </span>
+          <Link to={`/orders/${order.id}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-dh-gray text-dh-primary transition hover:bg-dh-primary hover:text-white" aria-label={`View order ${order.number || order.id}`}>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {visibleGroups.map((group) => (
+          <section key={group.key} className="p-3">
+            <Link to={group.sellerUrl} className="mb-2.5 flex items-center gap-2 rounded-xl bg-slate-50 p-2 transition hover:bg-dh-primary/5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-[10px] font-black text-dh-primary ring-1 ring-slate-200">
+                {group.avatarUrl ? <img src={group.avatarUrl} alt="" className="h-full w-full object-cover" /> : group.initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-black text-dh-primary">{group.storeName}</p>
+                <p className="truncate text-[10px] font-semibold text-slate-400">View seller store</p>
+              </div>
+              {group.verified && <BadgeCheck className="h-4 w-4 shrink-0 text-blue-600" />}
+            </Link>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {group.items.slice(0, 4).map((item) => (
+                <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-100 p-2 transition hover:border-dh-primary/25 hover:bg-slate-50">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-dh-gray">
+                    {item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" loading="lazy" /> : <ShoppingBag className="h-4 w-4 text-dh-primary" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-xs font-bold leading-tight text-dh-primary">{item.name}</p>
+                    <p className="mt-1 text-[10px] font-semibold text-slate-500">Qty {item.quantity} · {formatPrice(item.total, order.currency)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 bg-slate-50 px-3.5 py-2.5">
+        <span className="text-[11px] font-bold text-slate-500">{order.items?.length || 0} product{order.items?.length === 1 ? '' : 's'}</span>
+        <span className="font-display text-sm font-black text-dh-primary">{formatPrice(order.total, order.currency)}</span>
+      </div>
+    </article>
+  )
 }
 
 function getCustomerFullName(customer?: {
@@ -664,7 +725,7 @@ export default function AccountPage() {
 
   if (isLoading || !customer) {
     return (
-      <div className="min-h-screen bg-dh-gray">
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
 
         <main className="flex min-h-[60vh] items-center justify-center px-4">
@@ -687,7 +748,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
       <main className="py-3 lg:py-5">
@@ -793,7 +854,7 @@ export default function AccountPage() {
           )}
 
           <section className="mt-3 grid items-start gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.55fr)]">
-            <div>
+            <div className={`order-2 ${isAddressManagerOpen ? 'lg:col-span-2' : ''}`}>
               <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-2xl bg-white p-3 shadow-sm sm:p-4">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1141,7 +1202,7 @@ export default function AccountPage() {
               </section>
             </div>
 
-            <aside>
+            <aside className="order-1">
               <div className="rounded-2xl bg-white p-3 shadow-sm sm:p-4">
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <div>
@@ -1171,43 +1232,7 @@ export default function AccountPage() {
                   </div>
                 ) : recentOrders.length > 0 ? (
                   <div className="space-y-3">
-                    {recentOrders.map((order) => (
-                      <Link
-                        key={order.id}
-                        to={`/orders/${order.id}`}
-                        className="block rounded-xl border border-dh-light-gray p-3 transition-all hover:border-dh-primary hover:shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-dh-primary">
-                              Order #{order.number || order.id}
-                            </p>
-
-                            <p className="mt-1 text-xs text-dh-dark-gray">
-                              {formatDate(order.dateCreated)}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                              order.status
-                            )}`}
-                          >
-                            {order.statusLabel || order.status}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="text-sm text-dh-dark-gray">
-                            {order.items?.length || 0} item(s)
-                          </p>
-
-                          <p className="font-semibold text-dh-primary">
-                            {formatPrice(order.total, order.currency)}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
+                    {recentOrders.map((order) => <RecentOrderCard key={order.id} order={order} />)}
                   </div>
                 ) : (
                   <div className="rounded-2xl bg-dh-gray p-5 text-center">
