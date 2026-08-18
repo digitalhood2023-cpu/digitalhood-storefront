@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -7,38 +7,27 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
-  FileText,
-  ImageIcon,
+  FileImage,
+  Inbox,
   LifeBuoy,
   Loader2,
+  MessageCircle,
   PackageCheck,
-  RefreshCw,
   Search,
-  ShieldCheck,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
 import { useAccount } from '@/context/AccountContext'
-
 import {
   getAllCustomerOrderCases,
   type AccountOrderCase,
   type AccountOrderCaseAttachment,
 } from '@/api/account'
 
-type CaseFilter =
-  | 'all'
-  | 'active'
-  | 'new'
-  | 'open'
-  | 'pending'
-  | 'resolved'
-  | 'closed'
+type CaseFilter = 'all' | 'active' | 'waiting' | 'resolved'
 
 const SUPPORT_ASSET_ORIGIN =
   import.meta.env.VITE_PAYMENTS_API_URL ||
@@ -51,6 +40,20 @@ function formatDate(value?: string | null) {
     return new Intl.DateTimeFormat('en-ZM', {
       dateStyle: 'medium',
       timeStyle: 'short',
+    }).format(new Date(value))
+  } catch {
+    return value
+  }
+}
+
+function formatCompactDate(value?: string | null) {
+  if (!value) return 'Not available'
+
+  try {
+    return new Intl.DateTimeFormat('en-ZM', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     }).format(new Date(value))
   } catch {
     return value
@@ -74,9 +77,10 @@ function normalizeStatus(value?: string) {
 function statusLabel(value?: string) {
   const status = normalizeStatus(value)
 
-  if (status === 'NEW') return 'New'
-  if (status === 'OPEN') return 'Open'
-  if (status === 'PENDING') return 'Pending'
+  if (status === 'NEW') return 'Received'
+  if (status === 'OPEN') return 'In review'
+  if (status === 'PENDING') return 'Being handled'
+  if (status === 'WAITING_FOR_CUSTOMER') return 'Needs your reply'
   if (status === 'RESOLVED') return 'Resolved'
   if (status === 'CLOSED') return 'Closed'
 
@@ -89,20 +93,16 @@ function statusLabel(value?: string) {
 function statusStyle(value?: string) {
   const status = normalizeStatus(value)
 
-  if (status === 'NEW') {
-    return 'border-blue-100 bg-blue-50 text-blue-700'
+  if (status === 'WAITING_FOR_CUSTOMER') {
+    return 'border-orange-200 bg-orange-50 text-orange-700'
   }
 
-  if (status === 'OPEN') {
-    return 'border-purple-100 bg-purple-50 text-purple-700'
+  if (status === 'NEW' || status === 'OPEN') {
+    return 'border-blue-100 bg-blue-50 text-blue-700'
   }
 
   if (status === 'PENDING') {
     return 'border-amber-100 bg-amber-50 text-amber-700'
-  }
-
-  if (status === 'WAITING_FOR_CUSTOMER') {
-    return 'border-orange-200 bg-orange-50 text-orange-700'
   }
 
   if (status === 'RESOLVED') {
@@ -116,23 +116,14 @@ function statusStyle(value?: string) {
   return 'border-gray-200 bg-gray-50 text-gray-700'
 }
 
-function priorityStyle(value?: string) {
-  const priority = String(value || 'NORMAL').toUpperCase()
-
-  if (priority === 'URGENT') {
-    return 'bg-red-50 text-red-700'
-  }
-
-  if (priority === 'HIGH') {
-    return 'bg-orange-50 text-orange-700'
-  }
-
-  return 'bg-dh-gray text-dh-primary'
+function isResolvedCase(item: AccountOrderCase) {
+  return ['RESOLVED', 'CLOSED'].includes(normalizeStatus(item.status))
 }
 
-function isActiveCase(item: AccountOrderCase) {
-  return !['RESOLVED', 'CLOSED'].includes(
-    normalizeStatus(item.status)
+function needsCustomerReply(item: AccountOrderCase) {
+  return (
+    normalizeStatus(item.status) === 'WAITING_FOR_CUSTOMER' ||
+    Boolean(item.awaitingCustomerResponse)
   )
 }
 
@@ -147,11 +138,7 @@ function caseTitle(item: AccountOrderCase) {
 }
 
 function caseOrderNumber(item: AccountOrderCase) {
-  return (
-    item.order?.orderNumber ||
-    item.order?.orderId ||
-    ''
-  )
+  return item.order?.orderNumber || item.order?.orderId || ''
 }
 
 function caseSearchText(item: AccountOrderCase) {
@@ -162,7 +149,6 @@ function caseSearchText(item: AccountOrderCase) {
     item.reasonLabel,
     item.message,
     item.status,
-    item.priority,
     item.order?.orderNumber,
     item.order?.orderId,
   ]
@@ -170,9 +156,7 @@ function caseSearchText(item: AccountOrderCase) {
     .toLowerCase()
 }
 
-function attachmentUrl(
-  attachment: AccountOrderCaseAttachment
-) {
+function attachmentUrl(attachment: AccountOrderCaseAttachment) {
   const value = String(attachment.url || '').trim()
 
   if (!value) return ''
@@ -186,7 +170,6 @@ function attachmentUrl(
 
 function messageAuthor(message: {
   message: string
-  createdAt?: string
   [key: string]: unknown
 }) {
   const author =
@@ -199,9 +182,9 @@ function messageAuthor(message: {
 
   const direction = String(
     message.direction ||
-    message.senderType ||
-    message.role ||
-    ''
+      message.senderType ||
+      message.role ||
+      ''
   ).toLowerCase()
 
   if (
@@ -214,41 +197,7 @@ function messageAuthor(message: {
   return 'DigitalHood Support'
 }
 
-function SummaryCard({
-  icon,
-  label,
-  value,
-  helper,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: number
-  helper: string
-}) {
-  return (
-    <article className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-          {icon}
-        </span>
-
-        <span className="font-display text-2xl font-bold text-dh-primary">
-          {value}
-        </span>
-      </div>
-
-      <p className="mt-4 text-sm font-semibold text-dh-primary">
-        {label}
-      </p>
-
-      <p className="mt-1 text-xs leading-5 text-dh-dark-gray">
-        {helper}
-      </p>
-    </article>
-  )
-}
-
-function CaseListItem({
+function CaseRow({
   item,
   isSelected,
   onSelect,
@@ -263,25 +212,36 @@ function CaseListItem({
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-3xl border p-4 text-left transition sm:p-5 ${
+      className={`w-full border-b px-3.5 py-3 text-left transition last:border-b-0 sm:px-4 ${
         isSelected
-          ? 'border-dh-primary bg-dh-primary/[0.04] shadow-sm'
-          : 'border-dh-light-gray bg-white hover:border-dh-primary/30'
+          ? 'border-dh-light-gray bg-dh-primary/[0.045]'
+          : 'border-slate-100 bg-white hover:bg-slate-50'
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold text-dh-primary">
-            {item.caseNumber}
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                needsCustomerReply(item)
+                  ? 'bg-orange-500'
+                  : isResolvedCase(item)
+                    ? 'bg-green-500'
+                    : 'bg-blue-500'
+              }`}
+            />
+            <p className="truncate text-[11px] font-black uppercase tracking-[0.1em] text-dh-dark-gray">
+              {item.caseNumber}
+            </p>
+          </div>
 
-          <h2 className="mt-1 line-clamp-2 font-display text-lg font-bold text-dh-primary">
+          <h2 className="mt-1 line-clamp-1 text-sm font-black text-dh-primary">
             {caseTitle(item)}
           </h2>
         </div>
 
         <span
-          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
+          className={`inline-flex shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${statusStyle(
             item.status
           )}`}
         >
@@ -289,21 +249,15 @@ function CaseListItem({
         </span>
       </div>
 
-      <p className="mt-3 line-clamp-2 text-sm leading-6 text-dh-dark-gray">
-        {item.message || 'No case description available.'}
-      </p>
-
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-dh-dark-gray">
-        {orderNumber && (
-          <span>Order #{orderNumber}</span>
-        )}
-
-        <span>Opened {formatDate(item.createdAt)}</span>
-
+      <div className="mt-2 flex items-center gap-3 text-[11px] font-medium text-dh-dark-gray">
+        {orderNumber && <span>Order #{orderNumber}</span>}
+        <span className="truncate">
+          Updated {formatCompactDate(item.updatedAt || item.createdAt)}
+        </span>
         {!!item.attachments?.length && (
-          <span>
-            {item.attachments.length} photo
-            {item.attachments.length === 1 ? '' : 's'}
+          <span className="ml-auto inline-flex items-center gap-1">
+            <FileImage className="h-3 w-3" />
+            {item.attachments.length}
           </span>
         )}
       </div>
@@ -313,25 +267,21 @@ function CaseListItem({
 
 function EmptyCases() {
   return (
-    <section className="rounded-3xl bg-white p-8 text-center shadow-sm sm:p-12">
-      <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-dh-secondary/15 text-dh-primary">
-        <LifeBuoy className="h-8 w-8" />
-      </span>
-
-      <h2 className="mt-5 font-display text-2xl font-bold text-dh-primary">
-        No support cases yet
+    <section className="rounded-2xl border border-dashed border-dh-light-gray bg-white px-5 py-10 text-center">
+      <Inbox className="mx-auto h-9 w-9 text-dh-secondary" />
+      <h2 className="mt-3 font-display text-xl font-bold text-dh-primary">
+        Your support inbox is clear
       </h2>
-
-      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-dh-dark-gray">
-        When you report an issue from an order, its progress and
-        DigitalHood support updates will appear here.
+      <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-dh-dark-gray">
+        When you report an issue from an order, the case and every support
+        update will appear here.
       </p>
-
-      <Link to="/orders">
-        <Button className="mt-6 h-11 rounded-full bg-dh-primary px-6 font-semibold text-white hover:bg-dh-secondary">
-          View your orders
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+      <Link
+        to="/orders"
+        className="mt-5 inline-flex h-10 items-center rounded-full bg-dh-primary px-5 text-sm font-bold text-white"
+      >
+        View orders
+        <ArrowRight className="ml-2 h-4 w-4" />
       </Link>
     </section>
   )
@@ -339,11 +289,7 @@ function EmptyCases() {
 
 export default function AccountSupportCasesPage() {
   const navigate = useNavigate()
-
-  const {
-    isAuthenticated,
-    isLoading,
-  } = useAccount()
+  const { isAuthenticated, isLoading } = useAccount()
 
   const [cases, setCases] = useState<AccountOrderCase[]>([])
   const [selectedCaseNumber, setSelectedCaseNumber] = useState('')
@@ -358,8 +304,10 @@ export default function AccountSupportCasesPage() {
     }
   }, [isAuthenticated, isLoading, navigate])
 
-  async function loadCases() {
-    setIsCasesLoading(true)
+  const loadCases = useCallback(async (
+    options: { silent?: boolean } = {}
+  ) => {
+    if (!options.silent) setIsCasesLoading(true)
     setErrorMessage('')
 
     try {
@@ -367,100 +315,84 @@ export default function AccountSupportCasesPage() {
       const nextCases = response.cases || []
 
       setCases(nextCases)
-
-      setSelectedCaseNumber((current) => {
-        if (
-          current &&
-          nextCases.some((item) => item.caseNumber === current)
-        ) {
-          return current
-        }
-
-        return nextCases[0]?.caseNumber || ''
-      })
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to load your support cases.'
+      setSelectedCaseNumber((current) =>
+        current && nextCases.some((item) => item.caseNumber === current)
+          ? current
+          : nextCases[0]?.caseNumber || ''
       )
+    } catch (error) {
+      if (!options.silent) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load your support cases.'
+        )
+      }
     } finally {
-      setIsCasesLoading(false)
+      if (!options.silent) setIsCasesLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) return
 
-    void loadCases()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
+    const startupTimer = window.setTimeout(() => {
+      void loadCases()
+    }, 0)
 
-  const caseCounts = useMemo(() => {
-    return {
-      total: cases.length,
-      active: cases.filter(isActiveCase).length,
-      pending: cases.filter((item) =>
-        ['PENDING', 'WAITING_FOR_CUSTOMER'].includes(
-          normalizeStatus(item.status)
-        )
-      ).length,
-      resolved: cases.filter((item) =>
-        ['RESOLVED', 'CLOSED'].includes(
-          normalizeStatus(item.status)
-        )
-      ).length,
+    const refreshTimer = window.setInterval(() => {
+      void loadCases({ silent: true })
+    }, 60_000)
+
+    return () => {
+      window.clearTimeout(startupTimer)
+      window.clearInterval(refreshTimer)
     }
-  }, [cases])
+  }, [isAuthenticated, loadCases])
+
+  const caseCounts = useMemo(
+    () => ({
+      active: cases.filter((item) => !isResolvedCase(item)).length,
+      waiting: cases.filter(needsCustomerReply).length,
+      resolved: cases.filter(isResolvedCase).length,
+    }),
+    [cases]
+  )
 
   const filteredCases = useMemo(() => {
     const cleanedQuery = query.trim().toLowerCase()
 
     return cases.filter((item) => {
-      const status = normalizeStatus(item.status)
-
       const matchesFilter =
         filter === 'all' ||
-        (filter === 'active' && isActiveCase(item)) ||
-        status === filter.toUpperCase() ||
-        (
-          filter === 'pending' &&
-          status === 'WAITING_FOR_CUSTOMER'
-        )
+        (filter === 'active' && !isResolvedCase(item)) ||
+        (filter === 'waiting' && needsCustomerReply(item)) ||
+        (filter === 'resolved' && isResolvedCase(item))
 
-      const matchesQuery =
-        !cleanedQuery ||
-        caseSearchText(item).includes(cleanedQuery)
-
-      return matchesFilter && matchesQuery
+      return (
+        matchesFilter &&
+        (!cleanedQuery || caseSearchText(item).includes(cleanedQuery))
+      )
     })
   }, [cases, filter, query])
 
-  const selectedCase = useMemo(() => {
-    return (
-      cases.find(
+  const selectedCase = useMemo(
+    () =>
+      filteredCases.find(
         (item) => item.caseNumber === selectedCaseNumber
       ) ||
       filteredCases[0] ||
-      null
-    )
-  }, [cases, filteredCases, selectedCaseNumber])
+      null,
+    [filteredCases, selectedCaseNumber]
+  )
 
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
       <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
-
         <main className="flex min-h-[60vh] items-center justify-center px-4">
-          <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-dh-primary" />
-
-            <p className="mt-4 text-sm font-semibold text-dh-dark-gray">
-              Loading your support account...
-            </p>
-          </div>
+          <Loader2 className="h-9 w-9 animate-spin text-dh-primary" />
         </main>
-
         <Footer />
       </div>
     )
@@ -470,436 +402,297 @@ export default function AccountSupportCasesPage() {
     <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
-      <main className="py-5 lg:py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <nav className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-dh-dark-gray shadow-sm">
-            <Link to="/" className="hover:text-dh-primary">
-              Home
+      <main className="flex-1 py-4 sm:py-6">
+        <div className="mx-auto w-full max-w-[1400px] px-3 sm:px-5 lg:px-8">
+          <nav className="flex items-center gap-1.5 text-xs font-semibold text-dh-dark-gray">
+            <Link to="/account" className="hover:text-dh-primary">
+              Account
             </Link>
-
-            <ChevronRight className="h-4 w-4" />
-
-            <Link
-              to="/account"
-              className="hover:text-dh-primary"
-            >
-              My Account
-            </Link>
-
-            <ChevronRight className="h-4 w-4" />
-
-            <span className="font-semibold text-dh-primary">
-              Support Cases
-            </span>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span className="text-dh-primary">Support cases</span>
           </nav>
 
-          <section className="rounded-[2rem] bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4">
-                <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-3xl bg-dh-secondary/15 p-3 text-dh-primary">
-                  <LifeBuoy className="h-7 w-7" />
-                </span>
-
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Secure account support
-                  </div>
-
-                  <h1 className="mt-3 font-display text-2xl font-bold text-dh-primary sm:text-3xl">
-                    My Support Cases
-                  </h1>
-
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-dh-dark-gray">
-                    Track order issues, review case progress and see
-                    updates from DigitalHood Support.
-                  </p>
-                </div>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <LifeBuoy className="h-5 w-5 text-dh-secondary" />
+                <h1 className="font-display text-2xl font-bold text-dh-primary sm:text-3xl">
+                  Support cases
+                </h1>
               </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Link to="/orders">
-                  <Button
-                    variant="outline"
-                    className="h-11 rounded-full border-dh-primary px-5 font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
-                  >
-                    <PackageCheck className="mr-2 h-4 w-4" />
-                    My orders
-                  </Button>
-                </Link>
-
-                <Button
-                  type="button"
-                  onClick={() => void loadCases()}
-                  disabled={isCasesLoading}
-                  className="h-11 rounded-full bg-dh-primary px-5 font-semibold text-white hover:bg-dh-secondary"
-                >
-                  <RefreshCw
-                    className={`mr-2 h-4 w-4 ${
-                      isCasesLoading ? 'animate-spin' : ''
-                    }`}
-                  />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard
-              icon={<FileText className="h-5 w-5" />}
-              label="All cases"
-              value={caseCounts.total}
-              helper="Every issue opened from your orders."
-            />
-
-            <SummaryCard
-              icon={<Clock3 className="h-5 w-5" />}
-              label="Active cases"
-              value={caseCounts.active}
-              helper="Cases still being reviewed."
-            />
-
-            <SummaryCard
-              icon={<LifeBuoy className="h-5 w-5" />}
-              label="Pending"
-              value={caseCounts.pending}
-              helper="Cases waiting for the next update."
-            />
-
-            <SummaryCard
-              icon={<CheckCircle2 className="h-5 w-5" />}
-              label="Resolved"
-              value={caseCounts.resolved}
-              helper="Cases completed by the support team."
-            />
-          </section>
-
-          {errorMessage && (
-            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-              <p>{errorMessage}</p>
-            </div>
-          )}
-
-          {isCasesLoading && !cases.length ? (
-            <section className="mt-5 rounded-3xl bg-white p-10 text-center shadow-sm">
-              <Loader2 className="mx-auto h-9 w-9 animate-spin text-dh-primary" />
-
-              <p className="mt-4 text-sm font-semibold text-dh-dark-gray">
-                Loading your support cases...
+              <p className="mt-1 text-sm text-dh-dark-gray">
+                One place for reports, replies and resolutions. Updates refresh automatically.
               </p>
-            </section>
-          ) : !cases.length ? (
-            <div className="mt-5">
-              <EmptyCases />
             </div>
-          ) : (
-            <>
-              <section className="mt-5 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
-                <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
 
+            <Link
+              to="/orders"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-dh-light-gray bg-white px-4 text-xs font-bold text-dh-primary hover:border-dh-primary"
+            >
+              <PackageCheck className="mr-2 h-4 w-4" />
+              Report from an order
+            </Link>
+          </div>
+
+          <section className="mt-4 overflow-hidden rounded-2xl border border-dh-light-gray bg-white shadow-sm">
+            <div className="grid lg:grid-cols-[360px_minmax(0,1fr)]">
+              <aside className="border-b border-dh-light-gray lg:border-b-0 lg:border-r">
+                <div className="border-b border-dh-light-gray p-3">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
                     <Input
                       value={query}
-                      onChange={(event) =>
-                        setQuery(event.target.value)
-                      }
-                      placeholder="Search case number, order or issue..."
-                      className="h-11 rounded-full border-dh-light-gray pl-11"
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search case or order"
+                      className="h-10 rounded-xl border-dh-light-gray bg-dh-gray pl-9"
                     />
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-dh-gray p-1">
                     {(
                       [
-                        ['all', 'All'],
-                        ['active', 'Active'],
-                        ['new', 'New'],
-                        ['open', 'Open'],
-                        ['pending', 'Pending'],
-                        ['resolved', 'Resolved'],
-                        ['closed', 'Closed'],
-                      ] as Array<[CaseFilter, string]>
-                    ).map(([value, label]) => (
+                        ['all', 'All', cases.length],
+                        ['active', 'Active', caseCounts.active],
+                        ['waiting', 'Reply', caseCounts.waiting],
+                        ['resolved', 'Done', caseCounts.resolved],
+                      ] as Array<[CaseFilter, string, number]>
+                    ).map(([value, label, count]) => (
                       <button
                         key={value}
                         type="button"
                         onClick={() => setFilter(value)}
-                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        className={`rounded-lg px-1.5 py-2 text-[10px] font-bold transition ${
                           filter === value
-                            ? 'bg-dh-primary text-white'
-                            : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
+                            ? 'bg-white text-dh-primary shadow-sm'
+                            : 'text-dh-dark-gray hover:text-dh-primary'
                         }`}
                       >
-                        {label}
+                        {label} {count}
                       </button>
                     ))}
                   </div>
                 </div>
-              </section>
 
-              <section className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-                <div className="space-y-3">
-                  {filteredCases.map((item) => (
-                    <CaseListItem
-                      key={item.caseNumber}
-                      item={item}
-                      isSelected={
-                        selectedCase?.caseNumber === item.caseNumber
-                      }
-                      onSelect={() =>
-                        setSelectedCaseNumber(item.caseNumber)
-                      }
-                    />
-                  ))}
+                {isCasesLoading && !cases.length ? (
+                  <div className="flex min-h-56 items-center justify-center">
+                    <Loader2 className="h-7 w-7 animate-spin text-dh-primary" />
+                  </div>
+                ) : errorMessage && !cases.length ? (
+                  <div className="p-5 text-center">
+                    <AlertCircle className="mx-auto h-7 w-7 text-red-600" />
+                    <p className="mt-2 text-sm font-semibold text-red-700">
+                      {errorMessage}
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => void loadCases()}
+                      className="mt-4 h-9 rounded-full bg-dh-primary px-4 text-xs text-white"
+                    >
+                      Try again
+                    </Button>
+                  </div>
+                ) : cases.length ? (
+                  <div className="max-h-[34rem] overflow-y-auto">
+                    {filteredCases.map((item) => (
+                      <CaseRow
+                        key={item.caseNumber}
+                        item={item}
+                        isSelected={selectedCase?.caseNumber === item.caseNumber}
+                        onSelect={() => setSelectedCaseNumber(item.caseNumber)}
+                      />
+                    ))}
 
-                  {!filteredCases.length && (
-                    <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-                      <Search className="mx-auto h-9 w-9 text-dh-dark-gray" />
+                    {!filteredCases.length && (
+                      <div className="p-7 text-center">
+                        <Search className="mx-auto h-7 w-7 text-dh-dark-gray" />
+                        <p className="mt-2 text-sm font-bold text-dh-primary">
+                          No matching cases
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4">
+                    <EmptyCases />
+                  </div>
+                )}
+              </aside>
 
-                      <p className="mt-3 font-semibold text-dh-primary">
-                        No matching cases
-                      </p>
-
-                      <p className="mt-1 text-sm text-dh-dark-gray">
-                        Change the search or status filter.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedCase && (
-                  <aside className="h-fit rounded-3xl bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-32">
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-dh-light-gray pb-5">
+              <div className="min-h-[30rem] bg-[#fbfbfc]">
+                {selectedCase ? (
+                  <div className="p-4 sm:p-5 lg:p-6">
+                    <header className="flex flex-col gap-3 border-b border-dh-light-gray pb-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="text-sm font-bold text-dh-secondary">
+                        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-dh-secondary">
                           {selectedCase.caseNumber}
                         </p>
-
-                        <h2 className="mt-1 font-display text-2xl font-bold text-dh-primary">
+                        <h2 className="mt-1 font-display text-xl font-bold text-dh-primary sm:text-2xl">
                           {caseTitle(selectedCase)}
                         </h2>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-dh-dark-gray">
+                          {caseOrderNumber(selectedCase) && (
+                            <span>Order #{caseOrderNumber(selectedCase)}</span>
+                          )}
+                          <span>Opened {formatCompactDate(selectedCase.createdAt)}</span>
+                          <span>
+                            Updated {formatCompactDate(selectedCase.updatedAt || selectedCase.createdAt)}
+                          </span>
+                        </div>
                       </div>
 
                       <span
-                        className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold ${statusStyle(
+                        className={`inline-flex w-fit rounded-full border px-3 py-1.5 text-xs font-bold ${statusStyle(
                           selectedCase.status
                         )}`}
                       >
                         {statusLabel(selectedCase.status)}
                       </span>
-                    </div>
+                    </header>
 
-                    {selectedCase.canReply &&
-                      selectedCase.order?.orderId && (
-                        <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                          <p className="font-semibold text-orange-800">
-                            DigitalHood needs more information
+                    {needsCustomerReply(selectedCase) && selectedCase.order?.orderId && (
+                      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-orange-200 bg-orange-50 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-orange-800">
+                            DigitalHood needs your reply
                           </p>
-
-                          <p className="mt-1 text-sm leading-6 text-orange-700">
-                            Open the linked order to respond securely.
+                          <p className="mt-0.5 text-xs text-orange-700">
+                            Continue securely from the linked order.
                           </p>
-
-                          <Link
-                            to={`/orders/${selectedCase.order.orderId}`}
-                            className="mt-3 inline-flex items-center font-semibold text-dh-primary hover:text-dh-secondary"
-                          >
-                            Open order and respond
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
                         </div>
-                      )}
+                        <Link
+                          to={`/orders/${selectedCase.order.orderId}#order-support`}
+                          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-orange-700 px-4 text-xs font-bold text-white"
+                        >
+                          Reply now
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    )}
 
-                    <section className="mt-5 rounded-3xl bg-dh-gray p-4 sm:p-5">
-                      <p className="text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
-                        Your original report
-                      </p>
+                    <div className="mt-4 grid gap-4 xl:grid-cols-[0.78fr_1.22fr]">
+                      <div className="space-y-4">
+                        <section className="rounded-xl border border-dh-light-gray bg-white p-4">
+                          <p className="text-[11px] font-black uppercase tracking-[0.1em] text-dh-dark-gray">
+                            Your report
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-dh-primary">
+                            {selectedCase.message || 'No case description available.'}
+                          </p>
+                        </section>
 
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-dh-primary">
-                        {selectedCase.message ||
-                          'No case description available.'}
-                      </p>
-                    </section>
+                        {!!selectedCase.attachments?.length && (
+                          <section>
+                            <p className="flex items-center gap-2 text-xs font-bold text-dh-primary">
+                              <FileImage className="h-4 w-4" />
+                              Evidence ({selectedCase.attachments.length})
+                            </p>
+                            <div className="mt-2 grid grid-cols-4 gap-2">
+                              {selectedCase.attachments.map((attachment, index) => {
+                                const url = attachmentUrl(attachment)
 
-                    <section className="mt-5 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-dh-light-gray p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                          Order
-                        </p>
+                                return (
+                                  <a
+                                    key={attachment.id || attachment.filename || index}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="overflow-hidden rounded-lg border border-dh-light-gray bg-white"
+                                  >
+                                    <img
+                                      src={url}
+                                      alt={attachment.originalName || `Evidence ${index + 1}`}
+                                      loading="lazy"
+                                      className="aspect-square w-full object-cover"
+                                    />
+                                  </a>
+                                )
+                              })}
+                            </div>
+                          </section>
+                        )}
 
-                        {selectedCase.order?.orderId ? (
+                        {selectedCase.order?.orderId && (
                           <Link
                             to={`/orders/${selectedCase.order.orderId}`}
-                            className="mt-2 inline-flex items-center font-semibold text-dh-primary hover:text-dh-secondary"
+                            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-dh-light-gray bg-white text-xs font-bold text-dh-primary hover:border-dh-primary"
                           >
-                            #{caseOrderNumber(selectedCase)}
+                            Open order #{caseOrderNumber(selectedCase)}
                             <ArrowRight className="ml-2 h-4 w-4" />
                           </Link>
-                        ) : (
-                          <p className="mt-2 font-semibold text-dh-primary">
-                            Not available
-                          </p>
                         )}
                       </div>
 
-                      <div className="rounded-2xl border border-dh-light-gray p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                          Priority
-                        </p>
-
-                        <span
-                          className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${priorityStyle(
-                            selectedCase.priority
-                          )}`}
-                        >
-                          {selectedCase.priority || 'Normal'}
-                        </span>
-                      </div>
-
-                      <div className="rounded-2xl border border-dh-light-gray p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                          Opened
-                        </p>
-
-                        <p className="mt-2 text-sm font-semibold text-dh-primary">
-                          {formatDate(selectedCase.createdAt)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-dh-light-gray p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                          Last updated
-                        </p>
-
-                        <p className="mt-2 text-sm font-semibold text-dh-primary">
-                          {formatDate(
-                            selectedCase.updatedAt ||
-                              selectedCase.createdAt
-                          )}
-                        </p>
-                      </div>
-                    </section>
-
-                    {!!selectedCase.attachments?.length && (
-                      <section className="mt-6">
-                        <div className="flex items-center gap-2">
-                          <ImageIcon className="h-5 w-5 text-dh-primary" />
-
-                          <h3 className="font-display text-lg font-bold text-dh-primary">
-                            Attached photos
+                      <section className="rounded-xl border border-dh-light-gray bg-white p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="flex items-center gap-2 font-display text-base font-bold text-dh-primary">
+                            <MessageCircle className="h-4 w-4 text-dh-secondary" />
+                            Case updates
                           </h3>
+                          <span className="text-[11px] font-semibold text-dh-dark-gray">
+                            {selectedCase.messages?.length || 0} update
+                            {(selectedCase.messages?.length || 0) === 1 ? '' : 's'}
+                          </span>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          {selectedCase.attachments.map(
-                            (attachment, index) => {
-                              const imageUrl =
-                                attachmentUrl(attachment)
-
-                              return (
-                                <a
-                                  key={
-                                    attachment.id ||
-                                    attachment.filename ||
-                                    index
-                                  }
-                                  href={imageUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="group overflow-hidden rounded-2xl border border-dh-light-gray bg-dh-gray"
-                                >
-                                  <img
-                                    src={imageUrl}
-                                    alt={
-                                      attachment.originalName ||
-                                      attachment.filename ||
-                                      `Case attachment ${index + 1}`
-                                    }
-                                    loading="lazy"
-                                    className="aspect-square w-full object-cover transition group-hover:scale-105"
-                                  />
-                                </a>
-                              )
-                            }
-                          )}
-                        </div>
-                      </section>
-                    )}
-
-                    <section className="mt-6">
-                      <div className="flex items-center gap-2">
-                        <LifeBuoy className="h-5 w-5 text-dh-primary" />
-
-                        <h3 className="font-display text-lg font-bold text-dh-primary">
-                          Support updates
-                        </h3>
-                      </div>
-
-                      <div className="mt-4 space-y-3">
-                        {(selectedCase.messages || []).map(
-                          (message, index) => (
+                        <div className="mt-3 space-y-2.5">
+                          {(selectedCase.messages || []).map((message, index) => (
                             <article
-                              key={
-                                message.id ||
-                                `${message.createdAt}-${index}`
-                              }
-                              className="rounded-2xl border border-dh-light-gray p-4"
+                              key={message.id || `${message.createdAt}-${index}`}
+                              className="rounded-xl bg-dh-gray p-3.5"
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-sm font-bold text-dh-primary">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-black text-dh-primary">
                                   {messageAuthor(message)}
                                 </p>
-
-                                <p className="flex items-center gap-1 text-xs text-dh-dark-gray">
-                                  <CalendarDays className="h-3.5 w-3.5" />
+                                <p className="flex shrink-0 items-center gap-1 text-[10px] text-dh-dark-gray">
+                                  <CalendarDays className="h-3 w-3" />
                                   {formatDate(message.createdAt)}
                                 </p>
                               </div>
-
-                              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-dh-dark-gray">
+                              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-dh-dark-gray">
                                 {message.message}
                               </p>
                             </article>
-                          )
-                        )}
+                          ))}
 
-                        {!selectedCase.messages?.length && (
-                          <div className="rounded-2xl bg-dh-gray p-5 text-center">
-                            <Clock3 className="mx-auto h-7 w-7 text-dh-primary" />
+                          {!selectedCase.messages?.length && (
+                            <div className="rounded-xl bg-dh-gray px-4 py-7 text-center">
+                              <Clock3 className="mx-auto h-6 w-6 text-dh-primary" />
+                              <p className="mt-2 text-sm font-bold text-dh-primary">
+                                Awaiting the first support update
+                              </p>
+                              <p className="mt-1 text-xs text-dh-dark-gray">
+                                New replies will appear here automatically.
+                              </p>
+                            </div>
+                          )}
+                        </div>
 
-                            <p className="mt-3 text-sm font-semibold text-dh-primary">
-                              No support replies yet
-                            </p>
-
-                            <p className="mt-1 text-xs leading-5 text-dh-dark-gray">
-                              DigitalHood Support updates will appear
-                              here when the case is reviewed.
-                            </p>
+                        {isResolvedCase(selectedCase) && (
+                          <div className="mt-3 flex items-start gap-2 rounded-xl border border-green-100 bg-green-50 p-3 text-xs font-semibold text-green-700">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                            This case is {statusLabel(selectedCase.status).toLowerCase()} and remains available for your records.
                           </div>
                         )}
-                      </div>
-                    </section>
-
-                    {['RESOLVED', 'CLOSED'].includes(
-                      normalizeStatus(selectedCase.status)
-                    ) && (
-                      <div className="mt-6 flex items-start gap-3 rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-
-                        <p>
-                          This support case has been{' '}
-                          {statusLabel(selectedCase.status).toLowerCase()}.
-                        </p>
-                      </div>
-                    )}
-                  </aside>
+                      </section>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex min-h-[30rem] items-center justify-center p-6 text-center">
+                    <div>
+                      <LifeBuoy className="mx-auto h-9 w-9 text-dh-secondary" />
+                      <p className="mt-3 font-bold text-dh-primary">
+                        Select a support case
+                      </p>
+                      <p className="mt-1 text-sm text-dh-dark-gray">
+                        Its report and updates will appear here.
+                      </p>
+                    </div>
+                  </div>
                 )}
-              </section>
-            </>
-          )}
+              </div>
+            </div>
+          </section>
         </div>
       </main>
 
