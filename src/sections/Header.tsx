@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Search,
+  BadgePercent,
+  Headphones,
+  Home,
   User,
   Heart,
   Menu,
@@ -14,7 +16,9 @@ import {
   LogOut,
   UserPlus,
   ShoppingBag,
+  Store,
   MessageCircle,
+  LayoutGrid,
 } from 'lucide-react'
 
 import { useWishlist } from '@/context/WishlistContext'
@@ -56,9 +60,7 @@ function getCustomerDisplayName(customer: {
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
-  const [lastScrollY, setLastScrollY] = useState(0)
   const [menuCategories, setMenuCategories] = useState<WooCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [messageUnreadCount, setMessageUnreadCount] = useState(0)
@@ -237,28 +239,18 @@ export default function Header() {
     onDismiss: () => setIsMobileMenuOpen(false),
   })
 
-  const dismissMobileSearch = useBackButtonDismiss({
-    id: 'mobile-search',
-    isOpen: isSearchOpen,
-    onDismiss: () => setIsSearchOpen(false),
-  })
-
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
-
-      setIsScrolled(currentScrollY > 50)
-      setLastScrollY(currentScrollY)
+      setIsScrolled(window.scrollY > 32)
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
 
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [lastScrollY])
+  }, [])
 
   useEffect(() => {
     setIsMobileMenuOpen(false)
-    setIsSearchOpen(false)
   }, [location])
 
   const handleLogout = async () => {
@@ -268,8 +260,8 @@ export default function Header() {
 
   return (
     <>
-      <div className="fixed left-0 right-0 top-0 z-[100]">
-        <div className="hidden bg-black py-2 text-sm text-white md:block">
+      <div className="sticky left-0 right-0 top-0 z-[100]">
+        <div className="hidden bg-black py-1.5 text-xs text-white md:block">
         <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2">
@@ -311,13 +303,13 @@ export default function Header() {
 
         <header
           className={`border-b border-dh-light-gray transition-all duration-300 ${
-            isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-4'
+            isScrolled ? 'glass-effect py-2 shadow-lg' : 'bg-white py-2.5 sm:py-3'
           }`}
         >
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex min-w-0 items-center justify-between gap-2 xl:gap-4">
             <Link to="/" className="group flex shrink-0 items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center">
+              <div className="flex h-10 w-10 items-center justify-center sm:h-11 sm:w-11">
                 <img
                   src="/logo.jpg"
                   alt="DigitalHood"
@@ -326,7 +318,7 @@ export default function Header() {
               </div>
 
               <div className="hidden sm:block">
-                <div className="font-display text-2xl font-bold leading-tight text-black">
+                <div className="font-display text-xl font-bold leading-tight text-black">
                   Digital<span className="text-[#ffb54a]">Hood</span>
                 </div>
 
@@ -563,15 +555,7 @@ export default function Header() {
               <CartButton onClick={() => setIsCartOpen(true)} />
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:hidden">
-              <button
-                onClick={() => (isSearchOpen ? dismissMobileSearch() : setIsSearchOpen(true))}
-                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
-                aria-label="Open search"
-              >
-                <Search className="h-5 w-5" />
-              </button>
-
+            <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden">
               <Link
                 to="/track-order"
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
@@ -608,65 +592,72 @@ export default function Header() {
             </div>
           </div>
 
-          {isSearchOpen && (
-              <div className="animate-slide-up relative z-[120] mt-3 pb-1 md:hidden">
-                <SearchAutocomplete
-                  compact
-                  placeholder="Search products..."
-                />
-              </div>
-            )}
+          <div className="relative z-[120] mt-2 lg:hidden">
+            <SearchAutocomplete compact placeholder="Search products, shops and categories..." />
+          </div>
         </div>
 
         {isMobileMenuOpen && (
-          <div className="animate-slide-up absolute left-0 right-0 top-full border-t bg-white shadow-lg md:hidden">
-            <div className="container mx-auto px-4 py-4">
-              <nav className="flex flex-col gap-2">
+          <div className="animate-slide-up absolute inset-x-0 top-full max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain border-t bg-white shadow-2xl md:hidden">
+            <div className="mx-auto w-full max-w-2xl px-3 py-3">
+              <div className="mb-3 flex items-center justify-between px-1">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#a76500]">Quick access</p>
+                  <p className="font-display text-lg font-black text-dh-primary">Browse DigitalHood</p>
+                </div>
+                <button type="button" onClick={dismissMobileMenu} className="rounded-full bg-dh-gray p-2" aria-label="Close menu">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <nav className="grid grid-cols-2 gap-2">
                 {isAuthenticated && (
-                  <div className="mb-2 rounded-2xl bg-dh-gray p-4">
-                    <p className="font-semibold text-dh-primary">
+                  <div className="col-span-2 flex items-center gap-3 rounded-2xl bg-[#16145f] p-3 text-white">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10"><User className="h-5 w-5" /></span>
+                    <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">
                       {customerDisplayName}
                     </p>
-
-                    <p className="truncate text-sm text-dh-dark-gray">
+                    <p className="truncate text-xs text-white/60">
                       {customer?.email}
                     </p>
+                    </div>
                   </div>
                 )}
 
                 <Link
                   to="/"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                  className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                 >
-                  Home
+                  <Home className="h-4 w-4" /> Home
                 </Link>
 
                 <Link
-                    to="/shops"
-                    className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
-                  >
-                    Shops
-                  </Link>
+                  to="/shops"
+                  className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
+                >
+                  <Store className="h-4 w-4" /> Shops
+                </Link>
 
                 {isAuthenticated ? (
                   <>
                     <Link
                       to="/account"
-                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                      className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                     >
-                      My Account
+                      <User className="h-4 w-4" /> Account
                     </Link>
 
                     <Link
                       to="/orders"
-                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                      className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                     >
-                      My Orders
+                      <ShoppingBag className="h-4 w-4" /> Orders
                     </Link>
 
                     <Link
                       to="/account/messages"
-                      className="flex items-center justify-between gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                      className="flex items-center justify-between gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                     >
                       <span className="flex items-center gap-2">
                         <MessageCircle className="h-4 w-4" />
@@ -686,68 +677,54 @@ export default function Header() {
                   <>
                     <Link
                       to="/login"
-                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                      className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                     >
-                      Sign in
+                      <User className="h-4 w-4" /> Sign in
                     </Link>
 
                     <Link
                       to="/register"
-                      className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                      className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                     >
-                      Create account
+                      <UserPlus className="h-4 w-4" /> Join
                     </Link>
                   </>
                 )}
 
                 <Link
                   to="/track-order"
-                  className="flex items-center gap-2 rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                  className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                 >
                   <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
-                  Track Order
+                  Track order
                 </Link>
 
                 <Link
                   to="/categories"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                  className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                 >
-                  Categories
+                  <LayoutGrid className="h-4 w-4" /> Categories
                 </Link>
 
-                <Link
-                  to="/contact"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
-                >
-                  Contact
-                </Link>
-
-                <a
-                  href="https://seller.digitalhood.info"
-                  className="rounded-lg px-4 py-3 font-semibold text-dh-primary transition-colors hover:bg-gray-100"
-                >
-                  Sell on DigitalHood
-                </a>
-
-                <div className="px-4 py-2">
-                  <span className="mb-2 block text-sm text-gray-500">
-                    Categories
-                  </span>
-
-                  <div className="flex flex-col gap-1 pl-4">
+                <div className="col-span-2 mt-1 rounded-2xl border border-gray-100 p-2.5">
+                  <div className="mb-2 flex items-center justify-between px-1">
+                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Popular categories</span>
+                    <Link to="/categories" className="text-xs font-bold text-[#26248c]">View all</Link>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
                     {categoriesLoading ? (
-                      <span className="px-4 py-2 text-sm text-gray-400">
+                      <span className="col-span-2 px-2 py-3 text-sm text-gray-400">
                         Loading categories...
                       </span>
                     ) : menuCategories.length > 0 ? (
-                      menuCategories.slice(0, 10).map((cat) => (
+                      menuCategories.slice(0, 8).map((cat) => (
                         <Link
                           key={cat.slug}
                           to={getShopCategoryUrl(cat.slug)}
-                          className="flex items-center justify-between rounded-lg px-4 py-2 text-sm transition-colors hover:bg-gray-100"
+                          className="flex min-w-0 items-center justify-between rounded-lg bg-gray-50 px-2.5 py-2 text-xs font-semibold transition hover:bg-gray-100"
                         >
                           <span className="truncate">{cat.name}</span>
-                          <span className="ml-3 text-xs text-gray-400">
+                          <span className="ml-2 text-[10px] text-gray-400">
                             {cat.productCount}
                           </span>
                         </Link>
@@ -755,7 +732,7 @@ export default function Header() {
                     ) : (
                       <Link
                         to="/categories"
-                        className="rounded-lg px-4 py-2 text-sm transition-colors hover:bg-gray-100"
+                        className="col-span-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-gray-100"
                       >
                         Browse all categories
                       </Link>
@@ -765,9 +742,9 @@ export default function Header() {
 
                 <Link
                   to="/collections/deals"
-                  className="rounded-lg px-4 py-3 transition-colors hover:bg-gray-100"
+                  className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20"
                 >
-                  Deals
+                  <BadgePercent className="h-4 w-4" /> Deals
                 </Link>
 
                 <button
@@ -776,9 +753,9 @@ export default function Header() {
                     setIsMobileMenuOpen(false)
                     openWishlistDrawer()
                   }}
-                  className="flex items-center justify-between rounded-lg px-4 py-3 text-left transition-colors hover:bg-gray-100"
+                  className="flex items-center justify-between rounded-xl bg-dh-gray px-3 py-2.5 text-left font-bold transition hover:bg-dh-secondary/20"
                 >
-                  Wishlist
+                  <span className="flex items-center gap-2"><Heart className="h-4 w-4" /> Wishlist</span>
 
                   {wishlistItems.length > 0 && (
                     <span className="rounded-full bg-[#ffb54a] px-2 py-1 text-xs font-bold text-black">
@@ -787,13 +764,21 @@ export default function Header() {
                   )}
                 </button>
 
+                <Link to="/contact" className="flex items-center gap-2 rounded-xl bg-dh-gray px-3 py-2.5 font-bold transition hover:bg-dh-secondary/20">
+                  <Headphones className="h-4 w-4" /> Support
+                </Link>
+
+                <a href="https://seller.digitalhood.info" className="flex items-center gap-2 rounded-xl bg-[#16145f] px-3 py-2.5 font-bold text-white transition hover:bg-[#26248c]">
+                  <Store className="h-4 w-4 text-[#ffb54a]" /> Sell with us
+                </a>
+
                 {isAuthenticated && (
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="rounded-lg px-4 py-3 text-left text-red-600 transition-colors hover:bg-red-50"
+                    className="col-span-2 flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
                   >
-                    Sign out
+                    <LogOut className="h-4 w-4" /> Sign out
                   </button>
                 )}
               </nav>

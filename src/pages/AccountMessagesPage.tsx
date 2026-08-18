@@ -26,7 +26,6 @@ import {
   RefreshCw,
   Search,
   Send,
-  ShieldCheck,
   Store,
   Video,
   X,
@@ -59,6 +58,12 @@ import {
 import {
   getAccountToken
 } from '@/api/account'
+import {
+  CHAT_MEDIA_ACCEPT,
+  CHAT_MEDIA_BATCH_LIMIT,
+  prepareChatMediaFile,
+  validateChatMediaInput,
+} from '@/lib/chatMediaPreparation'
 
 type PendingProductIntent =
   ChatProductIntent & {
@@ -75,15 +80,14 @@ type PendingOrderIntent =
 const MESSAGE_MUTATION_WINDOW_MS =
   10 * 60 * 1000
 
-const CHAT_MEDIA_ACCEPT =
-  'image/jpeg,image/png,image/webp,video/mp4,video/webm'
-
-const CHAT_MEDIA_LIMITS: Record<string, number> = {
-  'image/jpeg': 5 * 1024 * 1024,
-  'image/png': 5 * 1024 * 1024,
-  'image/webp': 5 * 1024 * 1024,
-  'video/mp4': 20 * 1024 * 1024,
-  'video/webm': 20 * 1024 * 1024
+type PendingMediaItem = {
+  id: string
+  file: File
+  previewUrl: string
+  originalSize: number
+  progress: number
+  status: 'ready' | 'uploading' | 'sent' | 'error'
+  error?: string
 }
 
 function canMutateMessage(
@@ -120,26 +124,6 @@ function canRecallMessage(
     Number.isFinite(createdAt) &&
     now - createdAt <= MESSAGE_MUTATION_WINDOW_MS
   )
-}
-
-function validateChatMedia(file: File) {
-  const limit = CHAT_MEDIA_LIMITS[file.type]
-
-  if (!limit) {
-    return 'Use a JPEG, PNG or WebP image, or an MP4 or WebM video.'
-  }
-
-  if (file.size <= 0) {
-    return 'This file is empty. Choose another image or video.'
-  }
-
-  if (file.size > limit) {
-    return file.type.startsWith('image/')
-      ? 'Images must be 5 MB or smaller.'
-      : 'Videos must be 20 MB or smaller.'
-  }
-
-  return ''
 }
 
 function formatMediaSize(bytes: number) {
@@ -955,24 +939,16 @@ export default function AccountMessagesPage() {
   ] = useState(false)
 
   const [
-    pendingMedia,
-    setPendingMedia
-  ] = useState<File | null>(null)
-
-  const [
-    pendingMediaPreview,
-    setPendingMediaPreview
-  ] = useState('')
+    pendingMediaItems,
+    setPendingMediaItems
+  ] = useState<PendingMediaItem[]>([])
 
   const [
     isSendingMedia,
     setIsSendingMedia
   ] = useState(false)
 
-  const [
-    mediaUploadProgress,
-    setMediaUploadProgress
-  ] = useState(0)
+  const [isPreparingMedia, setIsPreparingMedia] = useState(false)
 
   const [
     isSendingProduct,
@@ -1117,13 +1093,17 @@ export default function AccountMessagesPage() {
   const mediaInputRef =
     useRef<HTMLInputElement | null>(null)
 
+  const pendingMediaItemsRef = useRef<PendingMediaItem[]>([])
+
+  useEffect(() => {
+    pendingMediaItemsRef.current = pendingMediaItems
+  }, [pendingMediaItems])
+
   useEffect(() => {
     return () => {
-      if (pendingMediaPreview) {
-        URL.revokeObjectURL(pendingMediaPreview)
-      }
+      pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
     }
-  }, [pendingMediaPreview])
+  }, [])
 
   const loadingOlderRef =
     useRef(false)
@@ -1255,9 +1235,8 @@ export default function AccountMessagesPage() {
       setEditingMessage(null)
       setMutationMessageId(null)
       setDraft('')
-      setPendingMedia(null)
-      setPendingMediaPreview('')
-      setMediaUploadProgress(0)
+      pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
+      setPendingMediaItems([])
 
       if (mediaInputRef.current) {
         mediaInputRef.current.value = ''
@@ -2561,23 +2540,26 @@ export default function AccountMessagesPage() {
   )
 
   function clearPendingMedia() {
-    setPendingMedia(null)
-    setPendingMediaPreview('')
-    setMediaUploadProgress(0)
+    pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
+    setPendingMediaItems([])
 
     if (mediaInputRef.current) {
       mediaInputRef.current.value = ''
     }
   }
 
-  function handleMediaSelection(
+  async function handleMediaSelection(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
-    const file = event.target.files?.[0]
+    const selectedFiles = Array.from(event.target.files || [])
+    if (!selectedFiles.length) return
+    if (selectedFiles.length > CHAT_MEDIA_BATCH_LIMIT) {
+      setError(`Choose up to ${CHAT_MEDIA_BATCH_LIMIT} photos or videos at a time.`)
+      event.target.value = ''
+      return
+    }
 
-    if (!file) return
-
-    const validationError = validateChatMedia(file)
+    const validationError = selectedFiles.map(validateChatMediaInput).find(Boolean)
 
     if (validationError) {
       setError(validationError)
@@ -2588,20 +2570,48 @@ export default function AccountMessagesPage() {
     setError('')
     setEditingMessage(null)
     setDraft('')
+    setIsPreparingMedia(true)
 
     if (joinedConversationRef.current === conversationId) {
       socketRef.current?.emit('typing:stop', { conversationId })
     }
 
-    setPendingMedia(file)
-    setPendingMediaPreview(URL.createObjectURL(file))
-    setMediaUploadProgress(0)
+    try {
+      clearPendingMedia()
+      const prepared = await Promise.all(
+        selectedFiles.map(async original => {
+          const file = await prepareChatMediaFile(original)
+          return {
+            id: crypto.randomUUID(),
+            file,
+            previewUrl: URL.createObjectURL(file),
+            originalSize: original.size,
+            progress: 0,
+            status: 'ready' as const,
+          }
+        })
+      )
+      setPendingMediaItems(prepared)
+    } catch (selectionError) {
+      setError(selectionError instanceof Error ? selectionError.message : 'Unable to prepare the selected media.')
+    } finally {
+      setIsPreparingMedia(false)
+      event.target.value = ''
+    }
+  }
+
+  function removePendingMedia(id: string) {
+    setPendingMediaItems(current => {
+      const item = current.find(candidate => candidate.id === id)
+      if (item) URL.revokeObjectURL(item.previewUrl)
+      return current.filter(candidate => candidate.id !== id)
+    })
   }
 
   async function handleSendMedia() {
     if (
       !conversationId ||
-      !pendingMedia ||
+      pendingMediaItems.length === 0 ||
       isSendingMedia ||
       isSending ||
       isSendingProduct ||
@@ -2612,31 +2622,37 @@ export default function AccountMessagesPage() {
     }
 
     setIsSendingMedia(true)
-    setMediaUploadProgress(0)
     setError('')
+    const sentIds = new Set<string>()
+    const failures: string[] = []
+    const replyToMessageId = replyingTo ? getChatMessageId(replyingTo) || undefined : undefined
+
+    for (const item of pendingMediaItems) {
+      setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, status: 'uploading', progress: 0, error: undefined } : candidate))
+      try {
+        await sendBuyerMedia(
+          conversationId,
+          item.file,
+          progress => setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, progress } : candidate)),
+          replyToMessageId
+        )
+        sentIds.add(item.id)
+        setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, status: 'sent', progress: 100 } : candidate))
+      } catch (requestError) {
+        const message = requestError instanceof Error ? requestError.message : 'Unable to send this media.'
+        failures.push(message)
+        setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, status: 'error', error: message } : candidate))
+      }
+    }
 
     try {
-      await sendBuyerMedia(
-        conversationId,
-        pendingMedia,
-        setMediaUploadProgress,
-        replyingTo ? getChatMessageId(replyingTo) || undefined : undefined
-      )
-
       setReplyingTo(null)
-
-      await Promise.all([
-        syncConversation(conversationId),
-        loadInbox()
-      ])
-
-      clearPendingMedia()
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to send this media.'
-      )
+      if (sentIds.size > 0) {
+        await Promise.all([syncConversation(conversationId), loadInbox()])
+        pendingMediaItems.filter(item => sentIds.has(item.id)).forEach(item => URL.revokeObjectURL(item.previewUrl))
+        setPendingMediaItems(current => current.filter(item => !sentIds.has(item.id)))
+      }
+      if (failures.length) setError(`${failures.length} attachment${failures.length === 1 ? '' : 's'} could not be sent. Tap Send again to retry.`)
     } finally {
       setIsSendingMedia(false)
     }
@@ -2977,15 +2993,15 @@ export default function AccountMessagesPage() {
     <div className="min-h-screen bg-dh-gray">
       <Header />
 
-      <main className="py-4 lg:py-6">
+      <main className="py-2 lg:py-3">
         <div className="container mx-auto max-w-[1536px] px-3 sm:px-5 lg:px-6">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className={`${conversationId ? 'hidden md:flex' : 'flex'} mb-2 flex-wrap items-center justify-between gap-3`}>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-dh-secondary">
                 DigitalHood Marketplace
               </p>
 
-              <h1 className="mt-0.5 font-display text-2xl font-black text-dh-primary sm:text-3xl">
+              <h1 className="font-display text-xl font-black text-dh-primary sm:text-2xl">
                 Messages
               </h1>
             </div>
@@ -3008,7 +3024,7 @@ export default function AccountMessagesPage() {
             </div>
           )}
 
-          <div className="grid h-[calc(100dvh-10rem)] min-h-[680px] max-h-[920px] overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-md md:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[350px_minmax(0,1fr)]">
+          <div className="grid h-[calc(100dvh-8.75rem)] min-h-[520px] max-h-[1100px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg md:h-[calc(100dvh-12rem)] md:grid-cols-[300px_minmax(0,1fr)] lg:h-[calc(100dvh-9rem)] xl:grid-cols-[330px_minmax(0,1fr)]">
             <aside
               className={`border-r border-slate-100 ${
                 conversationId
@@ -3189,7 +3205,7 @@ export default function AccountMessagesPage() {
                 </div>
               ) : (
                 <>
-                  <header className="flex items-center gap-3 border-b border-slate-100 p-4">
+                  <header className="flex items-center gap-2.5 border-b border-slate-100 px-3 py-2.5">
                     <button
                       type="button"
                       onClick={() =>
@@ -3213,7 +3229,7 @@ export default function AccountMessagesPage() {
                     />
 
                     <div className="min-w-0 flex-1">
-                      <h2 className="truncate font-display text-lg font-black text-dh-primary">
+                      <h2 className="truncate font-display text-base font-black text-dh-primary">
                         {getConversationTitle(
                           selectedConversation
                         )}
@@ -3241,16 +3257,6 @@ export default function AccountMessagesPage() {
                       </p>
                     </div>
                   </header>
-
-                  <div className="border-b border-amber-100 bg-amber-50 px-4 py-2">
-                    <div className="flex items-start gap-2">
-                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-
-                      <p className="text-xs font-semibold leading-5 text-amber-800">
-                        Keep payments and communication on DigitalHood. Never send passwords, OTPs or card details in chat.
-                      </p>
-                    </div>
-                  </div>
 
                   <div className="relative min-h-0 flex-1">
                     <div
@@ -3293,7 +3299,7 @@ export default function AccountMessagesPage() {
                           void loadOlderMessages()
                         }
                       }}
-                      className="h-full overflow-y-auto bg-slate-50 p-3 sm:p-4"
+                      className="chat-wallpaper h-full overflow-y-auto p-2.5 sm:p-3"
                     >
                     {isLoadingMessages ? (
                       <div className="flex h-full min-h-64 items-center justify-center">
@@ -3311,7 +3317,7 @@ export default function AccountMessagesPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-2.5">
+                      <div className="space-y-1.5">
                         {messages.map(
                           (
                             message,
@@ -3409,7 +3415,7 @@ export default function AccountMessagesPage() {
                                 )}
 
                                 <div
-                                  className={`max-w-[82%] rounded-3xl border px-3.5 py-2.5 shadow-sm sm:max-w-[72%] ${
+                                  className={`max-w-[86%] rounded-2xl border px-3 py-1.5 shadow-sm sm:max-w-[72%] ${
                                     isBuyer
                                       ? 'rounded-br-md border-indigo-950 bg-[#312e81] text-white'
                                       : 'rounded-bl-md border-slate-200 bg-white text-slate-950'
@@ -3506,7 +3512,7 @@ export default function AccountMessagesPage() {
                                       'order_card' &&
                                     messageKind !== 'image' &&
                                     messageKind !== 'video' && (
-                                    <p className="whitespace-pre-wrap break-words font-sans text-[15px] font-medium leading-6 tracking-[-0.01em]">
+                                    <p className="whitespace-pre-wrap break-words font-sans text-[14px] font-medium leading-5 tracking-[-0.01em]">
                                       {message.text}
                                     </p>
                                   )}
@@ -3557,7 +3563,7 @@ export default function AccountMessagesPage() {
 
                                   {!message.deleted && (
                                     <div
-                                      className={`mt-2 flex items-center gap-3 text-[10px] font-black ${
+                                      className={`mt-1 flex items-center gap-3 text-[9px] font-black ${
                                         isBuyer
                                           ? 'text-white/70'
                                           : 'text-slate-400'
@@ -3674,7 +3680,7 @@ export default function AccountMessagesPage() {
                     onSubmit={
                       handleSend
                     }
-                    className="border-t border-slate-100 bg-white p-3"
+                    className="border-t border-slate-100 bg-white p-2"
                   >
                     {(replyingTo ||
                       editingMessage) && (
@@ -3722,67 +3728,51 @@ export default function AccountMessagesPage() {
                       </div>
                     )}
 
-                    {pendingMedia && pendingMediaPreview && (
-                      <div className="mb-3 flex items-center gap-3 rounded-2xl border border-dh-primary/20 bg-dh-primary/5 p-3">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-950">
-                          {pendingMedia.type.startsWith('image/') ? (
-                            <img
-                              src={pendingMediaPreview}
-                              alt="Selected attachment preview"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <video
-                              src={pendingMediaPreview}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              className="h-full w-full object-cover"
-                              aria-label="Selected video preview"
-                            />
-                          )}
+                    {isPreparingMedia && (
+                      <div className="mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Optimizing selected media for a faster upload…
+                      </div>
+                    )}
+
+                    {pendingMediaItems.length > 0 && (
+                      <div className="mb-2 rounded-2xl border border-[#26248c]/15 bg-slate-50 p-2.5">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black text-[#26248c]">{pendingMediaItems.length} attachment{pendingMediaItems.length === 1 ? '' : 's'} ready</p>
+                            <p className="text-[10px] font-semibold text-slate-500">Images are optimized before upload</p>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button type="button" onClick={clearPendingMedia} disabled={isSendingMedia} className="rounded-full px-2.5 py-1.5 text-[10px] font-black text-slate-500 hover:bg-white disabled:opacity-50">Clear</button>
+                            <button type="button" onClick={() => void handleSendMedia()} disabled={isSendingMedia} className="rounded-full bg-[#26248c] px-3 py-1.5 text-[10px] font-black text-white hover:bg-[#ffb54a] hover:text-[#26248c] disabled:opacity-60">
+                              {isSendingMedia ? 'Uploading…' : `Send ${pendingMediaItems.length}`}
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-dh-primary">
-                            {pendingMedia.type.startsWith('image/') ? 'Photo ready to send' : 'Video ready to send'}
-                          </p>
-                          <p className="mt-0.5 truncate text-sm font-bold text-slate-800">
-                            {pendingMedia.name}
-                          </p>
-                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                            {formatMediaSize(pendingMedia.size)}
-                            {isSendingMedia ? ` · Uploading ${mediaUploadProgress}%` : ''}
-                          </p>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                          {pendingMediaItems.map(item => (
+                            <div key={item.id} className="group relative aspect-square overflow-hidden rounded-xl bg-slate-900">
+                              {item.file.type.startsWith('image/') ? (
+                                <img src={item.previewUrl} alt={item.file.name} className={`h-full w-full object-cover transition ${item.status === 'uploading' ? 'scale-105 grayscale opacity-45' : ''}`} />
+                              ) : (
+                                <video src={item.previewUrl} muted playsInline preload="metadata" className={`h-full w-full object-cover ${item.status === 'uploading' ? 'grayscale opacity-45' : ''}`} aria-label={item.file.name} />
+                              )}
 
-                          {isSendingMedia && (
-                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
-                              <div
-                                className="h-full rounded-full bg-dh-primary transition-[width]"
-                                style={{ width: `${mediaUploadProgress}%` }}
-                              />
+                              {item.status === 'uploading' && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                                  <span className="text-sm font-black drop-shadow">{item.progress}%</span>
+                                  <div className="mt-1 h-1 w-10 overflow-hidden rounded-full bg-white/35"><div className="h-full bg-white transition-[width]" style={{ width: `${item.progress}%` }} /></div>
+                                </div>
+                              )}
+                              {item.status === 'sent' && <div className="absolute inset-0 flex items-center justify-center bg-emerald-600/50"><Check className="h-6 w-6 text-white" /></div>}
+                              {item.status === 'error' && <div className="absolute inset-0 flex items-center justify-center bg-red-700/55 px-1 text-center text-[9px] font-black text-white">Retry</div>}
+                              {!isSendingMedia && (
+                                <button type="button" onClick={() => removePendingMedia(item.id)} className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white opacity-90" aria-label={`Remove ${item.file.name}`}><X className="h-3.5 w-3.5" /></button>
+                              )}
+                              <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[8px] font-bold text-white">{formatMediaSize(item.file.size)}</span>
                             </div>
-                          )}
+                          ))}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleSendMedia()}
-                          disabled={isSendingMedia}
-                          className="shrink-0 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary hover:text-dh-primary disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isSendingMedia ? 'Sending…' : 'Send'}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={clearPendingMedia}
-                          disabled={isSendingMedia}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-red-600 disabled:opacity-50"
-                          aria-label="Remove selected media"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
                       </div>
                     )}
 
@@ -3962,6 +3952,7 @@ export default function AccountMessagesPage() {
                         ref={mediaInputRef}
                         type="file"
                         accept={CHAT_MEDIA_ACCEPT}
+                        multiple
                         onChange={handleMediaSelection}
                         className="sr-only"
                         aria-label="Choose an image or video"
@@ -3975,7 +3966,7 @@ export default function AccountMessagesPage() {
                           isSending ||
                           isSendingProduct ||
                           isSendingOrder ||
-                          Boolean(pendingMedia)
+                          isPreparingMedia
                         }
                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label="Attach an image or video"
@@ -3985,7 +3976,7 @@ export default function AccountMessagesPage() {
                       </button>
 
                       <textarea
-                        disabled={isSendingMedia || Boolean(pendingMedia)}
+                        disabled={isSendingMedia || pendingMediaItems.length > 0 || isPreparingMedia}
                         value={
                           draft
                         }
@@ -4053,7 +4044,7 @@ export default function AccountMessagesPage() {
                           }
                         }}
                         placeholder={
-                          pendingMedia
+                          pendingMediaItems.length > 0
                             ? 'Send or remove the selected attachment first'
                             : editingMessage
                             ? 'Edit your message...'

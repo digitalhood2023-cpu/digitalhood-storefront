@@ -13,7 +13,6 @@ import {
   LockKeyhole,
   MapPin,
   MessageCircle,
-  PackageCheck,
   Plus,
   Save,
   ShieldCheck,
@@ -184,24 +183,24 @@ function DashboardCard({
   href?: string
 }) {
   const content = (
-    <div className="group flex h-full items-center gap-3 rounded-2xl border border-white bg-white p-3 shadow-sm transition-all hover:border-dh-secondary/40 hover:shadow-md sm:p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dh-secondary/15 text-dh-primary transition-colors group-hover:bg-dh-secondary/25">
+    <div className="group flex h-full min-h-20 items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-dh-secondary/50 hover:shadow-md">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#17155f] text-white transition-colors group-hover:bg-dh-secondary group-hover:text-dh-primary">
         {icon}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-xs font-bold uppercase tracking-wide text-dh-dark-gray">
+          <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-dh-dark-gray">
             {label}
           </p>
           <ChevronRight className="h-4 w-4 shrink-0 text-dh-light-gray transition group-hover:translate-x-0.5 group-hover:text-dh-primary" />
         </div>
 
-        <p className="mt-0.5 line-clamp-1 font-display text-lg font-bold text-dh-primary">
+        <p className="mt-0.5 line-clamp-1 font-display text-base font-black text-dh-primary">
           {value}
         </p>
 
-        <p className="mt-0.5 line-clamp-1 text-xs text-dh-dark-gray">
+        <p className="mt-0.5 hidden line-clamp-1 text-[11px] text-dh-dark-gray sm:block">
           {helper}
         </p>
       </div>
@@ -691,105 +690,48 @@ export default function AccountPage() {
     <div className="min-h-screen bg-dh-gray">
       <Header />
 
-      <main className="py-4 lg:py-6">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <nav className="mb-4 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
-            <Link to="/" className="hover:text-dh-primary">
-              Home
-            </Link>
-
-            <ChevronRight className="h-4 w-4" />
-
-            <span className="font-medium text-dh-primary">My Account</span>
-          </nav>
-
-          <section className="rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-                  <UserRound className="h-6 w-6" />
+      <main className="py-3 lg:py-5">
+        <div className="mx-auto w-full max-w-[1500px] px-3 sm:px-5 lg:px-8">
+          <section className="relative overflow-hidden rounded-[1.6rem] bg-[#17155f] p-4 text-white shadow-lg sm:p-5 lg:p-6">
+            <div className="absolute -right-12 -top-20 h-48 w-48 rounded-full bg-[#ffb54a]/20 blur-2xl" />
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 sm:h-14 sm:w-14">
+                  <UserRound className="h-6 w-6 text-[#ffb54a]" />
                 </div>
-
-                <div>
-                  <div className="mb-1.5 inline-flex items-center gap-2 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Active customer profile
+                <div className="min-w-0">
+                  <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-200">
+                    <ShieldCheck className="h-3 w-3" /> Verified account
                   </div>
-
-                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary">
-                    Welcome back, {displayName}
-                  </h1>
-
-                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
-                    Orders, messages, saved products and delivery details in one place.
-                  </p>
+                  <h1 className="truncate font-display text-xl font-black sm:text-2xl">{displayName}</h1>
+                  <p className="truncate text-xs font-medium text-white/60">{customer.email}</p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  to="/account/messages"
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-dh-primary px-4 text-sm font-bold text-white transition hover:bg-dh-secondary hover:text-dh-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2"
-                >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Messages
+              <div className="flex items-center gap-2">
+                <Link to="/shop" className="inline-flex h-9 flex-1 items-center justify-center rounded-full bg-[#ffb54a] px-4 text-xs font-black text-[#17155f] transition hover:bg-white sm:flex-none">
+                  <ShoppingBag className="mr-1.5 h-4 w-4" /> Shop marketplace
                 </Link>
-
-                <Link
-                  to="/orders"
-                  className="inline-flex h-10 items-center justify-center rounded-full border border-dh-primary px-4 text-sm font-bold text-dh-primary transition hover:bg-dh-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2"
-                >
-                  <PackageCheck className="mr-2 h-4 w-4" />
-                  Orders
-                </Link>
+                <Button type="button" variant="outline" onClick={handleLogout} disabled={isSigningOut} className="h-9 rounded-full border-white/20 bg-white/5 px-3 text-xs font-bold text-white hover:bg-white hover:text-[#17155f]">
+                  <LockKeyhole className="mr-1.5 h-4 w-4" /> {isSigningOut ? 'Signing out…' : 'Sign out'}
+                </Button>
               </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dh-light-gray pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={scrollToSavedAddresses}
-                className="h-9 rounded-full border-dh-light-gray px-4 text-sm font-semibold text-dh-primary hover:border-dh-primary hover:bg-dh-primary hover:text-white"
-              >
-                <MapPin className="mr-2 h-4 w-4" />
-                Manage addresses
-              </Button>
-
-              <Link
-                to="/shop"
-                className="inline-flex h-9 items-center justify-center rounded-full border border-dh-light-gray px-4 text-sm font-semibold text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary hover:text-white"
-              >
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Shop
-              </Link>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleLogout}
-                disabled={isSigningOut}
-                className="h-9 rounded-full border-red-100 px-4 text-sm font-semibold text-red-600 hover:bg-red-50"
-              >
-                <LockKeyhole className="mr-2 h-4 w-4" />
-                {isSigningOut ? 'Signing out...' : 'Sign out'}
-              </Button>
             </div>
           </section>
 
-          <section aria-label="Account shortcuts" className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <section aria-label="Account tools" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <DashboardCard
               icon={<ShoppingBag className="h-5 w-5" />}
               label="Orders"
-              value={String(orders.length)}
-              helper="Purchases connected to your account."
+              value={orders.length ? `${orders.length} recent` : 'View orders'}
+              helper="Purchases and delivery status."
               href="/orders"
             />
 
             <DashboardCard
               icon={<MessageCircle className="h-5 w-5" />}
               label="Messages"
-              value="Open inbox"
+              value="Inbox"
               helper="Chat with marketplace sellers."
               href="/account/messages"
             />
@@ -797,7 +739,7 @@ export default function AccountPage() {
             <DashboardCard
               icon={<Heart className="h-5 w-5" />}
               label="Wishlist"
-              value={String(wishlistCount)}
+              value={`${wishlistCount} saved`}
               helper="Products saved for later."
               href="/wishlist"
             />
@@ -805,7 +747,7 @@ export default function AccountPage() {
             <button type="button" onClick={scrollToSavedAddresses} className="text-left">
               <DashboardCard
                 icon={<Home className="h-5 w-5" />}
-                label="Saved Addresses"
+                label="Addresses"
                 value={`${displayAddresses.length}/5`}
                 helper="Manage delivery locations."
               />
@@ -813,16 +755,16 @@ export default function AccountPage() {
 
             <DashboardCard
               icon={<UserRound className="h-5 w-5" />}
-              label="Account details"
-              value="Manage"
+              label="Profile"
+              value="Personal details"
               helper="Update your personal information."
               href="/account/details"
             />
 
             <DashboardCard
               icon={<LifeBuoy className="h-5 w-5" />}
-              label="Support cases"
-              value="Track"
+              label="Support"
+              value="Cases & help"
               helper="View case status and support replies."
               href="/account/support-cases"
             />
@@ -850,9 +792,9 @@ export default function AccountPage() {
             </section>
           )}
 
-          <section className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+          <section className="mt-3 grid items-start gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.55fr)]">
             <div>
-              <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+              <section ref={savedAddressesSectionRef} className="scroll-mt-24 rounded-2xl bg-white p-3 shadow-sm sm:p-4">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-display text-xl font-bold text-dh-primary">
@@ -1199,8 +1141,8 @@ export default function AccountPage() {
               </section>
             </div>
 
-            <aside className="space-y-4">
-              <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+            <aside>
+              <div className="rounded-2xl bg-white p-3 shadow-sm sm:p-4">
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <div>
                     <h2 className="font-display text-lg font-bold text-dh-primary">
@@ -1290,45 +1232,6 @@ export default function AccountPage() {
                 )}
               </div>
 
-              <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
-                <h2 className="font-display text-lg font-bold text-dh-primary">
-                  Quick actions
-                </h2>
-
-                <div className="mt-3 grid gap-2">
-                  <Link
-                    to="/account/messages"
-                    className="flex items-center justify-between rounded-xl bg-dh-primary p-3 text-sm font-semibold text-white transition hover:bg-dh-secondary hover:text-dh-primary"
-                  >
-                    Open messages
-                    <MessageCircle className="h-5 w-5" />
-                  </Link>
-
-                  <Link
-                    to="/track-order"
-                    className="flex items-center justify-between rounded-xl bg-dh-gray p-3 text-sm font-semibold text-dh-primary hover:bg-dh-secondary/15"
-                  >
-                    Track an order
-                    <PackageCheck className="h-5 w-5" />
-                  </Link>
-
-                  <Link
-                    to="/wishlist"
-                    className="flex items-center justify-between rounded-xl bg-dh-gray p-3 text-sm font-semibold text-dh-primary hover:bg-dh-secondary/15"
-                  >
-                    View wishlist
-                    <Heart className="h-5 w-5" />
-                  </Link>
-
-                  <Link
-                    to="/shop"
-                    className="flex items-center justify-between rounded-xl bg-dh-gray p-3 text-sm font-semibold text-dh-primary hover:bg-dh-secondary/15"
-                  >
-                    Continue shopping
-                    <ShoppingBag className="h-5 w-5" />
-                  </Link>
-                </div>
-              </div>
             </aside>
           </section>
         </div>
