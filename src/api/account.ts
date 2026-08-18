@@ -84,6 +84,24 @@ export type AccountOrderCaseEligibility = {
   final?: boolean
 }
 
+export type AccountOrderPaymentRetry = {
+  eligible: boolean
+  method?: 'card' | 'mobile' | null
+  reasonCode?: string
+  message?: string
+  deadline?: string | null
+  remainingSeconds?: number
+  windowHours?: number
+}
+
+export type AccountOrderMarketplaceState = {
+  key: string
+  category: 'in-progress' | 'shipped' | 'delivered' | 'closed' | string
+  label: string
+  trackable: boolean
+  closed: boolean
+}
+
 export type AccountOrderItemMeta = {
   key?: string
   value?: unknown
@@ -126,6 +144,8 @@ export type AccountOrder = {
   customerNote?: string
   deliveryEstimate?: AccountDeliveryEstimate
   caseEligibility?: AccountOrderCaseEligibility
+  paymentRetry?: AccountOrderPaymentRetry
+  marketplaceState?: AccountOrderMarketplaceState
   dateCompleted?: string | null
   billing?: {
     firstName?: string
@@ -183,6 +203,19 @@ export type CustomerResponse = {
 export type OrdersResponse = {
   success: boolean
   orders: AccountOrder[]
+  count?: number
+  limit?: number
+  page?: number
+  perPage?: number
+  total?: number
+  totalPages?: number
+  counts?: {
+    all: number
+    inProgress: number
+    shipped: number
+    delivered: number
+    closed?: number
+  }
 }
 
 export type OrderResponse = {
@@ -529,14 +562,85 @@ export async function deleteCustomerSavedAddress(addressId: string) {
   )
 }
 
-export async function getCustomerOrders(limit?: number) {
-  const query =
-    typeof limit === 'number'
-      ? `?limit=${encodeURIComponent(String(limit))}`
-      : ''
+export type CustomerOrdersQuery = {
+  page?: number
+  perPage?: number
+  category?: 'all' | 'in-progress' | 'shipped' | 'delivered'
+  search?: string
+}
+
+export async function getCustomerOrders(
+  options?: number | CustomerOrdersQuery
+) {
+  const params = new URLSearchParams()
+
+  if (typeof options === 'number') {
+    params.set('limit', String(options))
+  } else if (options) {
+    if (options.page) params.set('page', String(options.page))
+    if (options.perPage) params.set('perPage', String(options.perPage))
+    if (options.category && options.category !== 'all') {
+      params.set('category', options.category)
+    }
+    if (options.search?.trim()) params.set('search', options.search.trim())
+  }
+
+  const query = params.size ? `?${params.toString()}` : ''
 
   return accountFetch<OrdersResponse>(
     `/api/account/orders${query}`
+  )
+}
+
+export type CustomerOrderPaymentRetryResponse = {
+  success: boolean
+  mode: 'card' | 'mobile'
+  orderId: number
+  amount: number
+  currency: string
+  deadline?: string | null
+  clientSecret?: string
+  paymentIntentId?: string
+  reference?: string
+  transactionId?: string | null
+  status?: string
+  message?: string
+}
+
+export type CustomerOrderPaymentVerificationResponse = {
+  success: boolean
+  paid: boolean
+  failed: boolean
+  pending: boolean
+  terminal: boolean
+  status: string
+  reference?: string
+  paymentIntentId?: string
+  orderId: number
+  transactionId?: string | null
+}
+
+export async function startCustomerOrderPaymentRetry(
+  orderId: string | number,
+  payload: {
+    phone?: string
+    operator?: string
+    clientAttemptId: string
+  }
+) {
+  return accountFetch<CustomerOrderPaymentRetryResponse>(
+    `/api/account/orders/${encodeURIComponent(String(orderId))}/payment-retry`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  )
+}
+
+export async function verifyCustomerOrderPaymentRetry(
+  orderId: string | number,
+  payment: { reference: string } | { paymentIntentId: string }
+) {
+  return accountFetch<CustomerOrderPaymentVerificationResponse>(
+    `/api/account/orders/${encodeURIComponent(String(orderId))}/payment-retry/verify`,
+    { method: 'POST', body: JSON.stringify(payment) }
   )
 }
 
