@@ -42,6 +42,7 @@ import {
   fetchWooProductBySlug,
   fetchWooProducts,
   fetchWooProductReviews,
+  isMarketplaceProductAvailable,
   type WooProduct,
   type WooProductReview,
   type WooProductVariation,
@@ -318,8 +319,12 @@ export default function ProductPage() {
 
     fetchWooProductBySlug(slug)
       .then((item) => {
-        if (!item) {
-          setLoadError('Product not found.')
+        if (!item || !isMarketplaceProductAvailable(item)) {
+          setLoadError(
+            item
+              ? 'This product is out of stock and is no longer available on the marketplace.'
+              : 'Product not found.'
+          )
           setProduct(null)
           return
         }
@@ -767,6 +772,70 @@ export default function ProductPage() {
     )
   }
 
+  useEffect(() => {
+    if (!isGalleryOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleGalleryKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeGallery()
+        return
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        setGalleryScale(1)
+        setSelectedImage((current) =>
+          current === 0 ? displayImages.length - 1 : current - 1
+        )
+        return
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        setGalleryScale(1)
+        setSelectedImage((current) =>
+          current >= displayImages.length - 1 ? 0 : current + 1
+        )
+        return
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault()
+        setGalleryScale(1)
+        setSelectedImage(0)
+        return
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault()
+        setGalleryScale(1)
+        setSelectedImage(Math.max(0, displayImages.length - 1))
+        return
+      }
+
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault()
+        setGalleryScale((current) => Math.min(3, Number((current + 0.5).toFixed(1))))
+      }
+
+      if (event.key === '-') {
+        event.preventDefault()
+        setGalleryScale((current) => Math.max(1, Number((current - 0.5).toFixed(1))))
+      }
+    }
+
+    document.addEventListener('keydown', handleGalleryKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleGalleryKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [displayImages.length, isGalleryOpen])
+
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.touches[0]?.clientX ?? null)
   }
@@ -1092,7 +1161,7 @@ export default function ProductPage() {
   return (
     <div
       ref={pageRef}
-      className="min-h-screen overflow-x-hidden bg-dh-gray"
+      className="flex min-h-[100svh] flex-col overflow-x-hidden bg-dh-gray"
     >
       <Header />
 
@@ -1910,6 +1979,9 @@ export default function ProductPage() {
       {product && isGalleryOpen && (
         <div
           className="fixed inset-0 z-[100] flex flex-col bg-black/95 text-white"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${product.name} image gallery`}
           onTouchStart={handleGalleryTouchStart}
           onTouchMove={handleGalleryTouchMove}
           onTouchEnd={handleGalleryTouchEnd}
