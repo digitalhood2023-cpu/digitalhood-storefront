@@ -520,7 +520,7 @@ export default function SupportPage() {
     <>
       <Header />
 
-      <main className="min-h-screen bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
+      <main className="flex min-h-[100svh] flex-col bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
       <SEO
         title="DigitalHood Support Cases Zambia | DigitalHood"
         description="Create and track DigitalHood support cases for orders, payments, delivery, warranty, returns and seller support in Zambia."
