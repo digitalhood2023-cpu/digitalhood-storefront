@@ -1632,7 +1632,7 @@ export default function ShopPage() {
   );
 
   return (
-    <div ref={pageRef} className="min-h-screen overflow-x-hidden bg-gray-50">
+    <div ref={pageRef} className="flex min-h-[100svh] flex-col overflow-x-hidden bg-gray-50">
       <SEO
         title="Shop"
         description="Shop phones, laptops, accessories, services and trusted products on DigitalHood Marketplace Zambia."
