@@ -6,6 +6,7 @@ import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import { MarketplaceStateProvider } from '@/context/MarketplaceStateContext'
 import MarketplaceSEO from '@/components/MarketplaceSEO'
+import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -98,6 +99,8 @@ function NavigationScrollManager() {
   }, [])
 
   useEffect(() => {
+    clearBodyScrollLocks()
+
     if (navigationType !== 'POP') {
       window.scrollTo({ top: 0, behavior: 'auto' })
     }
