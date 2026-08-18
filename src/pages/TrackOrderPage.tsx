@@ -1,1234 +1,194 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  AlertCircle,
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  Mail,
-  MapPin,
-  PackageCheck,
-  ReceiptText,
-  Search,
-  ShieldCheck,
-  ShoppingBag,
-  Truck,
-} from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Clock3, PackageCheck, Search, ShieldCheck, ShoppingBag, Truck } from 'lucide-react'
 
-import Header from '@/sections/Header'
-import Footer from '@/sections/Footer'
-
+import { getCustomerOrders, type AccountOrder } from '@/api/account'
+import { lookupCustomerOrder } from '@/api/orders'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-import {
-  lookupCustomerOrder,
-  type CustomerOrder,
-  type CustomerOrderItem,
-} from '@/api/orders'
-import {
-  getCustomerOrders,
-  type AccountOrder,
-} from '@/api/account'
 import { useAccount } from '@/context/AccountContext'
+import { formatOrderDate, formatOrderMoney, getTrackingState, type TrackingCategory } from '@/lib/orderTracking'
+import Footer from '@/sections/Footer'
+import Header from '@/sections/Header'
 
-import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
+const PAGE_SIZE = 10
+const FILTERS: Array<{ value: TrackingCategory; label: string; icon: typeof ShoppingBag }> = [
+  { value: 'all', label: 'All orders', icon: ShoppingBag },
+  { value: 'in-progress', label: 'In progress', icon: Clock3 },
+  { value: 'shipped', label: 'Shipped', icon: Truck },
+  { value: 'delivered', label: 'Delivered', icon: PackageCheck },
+]
 
-import { buildOrderSupportUrl } from '@/lib/supportLinks'
-type DeliveryDetails = {
-  expectedDate?: string | null
-  label: string
-  window: string
-  isLusaka: boolean
-  businessDays?: number
-  skipDays?: string[]
-}
-
-function formatPrice(amount?: string | number, currency = 'ZMW') {
-  const value = Number(amount || 0)
-
-  if (currency === 'ZMW') {
-    return `K${value.toLocaleString('en-ZM', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
+function OrderThumbnail({ order }: { order: AccountOrder }) {
+  const [failed, setFailed] = useState(false)
+  const image = order.items?.[0]?.image
+  if (!image || failed) {
+    return <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#f3f4f8] text-[#28256d]"><ShoppingBag className="h-5 w-5" /></div>
   }
-
-  return `${currency} ${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
+  return <img src={image} alt="" className="h-14 w-14 shrink-0 rounded-xl border border-slate-100 bg-white object-cover" onError={() => setFailed(true)} />
 }
 
-function formatDate(date?: string | null) {
-  if (!date) return 'Not available'
+function SignedInOrders() {
+  const [orders, setOrders] = useState<AccountOrder[]>([])
+  const [category, setCategory] = useState<TrackingCategory>('all')
+  const [search, setSearch] = useState('')
+  const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [counts, setCounts] = useState({ all: 0, inProgress: 0, shipped: 0, delivered: 0 })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  try {
-    return new Intl.DateTimeFormat('en-ZM', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(date))
-  } catch {
-    return date
-  }
-}
+  useEffect(() => {
+    const nextQuery = search.trim()
+    if (nextQuery === query) return
 
-function formatDeliveryDate(date?: Date | null) {
-  if (!date) return 'Not available'
+    const timeout = window.setTimeout(() => {
+      setLoading(true)
+      setError('')
+      setQuery(nextQuery)
+      setPage(1)
+    }, 280)
+    return () => window.clearTimeout(timeout)
+  }, [query, search])
 
-  try {
-    return new Intl.DateTimeFormat('en-ZM', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(date)
-  } catch {
-    return date.toDateString()
-  }
-}
+  useEffect(() => {
+    let active = true
+    getCustomerOrders({ page, perPage: PAGE_SIZE, category, search: query })
+      .then((response) => {
+        if (!active) return
+        setOrders(response.orders || [])
+        setTotalPages(Math.max(1, response.totalPages || 1))
+        setTotal(response.total ?? response.orders?.length ?? 0)
+        if (response.counts) {
+          setCounts({
+            all: response.counts.all || 0,
+            inProgress: response.counts.inProgress || 0,
+            shipped: response.counts.shipped || 0,
+            delivered: response.counts.delivered || 0,
+          })
+        }
+      })
+      .catch((requestError) => {
+        if (!active) return
+        setError(requestError instanceof Error ? requestError.message : 'Unable to load your orders.')
+        setOrders([])
+      })
+      .finally(() => active && setLoading(false))
+    return () => { active = false }
+  }, [category, page, query])
 
-function normalizeOrderStatus(status?: string) {
-  return String(status || '')
-    .toLowerCase()
-    .replace(/^wc-/, '')
-    .replace(/_/g, '-')
-    .replace(/\s+/g, '-')
-}
-
-function normalizeLocation(value?: string) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-function isLusakaOrder(order: CustomerOrder) {
-  const city = normalizeLocation(order.shipping?.city)
-  const province = normalizeLocation(order.shipping?.province)
-  const address = normalizeLocation(order.shipping?.address1)
+  const filterCounts = useMemo<Record<TrackingCategory, number>>(() => ({
+    all: counts.all,
+    'in-progress': counts.inProgress,
+    shipped: counts.shipped,
+    delivered: counts.delivered,
+  }), [counts])
 
   return (
-    city.includes('lusaka') ||
-    province.includes('lusaka') ||
-    address.includes('lusaka')
-  )
-}
-
-function isSunday(date: Date) {
-  return date.getDay() === 0
-}
-
-function moveToNextDeliveryDay(date: Date) {
-  const next = new Date(date)
-
-  while (isSunday(next)) {
-    next.setDate(next.getDate() + 1)
-  }
-
-  return next
-}
-
-function addDeliveryBusinessDays(startDate: Date, daysToAdd: number) {
-  const current = moveToNextDeliveryDay(startDate)
-  let addedDays = 0
-
-  while (addedDays < daysToAdd) {
-    current.setDate(current.getDate() + 1)
-
-    if (!isSunday(current)) {
-      addedDays += 1
-    }
-  }
-
-  return moveToNextDeliveryDay(current)
-}
-
-function getDeliveryStartDate(order: CustomerOrder) {
-  const sourceDate = order.datePaid || order.dateCreated
-
-  if (!sourceDate) return null
-
-  const parsed = new Date(sourceDate)
-
-  if (Number.isNaN(parsed.getTime())) return null
-
-  return parsed
-}
-
-function hasBackendDeliveryEstimate(order: CustomerOrder) {
-  return Boolean(
-    order.deliveryEstimate &&
-      (order.deliveryEstimate.label ||
-        order.deliveryEstimate.expectedDate ||
-        order.deliveryEstimate.window)
-  )
-}
-
-function getBackendDeliveryDetails(order: CustomerOrder): DeliveryDetails | null {
-  if (!hasBackendDeliveryEstimate(order)) return null
-
-  const backendEstimate = order.deliveryEstimate
-
-  if (!backendEstimate) return null
-
-  return {
-    expectedDate: backendEstimate.expectedDate || null,
-    label: backendEstimate.label || 'Expected delivery date not available yet',
-    window:
-      backendEstimate.window ||
-      'Delivery estimate will appear after order confirmation.',
-    isLusaka: Boolean(backendEstimate.isLusaka),
-    businessDays: backendEstimate.businessDays,
-    skipDays: backendEstimate.skipDays || ['Sunday'],
-  }
-}
-
-function getFallbackExpectedDeliveryDetails(order: CustomerOrder): DeliveryDetails {
-  const startDate = getDeliveryStartDate(order)
-
-  if (!startDate) {
-    return {
-      expectedDate: null,
-      label: 'Expected delivery date not available yet',
-      window: 'Delivery estimate will appear after order confirmation.',
-      isLusaka: isLusakaOrder(order),
-      businessDays: isLusakaOrder(order) ? 0 : 3,
-      skipDays: ['Sunday'],
-    }
-  }
-
-  const lusaka = isLusakaOrder(order)
-  const normalizedStartDate = moveToNextDeliveryDay(startDate)
-
-  if (lusaka) {
-    return {
-      expectedDate: normalizedStartDate.toISOString(),
-      label: formatDeliveryDate(normalizedStartDate),
-      window: 'Same delivery business day in Lusaka, Monday to Saturday.',
-      isLusaka: true,
-      businessDays: 0,
-      skipDays: ['Sunday'],
-    }
-  }
-
-  const expectedDate = addDeliveryBusinessDays(normalizedStartDate, 3)
-
-  return {
-    expectedDate: expectedDate.toISOString(),
-    label: formatDeliveryDate(expectedDate),
-    window:
-      'Estimated 3 delivery business days outside Lusaka, Monday to Saturday.',
-    isLusaka: false,
-    businessDays: 3,
-    skipDays: ['Sunday'],
-  }
-}
-
-function getExpectedDeliveryDetails(order: CustomerOrder): DeliveryDetails {
-  return (
-    getBackendDeliveryDetails(order) ||
-    getFallbackExpectedDeliveryDetails(order)
-  )
-}
-
-function getStatusStyles(status?: string) {
-  const value = normalizeOrderStatus(status)
-
-  if (value === 'processing') {
-    return {
-      icon: <PackageCheck className="h-5 w-5 text-blue-700" />,
-      badge: 'bg-blue-50 text-blue-700 border-blue-100',
-      title: 'Your order is being processed',
-    }
-  }
-
-  if (value === 'shipped') {
-    return {
-      icon: <Truck className="h-5 w-5 text-purple-700" />,
-      badge: 'bg-purple-50 text-purple-700 border-purple-100',
-      title: 'Your order has been shipped',
-    }
-  }
-
-  if (value === 'out-for-delivery' || value === 'outfordelivery') {
-    return {
-      icon: <Truck className="h-5 w-5 text-orange-700" />,
-      badge: 'bg-orange-50 text-orange-700 border-orange-100',
-      title: 'Your order is out for delivery',
-    }
-  }
-
-  if (value === 'delivered' || value === 'completed') {
-    return {
-      icon: <CheckCircle2 className="h-5 w-5 text-green-700" />,
-      badge: 'bg-green-50 text-green-700 border-green-100',
-      title: 'Your order has been delivered',
-    }
-  }
-
-  if (value === 'pending' || value === 'on-hold') {
-    return {
-      icon: <Clock className="h-5 w-5 text-yellow-700" />,
-      badge: 'bg-yellow-50 text-yellow-700 border-yellow-100',
-      title: 'Your order is waiting',
-    }
-  }
-
-  if (value === 'failed' || value === 'cancelled' || value === 'refunded') {
-    return {
-      icon: <AlertCircle className="h-5 w-5 text-red-700" />,
-      badge: 'bg-red-50 text-red-700 border-red-100',
-      title: 'Your order needs attention',
-    }
-  }
-
-  return {
-    icon: <PackageCheck className="h-5 w-5 text-gray-700" />,
-    badge: 'bg-gray-50 text-gray-700 border-gray-100',
-    title: 'Order found',
-  }
-}
-
-function getProgressSteps(order: CustomerOrder) {
-  const status = normalizeOrderStatus(order.status)
-
-  const statusRank: Record<string, number> = {
-    pending: 1,
-    'on-hold': 1,
-    processing: 2,
-    shipped: 3,
-    'out-for-delivery': 4,
-    outfordelivery: 4,
-    delivered: 5,
-    completed: 5,
-  }
-
-  const currentRank = statusRank[status] || 1
-
-  const paid =
-    Boolean(order.datePaid) ||
-    [
-      'processing',
-      'shipped',
-      'out-for-delivery',
-      'outfordelivery',
-      'delivered',
-      'completed',
-    ].includes(status)
-
-  return [
-    {
-      label: 'Order placed',
-      description: 'We received your order.',
-      done: true,
-    },
-    {
-      label: 'Payment confirmed',
-      description: paid
-        ? 'Payment is confirmed or order is approved.'
-        : 'Waiting for payment confirmation.',
-      done: paid,
-    },
-    {
-      label: 'Processing',
-      description:
-        currentRank >= 2
-          ? 'DigitalHood is preparing your order.'
-          : 'Your order will move here after confirmation.',
-      done: currentRank >= 2,
-    },
-    {
-      label: 'Shipped',
-      description:
-        currentRank >= 3
-          ? 'Your order has left the seller or DigitalHood dispatch point.'
-          : 'Your order has not been shipped yet.',
-      done: currentRank >= 3,
-    },
-    {
-      label: 'Out for delivery',
-      description:
-        currentRank >= 4
-          ? 'Your order is on the way to your delivery address.'
-          : 'Delivery will start after the order is shipped.',
-      done: currentRank >= 4,
-    },
-    {
-      label: 'Delivered',
-      description:
-        currentRank >= 5
-          ? 'Your order has been delivered successfully.'
-          : 'Delivery confirmation will appear here.',
-      done: currentRank >= 5,
-    },
-  ]
-}
-
-function getItemMetaText(item: CustomerOrderItem) {
-  const meta = item.meta || []
-
-  const usefulMeta = meta
-    .filter((entry) => {
-      const key = String(entry.displayKey || entry.key || '').toLowerCase()
-
-      if (!key) return false
-      if (key.startsWith('_')) return false
-      if (key.includes('reduced stock')) return false
-
-      return true
-    })
-    .map((entry) => {
-      const label = entry.displayKey || entry.key || 'Option'
-      const value = entry.displayValue || String(entry.value || '')
-
-      return `${label}: ${value}`
-    })
-
-  return usefulMeta
-}
-
-function accountOrderSearchText(order: CustomerOrder) {
-  return [
-    order.number,
-    order.id,
-    order.status,
-    order.statusLabel,
-    order.billing?.email,
-    ...(order.items || []).map((item) => item.name),
-  ]
-    .join(' ')
-    .toLowerCase()
-}
-
-function AccountTrackingCard({
-  order,
-  isSelected,
-  onTrack,
-}: {
-  order: CustomerOrder
-  isSelected: boolean
-  onTrack: () => void
-}) {
-  const status = getStatusStyles(order.status)
-  const previewItems = (order.items || []).slice(0, 3)
-
-  return (
-    <article
-      className={`rounded-2xl border bg-white p-3.5 transition sm:p-4 ${
-        isSelected
-          ? 'border-dh-primary shadow-md'
-          : 'border-dh-light-gray hover:border-dh-primary/30 hover:shadow-sm'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-dh-dark-gray">
-            Order #{order.number || order.id}
-          </p>
-          <p className="mt-1 text-sm font-black text-dh-primary">
-            {formatPrice(order.total, order.currency)}
-          </p>
-          <p className="mt-0.5 text-xs text-dh-dark-gray">
-            {formatDate(order.dateCreated)}
-          </p>
+    <main className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-5 sm:py-7">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order number or product" aria-label="Search your orders" className="h-11 rounded-xl border-slate-200 pl-9" />
         </div>
-
-        <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${status.badge}`}
-        >
-          {status.icon}
-          {order.statusLabel || order.status}
-        </span>
-      </div>
-
-      <div className="mt-3 flex items-center">
-        {previewItems.map((item, index) => (
-          <span
-            key={item.id}
-            className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border-2 border-white bg-dh-gray ${
-              index > 0 ? '-ml-2' : ''
-            }`}
-          >
-            {item.image ? (
-              <img
-                src={item.image}
-                alt=""
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <ShoppingBag className="h-4 w-4 text-dh-primary" />
-            )}
-          </span>
-        ))}
-
-        <div className="ml-3 min-w-0 flex-1">
-          <p className="line-clamp-1 text-xs font-bold text-dh-primary">
-            {order.items?.[0]?.name || 'Order items'}
-          </p>
-          <p className="mt-0.5 text-[11px] text-dh-dark-gray">
-            {order.items?.length || 0} item
-            {(order.items?.length || 0) === 1 ? '' : 's'} ·{' '}
-            {order.deliveryEstimate?.label || 'Delivery estimate pending'}
-          </p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Order filters">
+          {FILTERS.map((filter) => {
+            const Icon = filter.icon
+            const active = category === filter.value
+            return (
+              <button key={filter.value} type="button" onClick={() => { if (active) return; setLoading(true); setError(''); setCategory(filter.value); setPage(1) }} aria-pressed={active} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-bold transition sm:text-sm ${active ? 'border-[#28256d] bg-[#28256d] text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'}`}>
+                <Icon className="h-3.5 w-3.5" /><span>{filter.label}</span>
+                <span className={active ? 'text-white/75' : 'text-slate-400'}>{filterCounts[filter.value]}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onTrack}
-          className="inline-flex h-9 items-center justify-center rounded-xl bg-dh-primary px-3 text-xs font-bold text-white transition hover:bg-dh-secondary hover:text-black"
-        >
-          Track order
-          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-        </button>
+      <section className="mt-4 space-y-2.5" aria-live="polite" aria-busy={loading}>
+        {loading && <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading orders…</div>}
+        {!loading && error && <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        {!loading && !error && orders.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center"><ShoppingBag className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-2 font-bold text-slate-800">No matching orders</p><p className="mt-1 text-sm text-slate-500">Try another search or status.</p></div>
+        )}
+        {!loading && !error && orders.map((order) => {
+          const state = getTrackingState(order)
+          const firstItem = order.items?.[0]
+          const extraItems = Math.max(0, (order.items?.length || 0) - 1)
+          return (
+            <article key={order.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+              <div className="flex items-start gap-3">
+                <OrderThumbnail order={order} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="text-sm font-black text-[#16143f]">Order #{order.number || order.id}</p>
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${state.closed ? 'bg-slate-100 text-slate-600' : order.paymentRetry?.eligible ? 'bg-amber-100 text-amber-800' : state.category === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-[#28256d]'}`}>{state.label}</span>
+                  </div>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-700">{firstItem?.name || 'Marketplace order'}{extraItems > 0 ? ` +${extraItems} more` : ''}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span>{formatOrderDate(order.dateCreated)}</span><span className="font-bold text-slate-800">{formatOrderMoney(order.total, order.currency)}</span><span>{order.paymentMethodTitle || 'Payment method unavailable'}</span></div>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                {!state.closed && <Link to={`/orders/${order.id}#order-support`} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Report issue</Link>}
+                {order.paymentRetry?.eligible ? (
+                  <Button asChild className="h-9 rounded-lg bg-[#f5a623] px-4 text-xs font-black text-[#16143f] hover:bg-[#ffb536]"><Link to={`/orders/${order.id}/pay`}>Pay now <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link></Button>
+                ) : state.trackable ? (
+                  <Button asChild className="h-9 rounded-lg bg-[#28256d] px-4 text-xs font-black text-white hover:bg-[#1d1b55]"><Link to={`/track-order/${order.id}`}>Track order <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link></Button>
+                ) : <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">Closed</span>}
+              </div>
+            </article>
+          )
+        })}
+      </section>
 
-        <Link
-          to={`/orders/${order.id}#order-support`}
-          className="inline-flex h-9 items-center justify-center rounded-xl border border-dh-light-gray px-3 text-xs font-bold text-dh-primary transition hover:border-dh-primary"
-        >
-          Report issue
-        </Link>
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setLoading(true); setError(''); setPage((value) => value - 1) }}><ArrowLeft className="mr-1 h-4 w-4" /> Previous</Button>
+          <span className="text-xs font-bold text-slate-500">Page {page} of {totalPages} · {total} orders</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => { setLoading(true); setError(''); setPage((value) => value + 1) }}>Next <ArrowRight className="ml-1 h-4 w-4" /></Button>
+        </div>
+      )}
+    </main>
+  )
+}
+
+function GuestOrderLookup() {
+  const navigate = useNavigate()
+  const [orderNumber, setOrderNumber] = useState('')
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setLoading(true); setError('')
+    try {
+      const response = await lookupCustomerOrder({ email: email.trim(), orderNumber: orderNumber.trim() })
+      navigate(`/track-order/${response.order.id}`, { state: { guestOrder: response.order } })
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Order not found. Check your details and try again.')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-lg px-3 py-7 sm:px-5 sm:py-10">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#28256d] text-white"><Truck className="h-5 w-5" /></div><div><h1 className="text-xl font-black text-[#16143f]">Track a guest order</h1><p className="text-sm text-slate-500">Use the details supplied at checkout.</p></div></div>
+        <form onSubmit={submit} className="mt-5 space-y-4">
+          <div><Label htmlFor="tracking-order">Order number</Label><Input id="tracking-order" value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} required className="mt-1.5 h-11" placeholder="e.g. 1542" /></div>
+          <div><Label htmlFor="tracking-email">Checkout email</Label><Input id="tracking-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="mt-1.5 h-11" placeholder="you@example.com" /></div>
+          {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+          <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl bg-[#28256d] font-bold text-white hover:bg-[#1d1b55]">{loading ? 'Finding order…' : 'Track order'}</Button>
+        </form>
+        <div className="mt-5 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>Have an account? <Link to="/login?redirect=/track-order" className="font-black underline">Sign in</Link> to see every order without entering these details.</span></div>
       </div>
-    </article>
+    </main>
   )
 }
 
 export default function TrackOrderPage() {
-  const {
-    customer,
-    isAuthenticated,
-    isLoading: isAccountLoading,
-  } = useAccount()
-  const [email, setEmail] = useState('')
-  const [orderNumber, setOrderNumber] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [order, setOrder] = useState<CustomerOrder | null>(null)
-  const [accountOrders, setAccountOrders] = useState<CustomerOrder[]>([])
-  const [accountQuery, setAccountQuery] = useState('')
-  const [isAccountOrdersLoading, setIsAccountOrdersLoading] = useState(false)
-
-  useEffect(() => {
-    if (!isAuthenticated) return
-
-    let cancelled = false
-
-    async function loadAccountOrders() {
-      setIsAccountOrdersLoading(true)
-      setErrorMessage('')
-
-      try {
-        const response = await getCustomerOrders()
-        const nextOrders = response.orders as Array<
-          AccountOrder & CustomerOrder
-        >
-
-        if (cancelled) return
-
-        setAccountOrders(nextOrders)
-        setOrder((current) => {
-          if (
-            current &&
-            nextOrders.some((item) => item.id === current.id)
-          ) {
-            return current
-          }
-
-          return nextOrders[0] || null
-        })
-      } catch (error) {
-        if (cancelled) return
-
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : 'Unable to load the orders on your account.'
-        )
-      } finally {
-        if (!cancelled) setIsAccountOrdersLoading(false)
-      }
-    }
-
-    const startupTimer = window.setTimeout(() => {
-      void loadAccountOrders()
-    }, 0)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(startupTimer)
-    }
-  }, [isAuthenticated])
-
-  const filteredAccountOrders = useMemo(() => {
-    const query = accountQuery.trim().toLowerCase()
-
-    if (!query) return accountOrders
-
-    return accountOrders.filter((item) =>
-      accountOrderSearchText(item).includes(query)
-    )
-  }, [accountOrders, accountQuery])
-
-  const selectAccountOrder = (nextOrder: CustomerOrder) => {
-    setOrder(nextOrder)
-
-    window.requestAnimationFrame(() => {
-      document.getElementById('tracked-order-details')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
-    })
-  }
-
-  const handleLookup = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    setErrorMessage('')
-    setOrder(null)
-
-    if (!email.trim()) {
-      setErrorMessage('Please enter the email address used for the order.')
-      return
-    }
-
-    if (!orderNumber.trim()) {
-      setErrorMessage('Please enter your order number.')
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      const response = await lookupCustomerOrder({
-        email: email.trim(),
-        orderNumber: orderNumber.trim(),
-      })
-
-      selectAccountOrder(response.order)
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'We could not find that order. Please check your details and try again.'
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const statusStyles = order ? getStatusStyles(order.status) : null
-  const progressSteps = order ? getProgressSteps(order) : []
-  const deliveryDetails = order ? getExpectedDeliveryDetails(order) : null
-  const orderStoreGroups = groupOrderItemsByStore(order?.items || [])
-
-  return (
-    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
-      <Header />
-
-      <main className="py-8 lg:py-12">
-        <div className="container mx-auto px-4">
-          <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-dh-dark-gray">
-            <Link to="/" className="hover:text-dh-primary">
-              Home
-            </Link>
-
-            <ChevronRight className="h-4 w-4" />
-
-            <span className="font-medium text-dh-primary">
-              Track Order
-            </span>
-          </nav>
-
-          <div className="mx-auto max-w-5xl">
-            {isAccountLoading ? (
-              <section className="mb-6 flex min-h-64 items-center justify-center rounded-3xl bg-white">
-                <div className="text-center">
-                  <Clock className="mx-auto h-8 w-8 animate-pulse text-dh-secondary" />
-                  <p className="mt-3 text-sm font-semibold text-dh-dark-gray">
-                    Loading your tracking workspace...
-                  </p>
-                </div>
-              </section>
-            ) : isAuthenticated ? (
-              <section className="mb-7 space-y-4">
-                <div className="overflow-hidden rounded-3xl bg-dh-primary text-white shadow-sm">
-                  <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_0.85fr] lg:items-end">
-                    <div>
-                      <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-dh-secondary">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Account order tracking
-                      </div>
-                      <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">
-                        Your orders, ready to track
-                      </h1>
-                      <p className="mt-1 max-w-xl text-sm leading-6 text-white/70">
-                        Signed in as {customer?.email}. Select any order to see
-                        its full payment and delivery journey—no email or order
-                        number required.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="accountOrderSearch"
-                        className="text-xs font-bold uppercase tracking-[0.12em] text-white/65"
-                      >
-                        Find one of your orders
-                      </label>
-                      <div className="relative mt-2">
-                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
-                        <Input
-                          id="accountOrderSearch"
-                          value={accountQuery}
-                          onChange={(event) => setAccountQuery(event.target.value)}
-                          placeholder="Order number, product or status"
-                          className="h-11 rounded-xl border-white/15 bg-white/10 pl-10 text-white placeholder:text-white/45 focus-visible:ring-dh-secondary"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 border-t border-white/10 bg-white/[0.06] text-center">
-                    <div className="px-3 py-3">
-                      <p className="font-display text-xl font-bold">{accountOrders.length}</p>
-                      <p className="text-[11px] font-semibold text-white/60">All orders</p>
-                    </div>
-                    <div className="border-x border-white/10 px-3 py-3">
-                      <p className="font-display text-xl font-bold">
-                        {accountOrders.filter((item) =>
-                          !['completed', 'delivered', 'cancelled', 'refunded'].includes(
-                            normalizeOrderStatus(item.status)
-                          )
-                        ).length}
-                      </p>
-                      <p className="text-[11px] font-semibold text-white/60">In progress</p>
-                    </div>
-                    <div className="px-3 py-3">
-                      <p className="font-display text-xl font-bold">
-                        {accountOrders.filter((item) =>
-                          ['completed', 'delivered'].includes(
-                            normalizeOrderStatus(item.status)
-                          )
-                        ).length}
-                      </p>
-                      <p className="text-[11px] font-semibold text-white/60">Delivered</p>
-                    </div>
-                  </div>
-                </div>
-
-                {errorMessage && (
-                  <div className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p>{errorMessage}</p>
-                  </div>
-                )}
-
-                {isAccountOrdersLoading ? (
-                  <div className="rounded-3xl bg-white p-8 text-center text-sm font-semibold text-dh-dark-gray">
-                    Loading your orders...
-                  </div>
-                ) : filteredAccountOrders.length ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {filteredAccountOrders.map((item) => (
-                      <AccountTrackingCard
-                        key={item.id}
-                        order={item}
-                        isSelected={order?.id === item.id}
-                        onTrack={() => selectAccountOrder(item)}
-                      />
-                    ))}
-                  </div>
-                ) : accountOrders.length ? (
-                  <div className="rounded-3xl bg-white p-8 text-center">
-                    <Search className="mx-auto h-8 w-8 text-dh-dark-gray" />
-                    <p className="mt-3 font-bold text-dh-primary">No matching order</p>
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      Try another order number, product name or status.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-3xl bg-white p-8 text-center">
-                    <ShoppingBag className="mx-auto h-9 w-9 text-dh-secondary" />
-                    <p className="mt-3 font-bold text-dh-primary">No orders yet</p>
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      Orders placed with this account will appear here automatically.
-                    </p>
-                    <Link
-                      to="/shop"
-                      className="mt-4 inline-flex rounded-full bg-dh-primary px-5 py-2.5 text-sm font-bold text-white"
-                    >
-                      Explore marketplace
-                    </Link>
-                  </div>
-                )}
-              </section>
-            ) : (
-              <section className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm">
-                <div className="grid lg:grid-cols-[1fr_0.72fr]">
-                  <div className="p-5 sm:p-7">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-3 py-1.5 text-xs font-bold text-dh-primary">
-                      <ReceiptText className="h-4 w-4" />
-                      Guest order lookup
-                    </div>
-                    <h1 className="mt-3 font-display text-2xl font-bold text-dh-primary sm:text-3xl">
-                      Track an order placed as a guest
-                    </h1>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-dh-dark-gray">
-                      Use the email from checkout and the order number on your
-                      receipt. Account customers can sign in to see every order
-                      automatically.
-                    </p>
-
-                    <form onSubmit={handleLookup} className="mt-5 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label htmlFor="orderEmail">Checkout email</Label>
-                        <div className="relative mt-1">
-                          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
-                          <Input
-                            id="orderEmail"
-                            type="email"
-                            value={email}
-                            onChange={(event) => setEmail(event.target.value)}
-                            placeholder="you@example.com"
-                            className="h-11 rounded-xl pl-10"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="orderNumber">Order number</Label>
-                        <div className="relative mt-1">
-                          <ReceiptText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dh-dark-gray" />
-                          <Input
-                            id="orderNumber"
-                            value={orderNumber}
-                            onChange={(event) => setOrderNumber(event.target.value)}
-                            placeholder="e.g. #1234"
-                            className="h-11 rounded-xl pl-10"
-                          />
-                        </div>
-                      </div>
-
-                      {errorMessage && (
-                        <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">
-                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                          <p>{errorMessage}</p>
-                        </div>
-                      )}
-
-                      <Button
-                        type="submit"
-                        disabled={isLoading}
-                        className="h-11 rounded-xl bg-dh-primary text-white hover:bg-dh-secondary sm:col-span-2"
-                      >
-                        <Search className="mr-2 h-4 w-4" />
-                        {isLoading ? 'Checking order...' : 'Find guest order'}
-                      </Button>
-                    </form>
-                  </div>
-
-                  <div className="flex flex-col justify-between bg-dh-primary p-5 text-white sm:p-7">
-                    <div>
-                      <ShieldCheck className="h-8 w-8 text-dh-secondary" />
-                      <h2 className="mt-3 font-display text-xl font-bold">
-                        Have a DigitalHood account?
-                      </h2>
-                      <p className="mt-2 text-sm leading-6 text-white/70">
-                        Sign in once to track every account order, open the full
-                        order, and report an issue without entering checkout details.
-                      </p>
-                    </div>
-                    <Link
-                      to="/login?redirect=/track-order"
-                      className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-dh-secondary px-5 text-sm font-bold text-black"
-                    >
-                      Sign in to track all orders
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {order && statusStyles && deliveryDetails && (
-              <section
-                id="tracked-order-details"
-                className="scroll-mt-32 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]"
-              >
-                <div className="space-y-6">
-                  <div className="rounded-3xl bg-white p-6 sm:p-8">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm text-dh-dark-gray">
-                          Order #{order.number || order.id}
-                        </p>
-
-                        <h2 className="font-display mt-1 text-2xl font-bold text-dh-primary">
-                          {statusStyles.title}
-                        </h2>
-                      </div>
-
-                      <div
-                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${statusStyles.badge}`}
-                      >
-                        {statusStyles.icon}
-                        {order.statusLabel || order.status}
-                      </div>
-                    </div>
-
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-2xl bg-dh-gray p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-                          Order total
-                        </p>
-                        <p className="mt-1 font-display text-xl font-bold text-dh-primary">
-                          {formatPrice(order.total, order.currency)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-dh-gray p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-                          Payment
-                        </p>
-                        <p className="mt-1 font-semibold text-dh-primary">
-                          {order.paymentMethodTitle || 'Not specified'}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-dh-gray p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-                          Created
-                        </p>
-                        <p className="mt-1 font-semibold text-dh-primary">
-                          {formatDate(order.dateCreated)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl bg-dh-secondary/15 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-                          Expected delivery
-                        </p>
-                        <p className="mt-1 font-semibold text-dh-primary">
-                          {deliveryDetails.label}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 rounded-2xl border border-dh-light-gray bg-white p-4">
-                      <div className="flex gap-3">
-                        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-
-                        <div>
-                          <p className="font-semibold text-dh-primary">
-                            Expected delivery date
-                          </p>
-
-                          <p className="mt-1 text-sm text-dh-dark-gray">
-                            {deliveryDetails.label}
-                          </p>
-
-                          <p className="mt-1 text-xs text-dh-dark-gray">
-                            {deliveryDetails.window}
-                          </p>
-
-                          <p className="mt-2 text-xs text-dh-dark-gray">
-                            Delivery business days are counted Monday to Saturday.
-                            Sundays are skipped automatically.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-8">
-                      <h3 className="font-display mb-4 text-lg font-bold text-dh-primary">
-                        Order progress
-                      </h3>
-
-                      <div className="space-y-4">
-                        {progressSteps.map((step, index) => (
-                          <div key={step.label} className="flex gap-4">
-                            <div className="flex flex-col items-center">
-                              <div
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border-2 ${
-                                  step.done
-                                    ? 'border-green-600 bg-green-600 text-white'
-                                    : 'border-gray-300 bg-white text-gray-400'
-                                }`}
-                              >
-                                {step.done ? (
-                                  <CheckCircle2 className="h-5 w-5" />
-                                ) : (
-                                  <Clock className="h-4 w-4" />
-                                )}
-                              </div>
-
-                              {index < progressSteps.length - 1 && (
-                                <div
-                                  className={`mt-2 h-8 w-0.5 ${
-                                    progressSteps[index + 1].done
-                                      ? 'bg-green-600'
-                                      : 'bg-gray-200'
-                                  }`}
-                                />
-                              )}
-                            </div>
-
-                            <div className="pb-4">
-                              <p className="font-semibold text-dh-primary">
-                                {step.label}
-                              </p>
-
-                              <p className="text-sm text-dh-dark-gray">
-                                {step.description}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl bg-white p-6 sm:p-8">
-                    <h3 className="font-display mb-5 text-lg font-bold text-dh-primary">
-                      Items in this order
-                    </h3>
-
-                    <div className="space-y-4">
-                      {orderStoreGroups.map((group) => (
-                        <section
-                          key={group.key}
-                          className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white"
-                        >
-                          <Link
-                            to={group.sellerUrl}
-                            className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-dh-gray px-3 py-2.5 transition hover:bg-white"
-                          >
-                            <span className="flex min-w-0 items-center gap-2.5">
-                              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary">
-                                {group.avatarUrl ? (
-                                  <img
-                                    src={group.avatarUrl}
-                                    alt={group.storeName}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  group.initials
-                                )}
-                              </span>
-
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-black leading-tight text-dh-primary">
-                                  {group.storeName}
-                                </span>
-                                <span className="block truncate text-[11px] font-bold leading-tight text-green-700">
-                                  {group.feedbackText}
-                                </span>
-                              </span>
-                            </span>
-
-                            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-dh-primary">
-                              {formatPrice(group.subtotal, order.currency)}
-                            </span>
-                          </Link>
-
-                          <div className="divide-y divide-dh-light-gray">
-                            {group.items.map((item) => {
-                              const metaLines = getItemMetaText(item)
-
-                              return (
-                                <article
-                                  key={item.id}
-                                  className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 p-3"
-                                >
-                                  <img
-                                    src={item.image || '/logo.jpg'}
-                                    alt={item.name}
-                                    className="h-16 w-16 shrink-0 rounded-xl bg-dh-gray object-contain p-1.5"
-                                    onError={(event) => {
-                                      event.currentTarget.src = '/logo.jpg'
-                                    }}
-                                  />
-
-                                  <div className="min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <p className="line-clamp-2 text-sm font-black leading-tight text-dh-primary">
-                                          {item.name}
-                                        </p>
-
-                                        {metaLines.length > 0 && (
-                                          <div className="mt-1 space-y-0.5">
-                                            {metaLines.slice(0, 2).map((line) => (
-                                              <p
-                                                key={line}
-                                                className="line-clamp-1 text-[11px] text-dh-dark-gray"
-                                              >
-                                                {line}
-                                              </p>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <p className="shrink-0 text-right text-sm font-black text-dh-primary">
-                                        {formatPrice(item.total, order.currency)}
-                                      </p>
-                                    </div>
-
-                                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                                      <span className="rounded-full bg-dh-gray px-2.5 py-1 text-[11px] font-black text-dh-primary">
-                                        Qty {item.quantity}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </article>
-                              )
-                            })}
-                          </div>
-                        </section>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <aside className="space-y-6">
-                  <div className="rounded-3xl bg-white p-6">
-                    <h3 className="font-display mb-4 text-lg font-bold text-dh-primary">
-                      Delivery details
-                    </h3>
-
-                    <div className="space-y-3 text-sm">
-                      <div className="flex gap-3">
-                        <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-
-                        <div>
-                          <p className="font-semibold text-dh-primary">
-                            Delivery address
-                          </p>
-
-                          <p className="text-dh-dark-gray">
-                            {order.shipping?.address1 || 'Address not available'}
-                          </p>
-
-                          {order.shipping?.address2 && (
-                            <p className="text-dh-dark-gray">
-                              {order.shipping.address2}
-                            </p>
-                          )}
-
-                          <p className="text-dh-dark-gray">
-                            {[order.shipping?.city, order.shipping?.province]
-                              .filter(Boolean)
-                              .join(', ') || 'Location not available'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <Truck className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-
-                        <div>
-                          <p className="font-semibold text-dh-primary">
-                            Shipping method
-                          </p>
-
-                          {(order.shippingLines || []).length > 0 ? (
-                            (order.shippingLines || []).map((line) => (
-                              <p
-                                key={line.id || line.methodTitle}
-                                className="text-dh-dark-gray"
-                              >
-                                {line.methodTitle || 'Delivery'} ·{' '}
-                                {formatPrice(line.total, order.currency)}
-                              </p>
-                            ))
-                          ) : (
-                            <p className="text-dh-dark-gray">
-                              Delivery details are being prepared.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
-
-                        <div>
-                          <p className="font-semibold text-dh-primary">
-                            Expected delivery
-                          </p>
-
-                          <p className="text-dh-dark-gray">
-                            {deliveryDetails.label}
-                          </p>
-
-                          <p className="mt-1 text-xs text-dh-dark-gray">
-                            {deliveryDetails.isLusaka
-                              ? 'Lusaka same-day delivery runs Monday to Saturday.'
-                              : 'Outside Lusaka deliveries are counted Monday to Saturday.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl bg-white p-6">
-                    <h3 className="font-display mb-4 text-lg font-bold text-dh-primary">
-                      Order case
-                    </h3>
-
-                    <p className="text-sm text-dh-dark-gray">
-                      Open a case for this order if there is an issue with payment,
-                      delivery, product condition, or return/refund support.
-                    </p>
-
-                    <div className="mt-4 rounded-2xl bg-dh-gray p-4 text-sm">
-                      <p className="font-semibold text-dh-primary">
-                        Order reference
-                      </p>
-
-                      <p className="mt-1 text-dh-dark-gray">
-                        #{order.number || order.id}
-                      </p>
-
-                      {order.caseEligibility?.deadline && (
-                        <p className="mt-2 text-xs font-semibold text-dh-dark-gray">
-                          Case window ends: {formatDate(order.caseEligibility.deadline)}
-                        </p>
-                      )}
-                    </div>
-
-                    {order.caseEligibility?.canOpenCase ? (
-                      <Link
-                        to={
-                          isAuthenticated
-                            ? `/orders/${order.id}#order-support`
-                            : buildOrderSupportUrl(order)
-                        }
-                        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-dh-primary px-5 py-3 text-sm font-semibold text-white hover:bg-dh-secondary"
-                      >
-                        {isAuthenticated ? 'Report an issue' : 'Open Order Case'}
-                      </Link>
-                    ) : (
-                      <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-dh-dark-gray">
-                        {order.caseEligibility?.reason || 'Order cases are not available for this order right now.'}
-                      </div>
-                    )}
-                  </div>
-                </aside>
-              </section>
-            )}
-          </div>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
-  )
+  const { isAuthenticated, isLoading } = useAccount()
+  return <div className="flex min-h-[100svh] flex-col bg-[#f6f7fb]"><Header /><div className="flex-1">{isLoading ? <div className="mx-auto max-w-5xl px-4 py-14 text-center text-sm text-slate-500">Loading secure tracking…</div> : isAuthenticated ? <SignedInOrders /> : <GuestOrderLookup />}</div><Footer /></div>
 }
