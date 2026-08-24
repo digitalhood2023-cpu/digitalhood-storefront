@@ -66,6 +66,18 @@ export type CustomerOrderMarketplaceState = {
   closed: boolean
 }
 
+export type CustomerOrderDeliveryTracking = {
+  key: 'preparing' | 'shipped' | 'out-for-delivery' | 'delivered' | 'delayed' | 'closed' | string
+  label: string
+  message: string
+  expectedDate?: string | null
+  expectedLabel?: string | null
+  deliveredAt?: string | null
+  delayed: boolean
+  live: boolean
+  lastUpdatedAt?: string | null
+}
+
 export type CustomerOrder = {
   id: number
   number: string
@@ -84,6 +96,7 @@ export type CustomerOrder = {
   caseEligibility?: CustomerOrderCaseEligibility
   paymentRetry?: CustomerOrderPaymentRetry
   marketplaceState?: CustomerOrderMarketplaceState
+  deliveryTracking?: CustomerOrderDeliveryTracking
   dateCompleted?: string | null
   billing?: {
     firstName?: string

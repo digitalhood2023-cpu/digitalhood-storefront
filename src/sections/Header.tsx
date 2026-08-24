@@ -233,7 +233,7 @@ export default function Header() {
     }
   }, [isAuthenticated])
 
-  const dismissMobileMenu = useBackButtonDismiss({
+  const { dismiss: dismissMobileMenu } = useBackButtonDismiss({
     id: 'mobile-menu',
     isOpen: isMobileMenuOpen,
     onDismiss: () => setIsMobileMenuOpen(false),

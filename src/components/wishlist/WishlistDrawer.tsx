@@ -101,7 +101,10 @@ export default function WishlistDrawer() {
 
   const addItem = useCartStore((state) => state.addItem)
   const wishlistItems = items as unknown as DrawerWishlistProduct[]
-  const dismissWishlistDrawer = useBackButtonDismiss({
+  const {
+    dismiss: dismissWishlistDrawer,
+    dismissForNavigation: closeWishlistForNavigation,
+  } = useBackButtonDismiss({
     id: 'wishlist-drawer',
     isOpen: isWishlistDrawerOpen,
     onDismiss: closeWishlistDrawer,
@@ -179,7 +182,7 @@ export default function WishlistDrawer() {
               Tap the heart icon on products you like and they will appear here.
             </p>
 
-            <Link to="/shop" onClick={dismissWishlistDrawer}>
+            <Link to="/shop" onClick={closeWishlistForNavigation}>
               <Button className="mt-6 rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
                 Start shopping
               </Button>
@@ -199,7 +202,7 @@ export default function WishlistDrawer() {
                     <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3">
                       <Link
                         to={`/product/${getProductSlug(product)}`}
-                        onClick={dismissWishlistDrawer}
+                        onClick={closeWishlistForNavigation}
                         className="aspect-square overflow-hidden rounded-2xl bg-dh-gray"
                       >
                         <img
@@ -221,7 +224,7 @@ export default function WishlistDrawer() {
                         <div className="flex items-start justify-between gap-2">
                           <Link
                             to={`/product/${getProductSlug(product)}`}
-                            onClick={dismissWishlistDrawer}
+                            onClick={closeWishlistForNavigation}
                           >
                             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-dh-primary hover:text-dh-secondary">
                               {product.name}
@@ -245,7 +248,7 @@ export default function WishlistDrawer() {
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <Link
                             to={`/product/${getProductSlug(product)}`}
-                            onClick={dismissWishlistDrawer}
+                            onClick={closeWishlistForNavigation}
                             className="inline-flex items-center justify-center rounded-full border border-dh-primary px-3 py-2 text-xs font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
                           >
                             View
@@ -263,7 +266,7 @@ export default function WishlistDrawer() {
                           ) : (
                             <Link
                               to={`/product/${getProductSlug(product)}`}
-                              onClick={dismissWishlistDrawer}
+                              onClick={closeWishlistForNavigation}
                               className="inline-flex items-center justify-center rounded-full bg-dh-primary px-3 py-2 text-xs font-semibold text-white hover:bg-dh-secondary"
                             >
                               Options
@@ -281,7 +284,7 @@ export default function WishlistDrawer() {
 
         {wishlistItems.length > 0 && (
           <div className="border-t border-dh-light-gray bg-white p-4">
-            <Link to="/wishlist" onClick={dismissWishlistDrawer}>
+            <Link to="/wishlist" onClick={closeWishlistForNavigation}>
               <Button className="w-full rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
                 View full wishlist
               </Button>

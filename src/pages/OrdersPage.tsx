@@ -238,7 +238,7 @@ function OrderCard({ order }: { order: AccountOrder }) {
         </div>
 
         <Link
-          to={`/orders/${order.id}`}
+          to={`/track-order/${order.id}`}
           className="inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-dh-secondary sm:w-auto"
         >
           View order

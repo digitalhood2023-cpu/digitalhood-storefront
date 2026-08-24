@@ -102,6 +102,18 @@ export type AccountOrderMarketplaceState = {
   closed: boolean
 }
 
+export type AccountOrderDeliveryTracking = {
+  key: 'preparing' | 'shipped' | 'out-for-delivery' | 'delivered' | 'delayed' | 'closed' | string
+  label: string
+  message: string
+  expectedDate?: string | null
+  expectedLabel?: string | null
+  deliveredAt?: string | null
+  delayed: boolean
+  live: boolean
+  lastUpdatedAt?: string | null
+}
+
 export type AccountOrderItemMeta = {
   key?: string
   value?: unknown
@@ -146,6 +158,7 @@ export type AccountOrder = {
   caseEligibility?: AccountOrderCaseEligibility
   paymentRetry?: AccountOrderPaymentRetry
   marketplaceState?: AccountOrderMarketplaceState
+  deliveryTracking?: AccountOrderDeliveryTracking
   dateCompleted?: string | null
   billing?: {
     firstName?: string

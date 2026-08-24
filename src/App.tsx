@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
+import { Navigate, Routes, Route, useLocation, useNavigationType, useParams } from 'react-router-dom'
 
 import { AccountProvider } from '@/context/AccountContext'
 import { WishlistProvider } from '@/context/WishlistContext'
@@ -31,7 +31,6 @@ const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
-const OrderDetailsPage = lazy(() => import('@/pages/OrderDetailsPage'))
 const InfoPage = lazy(() => import('@/pages/InfoPage'))
 
 const PhoneAccessoriesPage = lazy(() => import('@/pages/seo/PhoneAccessoriesPage'))
@@ -111,6 +110,11 @@ function NavigationScrollManager() {
   return null
 }
 
+function LegacyOrderDetailsRedirect() {
+  const { orderId = '' } = useParams()
+  return <Navigate to={`/track-order/${encodeURIComponent(orderId)}`} replace />
+}
+
 function App() {
   return (
     <AccountProvider>
@@ -151,7 +155,7 @@ function App() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
-                <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+                <Route path="/orders/:orderId" element={<LegacyOrderDetailsRedirect />} />
                 <Route path="/orders/:orderId/pay" element={<OrderPaymentRetryPage />} />
 
                 <Route path="/help" element={<InfoPage />} />

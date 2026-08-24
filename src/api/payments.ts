@@ -58,6 +58,11 @@ type CreateOrderResponse = {
     transaction_id?: string
     date_created?: string
     checkout_payment_url?: string
+    deliveryEstimate?: {
+      expectedDate?: string
+      label?: string
+      window?: string
+    }
   }
 }
 

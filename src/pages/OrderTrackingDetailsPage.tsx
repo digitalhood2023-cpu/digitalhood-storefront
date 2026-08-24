@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, Check, CircleDot, Clock3, MapPin, PackageCheck, ReceiptText, ShieldAlert, ShoppingBag, Store, Truck } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, CircleDot, Clock3, MapPin, PackageCheck, Radio, ReceiptText, RefreshCw, ShieldAlert, ShoppingBag, Store, Truck } from 'lucide-react'
 
 import { getCustomerOrder } from '@/api/account'
 import type { CustomerOrder } from '@/api/orders'
@@ -60,23 +60,58 @@ export default function OrderTrackingDetailsPage() {
   const [order, setOrder] = useState<TrackableOrder | null>(guestOrder || null)
   const [loading, setLoading] = useState(Boolean(!guestOrder))
   const [error, setError] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshNotice, setRefreshNotice] = useState('')
 
   useEffect(() => {
     if (accountLoading) return
-    if (!isAuthenticated) {
-      return
-    }
+    if (!isAuthenticated) return
 
     let active = true
-    getCustomerOrder(orderId)
-      .then((response) => active && setOrder(response.order))
-      .catch((requestError) => active && setError(requestError instanceof Error ? requestError.message : 'Unable to load this order.'))
-      .finally(() => active && setLoading(false))
-    return () => { active = false }
+    let refreshTimer = 0
+
+    const loadOrder = async (initial = false) => {
+      if (!initial && active) setRefreshing(true)
+
+      try {
+        const response = await getCustomerOrder(orderId)
+        if (!active) return
+        setOrder(response.order)
+        setError('')
+        setRefreshNotice('')
+      } catch (requestError) {
+        if (!active) return
+        const message = requestError instanceof Error ? requestError.message : 'Unable to load this order.'
+        if (initial && !guestOrder) setError(message)
+        else setRefreshNotice('Live updates are reconnecting. Your last order update is still shown.')
+      } finally {
+        if (active) {
+          setLoading(false)
+          setRefreshing(false)
+        }
+      }
+    }
+
+    void loadOrder(true)
+    refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadOrder(false)
+    }, 15_000)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void loadOrder(false)
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      active = false
+      window.clearInterval(refreshTimer)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [accountLoading, guestOrder, isAuthenticated, orderId])
 
   const groups = useMemo(() => groupOrderItemsByStore(order?.items || []), [order])
   const state = order ? getTrackingState(order) : null
+  const deliveryTracking = order?.deliveryTracking
   const progress = order ? journeyPosition(order) : 0
   const isCashOnDelivery = Boolean(
     order && ['cod', 'cash_on_delivery'].includes(String(order.paymentMethod || '').toLowerCase())
@@ -114,6 +149,34 @@ export default function OrderTrackingDetailsPage() {
               )}
             </section>
 
+            <section className={`mt-4 rounded-2xl border p-4 shadow-sm sm:p-5 ${deliveryTracking?.delayed ? 'border-amber-200 bg-amber-50' : deliveryTracking?.key === 'delivered' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${deliveryTracking?.delayed ? 'bg-amber-100 text-amber-700' : deliveryTracking?.key === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-[#28256d]'}`}>
+                    {deliveryTracking?.key === 'delivered' ? <PackageCheck className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Delivery</p>
+                    <h2 className="mt-0.5 text-base font-black text-slate-900">{deliveryTracking?.label || state.label}</h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+                      {deliveryTracking?.message || (order.deliveryEstimate?.label ? `Expected delivery ${order.deliveryEstimate.label}.` : 'Delivery updates will appear here as the order moves.')}
+                    </p>
+                  </div>
+                </div>
+                {deliveryTracking?.live && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                    <Radio className="h-3 w-3" /> Live updates
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 grid gap-2 border-t border-black/5 pt-3 sm:grid-cols-3">
+                <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Expected</p><p className="mt-1 text-sm font-black text-slate-800">{deliveryTracking?.expectedLabel || order.deliveryEstimate?.label || 'Update pending'}</p></div>
+                <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Delivered</p><p className="mt-1 text-sm font-black text-slate-800">{deliveryTracking?.deliveredAt ? formatOrderDate(deliveryTracking.deliveredAt, true) : 'Not delivered yet'}</p></div>
+                <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Last update</p><p className="mt-1 inline-flex items-center gap-1.5 text-sm font-black text-slate-800"><RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> {deliveryTracking?.lastUpdatedAt ? formatOrderDate(deliveryTracking.lastUpdatedAt, true) : refreshing ? 'Refreshing…' : 'Live'}</p></div>
+              </div>
+              {refreshNotice && <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-amber-800">{refreshNotice}</p>}
+            </section>
+
             <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between"><h2 className="font-black text-[#16143f]">Items and sellers</h2><span className="text-xs font-bold text-slate-400">{order.items?.length || 0} item{order.items?.length === 1 ? '' : 's'}</span></div>
@@ -138,7 +201,7 @@ export default function OrderTrackingDetailsPage() {
               <div className="space-y-4">
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-black text-[#16143f]">Order summary</h2><dl className="mt-3 space-y-2.5 text-sm"><div className="flex justify-between gap-3"><dt className="text-slate-500">Total</dt><dd className="font-black text-slate-900">{formatOrderMoney(order.total, order.currency)}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Payment</dt><dd className="text-right font-bold text-slate-700">{order.paymentMethodTitle || 'Not available'}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Payment status</dt><dd className="text-right font-bold text-slate-700">{order.datePaid ? `Paid ${formatOrderDate(order.datePaid)}` : isCashOnDelivery ? 'Handled on delivery' : state.closed ? 'Not paid' : 'Pending'}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Delivery</dt><dd className="text-right font-bold text-slate-700">{order.deliveryEstimate?.label || 'Update pending'}</dd></div></dl></section>
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="mb-3 flex items-center gap-2 font-black text-[#16143f]"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
-                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={isAuthenticated ? `/orders/${order.id}#order-support` : buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
               </div>
             </div>
           </>

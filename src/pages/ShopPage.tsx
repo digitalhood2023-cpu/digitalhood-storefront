@@ -399,7 +399,7 @@ export default function ShopPage() {
   const [selectedStorage, setSelectedStorage] = useState(storageFromUrl);
   const [selectedColor, setSelectedColor] = useState(colorFromUrl);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const dismissMobileFilters = useBackButtonDismiss({
+  const { dismiss: dismissMobileFilters } = useBackButtonDismiss({
     id: 'shop-mobile-filters',
     isOpen: showMobileFilters,
     onDismiss: () => setShowMobileFilters(false),
