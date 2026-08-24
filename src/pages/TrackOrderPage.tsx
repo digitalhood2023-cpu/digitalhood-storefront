@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAccount } from '@/context/AccountContext'
 import { formatOrderDate, formatOrderMoney, getTrackingState, type TrackingCategory } from '@/lib/orderTracking'
+import { buildOrderSupportUrl } from '@/lib/supportLinks'
 import Footer from '@/sections/Footer'
 import Header from '@/sections/Header'
 
@@ -132,7 +133,7 @@ function SignedInOrders() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
-                {!state.closed && <Link to={`/orders/${order.id}#order-support`} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Report issue</Link>}
+                {!state.closed && <Link to={buildOrderSupportUrl(order)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Report issue</Link>}
                 {order.paymentRetry?.eligible ? (
                   <Button asChild className="h-9 rounded-lg bg-[#f5a623] px-4 text-xs font-black text-[#16143f] hover:bg-[#ffb536]"><Link to={`/orders/${order.id}/pay`}>Pay now <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link></Button>
                 ) : state.trackable ? (

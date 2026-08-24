@@ -13,6 +13,72 @@ const STOREFRONT_URL =
   import.meta.env.VITE_STOREFRONT_URL ||
   'https://store.digitalhood.info'
 
+const CHAT_GET_TIMEOUT_MS = 15_000
+const CHAT_CACHE_FRESH_MS = 30_000
+const CHAT_CACHE_STALE_MS = 10 * 60_000
+const CHAT_RESPONSE_CACHE_MAX = 100
+
+type ChatResponseCacheEntry = {
+  value: unknown
+  storedAt: number
+}
+
+const chatResponseCache = new Map<string, ChatResponseCacheEntry>()
+
+export class ChatRequestError extends Error {
+  readonly code: string
+  readonly status: number
+  readonly retryable: boolean
+
+  constructor(message: string, code: string, status: number, retryable = false) {
+    super(message)
+    this.name = 'ChatRequestError'
+    this.code = code
+    this.status = status
+    this.retryable = retryable
+  }
+}
+
+function tokenCacheFingerprint(token: string) {
+  let hash = 2166136261
+  for (let index = 0; index < token.length; index += 1) {
+    hash ^= token.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+function rememberChatResponse(key: string, value: unknown) {
+  chatResponseCache.delete(key)
+  chatResponseCache.set(key, { value, storedAt: Date.now() })
+
+  while (chatResponseCache.size > CHAT_RESPONSE_CACHE_MAX) {
+    const oldest = chatResponseCache.keys().next().value
+    if (!oldest) break
+    chatResponseCache.delete(oldest)
+  }
+}
+
+function friendlyChatError(code: string, status: number) {
+  if (code === 'SESSION_NOT_AUTHORIZED' || status === 401 || status === 403) {
+    return 'Your sign-in needs to be refreshed. Sign in again to continue messaging.'
+  }
+
+  if (code === 'IDENTITY_SERVICE_UNAVAILABLE') {
+    return 'Messages are temporarily reconnecting to your account. Your conversation is safe—please try again shortly.'
+  }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return 'You appear to be offline. Your loaded messages remain available while DigitalHood reconnects.'
+  }
+
+  return 'Messages are taking longer than expected. Please check your connection and try again.'
+}
+
+function waitForChatRetry(milliseconds: number) {
+  return new Promise<void>((resolve) => globalThis.setTimeout(resolve, milliseconds))
+}
+
 function resolveChatAvatarUrl(value: unknown) {
   const normalized = typeof value === 'string' ? value.trim() : ''
 
@@ -286,48 +352,86 @@ async function chatFetch<T>(
     getAccountToken()
 
   if (!token) {
-    throw new Error(
-      'Please sign in to use marketplace chat.'
-    )
+    throw new ChatRequestError('Please sign in to use marketplace chat.', 'SESSION_NOT_AUTHORIZED', 401)
   }
 
-  const response =
-    await fetch(
-      `${CHAT_API_URL}${path}`,
-      {
+  const method = String(options.method || 'GET').toUpperCase()
+  const canRetry = method === 'GET'
+  const cacheKey = `${tokenCacheFingerprint(token)}:${path}`
+  const cached = canRetry ? chatResponseCache.get(cacheKey) : undefined
+  const attempts = canRetry ? 3 : 1
+  let lastError: ChatRequestError | null = null
+
+  if (cached && Date.now() - cached.storedAt <= CHAT_CACHE_FRESH_MS) {
+    return cached.value as T
+  }
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController()
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), CHAT_GET_TIMEOUT_MS)
+    const abortFromCaller = () => controller.abort()
+    options.signal?.addEventListener('abort', abortFromCaller, { once: true })
+
+    try {
+      const response = await fetch(`${CHAT_API_URL}${path}`, {
         ...options,
-
+        signal: controller.signal,
         cache: 'no-store',
-
         headers: {
-          'Content-Type':
-            'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...(options.headers || {}),
+        },
+      })
 
-          Authorization:
-            `Bearer ${token}`,
+      const data = await response.json().catch(() => null)
 
-          ...(options.headers || {})
-        }
+      if (!response.ok) {
+        const code = String(data?.error || data?.code || '').trim().toUpperCase()
+        const retryable = [429, 502, 503, 504].includes(response.status) || code === 'IDENTITY_SERVICE_UNAVAILABLE'
+        const message = friendlyChatError(code, response.status)
+        throw new ChatRequestError(message, code || 'CHAT_REQUEST_FAILED', response.status, retryable)
       }
-    )
 
-  const data =
-    await response
-      .json()
-      .catch(() => null)
+      if (canRetry) rememberChatResponse(cacheKey, data)
+      return data as T
+    } catch (error) {
+      if (error instanceof ChatRequestError) {
+        lastError = error
+      } else {
+        lastError = new ChatRequestError(
+          friendlyChatError('CHAT_NETWORK_ERROR', 0),
+          'CHAT_NETWORK_ERROR',
+          0,
+          true
+        )
+      }
 
-  if (!response.ok) {
-    const error =
-      data?.message ||
-      data?.error ||
-      `Chat request failed with status ${response.status}`
+      if (
+        cached &&
+        Date.now() - cached.storedAt <= CHAT_CACHE_STALE_MS &&
+        lastError.retryable
+      ) {
+        return cached.value as T
+      }
 
-    throw new Error(
-      String(error)
-    )
+      if (!canRetry || !lastError.retryable || attempt === attempts - 1) break
+      await waitForChatRetry(350 * (2 ** attempt))
+    } finally {
+      globalThis.clearTimeout(timeoutId)
+      options.signal?.removeEventListener('abort', abortFromCaller)
+    }
   }
 
-  return data as T
+  if (
+    cached &&
+    Date.now() - cached.storedAt <= CHAT_CACHE_STALE_MS &&
+    lastError?.retryable
+  ) {
+    return cached.value as T
+  }
+
+  throw lastError || new ChatRequestError(friendlyChatError('CHAT_REQUEST_FAILED', 0), 'CHAT_REQUEST_FAILED', 0, true)
 }
 
 export async function openProductConversation(

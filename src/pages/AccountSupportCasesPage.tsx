@@ -560,7 +560,7 @@ export default function AccountSupportCasesPage() {
                           </p>
                         </div>
                         <Link
-                          to={`/orders/${selectedCase.order.orderId}#order-support`}
+                          to={`/track-order/${selectedCase.order.orderId}`}
                           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-orange-700 px-4 text-xs font-bold text-white"
                         >
                           Reply now
@@ -613,7 +613,7 @@ export default function AccountSupportCasesPage() {
 
                         {selectedCase.order?.orderId && (
                           <Link
-                            to={`/orders/${selectedCase.order.orderId}`}
+                            to={`/track-order/${selectedCase.order.orderId}`}
                             className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-dh-light-gray bg-white text-xs font-bold text-dh-primary hover:border-dh-primary"
                           >
                             Open order #{caseOrderNumber(selectedCase)}

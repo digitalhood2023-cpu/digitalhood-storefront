@@ -46,7 +46,9 @@ import { getShippingDetails } from '@/lib/shipping'
 import { useCartStore } from '@/store/cartStore'
 
 import StockBadge from '@/components/StockBadge'
+import CheckoutProgressOverlay, { type CheckoutProgressStage } from '@/components/checkout/CheckoutProgressOverlay'
 import StripeCheckoutForm from '@/components/payments/StripeCheckoutForm'
+import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -277,6 +279,8 @@ export default function CheckoutPage() {
   const [searchParams] = useSearchParams()
   const pageRef = useRef<HTMLDivElement>(null)
   const lencoPollingRef = useRef<number | null>(null)
+  const completionTimerRef = useRef<number | null>(null)
+  const checkoutSubmissionRef = useRef(false)
   const hasPrefilledAccountRef = useRef(false)
 
   const {
@@ -353,7 +357,14 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('')
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null)
   const [completedOrderTotal, setCompletedOrderTotal] = useState<number | null>(null)
+  const [completedStoreGroups, setCompletedStoreGroups] = useState<
+    ReturnType<typeof groupCheckoutItemsByStore>
+  >([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [checkoutProgressStage, setCheckoutProgressStage] =
+    useState<CheckoutProgressStage>('idle')
+  const [checkoutProgressMessage, setCheckoutProgressMessage] = useState('')
+  const [confirmedDeliveryLabel, setConfirmedDeliveryLabel] = useState('')
 
   const [cardClientSecret, setCardClientSecret] = useState('')
   const [cardPaymentIntentId, setCardPaymentIntentId] = useState('')
@@ -407,6 +418,15 @@ export default function CheckoutPage() {
   const deliveryEstimate = shipping.estimate
   const finalTotal = subtotal + deliveryFee
   const successOrderTotal = completedOrderTotal ?? finalTotal
+  const successStoreGroups = completedStoreGroups.length > 0
+    ? completedStoreGroups
+    : checkoutStoreGroups
+  const checkoutAddressSummary = [
+    formData.address,
+    formData.address2,
+    formData.city,
+    formData.province,
+  ].filter(Boolean).join(', ')
 
   const formatPrice = (price: number) =>
     `K${Number(price || 0).toLocaleString('en-ZM', {
@@ -421,11 +441,42 @@ export default function CheckoutPage() {
     }
   }
 
+  const showConfirmedOrder = () => {
+    setCheckoutProgressStage('confirmed')
+    setCheckoutProgressMessage('Your confirmation is ready. Taking you to your order summary…')
+    setIsSubmitting(false)
+
+    if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current)
+    completionTimerRef.current = window.setTimeout(() => {
+      setOrderComplete(true)
+      setCheckoutProgressStage('idle')
+      completionTimerRef.current = null
+    }, 1_100)
+  }
+
   useEffect(() => {
     return () => {
       stopLencoPolling()
+      if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (checkoutProgressStage === 'idle') return
+    return acquireBodyScrollLock()
+  }, [checkoutProgressStage])
+
+  useEffect(() => {
+    if (checkoutProgressStage === 'idle' || checkoutProgressStage === 'confirmed') return
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [checkoutProgressStage])
 
   async function refreshCheckoutSavedAddresses() {
     if (!isAuthenticated) return []
@@ -920,6 +971,9 @@ export default function CheckoutPage() {
 
     setCreatedOrderId(orderId)
     setOrderNumber(orderRef)
+    setConfirmedDeliveryLabel(
+      response.order.deliveryEstimate?.label || deliveryEstimate
+    )
 
     return {
       orderId,
@@ -981,10 +1035,12 @@ export default function CheckoutPage() {
     stopLencoPolling()
 
     let attempts = 0
-    const maxAttempts = 24
+    const maxAttempts = 60
 
     setIsWaitingForLenco(true)
     setLencoStatus('Waiting for payment approval...')
+    setCheckoutProgressStage('awaiting-approval')
+    setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
 
     const poll = async () => {
       attempts += 1
@@ -1000,12 +1056,15 @@ export default function CheckoutPage() {
         if (paymentConfirmed) {
           stopLencoPolling()
           setIsWaitingForLenco(false)
+          setCheckoutProgressStage('confirming')
+          setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
           setLencoStatus('Payment confirmed successfully.')
           setSuccessState(getSuccessState('mobile-confirmed'))
-          setOrderComplete(true)
           setCreatedOrderId(orderId)
           setCompletedOrderTotal(finalTotal)
+          setCompletedStoreGroups(checkoutStoreGroups)
           removeCheckedOutItems()
+          showConfirmedOrder()
           return
         }
 
@@ -1016,6 +1075,8 @@ export default function CheckoutPage() {
 
           stopLencoPolling()
           setIsWaitingForLenco(false)
+          setIsSubmitting(false)
+          setCheckoutProgressStage('idle')
           setLencoStatus(failureMessage)
           setSuccessState({
             title: 'Payment Not Completed',
@@ -1037,6 +1098,9 @@ export default function CheckoutPage() {
               ? String(result.status)
               : 'Checking payment...')
         )
+        setCheckoutProgressMessage(
+          result.message || 'Your request is still active. Approve it on your phone and we will confirm it automatically.'
+        )
       } catch (error) {
         console.error(error)
       }
@@ -1044,18 +1108,21 @@ export default function CheckoutPage() {
       if (attempts >= maxAttempts) {
         stopLencoPolling()
         setIsWaitingForLenco(false)
+        setIsSubmitting(false)
+        setCheckoutProgressStage('idle')
         setLencoStatus(
           'Payment has not been confirmed. If money was deducted, do not pay again; DigitalHood will still reconcile it automatically.'
         )
         setSuccessState({
           title: 'Payment Confirmation Delayed',
           message:
-            'We could not confirm the Mobile Money result within two minutes.',
+            'Confirmation is taking longer than expected, but DigitalHood will keep checking it securely in the background.',
           nextStep:
             'If money was deducted, do not retry. View your order or contact DigitalHood support with the payment reference.',
           confirmed: false,
           failed: false,
         })
+        setOrderComplete(true)
         return
       }
 
@@ -1078,6 +1145,8 @@ export default function CheckoutPage() {
     }
 
     setIsPreparingCard(true)
+    setCheckoutProgressStage('creating')
+    setCheckoutProgressMessage('Creating your secure order before the card form opens…')
 
     try {
       const order =
@@ -1103,6 +1172,7 @@ export default function CheckoutPage() {
       )
     } finally {
       setIsPreparingCard(false)
+      setCheckoutProgressStage('idle')
     }
   }
 
@@ -1126,6 +1196,8 @@ export default function CheckoutPage() {
   const handleCardPaymentSuccess = async () => {
     setCheckoutError('')
     setIsSubmitting(true)
+    setCheckoutProgressStage('confirming')
+    setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
 
     try {
       const validationError = validateCheckout()
@@ -1140,21 +1212,24 @@ export default function CheckoutPage() {
       }
 
       setSuccessState(getSuccessState('card'))
-      setOrderComplete(true)
       setCompletedOrderTotal(finalTotal)
+      setCompletedStoreGroups(checkoutStoreGroups)
       removeCheckedOutItems()
+      showConfirmedOrder()
     } catch (error) {
       setCheckoutError(
         error instanceof Error
           ? error.message
           : 'Card payment was successful, but order verification failed. Please contact DigitalHood support.'
       )
+      setCheckoutProgressStage('idle')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handlePlaceOrder = async () => {
+    if (checkoutSubmissionRef.current) return
     setCheckoutError('')
 
     const validationError = validateCheckout()
@@ -1172,13 +1247,26 @@ export default function CheckoutPage() {
       return
     }
 
+    checkoutSubmissionRef.current = true
     setIsSubmitting(true)
+    setCheckoutProgressStage('creating')
+    setCheckoutProgressMessage(
+      paymentMethod === 'cod'
+        ? 'Checking stock and confirming your delivery details…'
+        : 'Checking stock, delivery and your secure order total…'
+    )
 
     try {
-      const order = await createOrderThroughPaymentsApi(paymentMethod)
+      const order =
+        createdOrderId && orderNumber
+          ? { orderId: createdOrderId, orderRef: orderNumber }
+          : await createOrderThroughPaymentsApi(paymentMethod)
 
       if (paymentMethod === 'mobile') {
         const reference = `DH_ORDER_${order.orderId}`
+
+        setCheckoutProgressStage('requesting-payment')
+        setCheckoutProgressMessage('Sending a secure approval request to your Mobile Money phone…')
 
         const response = await initiateLencoMobileMoney({
           amount: finalTotal,
@@ -1202,9 +1290,12 @@ export default function CheckoutPage() {
         setCompletedOrderTotal(finalTotal)
 
         if (paymentConfirmed) {
+          setCheckoutProgressStage('confirming')
+          setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
           setSuccessState(getSuccessState('mobile-confirmed'))
-          setOrderComplete(true)
+          setCompletedStoreGroups(checkoutStoreGroups)
           removeCheckedOutItems()
+          showConfirmedOrder()
           return
         }
 
@@ -1214,6 +1305,7 @@ export default function CheckoutPage() {
             'The Mobile Money payment was not completed. Check the number, balance and approval prompt, then try again.'
 
           setIsWaitingForLenco(false)
+          setCheckoutProgressStage('idle')
           setLencoStatus(failureMessage)
           setSuccessState({
             title: 'Payment Not Completed',
@@ -1228,7 +1320,6 @@ export default function CheckoutPage() {
         }
 
         setSuccessState(getSuccessState('mobile'))
-        setOrderComplete(true)
 
         pollLencoPayment({
           reference: paymentReference,
@@ -1238,22 +1329,31 @@ export default function CheckoutPage() {
         return
       }
 
+      setCheckoutProgressStage('confirming')
+      setCheckoutProgressMessage('Just a moment — we are confirming your Cash on Delivery order.')
       setSuccessState(getSuccessState(paymentMethod))
-      setOrderComplete(true)
       setCompletedOrderTotal(finalTotal)
+      setCompletedStoreGroups(checkoutStoreGroups)
       removeCheckedOutItems()
+      showConfirmedOrder()
     } catch (error) {
       setCheckoutError(
         error instanceof Error
           ? error.message
           : 'Checkout failed. Please try again.'
       )
+      setCheckoutProgressStage('idle')
     } finally {
       setIsSubmitting(false)
+      checkoutSubmissionRef.current = false
     }
   }
 
-  if (checkoutItems.length === 0 && !orderComplete) {
+  if (
+    checkoutItems.length === 0 &&
+    !orderComplete &&
+    checkoutProgressStage === 'idle'
+  ) {
     return (
       <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
@@ -1407,7 +1507,7 @@ export default function CheckoutPage() {
                   </p>
 
                   <div className="mt-3 space-y-2.5">
-                    {checkoutStoreGroups.map((group) => (
+                    {successStoreGroups.map((group) => (
                       <div
                         key={group.key}
                         className="flex items-center justify-between gap-3 rounded-2xl bg-dh-gray px-3 py-2.5"
@@ -1494,7 +1594,7 @@ export default function CheckoutPage() {
               <div className="flex flex-col justify-center gap-3 sm:flex-row">
                 {isAuthenticated && createdOrderId && (
                   <Button
-                    onClick={() => navigate(`/orders/${createdOrderId}`)}
+                    onClick={() => navigate(`/track-order/${createdOrderId}`)}
                     className="rounded-full bg-dh-primary px-8 text-white hover:bg-dh-secondary"
                   >
                     View Order
@@ -2438,6 +2538,16 @@ export default function CheckoutPage() {
           </div>
         </div>
       )}
+
+      <CheckoutProgressOverlay
+        stage={checkoutProgressStage}
+        paymentMethod={paymentMethod}
+        statusMessage={checkoutProgressMessage}
+        orderNumber={orderNumber}
+        total={formatPrice(successOrderTotal)}
+        deliveryLabel={confirmedDeliveryLabel || deliveryEstimate}
+        address={checkoutAddressSummary}
+      />
 
       <Footer />
     </div>

@@ -141,7 +141,7 @@ function RecentOrderCard({ order }: { order: AccountOrder }) {
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-dh-primary/30 hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-3.5 py-3">
-        <Link to={`/orders/${order.id}`} className="min-w-0 group">
+        <Link to={`/track-order/${order.id}`} className="min-w-0 group">
           <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Order #{order.number || order.id}</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">{formatDate(order.dateCreated)}</p>
         </Link>
@@ -149,7 +149,7 @@ function RecentOrderCard({ order }: { order: AccountOrder }) {
           <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${getStatusStyle(order.status)}`}>
             {order.statusLabel || order.status}
           </span>
-          <Link to={`/orders/${order.id}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-dh-gray text-dh-primary transition hover:bg-dh-primary hover:text-white" aria-label={`View order ${order.number || order.id}`}>
+          <Link to={`/track-order/${order.id}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-dh-gray text-dh-primary transition hover:bg-dh-primary hover:text-white" aria-label={`View order ${order.number || order.id}`}>
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>

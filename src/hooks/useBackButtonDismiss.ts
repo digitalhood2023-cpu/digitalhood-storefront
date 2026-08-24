@@ -66,5 +66,16 @@ export function useBackButtonDismiss({
     }
   }, [onDismiss])
 
-  return dismiss
+  const dismissForNavigation = useCallback(() => {
+    onDismiss()
+
+    if (typeof window === 'undefined' || !pushedStateRef.current) return
+
+    pushedStateRef.current = false
+    const nextState = { ...(window.history.state || {}) }
+    delete nextState.digitalhoodDismissLayer
+    window.history.replaceState(nextState, '', window.location.href)
+  }, [onDismiss])
+
+  return { dismiss, dismissForNavigation }
 }

@@ -160,7 +160,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     () => groupCartItemsByStore(items as CartDrawerItem[]),
     [items]
   )
-  const dismissDrawer = useBackButtonDismiss({
+  const { dismiss: dismissDrawer } = useBackButtonDismiss({
     id: 'cart-drawer',
     isOpen,
     onDismiss: onClose,
