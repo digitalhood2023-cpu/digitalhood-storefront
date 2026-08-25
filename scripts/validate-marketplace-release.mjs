@@ -15,6 +15,9 @@ const stripe = read('src/components/payments/StripeCheckoutForm.tsx')
 const product = read('src/pages/ProductPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
+const accountApi = read('src/api/account.ts')
+const cartDrawer = read('src/features/cart/CartDrawer.tsx')
+const wishlistDrawer = read('src/components/wishlist/WishlistDrawer.tsx')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
 const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
 const supportLinks = read('src/lib/supportLinks.ts')
@@ -108,6 +111,27 @@ assert(
     orders.includes('filterCounts[filter.value]') &&
     orders.includes('View order'),
   'orders must retain compact cards and live filter counts without the old hero'
+)
+assert(
+  orders.includes('perPage: 10') &&
+    orders.includes('status: statusFilter') &&
+    orders.includes('debouncedSearch') &&
+    orders.includes('Page <strong') &&
+    accountApi.includes('customerOrderMemoryCache') &&
+    accountApi.includes('customerOrderInflight') &&
+    accountApi.includes('CUSTOMER_ORDER_MEMORY_CACHE_MAX_ENTRIES = 60') &&
+    accountApi.includes('clearCustomerOrderMemoryCache()'),
+  'signed-in orders must stay paginated, debounced, account-scoped, and request-coalesced'
+)
+assert(
+  cartDrawer.includes('grid-cols-[68px_minmax(0,1fr)]') &&
+    cartDrawer.includes('divide-y divide-slate-100') &&
+    cartDrawer.includes("storeGroups.length === 1 ? 'seller' : 'sellers'") &&
+    !cartDrawer.includes('grid-cols-[96px_minmax(0,1fr)]') &&
+    wishlistDrawer.includes('grid-cols-[68px_minmax(0,1fr)]') &&
+    wishlistDrawer.includes('View full wishlist') &&
+    !wishlistDrawer.includes('grid-cols-[96px_minmax(0,1fr)]'),
+  'cart and wishlist drawer products must remain compact without losing their actions'
 )
 assert(
   tracking.includes('Coupon ') &&

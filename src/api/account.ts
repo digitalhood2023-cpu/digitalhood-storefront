@@ -246,7 +246,11 @@ export type OrdersResponse = {
   counts?: {
     all: number
     inProgress: number
+    pending: number
+    processing: number
     shipped: number
+    shippedExact?: number
+    outForDelivery: number
     delivered: number
     closed?: number
   }
@@ -413,12 +417,14 @@ export function getAccountToken() {
 export function setAccountToken(token: string) {
   if (typeof window === 'undefined') return
 
+  if (getAccountToken() !== token) clearCustomerOrderMemoryCache()
   localStorage.setItem(ACCOUNT_TOKEN_KEY, token)
 }
 
 export function clearAccountToken() {
   if (typeof window === 'undefined') return
 
+  clearCustomerOrderMemoryCache()
   localStorage.removeItem(ACCOUNT_TOKEN_KEY)
 }
 
@@ -494,6 +500,84 @@ async function accountFetch<T>(
   }
 
   return data as T
+}
+
+type AccountMemoryCacheEntry = {
+  expiresAt: number
+  value: unknown
+}
+
+const customerOrderMemoryCache = new Map<string, AccountMemoryCacheEntry>()
+const customerOrderInflight = new Map<string, Promise<unknown>>()
+const CUSTOMER_ORDER_MEMORY_CACHE_MAX_ENTRIES = 60
+let customerOrderCacheScope = ''
+
+export function clearCustomerOrderMemoryCache() {
+  customerOrderMemoryCache.clear()
+  customerOrderInflight.clear()
+  customerOrderCacheScope = ''
+}
+
+function syncCustomerOrderCacheScope(token: string) {
+  if (customerOrderCacheScope === token) return
+
+  customerOrderMemoryCache.clear()
+  customerOrderInflight.clear()
+  customerOrderCacheScope = token
+}
+
+function setCustomerOrderMemoryCache(
+  path: string,
+  entry: AccountMemoryCacheEntry
+) {
+  if (customerOrderMemoryCache.has(path)) {
+    customerOrderMemoryCache.delete(path)
+  }
+
+  while (
+    customerOrderMemoryCache.size >= CUSTOMER_ORDER_MEMORY_CACHE_MAX_ENTRIES
+  ) {
+    const oldestPath = customerOrderMemoryCache.keys().next().value
+    if (!oldestPath) break
+    customerOrderMemoryCache.delete(oldestPath)
+  }
+
+  customerOrderMemoryCache.set(path, entry)
+}
+
+async function accountCachedGet<T>(path: string, ttlMs: number): Promise<T> {
+  const token = getAccountToken()
+  syncCustomerOrderCacheScope(token)
+
+  const cached = customerOrderMemoryCache.get(path)
+  if (cached && cached.expiresAt > Date.now()) {
+    setCustomerOrderMemoryCache(path, cached)
+    return cached.value as T
+  }
+  if (cached) customerOrderMemoryCache.delete(path)
+
+  const activeRequest = customerOrderInflight.get(path)
+  if (activeRequest) return activeRequest as Promise<T>
+
+  const request = accountFetch<T>(path)
+    .then((value) => {
+      if (getAccountToken() === token && customerOrderCacheScope === token) {
+        setCustomerOrderMemoryCache(path, {
+          expiresAt: Date.now() + ttlMs,
+          value,
+        })
+      }
+
+      return value
+    })
+    .finally(() => {
+      if (customerOrderInflight.get(path) === request) {
+        customerOrderInflight.delete(path)
+      }
+    })
+
+  customerOrderInflight.set(path, request)
+  return request
 }
 
 export async function registerCustomerAccount(payload: {
@@ -638,6 +722,13 @@ export type CustomerOrdersQuery = {
   page?: number
   perPage?: number
   category?: 'all' | 'in-progress' | 'shipped' | 'delivered'
+  status?:
+    | 'all'
+    | 'pending'
+    | 'processing'
+    | 'shipped'
+    | 'out-for-delivery'
+    | 'delivered'
   search?: string
 }
 
@@ -654,14 +745,15 @@ export async function getCustomerOrders(
     if (options.category && options.category !== 'all') {
       params.set('category', options.category)
     }
+    if (options.status && options.status !== 'all') {
+      params.set('status', options.status)
+    }
     if (options.search?.trim()) params.set('search', options.search.trim())
   }
 
   const query = params.size ? `?${params.toString()}` : ''
 
-  return accountFetch<OrdersResponse>(
-    `/api/account/orders${query}`
-  )
+  return accountCachedGet<OrdersResponse>(`/api/account/orders${query}`, 15_000)
 }
 
 export type CustomerOrderPaymentRetryResponse = {
@@ -700,37 +792,43 @@ export async function startCustomerOrderPaymentRetry(
     clientAttemptId: string
   }
 ) {
-  return accountFetch<CustomerOrderPaymentRetryResponse>(
+  const response = await accountFetch<CustomerOrderPaymentRetryResponse>(
     `/api/account/orders/${encodeURIComponent(String(orderId))}/payment-retry`,
     { method: 'POST', body: JSON.stringify(payload) }
   )
+  clearCustomerOrderMemoryCache()
+  return response
 }
 
 export async function verifyCustomerOrderPaymentRetry(
   orderId: string | number,
   payment: { reference: string } | { paymentIntentId: string }
 ) {
-  return accountFetch<CustomerOrderPaymentVerificationResponse>(
+  const response = await accountFetch<CustomerOrderPaymentVerificationResponse>(
     `/api/account/orders/${encodeURIComponent(String(orderId))}/payment-retry/verify`,
     { method: 'POST', body: JSON.stringify(payment) }
   )
+  clearCustomerOrderMemoryCache()
+  return response
 }
 
 export async function getCustomerOrder(orderId: string | number) {
-  return accountFetch<OrderResponse>(`/api/account/orders/${orderId}`)
+  return accountCachedGet<OrderResponse>(`/api/account/orders/${orderId}`, 3_000)
 }
 
 export async function getCustomerOrderCases(
   orderId: string | number
 ) {
-  return accountFetch<AccountOrderCasesResponse>(
-    `/api/account/orders/${encodeURIComponent(String(orderId))}/cases`
+  return accountCachedGet<AccountOrderCasesResponse>(
+    `/api/account/orders/${encodeURIComponent(String(orderId))}/cases`,
+    5_000
   )
 }
 
 export async function getAllCustomerOrderCases() {
-  return accountFetch<AccountOrderCasesResponse>(
-    '/api/account/order-cases'
+  return accountCachedGet<AccountOrderCasesResponse>(
+    '/api/account/order-cases',
+    5_000
   )
 }
 
@@ -792,6 +890,7 @@ export async function createCustomerOrderCase(
     )
   }
 
+  clearCustomerOrderMemoryCache()
   return data as CreateAccountOrderCaseResponse
 }
 
@@ -843,6 +942,7 @@ export async function replyToCustomerOrderCase(
     )
   }
 
+  clearCustomerOrderMemoryCache()
   return data as ReplyToAccountOrderCaseResponse
 }
 

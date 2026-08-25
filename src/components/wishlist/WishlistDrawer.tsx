@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Heart, ShoppingCart, Trash2, X } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import { useWishlist } from '@/context/WishlistContext'
 import { useCartStore } from '@/store/cartStore'
@@ -146,22 +145,21 @@ export default function WishlistDrawer() {
         className="absolute inset-0 bg-black/40"
       />
 
-      <aside className="absolute right-0 top-0 flex h-full w-[90vw] max-w-md flex-col bg-dh-gray shadow-2xl">
-        <div className="flex items-center justify-between border-b border-dh-light-gray bg-white px-5 py-4">
+      <aside className="absolute right-0 top-0 flex h-full w-[94vw] max-w-[420px] flex-col bg-slate-50 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-              Saved products
-            </p>
-
-            <h2 className="font-display text-2xl font-bold text-dh-primary">
+            <h2 className="font-display text-lg font-black text-dh-primary">
               Wishlist
             </h2>
+            <p className="text-[11px] font-semibold text-slate-500">
+              {wishlistItems.length} saved {wishlistItems.length === 1 ? 'product' : 'products'}
+            </p>
           </div>
 
           <button
             type="button"
             onClick={dismissWishlistDrawer}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-dh-gray text-dh-primary"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-dh-primary transition hover:bg-dh-primary hover:text-white"
             aria-label="Close wishlist"
           >
             <X className="h-5 w-5" />
@@ -169,9 +167,9 @@ export default function WishlistDrawer() {
         </div>
 
         {wishlistItems.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-dh-primary shadow-sm">
-              <Heart className="h-8 w-8" />
+          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-dh-primary shadow-sm">
+              <Heart className="h-7 w-7" />
             </div>
 
             <h3 className="font-display text-xl font-bold text-dh-primary">
@@ -182,28 +180,30 @@ export default function WishlistDrawer() {
               Tap the heart icon on products you like and they will appear here.
             </p>
 
-            <Link to="/shop" onClick={closeWishlistForNavigation}>
-              <Button className="mt-6 rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
-                Start shopping
-              </Button>
+            <Link
+              to="/shop"
+              onClick={closeWishlistForNavigation}
+              className="mt-5 inline-flex h-10 items-center rounded-full bg-dh-primary px-5 text-sm font-bold text-white hover:bg-dh-secondary"
+            >
+              Start shopping
             </Link>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin]">
-            <div className="grid gap-3">
+          <div className="flex-1 overflow-y-auto p-3 [scrollbar-width:thin]">
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
               {wishlistItems.slice(0, 20).map((product) => {
                 const directBuy = canBuyDirectly(product)
 
                 return (
                   <article
                     key={String(product.id)}
-                    className="overflow-hidden rounded-3xl bg-white shadow-sm"
+                    className="border-b border-slate-100 bg-white last:border-b-0"
                   >
-                    <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 p-3">
+                    <div className="grid grid-cols-[68px_minmax(0,1fr)] gap-2.5 px-2.5 py-2.5">
                       <Link
                         to={`/product/${getProductSlug(product)}`}
                         onClick={closeWishlistForNavigation}
-                        className="aspect-square overflow-hidden rounded-2xl bg-dh-gray"
+                        className="aspect-square overflow-hidden rounded-xl bg-slate-100"
                       >
                         <img
                           src={getProductImage(product)}
@@ -226,7 +226,7 @@ export default function WishlistDrawer() {
                             to={`/product/${getProductSlug(product)}`}
                             onClick={closeWishlistForNavigation}
                           >
-                            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-dh-primary hover:text-dh-secondary">
+                            <h3 className="line-clamp-2 text-xs font-bold leading-snug text-dh-primary hover:text-dh-secondary">
                               {product.name}
                             </h3>
                           </Link>
@@ -234,22 +234,22 @@ export default function WishlistDrawer() {
                           <button
                             type="button"
                             onClick={() => removeFromWishlist(String(product.id))}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-dh-gray text-red-500 hover:bg-red-500 hover:text-white"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
                             aria-label={`Remove ${product.name}`}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
 
-                        <p className="mt-2 font-display text-base font-bold text-dh-primary">
+                        <p className="mt-1 font-display text-sm font-black text-dh-primary">
                           {formatPrice(product.price)}
                         </p>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="mt-1.5 flex items-center gap-1.5">
                           <Link
                             to={`/product/${getProductSlug(product)}`}
                             onClick={closeWishlistForNavigation}
-                            className="inline-flex items-center justify-center rounded-full border border-dh-primary px-3 py-2 text-xs font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
+                            className="inline-flex h-7 items-center justify-center rounded-full border border-slate-200 px-2.5 text-[10px] font-bold text-dh-primary hover:border-dh-primary hover:bg-dh-primary hover:text-white"
                           >
                             View
                           </Link>
@@ -258,7 +258,7 @@ export default function WishlistDrawer() {
                             <button
                               type="button"
                               onClick={() => handleAddToCart(product)}
-                              className="inline-flex items-center justify-center rounded-full bg-dh-primary px-3 py-2 text-xs font-semibold text-white hover:bg-dh-secondary"
+                              className="inline-flex h-7 items-center justify-center rounded-full bg-dh-primary px-2.5 text-[10px] font-bold text-white hover:bg-dh-secondary"
                             >
                               <ShoppingCart className="mr-1 h-3.5 w-3.5" />
                               Add
@@ -267,7 +267,7 @@ export default function WishlistDrawer() {
                             <Link
                               to={`/product/${getProductSlug(product)}`}
                               onClick={closeWishlistForNavigation}
-                              className="inline-flex items-center justify-center rounded-full bg-dh-primary px-3 py-2 text-xs font-semibold text-white hover:bg-dh-secondary"
+                              className="inline-flex h-7 items-center justify-center rounded-full bg-dh-primary px-2.5 text-[10px] font-bold text-white hover:bg-dh-secondary"
                             >
                               Options
                             </Link>
@@ -283,11 +283,13 @@ export default function WishlistDrawer() {
         )}
 
         {wishlistItems.length > 0 && (
-          <div className="border-t border-dh-light-gray bg-white p-4">
-            <Link to="/wishlist" onClick={closeWishlistForNavigation}>
-              <Button className="w-full rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
-                View full wishlist
-              </Button>
+          <div className="border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Link
+              to="/wishlist"
+              onClick={closeWishlistForNavigation}
+              className="inline-flex h-10 w-full items-center justify-center rounded-full bg-dh-primary px-4 text-xs font-bold text-white hover:bg-dh-secondary"
+            >
+              View full wishlist
             </Link>
           </div>
         )}
