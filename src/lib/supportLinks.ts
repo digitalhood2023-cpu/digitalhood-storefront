@@ -101,3 +101,11 @@ export function buildOrderSupportUrl(order: OrderLike = {}) {
     message,
   })
 }
+
+export function buildAccountOrderSupportUrl(order: OrderLike = {}) {
+  const orderId = cleanValue(order.id || order.number || order.orderNumber)
+
+  if (!orderId) return '/orders'
+
+  return `/account/orders/${encodeURIComponent(orderId)}/report`
+}

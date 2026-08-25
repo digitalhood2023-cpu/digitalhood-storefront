@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useAccount } from '@/context/AccountContext'
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 import { formatOrderDate, formatOrderMoney, getTrackingState, normalizeTrackingStatus, type TrackableOrder } from '@/lib/orderTracking'
-import { buildOrderSupportUrl } from '@/lib/supportLinks'
+import { buildAccountOrderSupportUrl, buildOrderSupportUrl } from '@/lib/supportLinks'
 import Footer from '@/sections/Footer'
 import Header from '@/sections/Header'
 
@@ -290,7 +290,7 @@ export default function OrderTrackingDetailsPage() {
               <div className="space-y-4">
                 <OrderSummary order={order} isCashOnDelivery={isCashOnDelivery} isClosed={state.closed} />
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="mb-3 flex items-center gap-2 font-black text-[#16143f]"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
-                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={isAuthenticated ? buildAccountOrderSupportUrl(order) : buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
               </div>
             </div>
           </>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock3,
   FileImage,
+  FileVideo,
   Inbox,
   LifeBuoy,
   Loader2,
@@ -289,6 +290,7 @@ function EmptyCases() {
 
 export default function AccountSupportCasesPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { isAuthenticated, isLoading } = useAccount()
 
   const [cases, setCases] = useState<AccountOrderCase[]>([])
@@ -318,7 +320,8 @@ export default function AccountSupportCasesPage() {
       setSelectedCaseNumber((current) =>
         current && nextCases.some((item) => item.caseNumber === current)
           ? current
-          : nextCases[0]?.caseNumber || ''
+          : nextCases.find((item) => item.caseNumber === searchParams.get('case'))?.caseNumber ||
+            nextCases[0]?.caseNumber || ''
       )
     } catch (error) {
       if (!options.silent) {
@@ -331,7 +334,7 @@ export default function AccountSupportCasesPage() {
     } finally {
       if (!options.silent) setIsCasesLoading(false)
     }
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -560,7 +563,7 @@ export default function AccountSupportCasesPage() {
                           </p>
                         </div>
                         <Link
-                          to={`/track-order/${selectedCase.order.orderId}`}
+                          to={`/account/orders/${selectedCase.order.orderId}/report`}
                           className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-orange-700 px-4 text-xs font-bold text-white"
                         >
                           Reply now
@@ -598,12 +601,11 @@ export default function AccountSupportCasesPage() {
                                     rel="noreferrer"
                                     className="overflow-hidden rounded-lg border border-dh-light-gray bg-white"
                                   >
-                                    <img
-                                      src={url}
-                                      alt={attachment.originalName || `Evidence ${index + 1}`}
-                                      loading="lazy"
-                                      className="aspect-square w-full object-cover"
-                                    />
+                                    {attachment.type === 'video' || String(attachment.mimeType || '').startsWith('video/') ? (
+                                      <span className="relative block"><video src={url} muted playsInline className="aspect-square w-full object-cover" /><FileVideo className="absolute bottom-1 right-1 h-4 w-4 rounded bg-black/60 p-0.5 text-white" /></span>
+                                    ) : (
+                                      <img src={url} alt={attachment.originalName || `Evidence ${index + 1}`} loading="lazy" className="aspect-square w-full object-cover" />
+                                    )}
                                   </a>
                                 )
                               })}
@@ -652,6 +654,15 @@ export default function AccountSupportCasesPage() {
                               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-dh-dark-gray">
                                 {message.message}
                               </p>
+                              {!!message.attachments?.length && (
+                                <div className="mt-2 grid grid-cols-4 gap-2">
+                                  {message.attachments.map((attachment, attachmentIndex) => {
+                                    const url = attachmentUrl(attachment)
+                                    const isVideo = attachment.type === 'video' || String(attachment.mimeType || '').startsWith('video/')
+                                    return <a key={attachment.id || attachment.filename || attachmentIndex} href={url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg border border-dh-light-gray bg-white">{isVideo ? <video src={url} muted playsInline className="aspect-square w-full object-cover" /> : <img src={url} alt="Reply evidence" loading="lazy" className="aspect-square w-full object-cover" />}</a>
+                                  })}
+                                </div>
+                              )}
                             </article>
                           ))}
 
