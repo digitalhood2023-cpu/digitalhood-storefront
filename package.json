@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run validate:seo && tsc -b && vite build",
+    "build": "npm run validate:seo && npm run validate:release && tsc -b && vite build",
     "validate:seo": "node scripts/validate-seo-foundation.mjs",
+    "validate:release": "node scripts/validate-marketplace-release.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server.js"

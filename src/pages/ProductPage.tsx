@@ -295,6 +295,7 @@ export default function ProductPage() {
 
   const pageRef = useRef<HTMLDivElement>(null)
   const galleryHistoryStateRef = useRef(false)
+  const suppressGalleryTapRef = useRef(false)
 
   useEffect(() => {
     if (!slug) return
@@ -838,8 +839,23 @@ export default function ProductPage() {
   }, [displayImages.length, isGalleryOpen])
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    suppressGalleryTapRef.current = false
     setTouchStartX(event.touches[0]?.clientX ?? null)
     setTouchStartY(event.touches[0]?.clientY ?? null)
+  }
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null || touchStartY === null) return
+
+    const currentX = event.touches[0]?.clientX ?? touchStartX
+    const currentY = event.touches[0]?.clientY ?? touchStartY
+
+    if (
+      Math.abs(currentX - touchStartX) > 8 ||
+      Math.abs(currentY - touchStartY) > 8
+    ) {
+      suppressGalleryTapRef.current = true
+    }
   }
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -849,6 +865,13 @@ export default function ProductPage() {
     const touchEndY = event.changedTouches[0]?.clientY ?? touchStartY
     const distanceX = touchStartX - touchEndX
     const distanceY = touchStartY - touchEndY
+
+    if (Math.abs(distanceX) > 8 || Math.abs(distanceY) > 8) {
+      suppressGalleryTapRef.current = true
+      window.setTimeout(() => {
+        suppressGalleryTapRef.current = false
+      }, 450)
+    }
 
     setTouchStartX(null)
     setTouchStartY(null)
@@ -861,6 +884,15 @@ export default function ProductPage() {
         goToPreviousImage()
       }
     }
+  }
+
+  const handleProductImageClick = () => {
+    if (suppressGalleryTapRef.current) {
+      suppressGalleryTapRef.current = false
+      return
+    }
+
+    openGallery(selectedImage)
   }
 
   const buildCartProduct = () => {
@@ -1210,6 +1242,7 @@ export default function ProductPage() {
                 <div
                   className="relative mb-3 aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
                   onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
                 >
                   <img
@@ -1222,7 +1255,7 @@ export default function ProductPage() {
                     decoding="async"
                     fetchPriority="high"
                     draggable={false}
-                    onClick={() => openGallery(selectedImage)}
+                    onClick={handleProductImageClick}
                   />
 
                   <button

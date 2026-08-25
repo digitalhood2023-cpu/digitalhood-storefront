@@ -9,12 +9,16 @@ import { Button } from '@/components/ui/button'
 
 type StripeCheckoutFormProps = {
   amount: number
-  onSuccess: () => void
+  onProcessing?: () => void
+  onSuccess: () => void | Promise<void>
+  onFailure?: (message: string) => void
 }
 
 export default function StripeCheckoutForm({
   amount,
+  onProcessing,
   onSuccess,
+  onFailure,
 }: StripeCheckoutFormProps) {
   const stripe = useStripe()
   const elements = useElements()
@@ -27,6 +31,7 @@ export default function StripeCheckoutForm({
 
     setError('')
     setIsPaying(true)
+    onProcessing?.()
 
     const result = await stripe.confirmPayment({
       elements,
@@ -34,12 +39,14 @@ export default function StripeCheckoutForm({
     })
 
     if (result.error) {
-      setError(result.error.message || 'Payment failed.')
+      const message = result.error.message || 'Payment failed.'
+      setError(message)
       setIsPaying(false)
+      onFailure?.(message)
       return
     }
 
-    onSuccess()
+    await onSuccess()
     setIsPaying(false)
   }
 
