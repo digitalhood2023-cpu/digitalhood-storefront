@@ -283,6 +283,7 @@ export default function ProductPage() {
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showVariations, setShowVariations] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const [touchStartY, setTouchStartY] = useState<number | null>(null)
 
   const [selectedAttributes, setSelectedAttributes] =
     useState<Record<string, string>>({})
@@ -838,27 +839,28 @@ export default function ProductPage() {
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.touches[0]?.clientX ?? null)
+    setTouchStartY(event.touches[0]?.clientY ?? null)
   }
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null) return
+    if (touchStartX === null || touchStartY === null) return
 
     const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX
-    const distance = touchStartX - touchEndX
+    const touchEndY = event.changedTouches[0]?.clientY ?? touchStartY
+    const distanceX = touchStartX - touchEndX
+    const distanceY = touchStartY - touchEndY
 
     setTouchStartX(null)
+    setTouchStartY(null)
 
-    if (Math.abs(distance) > 45) {
-      if (distance > 0) {
+    if (Math.abs(distanceX) > 45 && Math.abs(distanceX) > Math.abs(distanceY) * 1.5) {
+      event.preventDefault()
+      if (distanceX > 0) {
         goToNextImage()
       } else {
         goToPreviousImage()
       }
-      return
     }
-
-    event.preventDefault()
-    openGallery(selectedImage)
   }
 
   const buildCartProduct = () => {
@@ -1206,35 +1208,26 @@ export default function ProductPage() {
                 </div>
 
                 <div
-                  className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
+                  className="relative mb-3 aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
-                  onPointerUp={(event) => {
-                    if (event.pointerType === 'mouse') {
-                      openGallery(selectedImage)
-                    }
-                  }}
                 >
                   <img
                     src={getOptimizedImageUrl(displayImages[selectedImage], 'large')}
                     srcSet={getImageSrcSet(displayImages[selectedImage], 'large')}
                     sizes="(min-width: 1024px) 45vw, 100vw"
                     alt={product.name}
-                    className="h-full w-full cursor-zoom-in object-cover"
+                    className="h-full w-full cursor-zoom-in select-none object-cover"
                     loading="eager"
                     decoding="async"
                     fetchPriority="high"
+                    draggable={false}
                     onClick={() => openGallery(selectedImage)}
                   />
 
                   <button
                     type="button"
                     onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      openGallery(selectedImage)
-                    }}
-                    onTouchEnd={(event) => {
                       event.preventDefault()
                       event.stopPropagation()
                       openGallery(selectedImage)
@@ -1978,7 +1971,7 @@ export default function ProductPage() {
 
       {product && isGalleryOpen && (
         <div
-          className="fixed inset-0 z-[100] flex flex-col bg-black/95 text-white"
+          className="fixed inset-0 z-[100] flex touch-none flex-col bg-black/95 text-white"
           role="dialog"
           aria-modal="true"
           aria-label={`${product.name} image gallery`}

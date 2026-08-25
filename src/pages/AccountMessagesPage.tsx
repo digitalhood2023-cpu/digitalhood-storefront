@@ -36,6 +36,7 @@ import type {
 
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
+import ChatImageLightbox from '@/components/chat/ChatImageLightbox'
 import {
   createBuyerChatSocket,
   deleteBuyerMessage,
@@ -88,6 +89,12 @@ type PendingMediaItem = {
   progress: number
   status: 'ready' | 'uploading' | 'sent' | 'error'
   error?: string
+}
+
+type OutgoingMediaItem = PendingMediaItem & {
+  conversationId: string
+  clientMessageId: string
+  replyToMessageId?: string
 }
 
 function canMutateMessage(
@@ -479,9 +486,11 @@ function MessageAvatar({
 function MediaAttachmentCard({
   attachment,
   isMine,
+  onOpenImage,
 }: {
   attachment: ChatAttachment
   isMine: boolean
+  onOpenImage: (attachment: ChatAttachment) => void
 }) {
   const [failed, setFailed] = useState(false)
   const unavailable = !attachment.url || failed
@@ -510,12 +519,11 @@ function MediaAttachmentCard({
           </p>
         </div>
       ) : attachment.kind === 'image' ? (
-        <a
-          href={attachment.url || undefined}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={() => onOpenImage(attachment)}
           className="block overflow-hidden rounded-2xl bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-secondary"
-          aria-label={`Open ${attachment.fileName}`}
+          aria-label={`Open ${attachment.fileName} full screen`}
         >
           <img
             src={attachment.url || ''}
@@ -525,7 +533,7 @@ function MediaAttachmentCard({
             decoding="async"
             onError={() => setFailed(true)}
           />
-        </a>
+        </button>
       ) : (
         <video
           src={attachment.url || undefined}
@@ -868,10 +876,15 @@ function mergeChatMessages(
   current: ChatMessage[],
   incoming: ChatMessage[]
 ) {
-  const bySequence =
-    new Map<number, ChatMessage>()
+  const incomingClientIds = new Set(
+    incoming.map((message) => message.clientMessageId).filter(Boolean)
+  )
+  const bySequence = new Map<number, ChatMessage>()
 
   for (const message of current) {
+    if (message.clientMessageId && incomingClientIds.has(message.clientMessageId)) {
+      continue
+    }
     bySequence.set(
       message.sequence,
       message
@@ -931,6 +944,8 @@ export default function AccountMessagesPage() {
     ChatMessage[]
   >([])
 
+  const [selectedChatImage, setSelectedChatImage] = useState<ChatAttachment | null>(null)
+
   const [
     query,
     setQuery
@@ -956,10 +971,9 @@ export default function AccountMessagesPage() {
     setPendingMediaItems
   ] = useState<PendingMediaItem[]>([])
 
-  const [
-    isSendingMedia,
-    setIsSendingMedia
-  ] = useState(false)
+  const [outgoingMediaItems, setOutgoingMediaItems] = useState<OutgoingMediaItem[]>([])
+
+  const isSendingMedia = false
 
   const [
     isMediaBatchInConversation,
@@ -1090,6 +1104,9 @@ export default function AccountMessagesPage() {
   const latestSequenceRef =
     useRef(0)
 
+  const syncInFlightRef = useRef(new Set<string>())
+  const optimisticSequenceRef = useRef(0)
+
   const socketRef =
     useRef<Socket | null>(
       null
@@ -1112,16 +1129,37 @@ export default function AccountMessagesPage() {
     useRef<HTMLInputElement | null>(null)
 
   const pendingMediaItemsRef = useRef<PendingMediaItem[]>([])
+  const outgoingMediaItemsRef = useRef<OutgoingMediaItem[]>([])
 
   useEffect(() => {
     pendingMediaItemsRef.current = pendingMediaItems
   }, [pendingMediaItems])
 
   useEffect(() => {
+    outgoingMediaItemsRef.current = outgoingMediaItems
+  }, [outgoingMediaItems])
+
+  useEffect(() => {
     return () => {
       pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
+      outgoingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
     }
   }, [])
+
+  useEffect(() => {
+    const deliveredIds = new Set(messages.map((message) => message.clientMessageId).filter(Boolean))
+    if (deliveredIds.size === 0) return
+
+    const cleanupTimer = window.setTimeout(() => {
+      setOutgoingMediaItems((current) => current.filter((item) => {
+        if (!deliveredIds.has(item.clientMessageId)) return true
+        URL.revokeObjectURL(item.previewUrl)
+        return false
+      }))
+    }, 0)
+
+    return () => window.clearTimeout(cleanupTimer)
+  }, [messages])
 
   const loadingOlderRef =
     useRef(false)
@@ -1348,9 +1386,7 @@ export default function AccountMessagesPage() {
             false
           )
 
-          setMessages(
-            response.messages
-          )
+          setMessages((current) => mergeChatMessages(current, response.messages))
 
           const latest =
             response.messages.reduce(
@@ -1533,6 +1569,9 @@ export default function AccountMessagesPage() {
       async (
         targetConversationId: string
       ) => {
+        if (syncInFlightRef.current.has(targetConversationId)) return
+        syncInFlightRef.current.add(targetConversationId)
+
         let cursor =
           latestSequenceRef.current
 
@@ -1648,6 +1687,8 @@ export default function AccountMessagesPage() {
             '[buyer-chat] realtime sync failed',
             requestError
           )
+        } finally {
+          syncInFlightRef.current.delete(targetConversationId)
         }
       },
       []
@@ -1716,6 +1757,28 @@ export default function AccountMessagesPage() {
       },
       []
     )
+
+  useEffect(() => {
+    if (!conversationId) return
+
+    const refreshVisibleConversation = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        void syncConversation(conversationId)
+      }
+    }
+
+    const pollTimer = window.setInterval(refreshVisibleConversation, 4_000)
+    window.addEventListener('focus', refreshVisibleConversation)
+    window.addEventListener('online', refreshVisibleConversation)
+    document.addEventListener('visibilitychange', refreshVisibleConversation)
+
+    return () => {
+      window.clearInterval(pollTimer)
+      window.removeEventListener('focus', refreshVisibleConversation)
+      window.removeEventListener('online', refreshVisibleConversation)
+      document.removeEventListener('visibilitychange', refreshVisibleConversation)
+    }
+  }, [conversationId, syncConversation])
 
   useEffect(
     () => {
@@ -2628,56 +2691,76 @@ export default function AccountMessagesPage() {
     })
   }
 
-  async function handleSendMedia() {
+  function removeOutgoingMedia(clientMessageId: string) {
+    setOutgoingMediaItems((current) => {
+      const item = current.find((candidate) => candidate.clientMessageId === clientMessageId)
+      if (item) URL.revokeObjectURL(item.previewUrl)
+      return current.filter((candidate) => candidate.clientMessageId !== clientMessageId)
+    })
+  }
+
+  async function uploadOutgoingMedia(item: OutgoingMediaItem) {
+    setOutgoingMediaItems((current) => current.map((candidate) =>
+      candidate.clientMessageId === item.clientMessageId
+        ? { ...candidate, status: 'uploading', progress: 0, error: undefined }
+        : candidate
+    ))
+
+    try {
+      await sendBuyerMedia(
+        item.conversationId,
+        item.file,
+        (progress) => setOutgoingMediaItems((current) => current.map((candidate) =>
+          candidate.clientMessageId === item.clientMessageId
+            ? { ...candidate, progress }
+            : candidate
+        )),
+        item.replyToMessageId,
+        item.clientMessageId
+      )
+
+      setOutgoingMediaItems((current) => current.map((candidate) =>
+        candidate.clientMessageId === item.clientMessageId
+          ? { ...candidate, status: 'sent', progress: 100 }
+          : candidate
+      ))
+      await Promise.allSettled([syncConversation(item.conversationId), loadInbox()])
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : 'Unable to send this media.'
+      setOutgoingMediaItems((current) => current.map((candidate) =>
+        candidate.clientMessageId === item.clientMessageId
+          ? { ...candidate, status: 'error', error: message }
+          : candidate
+      ))
+    }
+  }
+
+  function handleSendMedia() {
     if (
       !conversationId ||
       pendingMediaItems.length === 0 ||
-      isSendingMedia ||
-      isSending ||
-      isSendingProduct ||
-      isSendingOrder ||
       mutationMessageId
     ) {
       return
     }
 
-    setIsSendingMedia(true)
-    setIsMediaBatchInConversation(true)
     setError('')
-    requestAnimationFrame(scrollToLatest)
-    const sentIds = new Set<string>()
-    const failures: string[] = []
     const replyToMessageId = replyingTo ? getChatMessageId(replyingTo) || undefined : undefined
+    const batch: OutgoingMediaItem[] = pendingMediaItems.map((item) => ({
+      ...item,
+      conversationId,
+      clientMessageId: window.crypto.randomUUID(),
+      replyToMessageId,
+      status: 'uploading',
+      progress: 0,
+    }))
 
-    for (const item of pendingMediaItems) {
-      setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, status: 'uploading', progress: 0, error: undefined } : candidate))
-      try {
-        await sendBuyerMedia(
-          conversationId,
-          item.file,
-          progress => setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, progress } : candidate)),
-          replyToMessageId
-        )
-        sentIds.add(item.id)
-        setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, status: 'sent', progress: 100 } : candidate))
-      } catch (requestError) {
-        const message = requestError instanceof Error ? requestError.message : 'Unable to send this media.'
-        failures.push(message)
-        setPendingMediaItems(current => current.map(candidate => candidate.id === item.id ? { ...candidate, status: 'error', error: message } : candidate))
-      }
-    }
-
-    try {
-      setReplyingTo(null)
-      if (sentIds.size > 0) {
-        await Promise.all([syncConversation(conversationId), loadInbox()])
-        pendingMediaItems.filter(item => sentIds.has(item.id)).forEach(item => URL.revokeObjectURL(item.previewUrl))
-        setPendingMediaItems(current => current.filter(item => !sentIds.has(item.id)))
-      }
-      if (failures.length) setError(`${failures.length} attachment${failures.length === 1 ? '' : 's'} could not be sent. Use Retry in the conversation.`)
-    } finally {
-      setIsSendingMedia(false)
-    }
+    setPendingMediaItems([])
+    setIsMediaBatchInConversation(false)
+    setReplyingTo(null)
+    setOutgoingMediaItems((current) => [...current, ...batch])
+    requestAnimationFrame(scrollToLatest)
+    batch.forEach((item) => void uploadOutgoingMedia(item))
   }
 
   async function handleSend(
@@ -2692,16 +2775,10 @@ export default function AccountMessagesPage() {
     if (
       !conversationId ||
       !text ||
-      isSending ||
-      isSendingMedia ||
-      isSendingProduct ||
-      isSendingOrder ||
       mutationMessageId
     ) {
       return
     }
-
-    setIsSending(true)
     setError('')
 
     if (
@@ -2716,8 +2793,11 @@ export default function AccountMessagesPage() {
       )
     }
 
-    try {
-      if (editingMessage) {
+    if (editingMessage) {
+      if (isSending) return
+      setIsSending(true)
+
+      try {
         const messageId =
           getChatMessageId(
             editingMessage
@@ -2741,47 +2821,83 @@ export default function AccountMessagesPage() {
         )
 
         setEditingMessage(null)
-      } else {
-        const replyToMessageId =
-          replyingTo
-            ? getChatMessageId(
-                replyingTo
-              )
-            : ''
-
-        await sendBuyerMessage(
-          conversationId,
-          text,
-          replyToMessageId ||
-            undefined
-        )
-
-        setReplyingTo(null)
+        setDraft('')
+        await loadInbox()
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : 'Unable to edit your message.')
+      } finally {
+        setIsSending(false)
       }
+      return
+    }
 
-      setDraft('')
+    const replyToMessageId = replyingTo ? getChatMessageId(replyingTo) : ''
+    const clientMessageId = window.crypto.randomUUID()
+    const optimisticMessage: ChatMessage = {
+      messageId: `local:${clientMessageId}`,
+      id: `local:${clientMessageId}`,
+      clientMessageId,
+      conversationId,
+      sequence: latestSequenceRef.current + (++optimisticSequenceRef.current / 1000),
+      messageType: 'text',
+      type: 'text',
+      text,
+      replyToMessageId: replyToMessageId || null,
+      sender: { type: 'buyer', id: 'current-buyer', displayName: 'You' },
+      attachments: [],
+      contexts: [],
+      createdAt: new Date().toISOString(),
+      localStatus: 'sending',
+    }
 
-      await Promise.all([
-        editingMessage
-          ? Promise.resolve()
-          : syncConversation(
-              conversationId
-            ),
-        loadInbox()
-      ])
-    } catch (
-      requestError
-    ) {
-      setError(
-        requestError
-          instanceof Error
-          ? requestError.message
-          : editingMessage
-            ? 'Unable to edit your message.'
-            : 'Unable to send your message.'
+    setDraft('')
+    setReplyingTo(null)
+    scrollToBottomRef.current = true
+    setMessages((current) => mergeChatMessages(current, [optimisticMessage]))
+
+    try {
+      await sendBuyerMessage(
+        conversationId,
+        text,
+        replyToMessageId || undefined,
+        clientMessageId
       )
-    } finally {
-      setIsSending(false)
+      await Promise.allSettled([syncConversation(conversationId), loadInbox()])
+    } catch (requestError) {
+      setMessages((current) => current.map((message) =>
+        message.clientMessageId === clientMessageId
+          ? { ...message, localStatus: 'failed' }
+          : message
+      ))
+      setError(requestError instanceof Error ? requestError.message : 'Unable to send your message.')
+    }
+  }
+
+  async function retryOptimisticMessage(message: ChatMessage) {
+    if (!conversationId || !message.clientMessageId || !message.text) return
+
+    setMessages((current) => current.map((candidate) =>
+      candidate.clientMessageId === message.clientMessageId
+        ? { ...candidate, localStatus: 'sending' }
+        : candidate
+    ))
+    setError('')
+
+    try {
+      await sendBuyerMessage(
+        conversationId,
+        message.text,
+        message.replyToMessageId || undefined,
+        message.clientMessageId
+      )
+      await Promise.allSettled([syncConversation(conversationId), loadInbox()])
+    } catch (requestError) {
+      setMessages((current) => current.map((candidate) =>
+        candidate.clientMessageId === message.clientMessageId
+          ? { ...candidate, localStatus: 'failed' }
+          : candidate
+      ))
+      setError(requestError instanceof Error ? requestError.message : 'Unable to retry this message.')
     }
   }
 
@@ -3514,6 +3630,7 @@ export default function AccountMessagesPage() {
                                       <MediaAttachmentCard
                                         attachment={message.attachments[0]}
                                         isMine={isBuyer}
+                                        onOpenImage={setSelectedChatImage}
                                       />
                                     ) : (
                                       <div className="flex min-h-28 min-w-48 flex-col items-center justify-center rounded-2xl border border-dashed border-current/25 p-4 text-center opacity-75">
@@ -3557,7 +3674,20 @@ export default function AccountMessagesPage() {
                                       </>
                                     )}
 
-                                    {isBuyer && (
+                                    {isBuyer && message.localStatus === 'sending' && (
+                                      <>{' · Sending…'}</>
+                                    )}
+
+                                    {isBuyer && message.localStatus === 'failed' && (
+                                      <>
+                                        {' · '}
+                                        <button type="button" onClick={() => void retryOptimisticMessage(message)} className="font-black text-amber-200 underline underline-offset-2">
+                                          Not sent — retry
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {isBuyer && !message.localStatus && (
                                       <>
                                         {' · '}
 
@@ -3583,7 +3713,7 @@ export default function AccountMessagesPage() {
                                     )}
                                   </p>
 
-                                  {!message.deleted && (
+                                  {!message.deleted && !message.localStatus && (
                                     <div
                                       className={`mt-1 flex items-center gap-3 text-[9px] font-black ${
                                         isBuyer
@@ -3667,12 +3797,12 @@ export default function AccountMessagesPage() {
                           }
                         )}
 
-                        {isMediaBatchInConversation && pendingMediaItems.length > 0 && (
+                        {outgoingMediaItems.filter((item) => item.conversationId === conversationId).length > 0 && (
                           <div className="ml-auto flex max-w-[86%] justify-end sm:max-w-[68%]">
                             <div className="w-full rounded-[22px] rounded-br-md bg-dh-primary p-2.5 text-white shadow-sm">
                               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                                {pendingMediaItems.map(item => (
-                                  <div key={item.id} className="relative aspect-square overflow-hidden rounded-2xl bg-slate-900">
+                                {outgoingMediaItems.filter((item) => item.conversationId === conversationId).map(item => (
+                                  <div key={item.clientMessageId} className="relative aspect-square overflow-hidden rounded-2xl bg-slate-900">
                                     {item.file.type.startsWith('image/') ? (
                                       <img src={item.previewUrl} alt={item.file.name} className={`h-full w-full object-cover transition ${item.status === 'uploading' ? 'scale-105 grayscale opacity-40' : ''}`} />
                                     ) : (
@@ -3687,17 +3817,17 @@ export default function AccountMessagesPage() {
                                     )}
                                     {item.status === 'sent' && <div className="absolute inset-0 flex items-center justify-center bg-emerald-600/45"><Check className="h-6 w-6 text-white" /></div>}
                                     {item.status === 'error' && <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-800/65 p-2 text-center"><span className="text-[10px] font-black">Upload failed</span></div>}
-                                    {!isSendingMedia && item.status === 'error' && (
-                                      <button type="button" onClick={() => void handleSendMedia()} className="absolute bottom-1.5 left-1.5 rounded-full bg-white px-2.5 py-1 text-[9px] font-black text-dh-primary shadow">Retry</button>
+                                    {item.status === 'error' && (
+                                      <button type="button" onClick={() => void uploadOutgoingMedia(item)} className="absolute bottom-1.5 left-1.5 rounded-full bg-white px-2.5 py-1 text-[9px] font-black text-dh-primary shadow">Retry</button>
                                     )}
-                                    {!isSendingMedia && (
-                                      <button type="button" onClick={() => removePendingMedia(item.id)} className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white" aria-label={`Remove ${item.file.name}`}><X className="h-3.5 w-3.5" /></button>
+                                    {item.status === 'error' && (
+                                      <button type="button" onClick={() => removeOutgoingMedia(item.clientMessageId)} className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white" aria-label={`Remove ${item.file.name}`}><X className="h-3.5 w-3.5" /></button>
                                     )}
                                     <span className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[8px] font-bold text-white">{formatMediaSize(item.file.size)}</span>
                                   </div>
                                 ))}
                               </div>
-                              <p className="mt-2 px-1 text-[10px] font-bold text-white/75">{isSendingMedia ? 'Sending inside this conversation…' : 'Ready to retry or remove'}</p>
+                              <p className="mt-2 px-1 text-[10px] font-bold text-white/75">Uploads continue here while you keep messaging</p>
                             </div>
                           </div>
                         )}
@@ -4018,13 +4148,7 @@ export default function AccountMessagesPage() {
                       <button
                         type="button"
                         onClick={() => mediaInputRef.current?.click()}
-                        disabled={
-                          isSendingMedia ||
-                          isSending ||
-                          isSendingProduct ||
-                          isSendingOrder ||
-                          isPreparingMedia
-                        }
+                        disabled={isPreparingMedia}
                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label="Attach an image or video"
                         title="Attach photo or video"
@@ -4033,7 +4157,7 @@ export default function AccountMessagesPage() {
                       </button>
 
                       <textarea
-                        disabled={isSendingMedia || (pendingMediaItems.length > 0 && !isMediaBatchInConversation) || isPreparingMedia}
+                        disabled={isPreparingMedia}
                         value={
                           draft
                         }
@@ -4101,9 +4225,7 @@ export default function AccountMessagesPage() {
                           }
                         }}
                         placeholder={
-                          pendingMediaItems.length > 0
-                            ? 'Send or remove the selected attachment first'
-                            : editingMessage
+                          editingMessage
                             ? 'Edit your message...'
                             : replyingTo
                               ? 'Write a reply...'
@@ -4117,9 +4239,6 @@ export default function AccountMessagesPage() {
                         type="submit"
                         disabled={
                           isSending ||
-                          isSendingMedia ||
-                          isSendingProduct ||
-                          isSendingOrder ||
                           Boolean(
                             mutationMessageId
                           ) ||
@@ -4152,6 +4271,7 @@ export default function AccountMessagesPage() {
         </div>
       </main>
 
+      <ChatImageLightbox attachment={selectedChatImage} onClose={() => setSelectedChatImage(null)} />
       <Footer />
     </div>
   )
