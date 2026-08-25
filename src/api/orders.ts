@@ -28,6 +28,20 @@ export type CustomerOrderShippingLine = {
   total?: string
 }
 
+export type CustomerOrderFeeLine = {
+  id?: number
+  name?: string
+  total?: string
+  tax?: string
+}
+
+export type CustomerOrderCouponLine = {
+  id?: number
+  code?: string
+  discount?: string
+  discountTax?: string
+}
+
 export type CustomerOrderDeliveryEstimate = {
   expectedDate?: string
   label?: string
@@ -88,6 +102,9 @@ export type CustomerOrder = {
   currency?: string
   total?: string
   subtotal?: string
+  discountTotal?: string
+  shippingTotal?: string
+  taxTotal?: string
   paymentMethod?: string
   paymentMethodTitle?: string
   transactionId?: string
@@ -115,6 +132,8 @@ export type CustomerOrder = {
     country?: string
   }
   shippingLines?: CustomerOrderShippingLine[]
+  feeLines?: CustomerOrderFeeLine[]
+  couponLines?: CustomerOrderCouponLine[]
   items?: CustomerOrderItem[]
 }
 

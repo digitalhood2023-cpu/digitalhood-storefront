@@ -3,12 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowRight,
-  CalendarDays,
   ChevronRight,
-  Clock,
-  CreditCard,
+  Clock3,
   Eye,
   Loader2,
+  Package,
   PackageCheck,
   Search,
   ShoppingBag,
@@ -17,41 +16,30 @@ import {
 
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
 import { useAccount } from '@/context/AccountContext'
-
-import {
-  getCustomerOrders,
-  type AccountOrder,
-} from '@/api/account'
+import { getCustomerOrders, type AccountOrder } from '@/api/account'
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
   const value = Number(amount || 0)
-
-  if (currency === 'ZMW') {
-    return `K${value.toLocaleString('en-ZM', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
-  }
-
-  return `${currency} ${value.toLocaleString(undefined, {
+  const formatted = value.toLocaleString('en-ZM', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`
+  })
+
+  return currency === 'ZMW' ? `K${formatted}` : `${currency} ${formatted}`
 }
 
 function formatDate(date?: string | null) {
-  if (!date) return 'Not available'
+  if (!date) return 'Date unavailable'
 
   try {
     return new Intl.DateTimeFormat('en-ZM', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     }).format(new Date(date))
   } catch {
     return date
@@ -66,193 +54,164 @@ function normalizeStatus(status?: string) {
     .replace(/\s+/g, '-')
 }
 
-function getStatusStyle(status?: string) {
-  const value = normalizeStatus(status)
+function matchesStatus(order: AccountOrder, filter: string) {
+  const status = normalizeStatus(order.status)
 
-  if (value === 'processing') {
-    return 'bg-blue-50 text-blue-700 border-blue-100'
+  if (filter === 'all') return true
+  if (filter === 'pending') return ['pending', 'on-hold'].includes(status)
+  if (filter === 'delivered') return ['delivered', 'completed'].includes(status)
+  if (filter === 'out-for-delivery') {
+    return ['out-for-delivery', 'outfordelivery'].includes(status)
   }
 
-  if (value === 'shipped') {
-    return 'bg-purple-50 text-purple-700 border-purple-100'
-  }
-
-  if (value === 'out-for-delivery' || value === 'outfordelivery') {
-    return 'bg-orange-50 text-orange-700 border-orange-100'
-  }
-
-  if (value === 'delivered' || value === 'completed') {
-    return 'bg-green-50 text-green-700 border-green-100'
-  }
-
-  if (value === 'pending' || value === 'on-hold') {
-    return 'bg-yellow-50 text-yellow-700 border-yellow-100'
-  }
-
-  if (value === 'failed' || value === 'cancelled' || value === 'refunded') {
-    return 'bg-red-50 text-red-700 border-red-100'
-  }
-
-  return 'bg-gray-50 text-gray-700 border-gray-100'
+  return status === filter
 }
 
-function getStatusIcon(status?: string) {
+function statusStyle(status?: string) {
+  const value = normalizeStatus(status)
+
+  if (value === 'processing') return 'border-blue-100 bg-blue-50 text-blue-700'
+  if (value === 'shipped') return 'border-violet-100 bg-violet-50 text-violet-700'
+  if (['out-for-delivery', 'outfordelivery'].includes(value)) {
+    return 'border-orange-100 bg-orange-50 text-orange-700'
+  }
+  if (['delivered', 'completed'].includes(value)) {
+    return 'border-emerald-100 bg-emerald-50 text-emerald-700'
+  }
+  if (['pending', 'on-hold'].includes(value)) {
+    return 'border-amber-100 bg-amber-50 text-amber-700'
+  }
+  if (['failed', 'cancelled', 'refunded'].includes(value)) {
+    return 'border-red-100 bg-red-50 text-red-700'
+  }
+
+  return 'border-slate-200 bg-slate-50 text-slate-700'
+}
+
+function StatusIcon({ status }: { status?: string }) {
   const value = normalizeStatus(status)
 
   if (value === 'shipped' || value === 'out-for-delivery' || value === 'outfordelivery') {
-    return <Truck className="h-4 w-4" />
+    return <Truck className="h-3.5 w-3.5" />
   }
-
   if (value === 'delivered' || value === 'completed') {
-    return <PackageCheck className="h-4 w-4" />
+    return <PackageCheck className="h-3.5 w-3.5" />
   }
-
   if (value === 'pending' || value === 'on-hold') {
-    return <Clock className="h-4 w-4" />
+    return <Clock3 className="h-3.5 w-3.5" />
   }
 
-  return <PackageCheck className="h-4 w-4" />
-}
-
-function getOrderItemPreview(order: AccountOrder) {
-  const items = order.items || []
-
-  if (items.length === 0) return 'No item details available'
-
-  if (items.length === 1) {
-    return items[0]?.name || '1 item'
-  }
-
-  return `${items[0]?.name || 'Item'} + ${items.length - 1} more`
+  return <Package className="h-3.5 w-3.5" />
 }
 
 function OrderCard({ order }: { order: AccountOrder }) {
   const storeGroups = groupOrderItemsByStore(order.items || [])
+  const itemCount = (order.items || []).reduce(
+    (total, item) => total + Math.max(1, Number(item.quantity || 1)),
+    0
+  )
 
   return (
-    <article className="rounded-3xl border border-transparent bg-white p-4 shadow-sm transition-all hover:border-dh-primary/20 hover:shadow-lg sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm text-dh-dark-gray">Order #{order.number || order.id}</p>
-
-          <h2 className="mt-1 line-clamp-2 font-display text-lg font-bold text-dh-primary sm:text-xl">
-            {getOrderItemPreview(order)}
-          </h2>
-
-          <p className="mt-2 text-sm text-dh-dark-gray">
-            Placed {formatDate(order.dateCreated)}
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-dh-primary/25 hover:shadow-md">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 sm:px-4">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-dh-primary">
+            Order #{order.number || order.id}
+          </p>
+          <p className="text-[11px] font-medium text-slate-500">
+            {formatDate(order.dateCreated)} · {itemCount} {itemCount === 1 ? 'item' : 'items'}
           </p>
         </div>
 
-        <span
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
-            order.status
-          )}`}
-        >
-          {getStatusIcon(order.status)}
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusStyle(order.status)}`}>
+          <StatusIcon status={order.status} />
           {order.statusLabel || order.status}
         </span>
       </div>
 
-      {storeGroups.length > 0 && (
-        <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100">
-          {storeGroups.slice(0, 2).map((group) => (
-            <section key={group.key} className="p-3">
-              <Link to={group.sellerUrl} className="mb-2 flex items-center gap-2 text-xs font-black text-dh-primary hover:text-dh-secondary">
-                <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-dh-gray text-[9px]">
-                  {group.avatarUrl ? <img src={group.avatarUrl} alt="" className="h-full w-full object-cover" /> : group.initials}
-                </div>
+      <div className="divide-y divide-slate-100">
+        {storeGroups.slice(0, 2).map((group) => (
+          <section key={group.key} className="px-3 py-2.5 sm:px-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Link
+                to={group.sellerUrl}
+                className="flex min-w-0 items-center gap-2 text-xs font-black text-dh-primary hover:text-dh-secondary"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-dh-gray text-[9px]">
+                  {group.avatarUrl ? (
+                    <img src={group.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    group.initials
+                  )}
+                </span>
                 <span className="truncate">{group.storeName}</span>
-                <span className="ml-auto text-[10px] font-bold text-slate-400">View store →</span>
               </Link>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {group.items.slice(0, 3).map((item) => (
-                  <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex min-w-0 items-center gap-2 rounded-xl bg-dh-gray p-2 transition hover:bg-dh-primary/5">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
-                      {item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" loading="lazy" /> : <ShoppingBag className="h-4 w-4 text-dh-primary" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold text-dh-primary">{item.name}</p>
-                      <p className="mt-0.5 text-[10px] font-semibold text-slate-500">Qty {item.quantity} · {formatPrice(item.total, order.currency)}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+              <span className="ml-auto shrink-0 text-[10px] font-bold text-slate-400">
+                {group.items.length} {group.items.length === 1 ? 'product' : 'products'}
+              </span>
+            </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-            <CreditCard className="h-4 w-4" />
-            Total
-          </div>
-
-          <p className="font-display text-base font-bold text-dh-primary sm:text-lg">
-            {formatPrice(order.total, order.currency)}
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-            <ShoppingBag className="h-4 w-4" />
-            Items
-          </div>
-
-          <p className="font-display text-base font-bold text-dh-primary sm:text-lg">
-            {order.items?.length || 0}
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-dh-dark-gray">
-            <CalendarDays className="h-4 w-4" />
-            Expected
-          </div>
-
-          <p className="line-clamp-1 font-semibold text-dh-primary">
-            {order.deliveryEstimate?.label || 'Not available'}
-          </p>
-        </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {group.items.slice(0, 3).map((item) => (
+                <Link
+                  key={item.id}
+                  to={`/product/${item.productId || item.id}`}
+                  className="flex min-w-0 items-center gap-2.5 rounded-xl bg-slate-50 p-2 transition hover:bg-dh-primary/5"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <ShoppingBag className="h-4 w-4 text-dh-primary" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-bold text-slate-800">{item.name}</span>
+                    <span className="mt-0.5 block text-[10px] font-semibold text-slate-500">
+                      Qty {item.quantity} · {formatPrice(item.total, order.currency)}
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
 
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-dh-dark-gray">
-          <p>
-            Payment:{' '}
-            <span className="font-semibold text-dh-primary">
-              {order.paymentMethodTitle || 'Not specified'}
-            </span>
-          </p>
-
-          {order.shipping?.city && (
-            <p>
-              Delivery city:{' '}
-              <span className="font-semibold text-dh-primary">
-                {order.shipping.city}
-              </span>
-            </p>
-          )}
+      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 bg-slate-50/80 px-3 py-2.5 sm:px-4">
+        <div className="mr-auto min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Order total</p>
+          <p className="text-base font-black text-dh-primary">{formatPrice(order.total, order.currency)}</p>
         </div>
-
+        {order.deliveryEstimate?.label && (
+          <p className="hidden max-w-xs truncate text-xs font-semibold text-slate-500 sm:block">
+            Expected {order.deliveryEstimate.label}
+          </p>
+        )}
         <Link
           to={`/track-order/${order.id}`}
-          className="inline-flex w-full items-center justify-center rounded-full bg-dh-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-dh-secondary sm:w-auto"
+          className="inline-flex h-9 items-center justify-center rounded-full bg-dh-primary px-4 text-xs font-bold text-white hover:bg-dh-secondary"
         >
           View order
-          <Eye className="ml-2 h-4 w-4" />
+          <Eye className="ml-1.5 h-3.5 w-3.5" />
         </Link>
       </div>
     </article>
   )
 }
 
+const ORDER_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'shipped', label: 'Shipped' },
+  { value: 'out-for-delivery', label: 'Out for delivery' },
+  { value: 'delivered', label: 'Delivered' },
+]
+
 export default function OrdersPage() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading } = useAccount()
-
   const [orders, setOrders] = useState<AccountOrder[]>([])
   const [isOrdersLoading, setIsOrdersLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -260,42 +219,27 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/login?redirect=/orders')
-    }
+    if (!isLoading && !isAuthenticated) navigate('/login?redirect=/orders')
   }, [isAuthenticated, isLoading, navigate])
 
   useEffect(() => {
     if (!isAuthenticated) return
-
     let mounted = true
 
-    async function loadOrders() {
-      setIsOrdersLoading(true)
-      setErrorMessage('')
-
-      try {
-        const response = await getCustomerOrders()
-
+    setIsOrdersLoading(true)
+    setErrorMessage('')
+    getCustomerOrders()
+      .then((response) => {
+        if (mounted) setOrders(response.orders || [])
+      })
+      .catch((error) => {
         if (mounted) {
-          setOrders(response.orders || [])
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load your orders right now.')
         }
-      } catch (error) {
-        if (mounted) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : 'Unable to load your orders right now.'
-          )
-        }
-      } finally {
-        if (mounted) {
-          setIsOrdersLoading(false)
-        }
-      }
-    }
-
-    loadOrders()
+      })
+      .finally(() => {
+        if (mounted) setIsOrdersLoading(false)
+      })
 
     return () => {
       mounted = false
@@ -303,65 +247,31 @@ export default function OrdersPage() {
   }, [isAuthenticated])
 
   const filteredOrders = useMemo(() => {
-    const cleanedQuery = searchQuery.trim().toLowerCase()
+    const query = searchQuery.trim().toLowerCase()
 
     return orders.filter((order) => {
-      const status = normalizeStatus(order.status)
-
-      const matchesStatus =
-        statusFilter === 'all' ||
-        status === statusFilter ||
-        (statusFilter === 'delivered' && status === 'completed') ||
-        (statusFilter === 'out-for-delivery' && status === 'outfordelivery')
-
       const matchesSearch =
-        !cleanedQuery ||
-        String(order.number || order.id).toLowerCase().includes(cleanedQuery) ||
-        String(order.id).toLowerCase().includes(cleanedQuery) ||
-        (order.items || []).some((item) =>
-          String(item.name || '').toLowerCase().includes(cleanedQuery)
-        )
+        !query ||
+        String(order.number || order.id).toLowerCase().includes(query) ||
+        String(order.id).toLowerCase().includes(query) ||
+        (order.items || []).some((item) => String(item.name || '').toLowerCase().includes(query))
 
-      return matchesStatus && matchesSearch
+      return matchesStatus(order, statusFilter) && matchesSearch
     })
   }, [orders, searchQuery, statusFilter])
 
-  const orderCounts = useMemo(() => {
-    return {
-      total: orders.length,
-      active: orders.filter((order) =>
-        ['processing', 'shipped', 'out-for-delivery', 'outfordelivery'].includes(
-          normalizeStatus(order.status)
-        )
-      ).length,
-      delivered: orders.filter((order) =>
-        ['delivered', 'completed'].includes(normalizeStatus(order.status))
-      ).length,
-      pending: orders.filter((order) =>
-        ['pending', 'on-hold'].includes(normalizeStatus(order.status))
-      ).length,
-    }
-  }, [orders])
+  const filterCounts = useMemo(
+    () => Object.fromEntries(ORDER_FILTERS.map((filter) => [filter.value, orders.filter((order) => matchesStatus(order, filter.value)).length])),
+    [orders]
+  )
 
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
       <div className="flex min-h-[100svh] flex-col bg-dh-gray">
         <Header />
-
         <main className="flex min-h-[60vh] items-center justify-center px-4">
-          <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-dh-primary" />
-
-            <h1 className="font-display text-xl font-bold text-dh-primary">
-              Loading your orders
-            </h1>
-
-            <p className="mt-2 text-sm text-dh-dark-gray">
-              Please wait while we prepare your order history.
-            </p>
-          </div>
+          <Loader2 className="h-9 w-9 animate-spin text-dh-primary" />
         </main>
-
         <Footer />
       </div>
     )
@@ -370,221 +280,87 @@ export default function OrdersPage() {
   return (
     <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
-
-      <main className="py-5 lg:py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <nav className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-dh-dark-gray shadow-sm">
-            <Link to="/" className="hover:text-dh-primary">
-              Home
+      <main className="flex-1 py-4 lg:py-7">
+        <div className="container mx-auto px-3 sm:px-5 lg:px-8 xl:px-10">
+          <nav className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+            <Link to="/account" className="hover:text-dh-primary">My account</Link>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span className="text-dh-primary">Orders</span>
+            <Link to="/track-order" className="ml-auto inline-flex items-center gap-1 text-dh-primary hover:text-dh-secondary">
+              Track another order <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-
-            <ChevronRight className="h-4 w-4" />
-
-            <Link to="/account" className="hover:text-dh-primary">
-              My Account
-            </Link>
-
-            <ChevronRight className="h-4 w-4" />
-
-            <span className="font-medium text-dh-primary">My Orders</span>
           </nav>
 
-          <section className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/15 text-dh-primary">
-                  <ShoppingBag className="h-6 w-6" />
-                </div>
-
-                <div>
-                  <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-dh-primary">
-                    My orders
-                  </div>
-
-                  <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary sm:text-3xl">
-                    Your order history
-                  </h1>
-
-                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-dh-dark-gray">
-                    Track purchases, payment status, and delivery progress.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                to="/track-order"
-                className="inline-flex items-center justify-center rounded-full border border-dh-primary px-5 py-3 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-              >
-                Track by order number
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+          <section className="sticky top-16 z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:top-20 sm:p-4 lg:static">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search order number or product name"
+                className="h-10 rounded-full border-slate-200 bg-slate-50 pl-10 text-sm"
+              />
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Total orders
-                </p>
-                <p className="mt-1 font-display text-xl font-bold text-dh-primary sm:text-2xl">
-                  {orderCounts.total}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Active
-                </p>
-                <p className="mt-1 font-display text-xl font-bold text-dh-primary sm:text-2xl">
-                  {orderCounts.active}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Delivered
-                </p>
-                <p className="mt-1 font-display text-xl font-bold text-dh-primary sm:text-2xl">
-                  {orderCounts.delivered}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-dh-gray p-3 sm:p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                  Awaiting action
-                </p>
-                <p className="mt-1 font-display text-xl font-bold text-dh-primary sm:text-2xl">
-                  {orderCounts.pending}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section className="sticky top-20 z-20 mt-5 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:static">
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-dh-dark-gray" />
-
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by order number or product name..."
-                  className="h-12 rounded-full pl-12"
-                />
-              </div>
-
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                {[
-                  { value: 'all', label: 'All' },
-                  { value: 'pending', label: 'Pending' },
-                  { value: 'processing', label: 'Processing' },
-                  { value: 'shipped', label: 'Shipped' },
-                  { value: 'out-for-delivery', label: 'Out for delivery' },
-                  { value: 'delivered', label: 'Delivered' },
-                ].map((filter) => (
+            <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+              {ORDER_FILTERS.map((filter) => {
+                const selected = statusFilter === filter.value
+                return (
                   <button
                     key={filter.value}
                     type="button"
                     onClick={() => setStatusFilter(filter.value)}
-                    className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                      statusFilter === filter.value
-                        ? 'bg-dh-primary text-white'
-                        : 'bg-dh-gray text-dh-primary hover:bg-dh-secondary/20'
-                    }`}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${selected ? 'bg-dh-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-dh-primary/10 hover:text-dh-primary'}`}
                   >
                     {filter.label}
+                    <span className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] ${selected ? 'bg-white/20 text-white' : 'bg-white text-slate-600'}`}>
+                      {filterCounts[filter.value] || 0}
+                    </span>
                   </button>
-                ))}
-              </div>
+                )
+              })}
             </div>
           </section>
 
           {errorMessage && (
-            <section className="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-              <div className="flex gap-2">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>{errorMessage}</p>
-              </div>
+            <section className="mt-3 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{errorMessage}</p>
             </section>
           )}
 
-          <section className="mt-5">
+          <section className="mt-3">
             {isOrdersLoading ? (
-              <div className="rounded-3xl bg-white p-8 text-center shadow-sm sm:p-10">
-                <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-dh-primary" />
-
-                <h2 className="font-display text-xl font-bold text-dh-primary">
-                  Loading orders
-                </h2>
-
-                <p className="mt-2 text-sm text-dh-dark-gray">
-                  Please wait while we fetch your order history.
-                </p>
+              <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+                <Loader2 className="mx-auto h-8 w-8 animate-spin text-dh-primary" />
+                <p className="mt-3 text-sm font-bold text-dh-primary">Loading orders…</p>
               </div>
             ) : filteredOrders.length > 0 ? (
-              <div className="grid gap-4">
-                {filteredOrders.map((order) => (
-                  <OrderCard key={order.id} order={order} />
-                ))}
+              <div className="grid gap-3">
+                {filteredOrders.map((order) => <OrderCard key={order.id} order={order} />)}
               </div>
             ) : orders.length > 0 ? (
-              <div className="rounded-3xl bg-white p-8 text-center shadow-sm sm:p-10">
-                <Search className="mx-auto mb-4 h-10 w-10 text-dh-primary" />
-
-                <h2 className="font-display text-xl font-bold text-dh-primary">
-                  No orders match your search
-                </h2>
-
-                <p className="mt-2 text-sm text-dh-dark-gray">
-                  Try another order number, product name, or status filter.
-                </p>
-
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('')
-                    setStatusFilter('all')
-                  }}
-                  className="mt-5 rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
-                >
+              <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+                <Search className="mx-auto h-9 w-9 text-dh-primary" />
+                <h1 className="mt-3 text-lg font-black text-dh-primary">No matching orders</h1>
+                <p className="mt-1 text-sm text-slate-500">Try another order number, product name, or status.</p>
+                <Button type="button" onClick={() => { setSearchQuery(''); setStatusFilter('all') }} className="mt-4 rounded-full bg-dh-primary">
                   Clear filters
                 </Button>
               </div>
             ) : (
-              <div className="rounded-3xl bg-white p-8 text-center shadow-sm sm:p-10">
-                <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
-
-                <h2 className="font-display text-2xl font-bold text-dh-primary">
-                  No orders yet
-                </h2>
-
-                <p className="mx-auto mt-2 max-w-lg text-dh-dark-gray">
-                  Your purchases will appear here after checkout. Start shopping
-                  and your order history will be saved to your account.
-                </p>
-
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Link to="/shop">
-                    <Button className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
-                      Start shopping
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-
-                  <Link to="/track-order">
-                    <Button
-                      variant="outline"
-                      className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                    >
-                      Track an order
-                    </Button>
-                  </Link>
-                </div>
+              <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+                <ShoppingBag className="mx-auto h-10 w-10 text-dh-primary" />
+                <h1 className="mt-3 text-xl font-black text-dh-primary">No orders yet</h1>
+                <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Your purchases will appear here after checkout.</p>
+                <Button asChild className="mt-4 rounded-full bg-dh-primary">
+                  <Link to="/shop">Start shopping <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                </Button>
               </div>
             )}
           </section>
         </div>
       </main>
-
       <Footer />
     </div>
   )

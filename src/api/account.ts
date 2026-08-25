@@ -3,6 +3,7 @@ const PAYMENTS_API_URL =
   'https://payments.digitalhood.info'
 
 const ACCOUNT_TOKEN_KEY = 'digitalhood_customer_token'
+const ACCOUNT_CUSTOMER_CACHE_KEY = 'digitalhood_customer_snapshot'
 
 type AccountErrorPayload = {
   details?: string
@@ -140,6 +141,20 @@ export type AccountOrderShippingLine = {
   total?: string
 }
 
+export type AccountOrderFeeLine = {
+  id?: number
+  name?: string
+  total?: string
+  tax?: string
+}
+
+export type AccountOrderCouponLine = {
+  id?: number
+  code?: string
+  discount?: string
+  discountTax?: string
+}
+
 export type AccountOrder = {
   id: number
   number: string
@@ -150,6 +165,9 @@ export type AccountOrder = {
   currency?: string
   total?: string
   subtotal?: string
+  discountTotal?: string
+  shippingTotal?: string
+  taxTotal?: string
   paymentMethod?: string
   paymentMethodTitle?: string
   transactionId?: string
@@ -168,6 +186,8 @@ export type AccountOrder = {
   }
   shipping?: AccountAddress
   shippingLines?: AccountOrderShippingLine[]
+  feeLines?: AccountOrderFeeLine[]
+  couponLines?: AccountOrderCouponLine[]
   items?: AccountOrderItem[]
 }
 
@@ -210,6 +230,7 @@ export type AuthResponse = {
 
 export type CustomerResponse = {
   success: boolean
+  token?: string
   customer: AccountCustomer
 }
 
@@ -401,6 +422,44 @@ export function clearAccountToken() {
   localStorage.removeItem(ACCOUNT_TOKEN_KEY)
 }
 
+export function getCachedAccountCustomer() {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const rawCustomer = localStorage.getItem(ACCOUNT_CUSTOMER_CACHE_KEY)
+    return rawCustomer ? (JSON.parse(rawCustomer) as AccountCustomer) : null
+  } catch {
+    localStorage.removeItem(ACCOUNT_CUSTOMER_CACHE_KEY)
+    return null
+  }
+}
+
+export function setCachedAccountCustomer(customer: AccountCustomer) {
+  if (typeof window === 'undefined') return
+
+  localStorage.setItem(ACCOUNT_CUSTOMER_CACHE_KEY, JSON.stringify(customer))
+}
+
+export function clearCachedAccountCustomer() {
+  if (typeof window === 'undefined') return
+
+  localStorage.removeItem(ACCOUNT_CUSTOMER_CACHE_KEY)
+}
+
+export class AccountRequestError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'AccountRequestError'
+    this.status = status
+  }
+}
+
+export function isAccountUnauthorizedError(error: unknown) {
+  return error instanceof AccountRequestError && error.status === 401
+}
+
 async function accountFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -431,7 +490,7 @@ async function accountFetch<T>(
       (data as AccountErrorPayload | null)?.message ||
       `Account request failed with status ${response.status}`
 
-    throw new Error(message)
+    throw new AccountRequestError(message, response.status)
   }
 
   return data as T

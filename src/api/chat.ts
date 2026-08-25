@@ -125,6 +125,8 @@ export type ChatMessage = {
   messageId?: string
   id?: string
   conversationId?: string
+  clientMessageId?: string
+  localStatus?: 'sending' | 'failed'
   sequence: number
   messageType?: string
   type?: string
@@ -362,7 +364,9 @@ async function chatFetch<T>(
   const attempts = canRetry ? 3 : 1
   let lastError: ChatRequestError | null = null
 
-  if (cached && Date.now() - cached.storedAt <= CHAT_CACHE_FRESH_MS) {
+  const isMessageHistoryRequest = path.includes('/messages')
+
+  if (!isMessageHistoryRequest && cached && Date.now() - cached.storedAt <= CHAT_CACHE_FRESH_MS) {
     return cached.value as T
   }
 
@@ -394,6 +398,7 @@ async function chatFetch<T>(
       }
 
       if (canRetry) rememberChatResponse(cacheKey, data)
+      else chatResponseCache.clear()
       return data as T
     } catch (error) {
       if (error instanceof ChatRequestError) {
@@ -992,6 +997,12 @@ function normalizeMessage(
         row.conversationId
       ),
 
+    clientMessageId:
+      stringValue(
+        row.clientMessageId,
+        row.client_message_id
+      ) || undefined,
+
     sequence,
 
     messageType:
@@ -1243,7 +1254,8 @@ export async function sendBuyerOrder(
 export async function sendBuyerMessage(
   conversationId: string,
   text: string,
-  replyToMessageId?: string
+  replyToMessageId?: string,
+  clientMessageId: string = window.crypto.randomUUID()
 ) {
   return chatFetch<RawRecord>(
     `/api/conversations/${encodeURIComponent(
@@ -1256,9 +1268,7 @@ export async function sendBuyerMessage(
         JSON.stringify({
           kind: 'buyer',
 
-          clientMessageId:
-            window.crypto
-              .randomUUID(),
+          clientMessageId,
 
           ...(replyToMessageId
             ? {
@@ -1276,7 +1286,8 @@ export function sendBuyerMedia(
   conversationId: string,
   file: File,
   onProgress?: (percentage: number) => void,
-  replyToMessageId?: string
+  replyToMessageId?: string,
+  clientMessageId: string = window.crypto.randomUUID()
 ): Promise<RawRecord> {
   const token = getAccountToken()
 
@@ -1286,7 +1297,7 @@ export function sendBuyerMedia(
 
   const params = new URLSearchParams({
     kind: 'buyer',
-    clientMessageId: window.crypto.randomUUID(),
+    clientMessageId,
     fileName: file.name
   })
 

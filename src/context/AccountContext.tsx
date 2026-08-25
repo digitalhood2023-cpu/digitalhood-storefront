@@ -8,10 +8,14 @@ import {
 } from 'react'
 
 import {
+  clearCachedAccountCustomer,
   clearAccountToken,
+  getCachedAccountCustomer,
   getAccountToken,
   getCurrentCustomer,
+  isAccountUnauthorizedError,
   logoutCustomerAccount,
+  setCachedAccountCustomer,
   setAccountToken,
   type AccountCustomer,
 } from '@/api/account'
@@ -33,7 +37,9 @@ type AccountContextValue = {
 const AccountContext = createContext<AccountContextValue | undefined>(undefined)
 
 export function AccountProvider({ children }: { children: React.ReactNode }) {
-  const [customer, setCustomer] = useState<AccountCustomer | null>(null)
+  const [customer, setCustomer] = useState<AccountCustomer | null>(() =>
+    getAccountToken() ? getCachedAccountCustomer() : null
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -43,11 +49,13 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
 
   const setSession = useCallback((token: string, nextCustomer: AccountCustomer) => {
     setAccountToken(token)
+    setCachedAccountCustomer(nextCustomer)
     setCustomer(nextCustomer)
     setError('')
   }, [])
 
   const updateCustomerInState = useCallback((nextCustomer: AccountCustomer) => {
+    setCachedAccountCustomer(nextCustomer)
     setCustomer(nextCustomer)
     setError('')
   }, [])
@@ -66,21 +74,33 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await getCurrentCustomer()
+      if (response.token) {
+        setAccountToken(response.token)
+      }
+      setCachedAccountCustomer(response.customer)
       setCustomer(response.customer)
+      setError('')
       return response.customer
     } catch (requestError) {
-      clearAccountToken()
-      useCartStore.getState().clearCart()
-      clearMarketplacePersonalBrowserState()
-      setCustomer(null)
+      if (isAccountUnauthorizedError(requestError)) {
+        clearAccountToken()
+        clearCachedAccountCustomer()
+        useCartStore.getState().clearCart()
+        clearMarketplacePersonalBrowserState()
+        setCustomer(null)
+      }
 
       setError(
-        requestError instanceof Error
+        isAccountUnauthorizedError(requestError)
+          ? 'Your session has expired. Please sign in again.'
+          : requestError instanceof Error
           ? requestError.message
-          : 'Your session has expired. Please sign in again.'
+          : 'We could not refresh your account. Your saved session is still active.'
       )
 
-      return null
+      return isAccountUnauthorizedError(requestError)
+        ? null
+        : getCachedAccountCustomer()
     } finally {
       setIsLoading(false)
     }
@@ -91,12 +111,14 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     setError('')
     useCartStore.getState().clearCart()
     clearMarketplacePersonalBrowserState()
+    clearCachedAccountCustomer()
     setCustomer(null)
 
     try {
       await logoutCustomerAccount()
     } catch {
       clearAccountToken()
+      clearCachedAccountCustomer()
     } finally {
       useCartStore.getState().clearCart()
       clearMarketplacePersonalBrowserState()

@@ -52,6 +52,95 @@ function DeliveryAddress({ order }: { order: TrackableOrder }) {
   )
 }
 
+function OrderSummary({
+  order,
+  isCashOnDelivery,
+  isClosed,
+}: {
+  order: TrackableOrder
+  isCashOnDelivery: boolean
+  isClosed: boolean
+}) {
+  const currency = order.currency
+  const shippingTotal = Number(order.shippingTotal ?? order.shippingLines?.reduce(
+    (sum, line) => sum + Number(line.total || 0),
+    0
+  ) ?? 0)
+  const discountTotal = Number(order.discountTotal || 0)
+  const taxTotal = Number(order.taxTotal || 0)
+  const feeLines = order.feeLines || []
+  const couponLines = order.couponLines || []
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="font-black text-[#16143f]">Order summary</h2>
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-500">Products subtotal</dt>
+          <dd className="font-bold text-slate-700">{formatOrderMoney(order.subtotal, currency)}</dd>
+        </div>
+
+        {couponLines.map((coupon) => (
+          <div key={`${coupon.id || coupon.code}`} className="flex justify-between gap-3 text-emerald-700">
+            <dt>Coupon {coupon.code ? coupon.code.toUpperCase() : ''}</dt>
+            <dd className="font-bold">−{formatOrderMoney(coupon.discount, currency)}</dd>
+          </div>
+        ))}
+
+        {couponLines.length === 0 && discountTotal > 0 && (
+          <div className="flex justify-between gap-3 text-emerald-700">
+            <dt>Discount</dt>
+            <dd className="font-bold">−{formatOrderMoney(discountTotal, currency)}</dd>
+          </div>
+        )}
+
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-500">Shipping</dt>
+          <dd className={`font-bold ${shippingTotal === 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
+            {shippingTotal === 0 ? 'Free' : formatOrderMoney(shippingTotal, currency)}
+          </dd>
+        </div>
+
+        {feeLines.map((fee) => (
+          <div key={`${fee.id || fee.name}`} className="flex justify-between gap-3">
+            <dt className="text-slate-500">{fee.name || 'Order fee'}</dt>
+            <dd className="font-bold text-slate-700">{formatOrderMoney(fee.total, currency)}</dd>
+          </div>
+        ))}
+
+        {taxTotal > 0 && (
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">Tax</dt>
+            <dd className="font-bold text-slate-700">{formatOrderMoney(taxTotal, currency)}</dd>
+          </div>
+        )}
+
+        <div className="mt-3 flex justify-between gap-3 border-t border-slate-200 pt-3">
+          <dt className="font-black text-slate-900">Total</dt>
+          <dd className="text-base font-black text-slate-900">{formatOrderMoney(order.total, currency)}</dd>
+        </div>
+
+        <div className="flex justify-between gap-3 border-t border-slate-100 pt-3">
+          <dt className="text-slate-500">Payment</dt>
+          <dd className="text-right font-bold text-slate-700">{order.paymentMethodTitle || 'Not available'}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-500">Payment status</dt>
+          <dd className="text-right font-bold text-slate-700">
+            {order.datePaid
+              ? `Paid ${formatOrderDate(order.datePaid)}`
+              : isCashOnDelivery
+                ? 'Handled on delivery'
+                : isClosed
+                  ? 'Not paid'
+                  : 'Pending'}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
+
 export default function OrderTrackingDetailsPage() {
   const { orderId = '' } = useParams()
   const location = useLocation()
@@ -199,7 +288,7 @@ export default function OrderTrackingDetailsPage() {
               </section>
 
               <div className="space-y-4">
-                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-black text-[#16143f]">Order summary</h2><dl className="mt-3 space-y-2.5 text-sm"><div className="flex justify-between gap-3"><dt className="text-slate-500">Total</dt><dd className="font-black text-slate-900">{formatOrderMoney(order.total, order.currency)}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Payment</dt><dd className="text-right font-bold text-slate-700">{order.paymentMethodTitle || 'Not available'}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Payment status</dt><dd className="text-right font-bold text-slate-700">{order.datePaid ? `Paid ${formatOrderDate(order.datePaid)}` : isCashOnDelivery ? 'Handled on delivery' : state.closed ? 'Not paid' : 'Pending'}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Delivery</dt><dd className="text-right font-bold text-slate-700">{order.deliveryEstimate?.label || 'Update pending'}</dd></div></dl></section>
+                <OrderSummary order={order} isCashOnDelivery={isCashOnDelivery} isClosed={state.closed} />
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="mb-3 flex items-center gap-2 font-black text-[#16143f]"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
               </div>
