@@ -16,6 +16,8 @@ const product = read('src/pages/ProductPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
+const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
+const supportLinks = read('src/lib/supportLinks.ts')
 const html = read('index.html')
 const optimisticTextSend = buyerChat.slice(
   buyerChat.indexOf('const optimisticMessage: ChatMessage'),
@@ -30,12 +32,18 @@ assert(
 )
 
 const summaryIndex = checkout.indexOf('Order Summary')
-const addressIndex = checkout.indexOf('Delivery Address')
+const addressIndex = checkout.indexOf('checkout-delivery-address')
+const totalsIndex = checkout.indexOf('Subtotal')
 const paymentIndex = checkout.indexOf('Payment Method')
 assert(summaryIndex >= 0, 'order summary is missing')
 assert(
-  summaryIndex < addressIndex && addressIndex < paymentIndex,
-  'checkout must render Summary, Address, then Payment in document order'
+  summaryIndex < addressIndex && addressIndex < totalsIndex && totalsIndex < paymentIndex,
+  'the compact address must remain inside Summary before totals and Payment'
+)
+assert(
+  !checkout.includes('3\n                    </div>') &&
+    checkout.includes('Choose how you want to pay.'),
+  'payment must remain the compact second checkout step'
 )
 assert(
   checkout.includes('Place order · '),
@@ -108,6 +116,16 @@ assert(
     tracking.includes("shippingTotal === 0 ? 'Free'") &&
     tracking.includes('taxTotal'),
   'full order detail must retain its transparent cost breakdown'
+)
+
+assert(
+  accountOrderIssue.includes('createCustomerOrderCase') &&
+    accountOrderIssue.includes('replyToCustomerOrderCase') &&
+    accountOrderIssue.includes('MAX_EVIDENCE_FILES = 5') &&
+    accountOrderIssue.includes('compressEvidenceImage') &&
+    accountOrderIssue.includes('video/mp4') &&
+    supportLinks.includes('/account/orders/${encodeURIComponent(orderId)}/report'),
+  'signed-in order reports must remain account-linked with controlled photo/video evidence'
 )
 
 console.log('Marketplace release validation passed')

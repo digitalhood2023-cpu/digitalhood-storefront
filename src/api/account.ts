@@ -740,6 +740,8 @@ export async function createCustomerOrderCase(
     reason: string
     description: string
     itemId?: string | number
+    evidence?: File[]
+    /** @deprecated Use evidence. Retained for older callers. */
     photos?: File[]
     pageUrl?: string
   }
@@ -758,8 +760,8 @@ export async function createCustomerOrderCase(
     formData.append('pageUrl', payload.pageUrl)
   }
 
-  for (const photo of payload.photos || []) {
-    formData.append('photos', photo)
+  for (const file of payload.evidence || payload.photos || []) {
+    formData.append('photos', file)
   }
 
   const response = await fetch(
@@ -797,6 +799,8 @@ export async function replyToCustomerOrderCase(
   caseNumber: string,
   payload: {
     message: string
+    evidence?: File[]
+    /** @deprecated Use evidence. Retained for older callers. */
     photos?: File[]
   }
 ) {
@@ -805,8 +809,8 @@ export async function replyToCustomerOrderCase(
 
   formData.append('message', payload.message)
 
-  for (const photo of payload.photos || []) {
-    formData.append('photos', photo)
+  for (const file of payload.evidence || payload.photos || []) {
+    formData.append('photos', file)
   }
 
   const response = await fetch(

@@ -6,9 +6,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import {
   AlertCircle,
   ChevronLeft,
-  Clock,
   CreditCard,
-  Home,
   Edit3,
   Loader2,
   MapPin,
@@ -1410,7 +1408,7 @@ export default function CheckoutPage() {
                 Checkout
               </h1>
 
-              <p className="mt-1 text-sm text-dh-dark-gray">Review, deliver, pay—securely in three clear steps.</p>
+              <p className="mt-1 text-sm text-dh-dark-gray">Review the order and delivery details, then pay securely.</p>
             </div>
           </section>
 
@@ -1550,6 +1548,274 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
+                <section
+                  aria-labelledby="checkout-delivery-address"
+                  className="mb-3 overflow-hidden rounded-xl border border-dh-light-gray bg-dh-gray/70"
+                >
+                  <div className="flex items-start gap-2.5 p-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-dh-secondary/15 text-dh-primary">
+                      <MapPin className="h-4 w-4" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p
+                          id="checkout-delivery-address"
+                          className="text-[10px] font-black uppercase tracking-[0.12em] text-dh-dark-gray"
+                        >
+                          Deliver to
+                        </p>
+
+                        {selectedSavedAddress &&
+                          (selectedSavedAddress.isDefault ||
+                            selectedSavedAddress.id === customer?.defaultAddressId) && (
+                            <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-black text-green-700">
+                              Default
+                            </span>
+                          )}
+                      </div>
+
+                      {selectedSavedAddress && !showDeliveryFields ? (
+                        <>
+                          <p className="mt-0.5 truncate text-xs font-black text-dh-primary">
+                            {selectedSavedAddress.fullName} · {selectedSavedAddress.phone}
+                          </p>
+                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-dh-dark-gray">
+                            {getAddressLine(selectedSavedAddress)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-0.5 text-xs font-bold text-dh-primary">
+                          Enter the address for this delivery
+                        </p>
+                      )}
+                    </div>
+
+                    {isAuthenticated && selectedSavedAddress && !showDeliveryFields && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {savedAddresses.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIsAddressPickerOpen((current) => !current)}
+                            className="inline-flex h-8 items-center rounded-lg border border-dh-light-gray bg-white px-2 text-[10px] font-black text-dh-primary hover:border-dh-primary"
+                          >
+                            <Edit3 className="mr-1 h-3 w-3" />
+                            Change
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={openAddCheckoutAddress}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-dh-primary text-white hover:bg-dh-secondary"
+                          aria-label="Add another delivery address"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isAuthenticated && isAddressPickerOpen && savedAddresses.length > 1 && (
+                    <div className="border-t border-dh-light-gray bg-white p-2">
+                      <div className="mb-2 flex items-center justify-between px-1">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-dh-dark-gray">
+                          Select an address
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddressPickerOpen(false)}
+                          className="rounded-full p-1 text-dh-dark-gray hover:bg-dh-gray"
+                          aria-label="Close address selector"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="max-h-44 space-y-1.5 overflow-y-auto">
+                        {savedAddresses.map((address) => {
+                          const selected = selectedSavedAddress?.id === address.id
+
+                          return (
+                            <button
+                              key={address.id}
+                              type="button"
+                              onClick={() => applySavedAddressToForm(address)}
+                              className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${
+                                selected
+                                  ? 'border-dh-primary bg-dh-primary/[0.04]'
+                                  : 'border-dh-light-gray hover:border-dh-primary/40'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-xs font-black text-dh-primary">
+                                  {address.label || address.fullName || 'Delivery address'}
+                                </p>
+                                {selected && (
+                                  <span className="text-[9px] font-black uppercase text-green-700">
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 truncate text-[10px] text-dh-dark-gray">
+                                {address.fullName} · {address.phone} · {getAddressLine(address)}
+                              </p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {showDeliveryFields && (
+                    <div className="border-t border-dh-light-gray bg-white p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-black text-dh-primary">
+                            {isAuthenticated ? 'New delivery address' : 'Delivery details'}
+                          </p>
+                          <p className="text-[10px] text-dh-dark-gray">
+                            Required for delivery and live directions.
+                          </p>
+                        </div>
+
+                        {isAuthenticated && savedAddresses.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={cancelAddCheckoutAddress}
+                            className="rounded-lg border border-dh-light-gray px-2.5 py-1.5 text-[10px] font-black text-dh-primary"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleUseCurrentLocation}
+                        disabled={isLocatingAddress}
+                        className="mt-2.5 inline-flex h-9 w-full items-center justify-center rounded-lg border border-dh-primary/20 bg-dh-primary/[0.035] px-3 text-[11px] font-black text-dh-primary hover:border-dh-primary disabled:opacity-60"
+                      >
+                        {isLocatingAddress ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <MapPin className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {isLocatingAddress ? 'Getting location…' : 'Use current location'}
+                      </button>
+
+                      {locationPin && (
+                        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-green-50 px-2.5 py-2 text-[10px] font-bold text-green-800">
+                          <span>
+                            Precise location saved
+                            {locationPin.accuracy ? ` · ±${locationPin.accuracy} m` : ''}
+                          </span>
+                          <a
+                            href={locationPin.mapUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 underline"
+                          >
+                            Preview
+                          </a>
+                        </div>
+                      )}
+
+                      {locationError && (
+                        <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-2 text-[10px] font-bold text-red-700">
+                          {locationError}
+                        </p>
+                      )}
+
+                      <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+                        <Input
+                          aria-label="Full name"
+                          value={formData.fullName}
+                          onChange={(event) => updateField('fullName', event.target.value)}
+                          placeholder="Full name"
+                          className="h-9 rounded-lg bg-dh-gray text-xs sm:col-span-2"
+                        />
+
+                        {!isAuthenticated && (
+                          <Input
+                            aria-label="Email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(event) => updateField('email', event.target.value)}
+                            placeholder="Email"
+                            className="h-9 rounded-lg bg-dh-gray text-xs sm:col-span-2"
+                          />
+                        )}
+
+                        <Input
+                          aria-label="Delivery contact number"
+                          value={formData.phone}
+                          onChange={(event) => updateField('phone', event.target.value)}
+                          placeholder="Delivery phone"
+                          className="h-9 rounded-lg bg-dh-gray text-xs sm:col-span-2"
+                        />
+                        <Input
+                          aria-label="Street address"
+                          value={formData.address}
+                          onChange={(event) => updateField('address', event.target.value)}
+                          placeholder="House, road and area"
+                          className="h-9 rounded-lg bg-dh-gray text-xs sm:col-span-2"
+                        />
+                        <Input
+                          aria-label="Landmark or extra directions"
+                          value={formData.address2}
+                          onChange={(event) => updateField('address2', event.target.value)}
+                          placeholder="Landmark or extra directions"
+                          className="h-9 rounded-lg bg-dh-gray text-xs sm:col-span-2"
+                        />
+                        <Input
+                          aria-label="City"
+                          value={formData.city}
+                          onChange={(event) => updateField('city', event.target.value)}
+                          placeholder="City"
+                          className="h-9 rounded-lg bg-dh-gray text-xs"
+                        />
+                        <Input
+                          aria-label="Province"
+                          value={formData.province}
+                          onChange={(event) => updateField('province', event.target.value)}
+                          placeholder="Province"
+                          className="h-9 rounded-lg bg-dh-gray text-xs"
+                        />
+                      </div>
+
+                      {isAuthenticated && (
+                        <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <label className="flex items-center gap-2 text-[10px] font-bold text-dh-dark-gray">
+                            <input
+                              type="checkbox"
+                              checked={saveCheckoutAddressAsDefault}
+                              disabled={savedAddresses.length === 0}
+                              onChange={(event) => setSaveCheckoutAddressAsDefault(event.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-dh-light-gray"
+                            />
+                            {savedAddresses.length === 0 ? 'First address becomes default' : 'Make default'}
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={handleSaveCheckoutAddress}
+                            disabled={isSavingCheckoutAddress}
+                            className="inline-flex h-9 items-center justify-center rounded-lg bg-dh-primary px-3 text-[11px] font-black text-white hover:bg-dh-secondary disabled:opacity-60"
+                          >
+                            {isSavingCheckoutAddress ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            {isSavingCheckoutAddress ? 'Saving…' : 'Save and use'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+
                 <div className="mb-4 rounded-2xl bg-green-50 p-3 text-xs font-semibold text-green-700">
                   <div className="flex items-start gap-2">
                     <Truck className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1596,447 +1862,28 @@ export default function CheckoutPage() {
               </div>
             </aside>
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm sm:p-4">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dh-primary text-sm font-black text-white">
-                    2
-                  </div>
-
-                  <div>
-                    <h2 className="font-display text-xl font-bold text-dh-primary">
-                      Delivery Address
-                    </h2>
-                    <p className="text-sm text-dh-dark-gray">
-                      Choose where your order should be delivered.
-                    </p>
-                  </div>
-                </div>
-
-                {isAuthenticated && selectedSavedAddress && !showDeliveryFields && (
-                  <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-dh-secondary/20 text-dh-primary">
-                          <MapPin className="h-6 w-6" />
-                        </div>
-
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-display text-lg font-bold text-dh-primary">
-                              {selectedSavedAddress.label || 'Delivery Address'}
-                            </p>
-
-                            {(selectedSavedAddress.isDefault ||
-                              selectedSavedAddress.id === customer?.defaultAddressId) && (
-                              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                                Default
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="mt-1 font-semibold text-dh-primary">
-                            {selectedSavedAddress.fullName}
-                          </p>
-
-                          <p className="mt-1 text-sm text-dh-dark-gray">
-                            {selectedSavedAddress.phone}
-                          </p>
-
-                          <p className="mt-2 text-sm text-dh-dark-gray">
-                            {getAddressLine(selectedSavedAddress)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {savedAddresses.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsAddressPickerOpen((current) => !current)}
-                            className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                          >
-                            <Edit3 className="mr-2 h-4 w-4" />
-                            Change
-                          </Button>
-                        )}
-
-                        <Button
-                          type="button"
-                          onClick={openAddCheckoutAddress}
-                          className="rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add new
-                        </Button>
-                      </div>
+            <div>
+              <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-3.5">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-dh-primary text-xs font-black text-white">
+                      2
                     </div>
-                  </div>
-                )}
-
-                {isAuthenticated && isAddressPickerOpen && savedAddresses.length > 1 && (
-                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-white p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-dh-primary">
-                          Select delivery address
-                        </p>
-                        <p className="text-sm text-dh-dark-gray">
-                          Pick the address you want to use for this order.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsAddressPickerOpen(false)}
-                        className="rounded-full bg-dh-gray p-2 text-dh-primary hover:bg-red-50 hover:text-red-600"
-                        aria-label="Close address selector"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid gap-3">
-                      {savedAddresses.map((address) => {
-                        const selected = selectedSavedAddress?.id === address.id
-
-                        return (
-                          <button
-                            key={address.id}
-                            type="button"
-                            onClick={() => applySavedAddressToForm(address)}
-                            className={`rounded-2xl border p-4 text-left transition-all ${
-                              selected
-                                ? 'border-dh-primary bg-dh-secondary/10'
-                                : 'border-dh-light-gray hover:border-dh-primary'
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-semibold text-dh-primary">
-                                {address.label || 'Delivery Address'}
-                              </p>
-
-                              {selected && (
-                                <span className="rounded-full bg-dh-primary px-3 py-1 text-xs font-semibold text-white">
-                                  Selected
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="mt-1 text-sm text-dh-dark-gray">
-                              {address.fullName} · {address.phone}
-                            </p>
-
-                            <p className="mt-1 text-sm text-dh-dark-gray">
-                              {getAddressLine(address)}
-                            </p>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {isAuthenticated && savedAddresses.length === 0 && !isAddingCheckoutAddress && (
-                  <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
-                    <div className="flex gap-3">
-                      <Home className="mt-0.5 h-5 w-5 shrink-0" />
-                      <div>
-                        <p className="font-semibold">Add your first delivery address</p>
-                        <p className="mt-1 text-sm">
-                          Save a delivery address once and checkout faster next time.
-                        </p>
-
-                        <Button
-                          type="button"
-                          onClick={openAddCheckoutAddress}
-                          className="mt-4 rounded-full bg-dh-primary text-white hover:bg-dh-secondary"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add delivery address
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {showDeliveryFields && (
-                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
-                    <div className="mb-5 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-dh-primary">
-                          {isAuthenticated ? 'New delivery address' : 'Delivery details'}
-                        </p>
-                        <p className="text-sm text-dh-dark-gray">
-                          {isAuthenticated
-                            ? 'Enter and save a new address for this order.'
-                            : 'Enter your delivery information to complete checkout.'}
-                        </p>
-                      </div>
-
-                      {isAuthenticated && savedAddresses.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={cancelAddCheckoutAddress}
-                          className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="sm:col-span-2 rounded-2xl border border-dh-primary/15 bg-white p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <p className="font-semibold text-dh-primary">
-                              Pin your precise delivery location
-                            </p>
-                            <p className="mt-1 text-sm text-dh-dark-gray">
-                              We use your device GPS so the seller or courier can open exact directions.
-                            </p>
-                          </div>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleUseCurrentLocation}
-                            disabled={isLocatingAddress}
-                            className="shrink-0 rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
-                          >
-                            {isLocatingAddress ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <MapPin className="mr-2 h-4 w-4" />
-                            )}
-                            {isLocatingAddress ? 'Getting location...' : 'Use current location'}
-                          </Button>
-                        </div>
-
-                        {locationPin && (
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
-                            <span>
-                              Location pinned to 6 decimal places
-                              {locationPin.accuracy ? ` · accuracy ±${locationPin.accuracy} m` : ''}
-                            </span>
-                            <a
-                              href={locationPin.mapUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-black underline"
-                            >
-                              Preview in Maps
-                            </a>
-                          </div>
-                        )}
-
-                        {locationError && (
-                          <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-                            {locationError}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="fullName">Full Name</Label>
-                        <Input
-                          id="fullName"
-                          value={formData.fullName}
-                          onChange={(event) =>
-                            updateField('fullName', event.target.value)
-                          }
-                          placeholder="e.g. Caster Williams"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      {!isAuthenticated && (
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="email">Email</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(event) =>
-                              updateField('email', event.target.value)
-                            }
-                            placeholder="john@example.com"
-                            className="mt-1 bg-white"
-                          />
-                        </div>
-                      )}
-
-                      {isAuthenticated && (
-                        <div className="sm:col-span-2 rounded-xl bg-white p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                            Account email
-                          </p>
-
-                          <p className="mt-1 break-all font-semibold text-dh-primary">
-                            {customer?.email}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="phone">Delivery Contact Number</Label>
-                        <Input
-                          id="phone"
-                          value={formData.phone}
-                          onChange={(event) =>
-                            updateField('phone', event.target.value)
-                          }
-                          placeholder="+260 97X XXX XXX"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="address">Delivery Address</Label>
-                        <Input
-                          id="address"
-                          value={formData.address}
-                          onChange={(event) =>
-                            updateField('address', event.target.value)
-                          }
-                          placeholder="House number, road, area"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="address2">Apartment, landmark or extra directions</Label>
-                        <Input
-                          id="address2"
-                          value={formData.address2}
-                          onChange={(event) =>
-                            updateField('address2', event.target.value)
-                          }
-                          placeholder="Apartment, suite, landmark"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="city">City</Label>
-                        <Input
-                          id="city"
-                          value={formData.city}
-                          onChange={(event) =>
-                            updateField('city', event.target.value)
-                          }
-                          placeholder="Lusaka"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="province">Province</Label>
-                        <Input
-                          id="province"
-                          value={formData.province}
-                          onChange={(event) =>
-                            updateField('province', event.target.value)
-                          }
-                          placeholder="Lusaka"
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-                    </div>
-
-
-
-                    {isAuthenticated && (
-                      <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-4 text-sm text-dh-dark-gray">
-                        <input
-                          type="checkbox"
-                          checked={saveCheckoutAddressAsDefault}
-                          disabled={savedAddresses.length === 0}
-                          onChange={(event) =>
-                            setSaveCheckoutAddressAsDefault(event.target.checked)
-                          }
-                          className="mt-1 h-4 w-4 rounded border-dh-light-gray"
-                        />
-
-                        <span>
-                          <span className="block font-semibold text-dh-primary">
-                            Use this as my default delivery address
-                          </span>
-                          <span className="mt-1 block text-dh-dark-gray">
-                            {savedAddresses.length === 0
-                              ? 'Your first saved address will automatically become your default.'
-                              : 'Default addresses appear automatically next time you checkout.'}
-                          </span>
-                        </span>
-                      </label>
-                    )}
-
-                    {isAuthenticated && (
-                      <Button
-                        type="button"
-                        onClick={handleSaveCheckoutAddress}
-                        disabled={isSavingCheckoutAddress}
-                        className="mt-5 rounded-full bg-dh-primary text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-300"
-                      >
-                        {isSavingCheckoutAddress ? (
-                          'Saving address...'
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save and use this address
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 p-4">
-                  <div className="flex items-start gap-2">
-                    <Truck className="w-5 h-5 text-green-700 mt-0.5" />
 
                     <div>
-                      <p className="font-semibold text-green-800">
-                        {deliveryTitle}
-                      </p>
-
-                      <p className="text-sm text-green-700">
-                        {deliveryEstimate}
-                      </p>
-                    </div>
-                  </div>
-
-                  {shipping.isLusaka && (
-                    <div className="flex items-start gap-2 mt-3">
-                      <Clock className="w-4 h-4 text-green-700 mt-0.5" />
-
-                      <p className="text-sm text-green-700">
-                        {shipping.countdown}
+                      <h2 className="font-display text-lg font-bold leading-tight text-dh-primary">
+                        Payment Method
+                      </h2>
+                      <p className="text-[11px] text-dh-dark-gray">
+                        Choose how you want to pay.
                       </p>
                     </div>
-                  )}
-
-                  <div className="flex items-start gap-2 mt-3">
-                    <MapPin className="w-4 h-4 text-green-700 mt-0.5" />
-
-                    <p className="text-sm text-green-700">
-                      Shipping updates automatically based on your selected delivery address.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm sm:p-4">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dh-primary text-sm font-black text-white">
-                    3
                   </div>
 
-                  <h2 className="font-display text-xl font-bold text-dh-primary">
-                    Payment Method
-                  </h2>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-green-700">
+                    <Shield className="h-3 w-3" />
+                    Secure
+                  </span>
                 </div>
 
                 <RadioGroup
@@ -2044,72 +1891,63 @@ export default function CheckoutPage() {
                   onValueChange={(value) =>
                     setPaymentMethod(value as 'mobile' | 'card' | 'cod')
                   }
-                  className="grid gap-2 sm:grid-cols-3"
+                  className="grid grid-cols-3 gap-1.5 rounded-xl bg-dh-gray p-1.5"
                 >
                   <label
-                    className={`flex min-h-20 cursor-pointer items-center gap-2.5 rounded-xl border-2 p-3 transition-all ${
+                    className={`flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-2.5 transition-all ${
                       paymentMethod === 'mobile'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
+                        ? 'border-dh-primary bg-white text-dh-primary shadow-sm'
+                        : 'border-transparent text-dh-dark-gray hover:bg-white/70'
                     }`}
                   >
                     <RadioGroupItem value="mobile" />
 
-                    <Smartphone className="w-5 h-5 text-dh-primary" />
+                    <Smartphone className="h-4 w-4 shrink-0" />
 
-                    <div>
-                      <p className="font-medium">Mobile Money</p>
-
-                      <p className="text-sm text-dh-dark-gray">
-                        Lenco / MTN / Airtel
-                      </p>
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-black sm:text-xs">Mobile Money</p>
+                      <p className="hidden truncate text-[9px] text-dh-dark-gray sm:block">MTN · Airtel</p>
                     </div>
                   </label>
 
                   <label
-                    className={`flex min-h-20 cursor-pointer items-center gap-2.5 rounded-xl border-2 p-3 transition-all ${
+                    className={`flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-2.5 transition-all ${
                       paymentMethod === 'card'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
+                        ? 'border-dh-primary bg-white text-dh-primary shadow-sm'
+                        : 'border-transparent text-dh-dark-gray hover:bg-white/70'
                     }`}
                   >
                     <RadioGroupItem value="card" />
 
-                    <CreditCard className="w-5 h-5 text-dh-primary" />
+                    <CreditCard className="h-4 w-4 shrink-0" />
 
-                    <div>
-                      <p className="font-medium">Credit/Debit Card</p>
-
-                      <p className="text-sm text-dh-dark-gray">
-                        Secure card payment with Stripe
-                      </p>
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-black sm:text-xs">Card</p>
+                      <p className="hidden truncate text-[9px] text-dh-dark-gray sm:block">Visa · Mastercard</p>
                     </div>
                   </label>
 
                   <label
-                    className={`flex min-h-20 cursor-pointer items-center gap-2.5 rounded-xl border-2 p-3 transition-all ${
+                    className={`flex min-w-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-2.5 transition-all ${
                       paymentMethod === 'cod'
-                        ? 'border-dh-primary bg-dh-primary/5'
-                        : 'border-dh-light-gray'
+                        ? 'border-dh-primary bg-white text-dh-primary shadow-sm'
+                        : 'border-transparent text-dh-dark-gray hover:bg-white/70'
                     }`}
                   >
                     <RadioGroupItem value="cod" />
 
-                    <Truck className="w-5 h-5 text-dh-primary" />
+                    <Truck className="h-4 w-4 shrink-0" />
 
-                    <div>
-                      <p className="font-medium">Cash on Delivery</p>
-
-                      <p className="text-sm text-dh-dark-gray">
-                        Pay when you receive
-                      </p>
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-black sm:text-xs">On delivery</p>
+                      <p className="hidden truncate text-[9px] text-dh-dark-gray sm:block">Pay on arrival</p>
                     </div>
                   </label>
                 </RadioGroup>
 
                 {paymentMethod === 'mobile' && (
-                  <div className="mt-3 rounded-xl border border-dh-light-gray bg-dh-gray p-3">
-                    <Label htmlFor="paymentPhone">
+                  <div className="mt-2.5 rounded-lg border border-dh-light-gray bg-white p-2.5">
+                    <Label htmlFor="paymentPhone" className="text-[11px] font-black">
                       Mobile Money Payment Number
                     </Label>
 
@@ -2120,15 +1958,15 @@ export default function CheckoutPage() {
                         updateField('paymentPhone', event.target.value)
                       }
                       placeholder="e.g. 097XXXXXXX or +26097XXXXXXX"
-                      className="mt-2"
+                      className="mt-1.5 h-9 rounded-lg bg-dh-gray text-xs"
                     />
                   </div>
                 )}
 
                 {paymentMethod === 'card' && (
-                  <div className="mt-4">
+                  <div className="mt-2.5">
                     {isPreparingCard && (
-                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                      <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs font-bold text-blue-700">
                         Creating your secure order and preparing card payment...
                       </div>
                     )}
@@ -2157,7 +1995,7 @@ export default function CheckoutPage() {
                         type="button"
                         onClick={prepareCardPayment}
                         disabled={hasUnavailableItems}
-                        className="h-11 w-full rounded-full bg-dh-primary font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                        className="h-10 w-full rounded-lg bg-dh-primary text-xs font-black text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                       >
                         Prepare Card Payment
                       </Button>
@@ -2169,7 +2007,7 @@ export default function CheckoutPage() {
                   <Button
                     onClick={handlePlaceOrder}
                     disabled={isSubmitting || hasUnavailableItems}
-                    className="mt-4 h-12 w-full rounded-full bg-dh-primary text-sm font-black text-white shadow-lg shadow-dh-primary/15 hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                    className="mt-2.5 h-10 w-full rounded-lg bg-dh-primary text-xs font-black text-white shadow-sm hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                   >
                     {hasUnavailableItems
                       ? 'Checkout unavailable'
@@ -2179,9 +2017,9 @@ export default function CheckoutPage() {
                   </Button>
                 )}
 
-                <div className="mt-3 flex items-center justify-center gap-2 text-xs font-semibold text-dh-dark-gray">
-                  <Shield className="h-4 w-4" />
-                  <span>Payments and order details are protected</span>
+                <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-dh-dark-gray">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Protected payment and order details</span>
                 </div>
               </div>
             </div>
