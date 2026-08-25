@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowRight,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   Eye,
@@ -52,19 +53,6 @@ function normalizeStatus(status?: string) {
     .replace(/^wc-/, '')
     .replace(/_/g, '-')
     .replace(/\s+/g, '-')
-}
-
-function matchesStatus(order: AccountOrder, filter: string) {
-  const status = normalizeStatus(order.status)
-
-  if (filter === 'all') return true
-  if (filter === 'pending') return ['pending', 'on-hold'].includes(status)
-  if (filter === 'delivered') return ['delivered', 'completed'].includes(status)
-  if (filter === 'out-for-delivery') {
-    return ['out-for-delivery', 'outfordelivery'].includes(status)
-  }
-
-  return status === filter
 }
 
 function statusStyle(status?: string) {
@@ -207,30 +195,80 @@ const ORDER_FILTERS = [
   { value: 'shipped', label: 'Shipped' },
   { value: 'out-for-delivery', label: 'Out for delivery' },
   { value: 'delivered', label: 'Delivered' },
-]
+] as const
+
+type OrderFilter = (typeof ORDER_FILTERS)[number]['value']
+
+const EMPTY_FILTER_COUNTS: Record<OrderFilter, number> = {
+  all: 0,
+  pending: 0,
+  processing: 0,
+  shipped: 0,
+  'out-for-delivery': 0,
+  delivered: 0,
+}
 
 export default function OrdersPage() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading } = useAccount()
   const [orders, setOrders] = useState<AccountOrder[]>([])
-  const [isOrdersLoading, setIsOrdersLoading] = useState(false)
+  const [isOrdersLoading, setIsOrdersLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<OrderFilter>('all')
+  const [filterCounts, setFilterCounts] = useState(EMPTY_FILTER_COUNTS)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalOrders, setTotalOrders] = useState(0)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) navigate('/login?redirect=/orders')
   }, [isAuthenticated, isLoading, navigate])
 
   useEffect(() => {
+    const nextSearch = searchQuery.trim()
+    if (nextSearch === debouncedSearch) return
+
+    const timeout = window.setTimeout(() => {
+      setIsOrdersLoading(true)
+      setErrorMessage('')
+      setOrders([])
+      setDebouncedSearch(nextSearch)
+      setPage(1)
+    }, 280)
+
+    return () => window.clearTimeout(timeout)
+  }, [debouncedSearch, searchQuery])
+
+  useEffect(() => {
     if (!isAuthenticated) return
     let mounted = true
 
-    setIsOrdersLoading(true)
-    setErrorMessage('')
-    getCustomerOrders()
+    getCustomerOrders({
+      page,
+      perPage: 10,
+      status: statusFilter,
+      search: debouncedSearch,
+    })
       .then((response) => {
-        if (mounted) setOrders(response.orders || [])
+        if (!mounted) return
+
+        setOrders(response.orders || [])
+        setPage(response.page || 1)
+        setTotalPages(response.totalPages || 1)
+        setTotalOrders(response.total ?? response.count ?? 0)
+
+        if (response.counts) {
+          setFilterCounts({
+            all: response.counts.all || 0,
+            pending: response.counts.pending || 0,
+            processing: response.counts.processing || 0,
+            shipped: response.counts.shippedExact ?? response.counts.shipped ?? 0,
+            'out-for-delivery': response.counts.outForDelivery || 0,
+            delivered: response.counts.delivered || 0,
+          })
+        }
       })
       .catch((error) => {
         if (mounted) {
@@ -244,26 +282,7 @@ export default function OrdersPage() {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated])
-
-  const filteredOrders = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-
-    return orders.filter((order) => {
-      const matchesSearch =
-        !query ||
-        String(order.number || order.id).toLowerCase().includes(query) ||
-        String(order.id).toLowerCase().includes(query) ||
-        (order.items || []).some((item) => String(item.name || '').toLowerCase().includes(query))
-
-      return matchesStatus(order, statusFilter) && matchesSearch
-    })
-  }, [orders, searchQuery, statusFilter])
-
-  const filterCounts = useMemo(
-    () => Object.fromEntries(ORDER_FILTERS.map((filter) => [filter.value, orders.filter((order) => matchesStatus(order, filter.value)).length])),
-    [orders]
-  )
+  }, [debouncedSearch, isAuthenticated, page, statusFilter])
 
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
@@ -309,7 +328,14 @@ export default function OrdersPage() {
                   <button
                     key={filter.value}
                     type="button"
-                    onClick={() => setStatusFilter(filter.value)}
+                    onClick={() => {
+                      if (selected) return
+                      setIsOrdersLoading(true)
+                      setErrorMessage('')
+                      setOrders([])
+                      setStatusFilter(filter.value)
+                      setPage(1)
+                    }}
                     className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${selected ? 'bg-dh-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-dh-primary/10 hover:text-dh-primary'}`}
                   >
                     {filter.label}
@@ -330,21 +356,60 @@ export default function OrdersPage() {
           )}
 
           <section className="mt-3">
-            {isOrdersLoading ? (
+            {isOrdersLoading && orders.length === 0 ? (
               <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
                 <Loader2 className="mx-auto h-8 w-8 animate-spin text-dh-primary" />
                 <p className="mt-3 text-sm font-bold text-dh-primary">Loading orders…</p>
               </div>
-            ) : filteredOrders.length > 0 ? (
-              <div className="grid gap-3">
-                {filteredOrders.map((order) => <OrderCard key={order.id} order={order} />)}
-              </div>
             ) : orders.length > 0 ? (
+              <>
+                <div className={`grid gap-3 transition-opacity ${isOrdersLoading ? 'opacity-60' : 'opacity-100'}`} aria-busy={isOrdersLoading}>
+                  {orders.map((order) => <OrderCard key={order.id} order={order} />)}
+                </div>
+
+                {(totalPages > 1 || isOrdersLoading) && (
+                  <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOrdersLoading(true)
+                        setErrorMessage('')
+                        setPage((current) => Math.max(1, current - 1))
+                      }}
+                      disabled={page <= 1 || isOrdersLoading}
+                      className="inline-flex h-9 items-center gap-1 rounded-full border border-slate-200 px-3 text-xs font-bold text-dh-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      Previous
+                    </button>
+
+                    <p className="text-center text-[11px] font-semibold text-slate-500">
+                      Page <strong className="text-dh-primary">{page}</strong> of {totalPages}
+                      <span className="hidden sm:inline"> · {totalOrders} matching orders</span>
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOrdersLoading(true)
+                        setErrorMessage('')
+                        setPage((current) => Math.min(totalPages, current + 1))
+                      }}
+                      disabled={page >= totalPages || isOrdersLoading}
+                      className="inline-flex h-9 items-center gap-1 rounded-full bg-dh-primary px-3 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                    >
+                      Next
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : filterCounts.all > 0 ? (
               <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
                 <Search className="mx-auto h-9 w-9 text-dh-primary" />
                 <h1 className="mt-3 text-lg font-black text-dh-primary">No matching orders</h1>
                 <p className="mt-1 text-sm text-slate-500">Try another order number, product name, or status.</p>
-                <Button type="button" onClick={() => { setSearchQuery(''); setStatusFilter('all') }} className="mt-4 rounded-full bg-dh-primary">
+                <Button type="button" onClick={() => { setIsOrdersLoading(true); setErrorMessage(''); setOrders([]); setSearchQuery(''); setStatusFilter('all'); setPage(1) }} className="mt-4 rounded-full bg-dh-primary">
                   Clear filters
                 </Button>
               </div>
