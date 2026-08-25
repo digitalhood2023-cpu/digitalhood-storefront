@@ -5,14 +5,12 @@ import { loadStripe } from '@stripe/stripe-js'
 
 import {
   AlertCircle,
-  Check,
   ChevronLeft,
   Clock,
   CreditCard,
   Home,
   Edit3,
   Loader2,
-  LogIn,
   MapPin,
   Plus,
   Save,
@@ -20,7 +18,6 @@ import {
   ShoppingBag,
   Smartphone,
   Truck,
-  UserRound,
   X,
 } from 'lucide-react'
 
@@ -260,12 +257,6 @@ function getFullName(customer?: {
   return fullName || customer.email || ''
 }
 
-function getPaymentMethodDisplay(method: 'mobile' | 'card' | 'cod') {
-  if (method === 'mobile') return 'Mobile Money'
-  if (method === 'card') return 'Card Payment'
-  return 'Cash on Delivery'
-}
-
 function getAddressLine(address?: SavedCustomerAddress | null) {
   if (!address) return ''
 
@@ -279,15 +270,10 @@ export default function CheckoutPage() {
   const [searchParams] = useSearchParams()
   const pageRef = useRef<HTMLDivElement>(null)
   const lencoPollingRef = useRef<number | null>(null)
-  const completionTimerRef = useRef<number | null>(null)
   const checkoutSubmissionRef = useRef(false)
   const hasPrefilledAccountRef = useRef(false)
 
-  const {
-    customer,
-    isAuthenticated,
-    isLoading: isAccountLoading,
-  } = useAccount()
+  const { customer, isAuthenticated } = useAccount()
 
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -357,9 +343,6 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('')
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null)
   const [completedOrderTotal, setCompletedOrderTotal] = useState<number | null>(null)
-  const [completedStoreGroups, setCompletedStoreGroups] = useState<
-    ReturnType<typeof groupCheckoutItemsByStore>
-  >([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [checkoutProgressStage, setCheckoutProgressStage] =
     useState<CheckoutProgressStage>('idle')
@@ -370,9 +353,7 @@ export default function CheckoutPage() {
   const [cardPaymentIntentId, setCardPaymentIntentId] = useState('')
   const [isPreparingCard, setIsPreparingCard] = useState(false)
 
-  const [isWaitingForLenco, setIsWaitingForLenco] = useState(false)
   const [lencoReference, setLencoReference] = useState('')
-  const [lencoStatus, setLencoStatus] = useState('')
 
   const [successState, setSuccessState] = useState<SuccessState>({
     title: 'Order Created Successfully',
@@ -418,9 +399,6 @@ export default function CheckoutPage() {
   const deliveryEstimate = shipping.estimate
   const finalTotal = subtotal + deliveryFee
   const successOrderTotal = completedOrderTotal ?? finalTotal
-  const successStoreGroups = completedStoreGroups.length > 0
-    ? completedStoreGroups
-    : checkoutStoreGroups
   const checkoutAddressSummary = [
     formData.address,
     formData.address2,
@@ -443,21 +421,14 @@ export default function CheckoutPage() {
 
   const showConfirmedOrder = () => {
     setCheckoutProgressStage('confirmed')
-    setCheckoutProgressMessage('Your confirmation is ready. Taking you to your order summary…')
+    setCheckoutProgressMessage('Your order is securely confirmed and ready for fulfilment.')
     setIsSubmitting(false)
-
-    if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current)
-    completionTimerRef.current = window.setTimeout(() => {
-      setOrderComplete(true)
-      setCheckoutProgressStage('idle')
-      completionTimerRef.current = null
-    }, 1_100)
+    setOrderComplete(true)
   }
 
   useEffect(() => {
     return () => {
       stopLencoPolling()
-      if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current)
     }
   }, [])
 
@@ -1037,8 +1008,6 @@ export default function CheckoutPage() {
     let attempts = 0
     const maxAttempts = 60
 
-    setIsWaitingForLenco(true)
-    setLencoStatus('Waiting for payment approval...')
     setCheckoutProgressStage('awaiting-approval')
     setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
 
@@ -1055,14 +1024,11 @@ export default function CheckoutPage() {
 
         if (paymentConfirmed) {
           stopLencoPolling()
-          setIsWaitingForLenco(false)
           setCheckoutProgressStage('confirming')
           setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
-          setLencoStatus('Payment confirmed successfully.')
           setSuccessState(getSuccessState('mobile-confirmed'))
           setCreatedOrderId(orderId)
           setCompletedOrderTotal(finalTotal)
-          setCompletedStoreGroups(checkoutStoreGroups)
           removeCheckedOutItems()
           showConfirmedOrder()
           return
@@ -1074,10 +1040,8 @@ export default function CheckoutPage() {
             'The Mobile Money payment was not completed. Check the number, balance and approval prompt, then try again.'
 
           stopLencoPolling()
-          setIsWaitingForLenco(false)
           setIsSubmitting(false)
-          setCheckoutProgressStage('idle')
-          setLencoStatus(failureMessage)
+          setCheckoutProgressStage('failed')
           setSuccessState({
             title: 'Payment Not Completed',
             message: failureMessage,
@@ -1092,12 +1056,6 @@ export default function CheckoutPage() {
           return
         }
 
-        setLencoStatus(
-          result.message ||
-            (result.status
-              ? String(result.status)
-              : 'Checking payment...')
-        )
         setCheckoutProgressMessage(
           result.message || 'Your request is still active. Approve it on your phone and we will confirm it automatically.'
         )
@@ -1107,12 +1065,8 @@ export default function CheckoutPage() {
 
       if (attempts >= maxAttempts) {
         stopLencoPolling()
-        setIsWaitingForLenco(false)
         setIsSubmitting(false)
-        setCheckoutProgressStage('idle')
-        setLencoStatus(
-          'Payment has not been confirmed. If money was deducted, do not pay again; DigitalHood will still reconcile it automatically.'
-        )
+        setCheckoutProgressStage('delayed')
         setSuccessState({
           title: 'Payment Confirmation Delayed',
           message:
@@ -1193,6 +1147,27 @@ export default function CheckoutPage() {
     })
   }, [orderComplete, checkoutError])
 
+  const handleCardPaymentProcessing = () => {
+    setCheckoutError('')
+    setIsSubmitting(true)
+    setCheckoutProgressStage('confirming')
+    setCheckoutProgressMessage('Processing your card payment securely. Please wait while we confirm the result.')
+  }
+
+  const handleCardPaymentFailure = (message: string) => {
+    setIsSubmitting(false)
+    setSuccessState({
+      title: 'Card Payment Not Completed',
+      message,
+      nextStep:
+        'Check your card details and try again. If your bank shows a charge, do not pay again—open the order or contact support.',
+      confirmed: false,
+      failed: true,
+    })
+    setOrderComplete(true)
+    setCheckoutProgressStage('failed')
+  }
+
   const handleCardPaymentSuccess = async () => {
     setCheckoutError('')
     setIsSubmitting(true)
@@ -1204,6 +1179,7 @@ export default function CheckoutPage() {
 
       if (validationError) {
         setCheckoutError(validationError)
+        setCheckoutProgressStage('idle')
         return
       }
 
@@ -1213,19 +1189,37 @@ export default function CheckoutPage() {
 
       setSuccessState(getSuccessState('card'))
       setCompletedOrderTotal(finalTotal)
-      setCompletedStoreGroups(checkoutStoreGroups)
       removeCheckedOutItems()
       showConfirmedOrder()
     } catch (error) {
-      setCheckoutError(
+      const failureMessage =
         error instanceof Error
           ? error.message
           : 'Card payment was successful, but order verification failed. Please contact DigitalHood support.'
-      )
-      setCheckoutProgressStage('idle')
+      setCheckoutError(failureMessage)
+      setSuccessState({
+        title: 'Card Confirmation Needs Attention',
+        message: failureMessage,
+        nextStep:
+          'Do not submit another payment if your card was charged. Open the order or contact support so we can confirm it safely.',
+        confirmed: false,
+        failed: true,
+      })
+      setOrderComplete(true)
+      setCheckoutProgressStage('failed')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const resetCheckoutResult = () => {
+    stopLencoPolling()
+    checkoutSubmissionRef.current = false
+    setOrderComplete(false)
+    setCheckoutError('')
+    setCheckoutProgressStage('idle')
+    setCheckoutProgressMessage('')
+    setIsSubmitting(false)
   }
 
   const handlePlaceOrder = async () => {
@@ -1293,7 +1287,6 @@ export default function CheckoutPage() {
           setCheckoutProgressStage('confirming')
           setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
           setSuccessState(getSuccessState('mobile-confirmed'))
-          setCompletedStoreGroups(checkoutStoreGroups)
           removeCheckedOutItems()
           showConfirmedOrder()
           return
@@ -1304,9 +1297,7 @@ export default function CheckoutPage() {
             response.message ||
             'The Mobile Money payment was not completed. Check the number, balance and approval prompt, then try again.'
 
-          setIsWaitingForLenco(false)
-          setCheckoutProgressStage('idle')
-          setLencoStatus(failureMessage)
+          setCheckoutProgressStage('failed')
           setSuccessState({
             title: 'Payment Not Completed',
             message: failureMessage,
@@ -1333,16 +1324,24 @@ export default function CheckoutPage() {
       setCheckoutProgressMessage('Just a moment — we are confirming your Cash on Delivery order.')
       setSuccessState(getSuccessState(paymentMethod))
       setCompletedOrderTotal(finalTotal)
-      setCompletedStoreGroups(checkoutStoreGroups)
       removeCheckedOutItems()
       showConfirmedOrder()
     } catch (error) {
-      setCheckoutError(
+      const failureMessage =
         error instanceof Error
           ? error.message
           : 'Checkout failed. Please try again.'
-      )
-      setCheckoutProgressStage('idle')
+      setCheckoutError(failureMessage)
+      setSuccessState({
+        title: 'Checkout Could Not Be Completed',
+        message: failureMessage,
+        nextStep:
+          'Review your details and try again. No new payment should be made if your bank or Mobile Money account was already charged.',
+        confirmed: false,
+        failed: true,
+      })
+      setOrderComplete(true)
+      setCheckoutProgressStage('failed')
     } finally {
       setIsSubmitting(false)
       checkoutSubmissionRef.current = false
@@ -1386,257 +1385,12 @@ export default function CheckoutPage() {
     )
   }
 
-  if (orderComplete) {
-    return (
-      <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-dh-gray">
-        <Header />
-
-        <main className="py-10 lg:py-16">
-          <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-            <div className="mx-auto max-w-2xl text-center">
-              <div
-                className={`relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
-                  successState.confirmed
-                    ? 'bg-green-100 shadow-[0_0_0_12px_rgba(34,197,94,0.10)]'
-                    : successState.failed
-                      ? 'bg-red-100 shadow-[0_0_0_12px_rgba(239,68,68,0.08)]'
-                      : 'bg-yellow-100'
-                }`}
-              >
-                {successState.confirmed && (
-                  <span className="absolute inset-0 rounded-full border-4 border-green-300/70 animate-ping" />
-                )}
-
-                {successState.confirmed ? (
-                  <Check className="relative z-10 h-10 w-10 animate-[bounce_1.1s_ease-in-out_1] text-green-600" />
-                ) : successState.failed ? (
-                  <AlertCircle className="h-10 w-10 text-red-600" />
-                ) : isWaitingForLenco ? (
-                  <Loader2 className="h-10 w-10 animate-spin text-yellow-600" />
-                ) : (
-                  <Clock className="h-10 w-10 text-yellow-700" />
-                )}
-              </div>
-
-              <h1 className="mb-3 font-display text-3xl font-bold text-dh-primary">
-                {successState.title}
-              </h1>
-
-              <p className="mx-auto mb-4 max-w-xl text-dh-dark-gray">
-                {successState.message}
-              </p>
-
-              <div className="mb-8 rounded-3xl bg-white p-5 text-left shadow-sm sm:p-6">
-                <p className="text-sm text-dh-dark-gray mb-2">
-                  Order Reference
-                </p>
-
-                <p className="mb-4 font-display text-xl font-bold text-dh-primary">
-                  {orderNumber}
-                </p>
-
-                {lencoReference && (
-                  <>
-                    <p className="text-sm text-dh-dark-gray mb-2">
-                      Payment Reference
-                    </p>
-
-                    <p className="mb-4 break-words font-display text-base font-bold text-dh-primary">
-                      {lencoReference}
-                    </p>
-                  </>
-                )}
-
-                <p className="text-sm text-dh-dark-gray mb-2">
-                  Order Total
-                </p>
-
-                <p className="font-display text-3xl font-bold text-dh-primary">
-                  {formatPrice(successOrderTotal)}
-                </p>
-
-                <div className="mt-5 grid gap-3 text-left">
-                  <div className="rounded-2xl bg-dh-gray p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Payment method
-                    </p>
-
-                    <p className="mt-1 font-semibold text-dh-primary">
-                      {getPaymentMethodDisplay(paymentMethod)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-dh-gray p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Delivery method
-                    </p>
-
-                    <p className="mt-1 font-semibold text-dh-primary">
-                      {deliveryTitle}
-                    </p>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      {deliveryEstimate}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-dh-gray p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Delivery address
-                    </p>
-
-                    <p className="mt-1 font-semibold text-dh-primary">
-                      {formData.fullName}
-                    </p>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      {formData.phone}
-                    </p>
-
-                    <p className="mt-1 text-sm text-dh-dark-gray">
-                      {[formData.address, formData.address2, formData.city, formData.province]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-dh-light-gray bg-white p-4 text-left">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                    Stores in this order
-                  </p>
-
-                  <div className="mt-3 space-y-2.5">
-                    {successStoreGroups.map((group) => (
-                      <div
-                        key={group.key}
-                        className="flex items-center justify-between gap-3 rounded-2xl bg-dh-gray px-3 py-2.5"
-                      >
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary">
-                            {group.avatarUrl ? (
-                              <img
-                                src={group.avatarUrl}
-                                alt={group.storeName}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              group.initials
-                            )}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-dh-primary">
-                              {group.storeName}
-                            </p>
-                            <p className="truncate text-[11px] font-bold text-green-700">
-                              {group.feedbackText}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="shrink-0 text-right">
-                          <p className="text-xs font-black text-dh-primary">
-                            {formatPrice(group.subtotal)}
-                          </p>
-                          <p className="text-[10px] font-semibold text-dh-dark-gray">
-                            {group.items.length} item{group.items.length === 1 ? '' : 's'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {!successState.confirmed && (
-                  <div
-                    className={`mt-5 rounded-2xl border p-4 text-left ${
-                      successState.failed
-                        ? 'border-red-200 bg-red-50'
-                        : 'border-yellow-100 bg-yellow-50'
-                    }`}
-                  >
-                    <p
-                      className={`mb-1 text-sm font-semibold ${
-                        successState.failed
-                          ? 'text-red-800'
-                          : 'text-yellow-800'
-                      }`}
-                    >
-                      Payment Status
-                    </p>
-
-                    <p
-                      className={`text-sm ${
-                        successState.failed
-                          ? 'text-red-700'
-                          : 'text-yellow-700'
-                      }`}
-                    >
-                      {isWaitingForLenco
-                        ? lencoStatus || 'Checking payment...'
-                        : lencoStatus || 'Waiting for confirmation...'}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-5 rounded-2xl bg-dh-gray p-4 text-left">
-                  <p className="text-sm font-semibold text-dh-primary mb-1">
-                    Next Step
-                  </p>
-
-                  <p className="text-sm text-dh-dark-gray">
-                    {successState.nextStep}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-center gap-3 sm:flex-row">
-                {isAuthenticated && createdOrderId && (
-                  <Button
-                    onClick={() => navigate(`/track-order/${createdOrderId}`)}
-                    className="rounded-full bg-dh-primary px-8 text-white hover:bg-dh-secondary"
-                  >
-                    View Order
-                  </Button>
-                )}
-
-                {isAuthenticated && !createdOrderId && (
-                  <Button
-                    onClick={() => navigate('/orders')}
-                    className="rounded-full bg-dh-primary px-8 text-white hover:bg-dh-secondary"
-                  >
-                    My Orders
-                  </Button>
-                )}
-
-                <Button
-                  onClick={() => navigate('/')}
-                  variant={isAuthenticated ? 'outline' : 'default'}
-                  className={
-                    isAuthenticated
-                      ? 'rounded-full px-8 border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white'
-                      : 'bg-dh-primary hover:bg-dh-secondary text-white rounded-full px-8'
-                  }
-                >
-                  Continue Shopping
-                </Button>
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <Footer />
-      </div>
-    )
-  }
-
   return (
     <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
-      <main className="pb-28 pt-5 lg:py-8">
-        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
+      <main className="py-5 lg:py-7">
+        <div className="mx-auto w-full max-w-[1180px] px-3 sm:px-5 lg:px-6">
           <button
             onClick={() => navigate('/cart')}
             className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
@@ -1645,91 +1399,20 @@ export default function CheckoutPage() {
             Back to Cart
           </button>
 
-          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-2">
-              <p className="inline-flex w-fit items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
+          <section className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="inline-flex w-fit items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-dh-primary">
                 <Shield className="h-4 w-4" />
                 Secure checkout
               </p>
 
-              <h1 className="font-display text-3xl font-bold leading-tight text-dh-primary sm:text-4xl">
+              <h1 className="mt-1 font-display text-2xl font-black leading-tight text-dh-primary sm:text-3xl">
                 Checkout
               </h1>
 
-              <p className="text-sm text-dh-dark-gray">
-                Confirm delivery, choose payment, and place your order.
-              </p>
+              <p className="mt-1 text-sm text-dh-dark-gray">Review, deliver, pay—securely in three clear steps.</p>
             </div>
           </section>
-
-          {!isAccountLoading && isAuthenticated && customer && (
-            <div className="mb-4 rounded-2xl border border-green-100 bg-green-50 p-4 text-green-800 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
-                    <UserRound className="h-5 w-5 text-green-700" />
-                  </div>
-
-                  <div>
-                    <p className="font-semibold">
-                      Checking out as {getFullName(customer)}
-                    </p>
-
-                    <p className="text-sm text-green-700">
-                      Your account email is attached automatically and this order
-                      will appear in your account.
-                    </p>
-                  </div>
-                </div>
-
-                <Link
-                  to="/account"
-                  className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-green-800 hover:bg-green-100"
-                >
-                  Manage account
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {!isAccountLoading && !isAuthenticated && (
-            <div className="mb-4 rounded-2xl border border-dh-light-gray bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-dh-secondary/15">
-                    <LogIn className="h-5 w-5 text-dh-primary" />
-                  </div>
-
-                  <div>
-                    <p className="font-semibold text-dh-primary">
-                      Sign in for faster checkout
-                    </p>
-
-                    <p className="text-sm text-dh-dark-gray">
-                      Save orders to your account, reuse delivery addresses, and
-                      track purchases easily.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Link
-                    to="/login?redirect=/checkout"
-                    className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white hover:bg-dh-secondary"
-                  >
-                    Sign in
-                  </Link>
-
-                  <Link
-                    to="/register?redirect=/checkout"
-                    className="inline-flex items-center justify-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary hover:bg-dh-primary hover:text-white"
-                  >
-                    Create account
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
 
           {checkoutError && (
             <div className="mb-4 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
@@ -1754,12 +1437,170 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="space-y-5">
-              <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-dh-primary font-bold text-white">
-                    1
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-start">
+            <aside className="lg:sticky lg:top-24">
+              <div className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm sm:p-4">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dh-primary text-sm font-black text-white">1</div>
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-dh-primary">Order Summary</h2>
+                    <p className="text-xs text-dh-dark-gray">Confirm your products and total.</p>
+                  </div>
+                </div>
+
+                <div className="mb-4 max-h-[24rem] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+                  {checkoutStoreGroups.map((group) => (
+                    <div
+                      key={group.key}
+                      className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white"
+                    >
+                      <Link
+                        to={group.sellerUrl}
+                        className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-dh-gray px-3 py-2 transition hover:bg-white"
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary">
+                            {group.avatarUrl ? (
+                              <img
+                                src={group.avatarUrl}
+                                alt={group.storeName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              group.initials
+                            )}
+                          </span>
+
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black leading-tight text-dh-primary">
+                              {group.storeName}
+                            </span>
+                            <span className="block truncate text-[10px] font-bold leading-tight text-green-700">
+                              {group.feedbackText}
+                            </span>
+                          </span>
+                        </span>
+
+                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-dh-primary">
+                          {formatPrice(group.subtotal)}
+                        </span>
+                      </Link>
+
+                      <div className="divide-y divide-dh-light-gray">
+                        {group.items.map((item) => {
+                          const unavailable = isUnavailable(item)
+                          const variationText = getVariationText(item)
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`grid grid-cols-[56px_minmax(0,1fr)] gap-2.5 p-2.5 ${
+                                unavailable ? 'bg-red-50/40' : 'bg-white'
+                              }`}
+                            >
+                              <img
+                                src={item.image || '/logo.jpg'}
+                                alt={item.name}
+                                className="h-14 w-14 rounded-xl bg-dh-gray object-contain p-1.5"
+                                onError={(event) => {
+                                  event.currentTarget.src = '/logo.jpg'
+                                }}
+                              />
+
+                              <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="line-clamp-2 text-xs font-black leading-tight text-dh-primary">
+                                      {item.name}
+                                    </p>
+
+                                    {variationText && (
+                                      <p className="mt-1 line-clamp-1 text-[10px] font-medium text-dh-dark-gray">
+                                        {variationText}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <p className="shrink-0 text-right text-xs font-black text-dh-primary">
+                                    {formatPrice(item.price * item.quantity)}
+                                  </p>
+                                </div>
+
+                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <StockBadge item={getCartItemStockObject(item)} />
+
+                                    {unavailable && (
+                                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                                        Review
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <span className="rounded-full bg-dh-gray px-2.5 py-1 text-[11px] font-black text-dh-primary">
+                                    Qty {item.quantity}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mb-4 rounded-2xl bg-green-50 p-3 text-xs font-semibold text-green-700">
+                  <div className="flex items-start gap-2">
+                    <Truck className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="font-black text-green-800">
+                        {deliveryTitle} · {deliveryEstimate}
+                      </p>
+                      <p className="mt-0.5">
+                        {shipping.isLusaka
+                          ? shipping.countdown
+                          : 'Delivery timing is confirmed from your address.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t border-dh-light-gray pt-4">
+                  <div className="flex justify-between text-dh-dark-gray">
+                    <span>Subtotal</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-dh-dark-gray">
+                    <span>Delivery</span>
+
+                    <span>
+                      {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between border-t border-dh-light-gray pt-3 font-display text-xl font-bold text-dh-primary">
+                    <span>Total</span>
+
+                    <span>{formatPrice(finalTotal)}</span>
+                  </div>
+                </div>
+
+                {hasUnavailableItems && (
+                  <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                    Remove unavailable items before checkout.
+                  </div>
+                )}
+
+              </div>
+            </aside>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm sm:p-4">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dh-primary text-sm font-black text-white">
+                    2
                   </div>
 
                   <div>
@@ -2187,10 +2028,10 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-dh-primary font-bold text-white">
-                    2
+              <div className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm sm:p-4">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dh-primary text-sm font-black text-white">
+                    3
                   </div>
 
                   <h2 className="font-display text-xl font-bold text-dh-primary">
@@ -2203,10 +2044,10 @@ export default function CheckoutPage() {
                   onValueChange={(value) =>
                     setPaymentMethod(value as 'mobile' | 'card' | 'cod')
                   }
-                  className="space-y-3"
+                  className="grid gap-2 sm:grid-cols-3"
                 >
                   <label
-                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3.5 transition-all ${
+                    className={`flex min-h-20 cursor-pointer items-center gap-2.5 rounded-xl border-2 p-3 transition-all ${
                       paymentMethod === 'mobile'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -2226,7 +2067,7 @@ export default function CheckoutPage() {
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3.5 transition-all ${
+                    className={`flex min-h-20 cursor-pointer items-center gap-2.5 rounded-xl border-2 p-3 transition-all ${
                       paymentMethod === 'card'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -2246,7 +2087,7 @@ export default function CheckoutPage() {
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-2 p-3.5 transition-all ${
+                    className={`flex min-h-20 cursor-pointer items-center gap-2.5 rounded-xl border-2 p-3 transition-all ${
                       paymentMethod === 'cod'
                         ? 'border-dh-primary bg-dh-primary/5'
                         : 'border-dh-light-gray'
@@ -2267,7 +2108,7 @@ export default function CheckoutPage() {
                 </RadioGroup>
 
                 {paymentMethod === 'mobile' && (
-                  <div className="mt-4 rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
+                  <div className="mt-3 rounded-xl border border-dh-light-gray bg-dh-gray p-3">
                     <Label htmlFor="paymentPhone">
                       Mobile Money Payment Number
                     </Label>
@@ -2285,7 +2126,7 @@ export default function CheckoutPage() {
                 )}
 
                 {paymentMethod === 'card' && (
-                  <div className="mt-6">
+                  <div className="mt-4">
                     {isPreparingCard && (
                       <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
                         Creating your secure order and preparing card payment...
@@ -2304,7 +2145,9 @@ export default function CheckoutPage() {
                       >
                         <StripeCheckoutForm
                           amount={finalTotal}
+                          onProcessing={handleCardPaymentProcessing}
                           onSuccess={handleCardPaymentSuccess}
+                          onFailure={handleCardPaymentFailure}
                         />
                       </Elements>
                     )}
@@ -2321,232 +2164,47 @@ export default function CheckoutPage() {
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-
-            <aside>
-              <div className="sticky top-24 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                <h2 className="mb-5 font-display text-2xl font-bold text-dh-primary">
-                  Order Summary
-                </h2>
-
-                <div className="mb-5 max-h-[28rem] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
-                  {checkoutStoreGroups.map((group) => (
-                    <div
-                      key={group.key}
-                      className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white"
-                    >
-                      <Link
-                        to={group.sellerUrl}
-                        className="flex items-center justify-between gap-3 border-b border-dh-light-gray bg-dh-gray px-3 py-2 transition hover:bg-white"
-                      >
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary">
-                            {group.avatarUrl ? (
-                              <img
-                                src={group.avatarUrl}
-                                alt={group.storeName}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              group.initials
-                            )}
-                          </span>
-
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-black leading-tight text-dh-primary">
-                              {group.storeName}
-                            </span>
-                            <span className="block truncate text-[10px] font-bold leading-tight text-green-700">
-                              {group.feedbackText}
-                            </span>
-                          </span>
-                        </span>
-
-                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-dh-primary">
-                          {formatPrice(group.subtotal)}
-                        </span>
-                      </Link>
-
-                      <div className="divide-y divide-dh-light-gray">
-                        {group.items.map((item) => {
-                          const unavailable = isUnavailable(item)
-                          const variationText = getVariationText(item)
-
-                          return (
-                            <div
-                              key={item.id}
-                              className={`grid grid-cols-[56px_minmax(0,1fr)] gap-2.5 p-2.5 ${
-                                unavailable ? 'bg-red-50/40' : 'bg-white'
-                              }`}
-                            >
-                              <img
-                                src={item.image || '/logo.jpg'}
-                                alt={item.name}
-                                className="h-14 w-14 rounded-xl bg-dh-gray object-contain p-1.5"
-                                onError={(event) => {
-                                  event.currentTarget.src = '/logo.jpg'
-                                }}
-                              />
-
-                              <div className="min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className="line-clamp-2 text-xs font-black leading-tight text-dh-primary">
-                                      {item.name}
-                                    </p>
-
-                                    {variationText && (
-                                      <p className="mt-1 line-clamp-1 text-[10px] font-medium text-dh-dark-gray">
-                                        {variationText}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <p className="shrink-0 text-right text-xs font-black text-dh-primary">
-                                    {formatPrice(item.price * item.quantity)}
-                                  </p>
-                                </div>
-
-                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <StockBadge item={getCartItemStockObject(item)} />
-
-                                    {unavailable && (
-                                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
-                                        Review
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <span className="rounded-full bg-dh-gray px-2.5 py-1 text-[11px] font-black text-dh-primary">
-                                    Qty {item.quantity}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mb-4 rounded-2xl bg-green-50 p-3 text-xs font-semibold text-green-700">
-                  <div className="flex items-start gap-2">
-                    <Truck className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div>
-                      <p className="font-black text-green-800">
-                        {deliveryTitle} · {deliveryEstimate}
-                      </p>
-                      <p className="mt-0.5">
-                        {shipping.isLusaka
-                          ? shipping.countdown
-                          : 'Delivery timing is confirmed from your address.'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 border-t border-dh-light-gray pt-4">
-                  <div className="flex justify-between text-dh-dark-gray">
-                    <span>Subtotal</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-
-                  <div className="flex justify-between text-dh-dark-gray">
-                    <span>Delivery</span>
-
-                    <span>
-                      {deliveryFee === 0 ? 'Free' : formatPrice(deliveryFee)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between border-t border-dh-light-gray pt-3 font-display text-xl font-bold text-dh-primary">
-                    <span>Total</span>
-
-                    <span>{formatPrice(finalTotal)}</span>
-                  </div>
-                </div>
-
-                {hasUnavailableItems && (
-                  <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-                    Remove unavailable items before checkout.
-                  </div>
-                )}
-
-                {isAuthenticated && (
-                  <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 p-3 text-sm text-green-700">
-                    This order will be saved to your account.
-                  </div>
-                )}
 
                 {paymentMethod !== 'card' && (
                   <Button
                     onClick={handlePlaceOrder}
                     disabled={isSubmitting || hasUnavailableItems}
-                    className="mt-5 h-11 w-full rounded-full bg-dh-primary font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                    className="mt-4 h-12 w-full rounded-full bg-dh-primary text-sm font-black text-white shadow-lg shadow-dh-primary/15 hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                   >
                     {hasUnavailableItems
                       ? 'Checkout unavailable'
                       : isSubmitting
-                        ? 'Creating Order...'
-                        : `Place Order - ${formatPrice(finalTotal)}`}
+                        ? 'Securing your order…'
+                        : `Place order · ${formatPrice(finalTotal)}`}
                   </Button>
                 )}
 
-                {paymentMethod === 'card' && (
-                  <p className="mt-6 rounded-2xl bg-blue-50 p-4 text-sm text-blue-700">
-                    Prepare card payment, then enter your card details in the secure Stripe form.
-                  </p>
-                )}
-
-                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-dh-dark-gray">
-                  <Shield className="w-4 h-4" />
-
-                  <span>Secure checkout</span>
+                <div className="mt-3 flex items-center justify-center gap-2 text-xs font-semibold text-dh-dark-gray">
+                  <Shield className="h-4 w-4" />
+                  <span>Payments and order details are protected</span>
                 </div>
               </div>
-            </aside>
+            </div>
           </div>
         </div>
       </main>
-
-      {!orderComplete && checkoutItems.length > 0 && paymentMethod !== 'card' && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-dh-light-gray bg-white/95 p-3 shadow-2xl backdrop-blur lg:hidden">
-          <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-dh-dark-gray">
-                Total
-              </p>
-              <p className="font-display text-lg font-bold text-dh-primary">
-                {formatPrice(finalTotal)}
-              </p>
-            </div>
-
-            <Button
-              onClick={handlePlaceOrder}
-              disabled={isSubmitting || hasUnavailableItems}
-              className="shrink-0 rounded-full bg-dh-primary px-5 font-semibold text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
-            >
-              {hasUnavailableItems
-                ? 'Unavailable'
-                : isSubmitting
-                  ? 'Creating...'
-                  : 'Place order'}
-            </Button>
-          </div>
-        </div>
-      )}
 
       <CheckoutProgressOverlay
         stage={checkoutProgressStage}
         paymentMethod={paymentMethod}
         statusMessage={checkoutProgressMessage}
+        resultTitle={orderComplete ? successState.title : undefined}
+        resultMessage={orderComplete ? successState.message : undefined}
+        nextStep={orderComplete ? successState.nextStep : undefined}
         orderNumber={orderNumber}
+        paymentReference={lencoReference}
         total={formatPrice(successOrderTotal)}
         deliveryLabel={confirmedDeliveryLabel || deliveryEstimate}
         address={checkoutAddressSummary}
+        canRetry={successState.failed === true}
+        onRetry={resetCheckoutResult}
+        onViewOrder={isAuthenticated && createdOrderId ? () => navigate(`/track-order/${createdOrderId}`) : undefined}
+        onContinueShopping={() => navigate('/')}
       />
 
       <Footer />
