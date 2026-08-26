@@ -63,6 +63,11 @@ type CreateOrderResponse = {
       label?: string
       window?: string
     }
+    recoveryAccess?: {
+      token: string
+      expiresAt?: string | null
+      url: string
+    } | null
   }
 }
 
@@ -72,6 +77,8 @@ type CreatePaymentIntentPayload = {
   orderId: number | string
   customerEmail?: string
   customerName?: string
+  recoveryToken?: string
+  clientAttemptId?: string
 }
 
 type CreatePaymentIntentResponse = {
@@ -100,7 +107,7 @@ async function paymentsFetch<T>(
     },
   })
 
-  let data: any = null
+  let data: unknown = null
 
   try {
     data = await response.json()
@@ -109,10 +116,15 @@ async function paymentsFetch<T>(
   }
 
   if (!response.ok) {
+    const errorData = data as {
+      details?: string
+      error?: string
+      message?: string
+    } | null
     const message =
-      data?.details ||
-      data?.error ||
-      data?.message ||
+      errorData?.details ||
+      errorData?.error ||
+      errorData?.message ||
       `Payments API request failed with status ${response.status}`
 
     throw new Error(message)
@@ -143,12 +155,15 @@ export function createStripePaymentIntent(
   )
 }
 
-export function verifyStripePayment(paymentIntentId: string) {
+export function verifyStripePayment(
+  paymentIntentId: string,
+  recoveryToken = ''
+) {
   return paymentsFetch<VerifyStripePaymentResponse>(
     '/verify-stripe-payment',
     {
       method: 'POST',
-      body: JSON.stringify({ paymentIntentId }),
+      body: JSON.stringify({ paymentIntentId, recoveryToken }),
     }
   )
 }

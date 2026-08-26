@@ -88,11 +88,24 @@ export type AccountOrderCaseEligibility = {
 export type AccountOrderPaymentRetry = {
   eligible: boolean
   method?: 'card' | 'mobile' | null
+  lifecycle?: 'awaiting-verification' | 'pay-now' | 'paid' | 'closed' | 'expired' | 'cash-on-delivery' | 'unavailable' | string
   reasonCode?: string
   message?: string
+  verificationDeadline?: string | null
+  verificationRemainingSeconds?: number
+  recoveryStartedAt?: string | null
   deadline?: string | null
   remainingSeconds?: number
   windowHours?: number
+}
+
+export type AccountOrderInventoryReservation = {
+  state: 'reserved' | 'released' | 'committed' | 'unavailable' | string
+  reserved: boolean
+  reservedAt?: string | null
+  releasesAt?: string | null
+  releasedAt?: string | null
+  message?: string
 }
 
 export type AccountOrderMarketplaceState = {
@@ -175,6 +188,7 @@ export type AccountOrder = {
   deliveryEstimate?: AccountDeliveryEstimate
   caseEligibility?: AccountOrderCaseEligibility
   paymentRetry?: AccountOrderPaymentRetry
+  inventoryReservation?: AccountOrderInventoryReservation
   marketplaceState?: AccountOrderMarketplaceState
   deliveryTracking?: AccountOrderDeliveryTracking
   dateCompleted?: string | null
@@ -763,6 +777,7 @@ export type CustomerOrderPaymentRetryResponse = {
   amount: number
   currency: string
   deadline?: string | null
+  verificationDeadline?: string | null
   clientSecret?: string
   paymentIntentId?: string
   reference?: string

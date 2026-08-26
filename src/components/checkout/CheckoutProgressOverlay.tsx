@@ -37,6 +37,7 @@ type CheckoutProgressOverlayProps = {
   canRetry?: boolean
   onRetry?: () => void
   onViewOrder?: () => void
+  viewOrderLabel?: string
   onContinueShopping?: () => void
 }
 
@@ -109,6 +110,7 @@ export default function CheckoutProgressOverlay({
   canRetry = false,
   onRetry,
   onViewOrder,
+  viewOrderLabel = 'View order',
   onContinueShopping,
 }: CheckoutProgressOverlayProps) {
   if (stage === 'idle') return null
@@ -275,7 +277,7 @@ export default function CheckoutProgressOverlay({
                 onClick={onViewOrder}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-[#17143f] transition hover:bg-white/90"
               >
-                View order <ArrowRight className="h-4 w-4" />
+                {viewOrderLabel} <ArrowRight className="h-4 w-4" />
               </button>
             )}
             {failed && canRetry && onRetry && (

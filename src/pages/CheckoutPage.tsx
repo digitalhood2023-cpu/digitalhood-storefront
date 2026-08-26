@@ -55,6 +55,12 @@ import Footer from '@/sections/Footer'
 
 const DEFAULT_POSTCODE = '10101'
 
+function createPaymentAttemptId() {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `checkout-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
 )
@@ -340,6 +346,7 @@ export default function CheckoutPage() {
   const [checkoutError, setCheckoutError] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null)
+  const [createdRecoveryToken, setCreatedRecoveryToken] = useState('')
   const [completedOrderTotal, setCompletedOrderTotal] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [checkoutProgressStage, setCheckoutProgressStage] =
@@ -939,6 +946,7 @@ export default function CheckoutPage() {
     const orderRef = response.order.number || String(orderId)
 
     setCreatedOrderId(orderId)
+    setCreatedRecoveryToken(response.order.recoveryAccess?.token || '')
     setOrderNumber(orderRef)
     setConfirmedDeliveryLabel(
       response.order.deliveryEstimate?.label || deliveryEstimate
@@ -947,6 +955,7 @@ export default function CheckoutPage() {
     return {
       orderId,
       orderRef,
+      recoveryToken: response.order.recoveryAccess?.token || '',
     }
   }
 
@@ -997,9 +1006,11 @@ export default function CheckoutPage() {
   const pollLencoPayment = ({
     reference,
     orderId,
+    recoveryToken,
   }: {
     reference: string
     orderId: number
+    recoveryToken: string
   }) => {
     stopLencoPolling()
 
@@ -1013,7 +1024,11 @@ export default function CheckoutPage() {
       attempts += 1
 
       try {
-        const result = await verifyLencoMobileMoney(reference)
+        const result = await verifyLencoMobileMoney(
+          reference,
+          orderId,
+          recoveryToken
+        )
         const paymentConfirmed =
           result.paid === true || isLencoPaidStatus(result.status)
         const paymentFailed =
@@ -1103,7 +1118,11 @@ export default function CheckoutPage() {
     try {
       const order =
         createdOrderId && orderNumber
-          ? { orderId: createdOrderId, orderRef: orderNumber }
+          ? {
+              orderId: createdOrderId,
+              orderRef: orderNumber,
+              recoveryToken: createdRecoveryToken,
+            }
           : await createOrderThroughPaymentsApi('card')
 
       const response = await createStripePaymentIntent({
@@ -1112,6 +1131,8 @@ export default function CheckoutPage() {
         orderId: order.orderId,
         customerEmail: getCheckoutEmail(),
         customerName: formData.fullName,
+        recoveryToken: order.recoveryToken,
+        clientAttemptId: createPaymentAttemptId(),
       })
 
       setCardClientSecret(response.clientSecret)
@@ -1128,13 +1149,15 @@ export default function CheckoutPage() {
     }
   }
 
-  useEffect(() => {
-    if (paymentMethod !== 'card') {
+  const changePaymentMethod = (value: 'mobile' | 'card' | 'cod') => {
+    setPaymentMethod(value)
+    if (value !== 'card') {
       setCardClientSecret('')
       setCardPaymentIntentId('')
       setCreatedOrderId(null)
+      setCreatedRecoveryToken('')
     }
-  }, [paymentMethod])
+  }
 
   useEffect(() => {
     if (!orderComplete && !checkoutError) return
@@ -1182,7 +1205,15 @@ export default function CheckoutPage() {
       }
 
       if (cardPaymentIntentId) {
-        await verifyStripePayment(cardPaymentIntentId)
+        const verification = await verifyStripePayment(
+          cardPaymentIntentId,
+          createdRecoveryToken
+        )
+        if (!verification.success) {
+          throw new Error(
+            'The card provider has not confirmed this payment yet. DigitalHood will keep checking it safely.'
+          )
+        }
       }
 
       setSuccessState(getSuccessState('card'))
@@ -1251,7 +1282,11 @@ export default function CheckoutPage() {
     try {
       const order =
         createdOrderId && orderNumber
-          ? { orderId: createdOrderId, orderRef: orderNumber }
+          ? {
+              orderId: createdOrderId,
+              orderRef: orderNumber,
+              recoveryToken: createdRecoveryToken,
+            }
           : await createOrderThroughPaymentsApi(paymentMethod)
 
       if (paymentMethod === 'mobile') {
@@ -1268,6 +1303,7 @@ export default function CheckoutPage() {
           orderId: order.orderId,
           customerName: formData.fullName,
           customerEmail: getCheckoutEmail(),
+          recoveryToken: order.recoveryToken,
         })
 
         const paymentReference = response.reference || reference
@@ -1313,6 +1349,7 @@ export default function CheckoutPage() {
         pollLencoPayment({
           reference: paymentReference,
           orderId: order.orderId,
+          recoveryToken: order.recoveryToken,
         })
 
         return
@@ -1889,7 +1926,7 @@ export default function CheckoutPage() {
                 <RadioGroup
                   value={paymentMethod}
                   onValueChange={(value) =>
-                    setPaymentMethod(value as 'mobile' | 'card' | 'cod')
+                    changePaymentMethod(value as 'mobile' | 'card' | 'cod')
                   }
                   className="grid grid-cols-3 gap-1.5 rounded-xl bg-dh-gray p-1.5"
                 >
@@ -2039,9 +2076,18 @@ export default function CheckoutPage() {
         total={formatPrice(successOrderTotal)}
         deliveryLabel={confirmedDeliveryLabel || deliveryEstimate}
         address={checkoutAddressSummary}
-        canRetry={successState.failed === true}
+        canRetry={successState.failed === true && !createdOrderId}
         onRetry={resetCheckoutResult}
-        onViewOrder={isAuthenticated && createdOrderId ? () => navigate(`/track-order/${createdOrderId}`) : undefined}
+        onViewOrder={
+          createdOrderId && (isAuthenticated || createdRecoveryToken)
+            ? () => navigate(
+                successState.confirmed
+                  ? `/track-order/${createdOrderId}${createdRecoveryToken ? `?token=${encodeURIComponent(createdRecoveryToken)}` : ''}`
+                  : `/orders/${createdOrderId}/pay${createdRecoveryToken ? `?token=${encodeURIComponent(createdRecoveryToken)}` : ''}`
+              )
+            : undefined
+        }
+        viewOrderLabel={successState.confirmed ? 'View order' : 'Pay this order'}
         onContinueShopping={() => navigate('/')}
       />
 

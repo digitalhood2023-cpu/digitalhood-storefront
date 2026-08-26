@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CalendarDays, Check, CircleDot, Clock3, MapPin, PackageCheck, Radio, ReceiptText, RefreshCw, ShieldAlert, ShoppingBag, Store, Truck } from 'lucide-react'
 
 import { getCustomerOrder } from '@/api/account'
+import { getOrderPaymentRecovery } from '@/api/paymentRecovery'
 import type { CustomerOrder } from '@/api/orders'
 import { Button } from '@/components/ui/button'
 import { useAccount } from '@/context/AccountContext'
@@ -12,7 +13,7 @@ import { buildAccountOrderSupportUrl, buildOrderSupportUrl } from '@/lib/support
 import Footer from '@/sections/Footer'
 import Header from '@/sections/Header'
 
-type LocationState = { guestOrder?: CustomerOrder }
+type LocationState = { guestOrder?: CustomerOrder; recoveryToken?: string }
 
 const JOURNEY = [
   { key: 'confirmed', label: 'Confirmed', icon: ReceiptText },
@@ -144,8 +145,11 @@ function OrderSummary({
 export default function OrderTrackingDetailsPage() {
   const { orderId = '' } = useParams()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { isAuthenticated, isLoading: accountLoading } = useAccount()
-  const guestOrder = (location.state as LocationState | null)?.guestOrder
+  const locationState = location.state as LocationState | null
+  const guestOrder = locationState?.guestOrder
+  const recoveryToken = searchParams.get('token')?.trim() || locationState?.recoveryToken || guestOrder?.recoveryAccess?.token || ''
   const [order, setOrder] = useState<TrackableOrder | null>(guestOrder || null)
   const [loading, setLoading] = useState(Boolean(!guestOrder))
   const [error, setError] = useState('')
@@ -154,7 +158,7 @@ export default function OrderTrackingDetailsPage() {
 
   useEffect(() => {
     if (accountLoading) return
-    if (!isAuthenticated) return
+    if (!isAuthenticated && !recoveryToken) return
 
     let active = true
     let refreshTimer = 0
@@ -163,7 +167,9 @@ export default function OrderTrackingDetailsPage() {
       if (!initial && active) setRefreshing(true)
 
       try {
-        const response = await getCustomerOrder(orderId)
+        const response = isAuthenticated
+          ? await getCustomerOrder(orderId)
+          : await getOrderPaymentRecovery(orderId, recoveryToken)
         if (!active) return
         setOrder(response.order)
         setError('')
@@ -196,7 +202,7 @@ export default function OrderTrackingDetailsPage() {
       window.clearInterval(refreshTimer)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [accountLoading, guestOrder, isAuthenticated, orderId])
+  }, [accountLoading, guestOrder, isAuthenticated, orderId, recoveryToken])
 
   const groups = useMemo(() => groupOrderItemsByStore(order?.items || []), [order])
   const state = order ? getTrackingState(order) : null
@@ -205,14 +211,18 @@ export default function OrderTrackingDetailsPage() {
   const isCashOnDelivery = Boolean(
     order && ['cod', 'cash_on_delivery'].includes(String(order.paymentMethod || '').toLowerCase())
   )
-  const displayLoading = accountLoading || (isAuthenticated && loading)
-  const displayError = error || (!isAuthenticated && !guestOrder ? 'For privacy, enter the guest order details again to reopen this tracking page.' : '')
+  const hasOrderAccess = isAuthenticated || Boolean(guestOrder) || Boolean(recoveryToken)
+  const displayLoading = accountLoading || ((isAuthenticated || Boolean(recoveryToken)) && loading)
+  const displayError = error || (!hasOrderAccess ? 'For privacy, enter the guest order details again to reopen this order.' : '')
+  const paymentUrl = order
+    ? `/orders/${order.id}/pay${recoveryToken ? `?token=${encodeURIComponent(recoveryToken)}` : ''}`
+    : '/track-order'
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-[#f6f7fb]">
       <Header />
       <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-5 sm:py-7">
-        <Link to="/track-order" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#28256d]"><ArrowLeft className="h-4 w-4" /> All tracked orders</Link>
+        <Link to="/track-order" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#28256d]"><ArrowLeft className="h-4 w-4" /> All orders</Link>
 
         {displayLoading && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Loading order journey…</div>}
         {!displayLoading && displayError && (
@@ -223,22 +233,26 @@ export default function OrderTrackingDetailsPage() {
           <>
             <section className="mt-4 overflow-hidden rounded-2xl bg-[#191744] text-white shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
-                <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/55">Order journey</p><h1 className="mt-1 text-xl font-black sm:text-2xl">Order #{order.number || order.id}</h1><p className="mt-1 text-sm text-white/65">Placed {formatOrderDate(order.dateCreated, true)}</p></div>
+                <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/55">{state.trackable ? 'Order journey' : 'Order details'}</p><h1 className="mt-1 text-xl font-black sm:text-2xl">Order #{order.number || order.id}</h1><p className="mt-1 text-sm text-white/65">Placed {formatOrderDate(order.dateCreated, true)}</p></div>
                 <span className={`rounded-full px-3 py-1.5 text-xs font-black ${state.closed ? 'bg-white/10 text-white/75' : order.paymentRetry?.eligible ? 'bg-[#f5a623] text-[#191744]' : 'bg-emerald-400/15 text-emerald-200'}`}>{state.label}</span>
               </div>
 
               {state.closed ? (
                 <div className="border-t border-white/10 bg-white/5 p-4 text-sm text-white/70">This order is closed. Tracking and payment actions are no longer available.</div>
               ) : order.paymentRetry?.eligible ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#f5a623]/10 p-4"><p className="text-sm text-amber-100">Complete payment before {formatOrderDate(order.paymentRetry.deadline, true)} to confirm this order.</p><Button asChild className="h-9 bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]"><Link to={`/orders/${order.id}/pay`}>Pay now</Link></Button></div>
-              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#f5a623]/10 p-4"><p className="text-sm text-amber-100">Complete payment before {formatOrderDate(order.paymentRetry.deadline, true)} to confirm this order.</p><Button asChild className="h-9 bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]"><Link to={paymentUrl}>Pay now</Link></Button></div>
+              ) : order.paymentRetry?.lifecycle === 'awaiting-verification' ? (
+                <div className="border-t border-white/10 bg-white/5 p-4 text-sm text-white/70">DigitalHood is checking the payment provider. Delivery tracking will appear only after payment is confirmed.</div>
+              ) : state.trackable ? (
                 <div className="grid grid-cols-4 border-t border-white/10 px-2 py-4 sm:px-5">
                   {JOURNEY.map((step, index) => { const Icon = step.icon; const complete = index <= progress; return <div key={step.key} className="relative text-center"><div className={`relative z-10 mx-auto flex h-8 w-8 items-center justify-center rounded-full border ${complete ? 'border-[#f5a623] bg-[#f5a623] text-[#191744]' : 'border-white/20 bg-[#24215b] text-white/40'}`}>{index < progress ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}</div><p className={`mt-2 text-[10px] font-bold sm:text-xs ${complete ? 'text-white' : 'text-white/40'}`}>{step.label}</p>{index < 3 && <span className={`absolute left-[62%] top-4 h-px w-[76%] ${index < progress ? 'bg-[#f5a623]' : 'bg-white/15'}`} />}</div> })}
                 </div>
+              ) : (
+                <div className="border-t border-white/10 bg-white/5 p-4 text-sm text-white/70">This order is available for viewing, but it has no delivery tracking because payment was not confirmed.</div>
               )}
             </section>
 
-            <section className={`mt-4 rounded-2xl border p-4 shadow-sm sm:p-5 ${deliveryTracking?.delayed ? 'border-amber-200 bg-amber-50' : deliveryTracking?.key === 'delivered' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+            {state.trackable && deliveryTracking && <section className={`mt-4 rounded-2xl border p-4 shadow-sm sm:p-5 ${deliveryTracking.delayed ? 'border-amber-200 bg-amber-50' : deliveryTracking.key === 'delivered' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${deliveryTracking?.delayed ? 'bg-amber-100 text-amber-700' : deliveryTracking?.key === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-[#28256d]'}`}>
@@ -264,7 +278,15 @@ export default function OrderTrackingDetailsPage() {
                 <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Last update</p><p className="mt-1 inline-flex items-center gap-1.5 text-sm font-black text-slate-800"><RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> {deliveryTracking?.lastUpdatedAt ? formatOrderDate(deliveryTracking.lastUpdatedAt, true) : refreshing ? 'Refreshing…' : 'Live'}</p></div>
               </div>
               {refreshNotice && <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-amber-800">{refreshNotice}</p>}
-            </section>
+            </section>}
+
+            {!state.trackable && order.inventoryReservation && (
+              <section className={`mt-4 rounded-2xl border p-4 text-sm leading-6 shadow-sm ${order.inventoryReservation.reserved ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-600'}`}>
+                <p className="font-black text-slate-900">Stock reservation</p>
+                <p className="mt-1">{order.inventoryReservation.message}</p>
+                {order.inventoryReservation.reserved && order.inventoryReservation.releasesAt && <p className="mt-1 text-xs font-bold">Reserved until {formatOrderDate(order.inventoryReservation.releasesAt, true)}</p>}
+              </section>
+            )}
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

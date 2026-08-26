@@ -20,11 +20,21 @@ export function getTrackingState(order: TrackableOrder) {
     ['processing', 'shipped', 'out-for-delivery', 'delivered', 'completed'].includes(status)
   const retryEligible = Boolean(order.paymentRetry?.eligible)
 
-  if (retryEligible) {
+  if (order.paymentRetry?.lifecycle === 'awaiting-verification') {
     return {
       key: 'awaiting-payment',
       category: 'in-progress',
       label: 'Awaiting payment',
+      trackable: false,
+      closed: false,
+    }
+  }
+
+  if (retryEligible) {
+    return {
+      key: 'pay-now',
+      category: 'in-progress',
+      label: 'Pay now',
       trackable: false,
       closed: false,
     }
@@ -63,7 +73,7 @@ export function getTrackingState(order: TrackableOrder) {
     key: 'in-progress',
     category: 'in-progress',
     label: paidOrConfirmed ? 'In progress' : order.statusLabel || 'In progress',
-    trackable: true,
+    trackable: paidOrConfirmed,
     closed: false,
   }
 }
@@ -86,4 +96,3 @@ export function formatOrderDate(value?: string | null, withTime = false) {
     ...(withTime ? { timeStyle: 'short' as const } : {}),
   }).format(parsed)
 }
-
