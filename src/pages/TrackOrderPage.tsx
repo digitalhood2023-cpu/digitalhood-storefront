@@ -138,7 +138,9 @@ function SignedInOrders() {
                   <Button asChild className="h-9 rounded-lg bg-[#f5a623] px-4 text-xs font-black text-[#16143f] hover:bg-[#ffb536]"><Link to={`/orders/${order.id}/pay`}>Pay now <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link></Button>
                 ) : state.trackable ? (
                   <Button asChild className="h-9 rounded-lg bg-[#28256d] px-4 text-xs font-black text-white hover:bg-[#1d1b55]"><Link to={`/track-order/${order.id}`}>Track order <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link></Button>
-                ) : <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">Closed</span>}
+                ) : (
+                  <Button asChild variant="outline" className="h-9 rounded-lg px-4 text-xs font-black"><Link to={`/track-order/${order.id}`}>View order details <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link></Button>
+                )}
               </div>
             </article>
           )
@@ -167,7 +169,12 @@ function GuestOrderLookup() {
     event.preventDefault(); setLoading(true); setError('')
     try {
       const response = await lookupCustomerOrder({ email: email.trim(), orderNumber: orderNumber.trim() })
-      navigate(`/track-order/${response.order.id}`, { state: { guestOrder: response.order } })
+      navigate(`/track-order/${response.order.id}`, {
+        state: {
+          guestOrder: response.order,
+          recoveryToken: response.order.recoveryAccess?.token || '',
+        },
+      })
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Order not found. Check your details and try again.')
     } finally { setLoading(false) }
@@ -176,12 +183,12 @@ function GuestOrderLookup() {
   return (
     <main className="mx-auto w-full max-w-lg px-3 py-7 sm:px-5 sm:py-10">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#28256d] text-white"><Truck className="h-5 w-5" /></div><div><h1 className="text-xl font-black text-[#16143f]">Track a guest order</h1><p className="text-sm text-slate-500">Use the details supplied at checkout.</p></div></div>
+        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#28256d] text-white"><Truck className="h-5 w-5" /></div><div><h1 className="text-xl font-black text-[#16143f]">Find a guest order</h1><p className="text-sm text-slate-500">Use the details supplied at checkout.</p></div></div>
         <form onSubmit={submit} className="mt-5 space-y-4">
           <div><Label htmlFor="tracking-order">Order number</Label><Input id="tracking-order" value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} required className="mt-1.5 h-11" placeholder="e.g. 1542" /></div>
           <div><Label htmlFor="tracking-email">Checkout email</Label><Input id="tracking-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="mt-1.5 h-11" placeholder="you@example.com" /></div>
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl bg-[#28256d] font-bold text-white hover:bg-[#1d1b55]">{loading ? 'Finding order…' : 'Track order'}</Button>
+          <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl bg-[#28256d] font-bold text-white hover:bg-[#1d1b55]">{loading ? 'Finding order…' : 'View order details'}</Button>
         </form>
         <div className="mt-5 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>Have an account? <Link to="/login?redirect=/track-order" className="font-black underline">Sign in</Link> to see every order without entering these details.</span></div>
       </div>

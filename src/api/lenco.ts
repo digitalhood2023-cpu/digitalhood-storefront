@@ -1,3 +1,5 @@
+import { getAccountToken } from '@/api/account'
+
 const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL ||
   'https://payments.digitalhood.info'
@@ -10,6 +12,7 @@ export type LencoMobileMoneyPayload = {
   orderId?: number | string
   customerName?: string
   customerEmail?: string
+  recoveryToken?: string
 }
 
 export type LencoPaymentState = {
@@ -48,6 +51,7 @@ async function lencoFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const accountToken = getAccountToken()
   const controller = new AbortController()
   const timeoutId = globalThis.setTimeout(() => controller.abort(), 12_000)
   let response: Response
@@ -58,6 +62,7 @@ async function lencoFetch<T>(
       signal: options.signal || controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        ...(accountToken ? { Authorization: `Bearer ${accountToken}` } : {}),
         ...(options.headers || {}),
       },
     })
@@ -104,10 +109,14 @@ export async function initiateLencoMobileMoney(
   })
 }
 
-export async function verifyLencoMobileMoney(reference: string) {
+export async function verifyLencoMobileMoney(
+  reference: string,
+  orderId?: number | string,
+  recoveryToken = ''
+) {
   return lencoFetch<LencoVerificationResponse>('/api/lenco/verify', {
     method: 'POST',
-    body: JSON.stringify({ reference }),
+    body: JSON.stringify({ reference, orderId, recoveryToken }),
   })
 }
 
