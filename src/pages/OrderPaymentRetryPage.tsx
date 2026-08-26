@@ -138,7 +138,7 @@ export default function OrderPaymentRetryPage() {
         if (active) setMobileStatus('Still waiting for the payment provider…')
       }
 
-      if (active && attempts < 36) timeout = window.setTimeout(poll, 5000)
+      if (active && attempts < 180) timeout = window.setTimeout(poll, 5000)
       else if (active) setMobileStatus('Approval is taking longer than expected. You can safely return and check this order again.')
     }
 
@@ -160,7 +160,14 @@ export default function OrderPaymentRetryPage() {
         recoveryToken
       )
       setRetry(response)
-      if (response.mode === 'mobile') setMobileStatus(response.message || 'Approve the payment prompt on your phone.')
+      if (response.mode === 'mobile') {
+        if (response.failed) {
+          setMobileStatus(response.message || 'Payment was not approved. You can request one new prompt yourself.')
+          setRetry(null)
+        } else {
+          setMobileStatus(response.message || 'Approve the payment prompt on your phone.')
+        }
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to prepare payment. Please try again.')
     } finally {

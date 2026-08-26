@@ -203,29 +203,6 @@ function groupCheckoutItemsByStore(items: CheckoutCartItem[]) {
   return Array.from(groups.values())
 }
 
-function isLencoPaidStatus(status: unknown) {
-  if (status === true) return true
-
-  const normalizedStatus = String(status || '').toLowerCase()
-
-  return [
-    'true',
-    'successful',
-    'success',
-    'succeeded',
-    'completed',
-    'complete',
-    'paid',
-    'approved',
-    'processed',
-    'confirmed',
-    'collection.successful',
-    'collection.success',
-    'charge.success',
-    'payment.success',
-  ].includes(normalizedStatus)
-}
-
 function splitFullName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
 
@@ -275,6 +252,8 @@ export default function CheckoutPage() {
   const pageRef = useRef<HTMLDivElement>(null)
   const lencoPollingRef = useRef<number | null>(null)
   const checkoutSubmissionRef = useRef(false)
+  const checkoutOrderAttemptRef = useRef(createPaymentAttemptId())
+  const checkoutCreationAttemptedRef = useRef(false)
   const hasPrefilledAccountRef = useRef(false)
 
   const { customer, isAuthenticated } = useAccount()
@@ -378,6 +357,13 @@ export default function CheckoutPage() {
     postcode: DEFAULT_POSTCODE,
     paymentPhone: '',
   })
+
+  const resetCheckoutOrderAttempt = () => {
+    checkoutOrderAttemptRef.current = createPaymentAttemptId()
+    checkoutCreationAttemptedRef.current = false
+    setCreatedOrderId(null)
+    setCreatedRecoveryToken('')
+  }
 
   const selectedSavedAddress = useMemo(() => {
     return (
@@ -508,7 +494,7 @@ export default function CheckoutPage() {
 
     setCardClientSecret('')
     setCardPaymentIntentId('')
-    setCreatedOrderId(null)
+    resetCheckoutOrderAttempt()
     setCompletedOrderTotal(null)
   }
 
@@ -535,7 +521,7 @@ export default function CheckoutPage() {
 
     setCardClientSecret('')
     setCardPaymentIntentId('')
-    setCreatedOrderId(null)
+    resetCheckoutOrderAttempt()
   }
 
   const cancelAddCheckoutAddress = () => {
@@ -584,7 +570,7 @@ export default function CheckoutPage() {
         setSelectedSavedAddressId('')
         setCardClientSecret('')
         setCardPaymentIntentId('')
-        setCreatedOrderId(null)
+        resetCheckoutOrderAttempt()
         setCompletedOrderTotal(null)
         setIsLocatingAddress(false)
       },
@@ -823,7 +809,7 @@ export default function CheckoutPage() {
       setSelectedSavedAddressId('')
       setCardClientSecret('')
       setCardPaymentIntentId('')
-      setCreatedOrderId(null)
+      resetCheckoutOrderAttempt()
       setCompletedOrderTotal(null)
     }
   }
@@ -926,9 +912,13 @@ export default function CheckoutPage() {
     method: 'mobile' | 'cod' | 'card'
   ) => {
     const address = buildAddressPayload()
+    const resumeCheckout = checkoutCreationAttemptedRef.current
+    checkoutCreationAttemptedRef.current = true
 
     const response = await createDigitalHoodOrder({
       paymentMethod: method,
+      clientCheckoutId: checkoutOrderAttemptRef.current,
+      resumeCheckout,
       billing: address,
       shipping: address,
       lineItems: buildLineItems(),
@@ -1015,7 +1005,7 @@ export default function CheckoutPage() {
     stopLencoPolling()
 
     let attempts = 0
-    const maxAttempts = 60
+    const maxAttempts = 180
 
     setCheckoutProgressStage('awaiting-approval')
     setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
@@ -1029,8 +1019,7 @@ export default function CheckoutPage() {
           orderId,
           recoveryToken
         )
-        const paymentConfirmed =
-          result.paid === true || isLencoPaidStatus(result.status)
+        const paymentConfirmed = result.paid === true
         const paymentFailed =
           result.failed === true ||
           (result.terminal === true && !paymentConfirmed)
@@ -1074,6 +1063,9 @@ export default function CheckoutPage() {
         )
       } catch (error) {
         console.error(error)
+        setCheckoutProgressMessage(
+          'Your connection changed while Mobile Money was open. We are still checking the same payment securely.'
+        )
       }
 
       if (attempts >= maxAttempts) {
@@ -1154,8 +1146,7 @@ export default function CheckoutPage() {
     if (value !== 'card') {
       setCardClientSecret('')
       setCardPaymentIntentId('')
-      setCreatedOrderId(null)
-      setCreatedRecoveryToken('')
+      resetCheckoutOrderAttempt()
     }
   }
 
@@ -1295,20 +1286,42 @@ export default function CheckoutPage() {
         setCheckoutProgressStage('requesting-payment')
         setCheckoutProgressMessage('Sending a secure approval request to your Mobile Money phone…')
 
-        const response = await initiateLencoMobileMoney({
-          amount: finalTotal,
-          phone: formData.paymentPhone,
-          operator: detectMobileMoneyOperator(formData.paymentPhone),
-          reference,
-          orderId: order.orderId,
-          customerName: formData.fullName,
-          customerEmail: getCheckoutEmail(),
-          recoveryToken: order.recoveryToken,
-        })
+        let response
+
+        try {
+          response = await initiateLencoMobileMoney({
+            amount: finalTotal,
+            phone: formData.paymentPhone,
+            operator: detectMobileMoneyOperator(formData.paymentPhone),
+            reference,
+            orderId: order.orderId,
+            customerName: formData.fullName,
+            customerEmail: getCheckoutEmail(),
+            recoveryToken: order.recoveryToken,
+          })
+        } catch (initiationError) {
+          console.error(initiationError)
+          setLencoReference(reference)
+          setCreatedOrderId(order.orderId)
+          setCompletedOrderTotal(finalTotal)
+          setSuccessState({
+            title: 'Checking Mobile Money Payment',
+            message:
+              'Your internet connection changed while the approval prompt was opening. DigitalHood has not marked this payment as failed and will keep checking the same order.',
+            nextStep:
+              'Complete the prompt if it is still on your phone. Do not request another prompt while this check is active.',
+            confirmed: false,
+          })
+          pollLencoPayment({
+            reference,
+            orderId: order.orderId,
+            recoveryToken: order.recoveryToken,
+          })
+          return
+        }
 
         const paymentReference = response.reference || reference
-        const paymentConfirmed =
-          response.paid === true || isLencoPaidStatus(response.status)
+        const paymentConfirmed = response.paid === true
         const paymentFailed =
           response.failed === true ||
           (response.terminal === true && !paymentConfirmed)

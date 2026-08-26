@@ -784,6 +784,11 @@ export type CustomerOrderPaymentRetryResponse = {
   transactionId?: string | null
   status?: string
   message?: string
+  paid?: boolean
+  failed?: boolean
+  pending?: boolean
+  terminal?: boolean
+  reused?: boolean
 }
 
 export type CustomerOrderPaymentVerificationResponse = {

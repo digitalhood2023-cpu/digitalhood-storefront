@@ -30,6 +30,8 @@ type CreateOrderLineItem = {
 
 type CreateOrderPayload = {
   paymentMethod: 'mobile' | 'cod' | 'card' | 'lenco' | 'stripe'
+  clientCheckoutId?: string
+  resumeCheckout?: boolean
   customer?: Record<string, unknown>
   billing: AddressPayload
   shipping: AddressPayload

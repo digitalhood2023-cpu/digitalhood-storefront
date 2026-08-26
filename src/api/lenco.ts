@@ -27,6 +27,7 @@ export type LencoPaymentState = {
 
 export type LencoMobileMoneyResponse = LencoPaymentState & {
   success?: boolean
+  reused?: boolean
   reference?: string
   orderId?: string | number
   transactionId?: string
@@ -49,11 +50,12 @@ export type LencoVerificationResponse = LencoPaymentState & {
 
 async function lencoFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs = 12_000
 ): Promise<T> {
   const accountToken = getAccountToken()
   const controller = new AbortController()
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), 12_000)
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs)
   let response: Response
 
   try {
@@ -106,7 +108,7 @@ export async function initiateLencoMobileMoney(
   return lencoFetch<LencoMobileMoneyResponse>('/api/lenco/mobile-money', {
     method: 'POST',
     body: JSON.stringify(payload),
-  })
+  }, 35_000)
 }
 
 export async function verifyLencoMobileMoney(
