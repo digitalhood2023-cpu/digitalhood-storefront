@@ -1005,7 +1005,10 @@ export default function CheckoutPage() {
     stopLencoPolling()
 
     let attempts = 0
-    const maxAttempts = 180
+    // Poll local DigitalHood payment state for the five-minute provider
+    // verification window. Provider reconciliation runs on the backend; this
+    // loop never launches a second Mobile Money prompt.
+    const maxAttempts = 60
 
     setCheckoutProgressStage('awaiting-approval')
     setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
@@ -1075,9 +1078,9 @@ export default function CheckoutPage() {
         setSuccessState({
           title: 'Payment Confirmation Delayed',
           message:
-            'Confirmation is taking longer than expected, but DigitalHood will keep checking it securely in the background.',
+            'The five-minute confirmation window ended without a final provider result. Your order is still reserved and DigitalHood will keep checking it securely in the background.',
           nextStep:
-            'If money was deducted, do not retry. View your order or contact DigitalHood support with the payment reference.',
+            'If money was deducted, do not pay again. Open the same order to view its payment state or contact support with the payment reference.',
           confirmed: false,
           failed: false,
         })

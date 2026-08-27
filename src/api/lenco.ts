@@ -23,6 +23,8 @@ export type LencoPaymentState = {
   failureCode?: string | null
   status?: string
   message?: string
+  verificationDeadline?: string
+  deadline?: string
 }
 
 export type LencoMobileMoneyResponse = LencoPaymentState & {
@@ -108,7 +110,7 @@ export async function initiateLencoMobileMoney(
   return lencoFetch<LencoMobileMoneyResponse>('/api/lenco/mobile-money', {
     method: 'POST',
     body: JSON.stringify(payload),
-  }, 35_000)
+  }, 15_000)
 }
 
 export async function verifyLencoMobileMoney(
@@ -119,7 +121,7 @@ export async function verifyLencoMobileMoney(
   return lencoFetch<LencoVerificationResponse>('/api/lenco/verify', {
     method: 'POST',
     body: JSON.stringify({ reference, orderId, recoveryToken }),
-  })
+  }, 8_000)
 }
 
 export function detectMobileMoneyOperator(phone: string): 'mtn' | 'airtel' {
