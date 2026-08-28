@@ -22,7 +22,11 @@ type StripeCheckoutFormProps = {
   onConfirming?: () => void
   onCreatePayment?: () => Promise<PreparedStripePayment>
   onSuccess: (paymentIntentId?: string) => void | Promise<void>
-  onFailure?: (message: string, phase: 'preparation' | 'confirmation') => void
+  onFailure?: (
+    message: string,
+    phase: 'preparation' | 'confirmation',
+    paymentIntentId?: string
+  ) => void | Promise<void>
 }
 
 export default function StripeCheckoutForm({
@@ -84,7 +88,7 @@ export default function StripeCheckoutForm({
       setError(message)
       submissionInFlightRef.current = false
       setIsPaying(false)
-      onFailure?.(message, 'preparation')
+      await onFailure?.(message, 'preparation')
       return
     }
 
@@ -109,7 +113,11 @@ export default function StripeCheckoutForm({
       setError(message)
       submissionInFlightRef.current = false
       setIsPaying(false)
-      onFailure?.(message, 'confirmation')
+      await onFailure?.(
+        message,
+        'confirmation',
+        preparedPayment?.paymentIntentId
+      )
       return
     }
 
@@ -118,7 +126,11 @@ export default function StripeCheckoutForm({
       setError(message)
       submissionInFlightRef.current = false
       setIsPaying(false)
-      onFailure?.(message, 'confirmation')
+      await onFailure?.(
+        message,
+        'confirmation',
+        result.error.payment_intent?.id || preparedPayment?.paymentIntentId
+      )
       return
     }
 

@@ -1200,19 +1200,60 @@ export default function CheckoutPage() {
     setCheckoutProgressMessage('Processing your card payment securely. Please wait while we confirm the result.')
   }
 
-  const handleCardPaymentFailure = (
+  const handleCardPaymentFailure = async (
     message: string,
-    phase: 'preparation' | 'confirmation'
+    phase: 'preparation' | 'confirmation',
+    paymentIntentId?: string
   ) => {
     setIsSubmitting(false)
     checkoutSubmissionRef.current = false
+
+    if (phase === 'confirmation' && paymentIntentId) {
+      try {
+        const verification = await verifyStripePayment(
+          paymentIntentId,
+          createdRecoveryTokenRef.current || createdRecoveryToken
+        )
+
+        if (verification.paid || verification.success) {
+          setSuccessState(getSuccessState('card'))
+          setCompletedOrderTotal(finalTotal)
+          removeCheckedOutItems()
+          showConfirmedOrder()
+          return
+        }
+
+        if (verification.pending) {
+          setSuccessState({
+            title: 'Checking Card Payment',
+            message: 'The card provider has not returned a final result yet. DigitalHood is safely checking this same order.',
+            nextStep: 'Do not submit another payment yet. Open the order to check its live payment status.',
+            confirmed: false,
+          })
+          setOrderComplete(true)
+          setCheckoutProgressStage('failed')
+          return
+        }
+      } catch {
+        setSuccessState({
+          title: 'Checking Card Payment',
+          message: 'Your connection changed while the provider result was being checked. The existing order remains protected.',
+          nextStep: 'Do not submit another payment yet. Open the order and DigitalHood will keep checking the provider.',
+          confirmed: false,
+        })
+        setOrderComplete(true)
+        setCheckoutProgressStage('failed')
+        return
+      }
+    }
+
     setSuccessState({
       title: 'Card Payment Not Completed',
       message,
       nextStep:
         phase === 'preparation'
           ? 'Your card was not charged. Check your connection and try the same Pay action again.'
-          : 'Check your card details and try again. If your bank shows a charge, do not pay again—open the order or contact support.',
+          : 'Choose Card or Mobile Money to retry this same order. DigitalHood will never create a second order for this retry.',
       confirmed: false,
       failed: true,
     })
@@ -1387,7 +1428,7 @@ export default function CheckoutPage() {
             title: 'Payment Not Completed',
             message: failureMessage,
             nextStep:
-              'Open your order to retry securely. DigitalHood will not ask for your Mobile Money PIN.',
+              'Open your order and choose Card or Mobile Money to retry securely. DigitalHood will not ask for your Mobile Money PIN.',
             confirmed: false,
             failed: true,
           })
@@ -2118,7 +2159,11 @@ export default function CheckoutPage() {
               )
             : undefined
         }
-        viewOrderLabel={successState.confirmed ? 'View order' : 'Pay this order'}
+        viewOrderLabel={successState.confirmed
+          ? 'View order'
+          : successState.failed
+            ? 'Choose payment method'
+            : 'Check payment status'}
         onContinueShopping={() => navigate('/')}
       />
 

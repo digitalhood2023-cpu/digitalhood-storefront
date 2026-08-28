@@ -94,6 +94,10 @@ type VerifyStripePaymentResponse = {
   success: boolean
   status: string
   orderId: string | null
+  paid?: boolean
+  failed?: boolean
+  pending?: boolean
+  terminal?: boolean
 }
 
 async function paymentsFetch<T>(
