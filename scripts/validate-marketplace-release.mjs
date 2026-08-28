@@ -14,6 +14,8 @@ const overlay = read('src/components/checkout/CheckoutProgressOverlay.tsx')
 const stripe = read('src/components/payments/StripeCheckoutForm.tsx')
 const lencoApi = read('src/api/lenco.ts')
 const paymentsApi = read('src/api/payments.ts')
+const paymentRecoveryApi = read('src/api/paymentRecovery.ts')
+const paymentRetryPage = read('src/pages/OrderPaymentRetryPage.tsx')
 const product = read('src/pages/ProductPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
@@ -83,9 +85,19 @@ assert(
     stripeSubmitIndex < stripeOverlayIndex &&
     stripeOverlayIndex < stripeIntentIndex &&
     stripeIntentIndex < stripeConfirmIndex &&
-    stripe.includes("onFailure?.(message, 'confirmation')") &&
+    stripe.includes("await onFailure?.(") &&
+    stripe.includes("'confirmation',") &&
+    stripe.includes('preparedPayment?.paymentIntentId') &&
     stripe.includes('await onSuccess('),
   'card details must validate before pay-time order creation and shared blocking confirmation'
+)
+assert(
+  paymentRetryPage.includes("setSelectedMethod(response.order.paymentRetry.method)") &&
+    paymentRetryPage.includes("paymentMethod: 'card'") &&
+    paymentRetryPage.includes("paymentMethod: 'mobile'") &&
+    paymentRetryPage.includes('onCreatePayment={createPayNowCardPayment}') &&
+    paymentRecoveryApi.includes("paymentMethod?: 'card' | 'mobile'"),
+  'Pay Now must offer Card and Mobile Money on the same order with deferred card preparation'
 )
 assert(
   checkout.includes('window.setTimeout(poll, 1500)') &&

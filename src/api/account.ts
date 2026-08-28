@@ -88,6 +88,8 @@ export type AccountOrderCaseEligibility = {
 export type AccountOrderPaymentRetry = {
   eligible: boolean
   method?: 'card' | 'mobile' | null
+  availableMethods?: Array<'card' | 'mobile'>
+  switchAllowed?: boolean
   lifecycle?: 'awaiting-verification' | 'pay-now' | 'paid' | 'closed' | 'expired' | 'cash-on-delivery' | 'unavailable' | string
   reasonCode?: string
   message?: string
@@ -773,6 +775,9 @@ export async function getCustomerOrders(
 export type CustomerOrderPaymentRetryResponse = {
   success: boolean
   mode: 'card' | 'mobile'
+  selectedMethod?: 'card' | 'mobile'
+  previousMethod?: 'card' | 'mobile' | null
+  switched?: boolean
   orderId: number
   amount: number
   currency: string
@@ -807,6 +812,7 @@ export type CustomerOrderPaymentVerificationResponse = {
 export async function startCustomerOrderPaymentRetry(
   orderId: string | number,
   payload: {
+    paymentMethod?: 'card' | 'mobile'
     phone?: string
     operator?: string
     clientAttemptId: string

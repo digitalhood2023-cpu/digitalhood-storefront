@@ -22,6 +22,7 @@ async function recoveryFetch<T>(
   const accountToken = getAccountToken()
   const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
     ...options,
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(accountToken ? { Authorization: `Bearer ${accountToken}` } : {}),
@@ -65,6 +66,7 @@ export function getOrderPaymentRecovery(
 export function startOrderPaymentRecovery(
   orderId: string | number,
   payload: {
+    paymentMethod?: 'card' | 'mobile'
     phone?: string
     operator?: string
     clientAttemptId: string

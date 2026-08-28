@@ -1,6 +1,6 @@
 import { Elements } from '@stripe/react-stripe-js'
-import { loadStripe } from '@stripe/stripe-js'
-import { useEffect, useState } from 'react'
+import { loadStripe, type StripeElementsOptions } from '@stripe/stripe-js'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Clock3, CreditCard, LockKeyhole, Smartphone, TriangleAlert } from 'lucide-react'
 
@@ -13,7 +13,9 @@ import {
   startOrderPaymentRecovery,
   verifyOrderPaymentRecovery,
 } from '@/api/paymentRecovery'
-import StripeCheckoutForm from '@/components/payments/StripeCheckoutForm'
+import StripeCheckoutForm, {
+  type PreparedStripePayment,
+} from '@/components/payments/StripeCheckoutForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,6 +57,8 @@ export default function OrderPaymentRetryPage() {
   const [operator, setOperator] = useState('mtn')
   const [mobileStatus, setMobileStatus] = useState('')
   const [countdown, setCountdown] = useState('0d 00h 00m 00s')
+  const [selectedMethod, setSelectedMethod] = useState<'card' | 'mobile'>('mobile')
+  const paymentMethodInitializedRef = useRef(false)
 
   useEffect(() => {
     if (accountLoading) return
@@ -70,6 +74,10 @@ export default function OrderPaymentRetryPage() {
         if (initial) {
           setPhone((current) => current || response.order.billing?.phone || '')
         }
+        if (!paymentMethodInitializedRef.current && response.order.paymentRetry?.method) {
+          setSelectedMethod(response.order.paymentRetry.method)
+          paymentMethodInitializedRef.current = true
+        }
         setError('')
       } catch (requestError) {
         if (active && initial) {
@@ -83,7 +91,7 @@ export default function OrderPaymentRetryPage() {
     void loadRecoveryOrder(true)
     refreshTimer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void loadRecoveryOrder()
-    }, 10_000)
+    }, 3_000)
 
     return () => {
       active = false
@@ -97,6 +105,17 @@ export default function OrderPaymentRetryPage() {
     const timer = window.setInterval(update, 1000)
     return () => window.clearInterval(timer)
   }, [order?.paymentRetry?.deadline])
+
+  const cardElementsOptions = useMemo<StripeElementsOptions>(() => ({
+    mode: 'payment',
+    amount: Math.max(1, Math.round(Number(order?.total || 0) * 100)),
+    currency: String(order?.currency || 'ZMW').toLowerCase(),
+    paymentMethodTypes: ['card', 'link'],
+    appearance: {
+      theme: 'stripe',
+      variables: { colorPrimary: '#28256d', borderRadius: '10px' },
+    },
+  }), [order?.currency, order?.total])
 
   useEffect(() => {
     if (retry?.mode !== 'mobile' || !retry.reference) return
@@ -146,7 +165,7 @@ export default function OrderPaymentRetryPage() {
     return () => { active = false; if (timeout) window.clearTimeout(timeout) }
   }, [isAuthenticated, navigate, orderId, recoveryToken, retry])
 
-  const preparePayment = async () => {
+  const prepareMobilePayment = async () => {
     if (!order?.paymentRetry?.eligible) return
     setPreparing(true)
     setError('')
@@ -154,8 +173,10 @@ export default function OrderPaymentRetryPage() {
       const response = await startOrderPaymentRecovery(
         order.id,
         {
+          paymentMethod: 'mobile',
           clientAttemptId: createAttemptId(),
-          ...(order.paymentRetry.method === 'mobile' ? { phone, operator } : {}),
+          phone,
+          operator,
         },
         recoveryToken
       )
@@ -175,12 +196,67 @@ export default function OrderPaymentRetryPage() {
     }
   }
 
-  const confirmCardPayment = async () => {
-    if (!retry?.paymentIntentId) return
+  const createPayNowCardPayment = async (): Promise<PreparedStripePayment> => {
+    if (!order?.paymentRetry?.eligible) {
+      throw new Error('This payment window is not available.')
+    }
+
+    setPreparing(true)
+    setError('')
+
+    try {
+      const response = await startOrderPaymentRecovery(
+        order.id,
+        {
+          paymentMethod: 'card',
+          clientAttemptId: createAttemptId(),
+        },
+        recoveryToken
+      )
+
+      if (
+        response.mode !== 'card' ||
+        !response.clientSecret ||
+        !response.paymentIntentId
+      ) {
+        throw new Error('The secure card payment could not be prepared.')
+      }
+
+      if (
+        Math.abs(Number(response.amount) - Number(order.total)) > 0.005 ||
+        String(response.currency).toUpperCase() !== String(order.currency || 'ZMW').toUpperCase()
+      ) {
+        throw new Error('The secure payment total does not match this order.')
+      }
+
+      setRetry(response)
+      setOrder((current) => current
+        ? {
+            ...current,
+            paymentMethod: 'stripe',
+            paymentRetry: current.paymentRetry
+              ? { ...current.paymentRetry, method: 'card' }
+              : current.paymentRetry,
+          }
+        : current)
+
+      return {
+        clientSecret: response.clientSecret,
+        paymentIntentId: response.paymentIntentId,
+        amount: response.amount,
+        currency: response.currency,
+      }
+    } finally {
+      setPreparing(false)
+    }
+  }
+
+  const confirmCardPayment = async (paymentIntentId?: string) => {
+    if (!paymentIntentId) return
     try {
       const result = await verifyOrderPaymentRecovery(
         orderId,
-        { paymentIntentId: retry.paymentIntentId },
+        { paymentIntentId },
         recoveryToken
       )
       if (!result.paid) throw new Error('The payment has not been confirmed yet.')
@@ -195,6 +271,45 @@ export default function OrderPaymentRetryPage() {
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to confirm the payment.')
     }
+  }
+
+  const handleCardPaymentFailure = async (
+    message: string,
+    phase: 'preparation' | 'confirmation',
+    paymentIntentId?: string
+  ) => {
+    if (phase === 'preparation' || !paymentIntentId) {
+      setError(message)
+      return
+    }
+
+    try {
+      const result = await verifyOrderPaymentRecovery(
+        orderId,
+        { paymentIntentId },
+        recoveryToken
+      )
+
+      if (result.paid) {
+        await confirmCardPayment(paymentIntentId)
+        return
+      }
+
+      if (!result.pending) setRetry(null)
+      setError(result.pending
+        ? 'The card provider is still checking this payment. DigitalHood will keep this order safe until the result is final.'
+        : `${message} You can retry this order with Card or Mobile Money.`)
+    } catch {
+      setError('DigitalHood is checking the card provider before allowing another payment. Please wait a moment.')
+    }
+  }
+
+  const choosePaymentMethod = (method: 'card' | 'mobile') => {
+    if (preparing || retry) return
+    setSelectedMethod(method)
+    setRetry(null)
+    setError('')
+    setMobileStatus('')
   }
 
   const state = order ? getTrackingState(order) : null
@@ -230,19 +345,56 @@ export default function OrderPaymentRetryPage() {
             ) : (
               <div className="p-4 sm:p-5">
                 {order.inventoryReservation?.reserved && <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-800">{order.inventoryReservation.message} No seller action is needed.</div>}
-                <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#28256d] shadow-sm">{order.paymentRetry?.method === 'card' ? <CreditCard className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}</div><div><p className="text-sm font-black text-slate-800">{order.paymentRetry?.method === 'card' ? 'Card payment' : 'Mobile Money'}</p><p className="mt-0.5 text-xs leading-5 text-slate-500">The amount comes directly from your order and cannot be changed on this page.</p></div></div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-sm font-black text-slate-800">Choose how to pay</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Use Card or Mobile Money for this same order. Its total and reserved items cannot be changed here.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Payment method">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={selectedMethod === 'card'}
+                      disabled={preparing || Boolean(retry)}
+                      onClick={() => choosePaymentMethod('card')}
+                      className={`flex min-h-14 items-center gap-2 rounded-xl border px-3 text-left transition ${selectedMethod === 'card' ? 'border-[#28256d] bg-white text-[#191744] shadow-sm ring-1 ring-[#28256d]/10' : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300'} disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      <CreditCard className="h-4 w-4 shrink-0" />
+                      <span><span className="block text-xs font-black">Card</span><span className="block text-[10px] text-slate-400">Visa · Mastercard</span></span>
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={selectedMethod === 'mobile'}
+                      disabled={preparing || Boolean(retry)}
+                      onClick={() => choosePaymentMethod('mobile')}
+                      className={`flex min-h-14 items-center gap-2 rounded-xl border px-3 text-left transition ${selectedMethod === 'mobile' ? 'border-[#28256d] bg-white text-[#191744] shadow-sm ring-1 ring-[#28256d]/10' : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300'} disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      <Smartphone className="h-4 w-4 shrink-0" />
+                      <span><span className="block text-xs font-black">Mobile Money</span><span className="block text-[10px] text-slate-400">MTN · Airtel</span></span>
+                    </button>
+                  </div>
+                </div>
 
-                {!retry && order.paymentRetry?.method === 'mobile' && (
+                {!retry && selectedMethod === 'mobile' && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_150px]">
                     <div><Label htmlFor="retry-phone">Mobile Money number</Label><Input id="retry-phone" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 h-11" placeholder="0971234567" /></div>
                     <div><Label htmlFor="retry-network">Network</Label><select id="retry-network" value={operator} onChange={(event) => setOperator(event.target.value)} className="mt-1.5 h-11 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="mtn">MTN MoMo</option><option value="airtel">Airtel Money</option></select></div>
                   </div>
                 )}
 
-                {!retry && <Button type="button" onClick={preparePayment} disabled={preparing || (order.paymentRetry?.method === 'mobile' && !phone.trim())} className="mt-4 h-11 w-full rounded-xl bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]">{preparing ? 'Preparing secure payment…' : order.paymentRetry?.method === 'card' ? 'Continue to secure card payment' : 'Send Mobile Money prompt'}</Button>}
+                {!retry && selectedMethod === 'mobile' && <Button type="button" onClick={prepareMobilePayment} disabled={preparing || !phone.trim()} className="mt-4 h-11 w-full rounded-xl bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]">{preparing ? 'Sending secure prompt…' : 'Send Mobile Money prompt'}</Button>}
 
-                {retry?.mode === 'card' && retry.clientSecret && (
-                  <Elements stripe={stripePromise} options={{ clientSecret: retry.clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: '#28256d', borderRadius: '10px' } } }}><StripeCheckoutForm amount={retry.amount} onSuccess={confirmCardPayment} /></Elements>
+                {selectedMethod === 'card' && retry?.mode !== 'mobile' && (
+                  <div className="mt-4">
+                    <Elements stripe={stripePromise} options={cardElementsOptions}>
+                      <StripeCheckoutForm
+                        amount={Number(order.total || 0)}
+                        disabled={preparing}
+                        onCreatePayment={createPayNowCardPayment}
+                        onSuccess={confirmCardPayment}
+                        onFailure={handleCardPaymentFailure}
+                      />
+                    </Elements>
+                  </div>
                 )}
 
                 {retry?.mode === 'mobile' && (
