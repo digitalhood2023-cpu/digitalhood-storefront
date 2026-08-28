@@ -73,6 +73,26 @@ export function extractDescriptionSpecificationRows(descriptionHtml = '') {
     }
   }
 
+  const descriptionLines = decodeBasicHtmlEntities(descriptionHtml)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|div|li|tr|dt|dd|h[1-6])>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  descriptionLines.forEach((line) => {
+    const separatorIndex = line.indexOf(':')
+
+    if (separatorIndex <= 0 || separatorIndex > 100) return
+
+    const label = line.slice(0, separatorIndex).trim()
+    const value = line.slice(separatorIndex + 1).trim()
+
+    if (!label || !value || /(?:https?|www\.)/i.test(label)) return
+    addRow(label, value)
+  })
+
   return rows
 }
 
