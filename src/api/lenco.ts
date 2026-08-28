@@ -63,6 +63,7 @@ async function lencoFetch<T>(
   try {
     response = await fetch(`${PAYMENTS_API_URL}${path}`, {
       ...options,
+      cache: 'no-store',
       signal: options.signal || controller.signal,
       headers: {
         'Content-Type': 'application/json',

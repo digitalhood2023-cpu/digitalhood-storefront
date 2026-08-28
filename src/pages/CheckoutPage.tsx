@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Elements } from '@stripe/react-stripe-js'
-import { loadStripe } from '@stripe/stripe-js'
+import { loadStripe, type StripeElementsOptions } from '@stripe/stripe-js'
 
 import {
   AlertCircle,
@@ -42,7 +42,9 @@ import { useCartStore } from '@/store/cartStore'
 
 import StockBadge from '@/components/StockBadge'
 import CheckoutProgressOverlay, { type CheckoutProgressStage } from '@/components/checkout/CheckoutProgressOverlay'
-import StripeCheckoutForm from '@/components/payments/StripeCheckoutForm'
+import StripeCheckoutForm, {
+  type PreparedStripePayment,
+} from '@/components/payments/StripeCheckoutForm'
 import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
 
 import { Button } from '@/components/ui/button'
@@ -254,6 +256,7 @@ export default function CheckoutPage() {
   const checkoutSubmissionRef = useRef(false)
   const checkoutOrderAttemptRef = useRef(createPaymentAttemptId())
   const checkoutCreationAttemptedRef = useRef(false)
+  const createdRecoveryTokenRef = useRef('')
   const hasPrefilledAccountRef = useRef(false)
 
   const { customer, isAuthenticated } = useAccount()
@@ -333,10 +336,6 @@ export default function CheckoutPage() {
   const [checkoutProgressMessage, setCheckoutProgressMessage] = useState('')
   const [confirmedDeliveryLabel, setConfirmedDeliveryLabel] = useState('')
 
-  const [cardClientSecret, setCardClientSecret] = useState('')
-  const [cardPaymentIntentId, setCardPaymentIntentId] = useState('')
-  const [isPreparingCard, setIsPreparingCard] = useState(false)
-
   const [lencoReference, setLencoReference] = useState('')
 
   const [successState, setSuccessState] = useState<SuccessState>({
@@ -361,6 +360,7 @@ export default function CheckoutPage() {
   const resetCheckoutOrderAttempt = () => {
     checkoutOrderAttemptRef.current = createPaymentAttemptId()
     checkoutCreationAttemptedRef.current = false
+    createdRecoveryTokenRef.current = ''
     setCreatedOrderId(null)
     setCreatedRecoveryToken('')
   }
@@ -389,6 +389,24 @@ export default function CheckoutPage() {
   const deliveryTitle = shipping.title
   const deliveryEstimate = shipping.estimate
   const finalTotal = subtotal + deliveryFee
+  const cardPaymentAmountMinor = Math.max(1, Math.round(finalTotal * 100))
+  const cardElementsOptions = useMemo<StripeElementsOptions>(
+    () => ({
+      mode: 'payment',
+      amount: cardPaymentAmountMinor,
+      currency: 'zmw',
+      paymentMethodTypes: ['card', 'link'],
+      appearance: {
+        theme: 'stripe',
+        variables: {
+          colorPrimary: '#28256d',
+          borderRadius: '10px',
+          fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+        },
+      },
+    }),
+    [cardPaymentAmountMinor]
+  )
   const successOrderTotal = completedOrderTotal ?? finalTotal
   const checkoutAddressSummary = [
     formData.address,
@@ -492,8 +510,6 @@ export default function CheckoutPage() {
 
     setLocationError('')
 
-    setCardClientSecret('')
-    setCardPaymentIntentId('')
     resetCheckoutOrderAttempt()
     setCompletedOrderTotal(null)
   }
@@ -519,8 +535,6 @@ export default function CheckoutPage() {
       postcode: current.postcode || DEFAULT_POSTCODE,
     }))
 
-    setCardClientSecret('')
-    setCardPaymentIntentId('')
     resetCheckoutOrderAttempt()
   }
 
@@ -568,8 +582,6 @@ export default function CheckoutPage() {
                 .join(' · '),
         }))
         setSelectedSavedAddressId('')
-        setCardClientSecret('')
-        setCardPaymentIntentId('')
         resetCheckoutOrderAttempt()
         setCompletedOrderTotal(null)
         setIsLocatingAddress(false)
@@ -807,8 +819,6 @@ export default function CheckoutPage() {
 
     if (field !== 'paymentPhone') {
       setSelectedSavedAddressId('')
-      setCardClientSecret('')
-      setCardPaymentIntentId('')
       resetCheckoutOrderAttempt()
       setCompletedOrderTotal(null)
     }
@@ -936,7 +946,8 @@ export default function CheckoutPage() {
     const orderRef = response.order.number || String(orderId)
 
     setCreatedOrderId(orderId)
-    setCreatedRecoveryToken(response.order.recoveryAccess?.token || '')
+    createdRecoveryTokenRef.current = response.order.recoveryAccess?.token || ''
+    setCreatedRecoveryToken(createdRecoveryTokenRef.current)
     setOrderNumber(orderRef)
     setConfirmedDeliveryLabel(
       response.order.deliveryEstimate?.label || deliveryEstimate
@@ -946,6 +957,8 @@ export default function CheckoutPage() {
       orderId,
       orderRef,
       recoveryToken: response.order.recoveryAccess?.token || '',
+      amount: Number(response.order.total || 0),
+      currency: String(response.order.currency || 'ZMW').toUpperCase(),
     }
   }
 
@@ -1004,18 +1017,16 @@ export default function CheckoutPage() {
   }) => {
     stopLencoPolling()
 
-    let attempts = 0
+    const pollingStartedAt = Date.now()
+    const verificationWindowMs = 5 * 60 * 1000
     // Poll local DigitalHood payment state for the five-minute provider
     // verification window. Provider reconciliation runs on the backend; this
     // loop never launches a second Mobile Money prompt.
-    const maxAttempts = 60
 
     setCheckoutProgressStage('awaiting-approval')
     setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
 
     const poll = async () => {
-      attempts += 1
-
       try {
         const result = await verifyLencoMobileMoney(
           reference,
@@ -1071,7 +1082,9 @@ export default function CheckoutPage() {
         )
       }
 
-      if (attempts >= maxAttempts) {
+      const elapsedMs = Date.now() - pollingStartedAt
+
+      if (elapsedMs >= verificationWindowMs) {
         stopLencoPolling()
         setIsSubmitting(false)
         setCheckoutProgressStage('delayed')
@@ -1088,67 +1101,79 @@ export default function CheckoutPage() {
         return
       }
 
-      lencoPollingRef.current = window.setTimeout(poll, 5000)
+      // Check the local ledger more quickly while the customer's PIN action is
+      // fresh, then ease back. This never turns each browser poll into a Lenco
+      // request, so confirmation feels faster without creating provider load.
+      const nextDelayMs = elapsedMs < 30_000 ? 2500 : 5000
+      lencoPollingRef.current = window.setTimeout(poll, nextDelayMs)
     }
 
-    lencoPollingRef.current = window.setTimeout(poll, 2500)
+    lencoPollingRef.current = window.setTimeout(poll, 1500)
   }
 
-  const prepareCardPayment = async () => {
+  const createCardPaymentOnSubmit = async (): Promise<PreparedStripePayment> => {
     setCheckoutError('')
-    setCardClientSecret('')
-    setCardPaymentIntentId('')
 
     const validationError = validateCheckout()
 
     if (validationError) {
       setCheckoutError(validationError)
-      return
+      throw new Error(validationError)
     }
 
-    setIsPreparingCard(true)
-    setCheckoutProgressStage('creating')
-    setCheckoutProgressMessage('Creating your secure order before the card form opens…')
+    const order =
+      createdOrderId && orderNumber
+        ? {
+            orderId: createdOrderId,
+            orderRef: orderNumber,
+            recoveryToken: createdRecoveryToken,
+            amount: finalTotal,
+            currency: 'ZMW',
+          }
+        : await createOrderThroughPaymentsApi('card')
 
-    try {
-      const order =
-        createdOrderId && orderNumber
-          ? {
-              orderId: createdOrderId,
-              orderRef: orderNumber,
-              recoveryToken: createdRecoveryToken,
-            }
-          : await createOrderThroughPaymentsApi('card')
-
-      const response = await createStripePaymentIntent({
-        amount: finalTotal,
-        currency: 'zmw',
-        orderId: order.orderId,
-        customerEmail: getCheckoutEmail(),
-        customerName: formData.fullName,
-        recoveryToken: order.recoveryToken,
-        clientAttemptId: createPaymentAttemptId(),
-      })
-
-      setCardClientSecret(response.clientSecret)
-      setCardPaymentIntentId(response.paymentIntentId)
-    } catch (error) {
-      setCheckoutError(
-        error instanceof Error
-          ? error.message
-          : 'Could not prepare card payment.'
+    if (
+      Math.abs(order.amount - finalTotal) > 0.005 ||
+      order.currency !== 'ZMW'
+    ) {
+      throw new Error(
+        'Your secure order total changed before payment. Review the order total and try again; your card was not charged.'
       )
-    } finally {
-      setIsPreparingCard(false)
-      setCheckoutProgressStage('idle')
     }
+
+    const payment = await createStripePaymentIntent({
+      amount: finalTotal,
+      currency: 'zmw',
+      orderId: order.orderId,
+      customerEmail: getCheckoutEmail(),
+      customerName: formData.fullName,
+      recoveryToken: order.recoveryToken,
+      clientAttemptId: createPaymentAttemptId(),
+    })
+
+    if (
+      Math.abs(Number(payment.amount) - finalTotal) > 0.005 ||
+      String(payment.currency || '').toUpperCase() !== 'ZMW'
+    ) {
+      throw new Error(
+        'The payment amount no longer matches the order total. Your card was not charged; refresh checkout before trying again.'
+      )
+    }
+
+    return payment
+  }
+
+  const validateCardCheckout = () => {
+    setCheckoutError('')
+    const validationError = validateCheckout()
+
+    if (validationError) setCheckoutError(validationError)
+    return validationError
   }
 
   const changePaymentMethod = (value: 'mobile' | 'card' | 'cod') => {
     setPaymentMethod(value)
     if (value !== 'card') {
-      setCardClientSecret('')
-      setCardPaymentIntentId('')
       resetCheckoutOrderAttempt()
     }
   }
@@ -1164,18 +1189,30 @@ export default function CheckoutPage() {
 
   const handleCardPaymentProcessing = () => {
     setCheckoutError('')
+    checkoutSubmissionRef.current = true
     setIsSubmitting(true)
+    setCheckoutProgressStage('creating')
+    setCheckoutProgressMessage('Card details secured. We are checking stock and creating your order now.')
+  }
+
+  const handleCardPaymentConfirming = () => {
     setCheckoutProgressStage('confirming')
     setCheckoutProgressMessage('Processing your card payment securely. Please wait while we confirm the result.')
   }
 
-  const handleCardPaymentFailure = (message: string) => {
+  const handleCardPaymentFailure = (
+    message: string,
+    phase: 'preparation' | 'confirmation'
+  ) => {
     setIsSubmitting(false)
+    checkoutSubmissionRef.current = false
     setSuccessState({
       title: 'Card Payment Not Completed',
       message,
       nextStep:
-        'Check your card details and try again. If your bank shows a charge, do not pay again—open the order or contact support.',
+        phase === 'preparation'
+          ? 'Your card was not charged. Check your connection and try the same Pay action again.'
+          : 'Check your card details and try again. If your bank shows a charge, do not pay again—open the order or contact support.',
       confirmed: false,
       failed: true,
     })
@@ -1183,7 +1220,7 @@ export default function CheckoutPage() {
     setCheckoutProgressStage('failed')
   }
 
-  const handleCardPaymentSuccess = async () => {
+  const handleCardPaymentSuccess = async (paymentIntentId?: string) => {
     setCheckoutError('')
     setIsSubmitting(true)
     setCheckoutProgressStage('confirming')
@@ -1198,16 +1235,18 @@ export default function CheckoutPage() {
         return
       }
 
-      if (cardPaymentIntentId) {
-        const verification = await verifyStripePayment(
-          cardPaymentIntentId,
-          createdRecoveryToken
+      if (!paymentIntentId) {
+        throw new Error('The card provider did not return a payment reference.')
+      }
+
+      const verification = await verifyStripePayment(
+        paymentIntentId,
+        createdRecoveryTokenRef.current || createdRecoveryToken
+      )
+      if (!verification.success) {
+        throw new Error(
+          'The card provider has not confirmed this payment yet. DigitalHood will keep checking it safely.'
         )
-        if (!verification.success) {
-          throw new Error(
-            'The card provider has not confirmed this payment yet. DigitalHood will keep checking it safely.'
-          )
-        }
       }
 
       setSuccessState(getSuccessState('card'))
@@ -1257,10 +1296,6 @@ export default function CheckoutPage() {
     }
 
     if (paymentMethod === 'card') {
-      if (!cardClientSecret) {
-        await prepareCardPayment()
-      }
-
       return
     }
 
@@ -2018,41 +2053,21 @@ export default function CheckoutPage() {
 
                 {paymentMethod === 'card' && (
                   <div className="mt-2.5">
-                    {isPreparingCard && (
-                      <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs font-bold text-blue-700">
-                        Creating your secure order and preparing card payment...
-                      </div>
-                    )}
-
-                    {!isPreparingCard && cardClientSecret && (
-                      <Elements
-                        stripe={stripePromise}
-                        options={{
-                          clientSecret: cardClientSecret,
-                          appearance: {
-                            theme: 'stripe',
-                          },
-                        }}
-                      >
-                        <StripeCheckoutForm
-                          amount={finalTotal}
-                          onProcessing={handleCardPaymentProcessing}
-                          onSuccess={handleCardPaymentSuccess}
-                          onFailure={handleCardPaymentFailure}
-                        />
-                      </Elements>
-                    )}
-
-                    {!isPreparingCard && !cardClientSecret && (
-                      <Button
-                        type="button"
-                        onClick={prepareCardPayment}
-                        disabled={hasUnavailableItems}
-                        className="h-10 w-full rounded-lg bg-dh-primary text-xs font-black text-white hover:bg-dh-secondary disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
-                      >
-                        Prepare Card Payment
-                      </Button>
-                    )}
+                    <Elements
+                      stripe={stripePromise}
+                      options={cardElementsOptions}
+                    >
+                      <StripeCheckoutForm
+                        amount={finalTotal}
+                        disabled={hasUnavailableItems || isSubmitting}
+                        onValidate={validateCardCheckout}
+                        onProcessing={handleCardPaymentProcessing}
+                        onConfirming={handleCardPaymentConfirming}
+                        onCreatePayment={createCardPaymentOnSubmit}
+                        onSuccess={handleCardPaymentSuccess}
+                        onFailure={handleCardPaymentFailure}
+                      />
+                    </Elements>
                   </div>
                 )}
 
