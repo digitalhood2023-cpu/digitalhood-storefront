@@ -17,6 +17,9 @@ const paymentsApi = read('src/api/payments.ts')
 const paymentRecoveryApi = read('src/api/paymentRecovery.ts')
 const paymentRetryPage = read('src/pages/OrderPaymentRetryPage.tsx')
 const product = read('src/pages/ProductPage.tsx')
+const productDetails = read('src/lib/productDetails.ts')
+const productGallery = read('src/lib/productGallery.ts')
+const woocommerce = read('src/lib/woocommerce.ts')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
 const accountApi = read('src/api/account.ts')
@@ -130,6 +133,22 @@ assert(
     product.includes('handleProductImageClick') &&
     product.includes('touch-pan-y'),
   'product scrolling and swiping must suppress accidental gallery taps'
+)
+assert(
+  product.includes('openGallery(selectedImage)') &&
+    product.includes('productTouchGestureRef') &&
+    product.includes('getPinchOriginPercent') &&
+    product.includes('transformOrigin:') &&
+    productGallery.includes('deduplicateProductImages'),
+  'product galleries must support one-tap iOS opening, focal pinch zoom, and duplicate-image removal'
+)
+assert(
+  product.includes('Item specifications') &&
+    product.includes('product.specifications') &&
+    product.includes('data-[state=active]:bg-dh-primary') &&
+    productDetails.includes('extractDescriptionSpecificationRows') &&
+    woocommerce.includes('/slug/${encodeURIComponent(slug)}'),
+  'product details must show imported specifications, visible active tabs, and use the direct detail endpoint'
 )
 assert(
   html.includes('maximum-scale=1.0') &&

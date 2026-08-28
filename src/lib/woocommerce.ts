@@ -1,6 +1,7 @@
 import {
   resolvePublicSellerAssetUrl,
 } from '@/api/publicSellers';
+import { deduplicateProductImages } from '@/lib/productGallery';
 
 const STORE_URL =
   import.meta.env.VITE_WOOCOMMERCE_STORE_URL || `https://${'digitalhood'}.info`;
@@ -20,6 +21,11 @@ export type WooProductAttribute = {
   name: string;
   taxonomy: string | null;
   options: string[];
+};
+
+export type WooProductSpecification = {
+  label: string;
+  value: string;
 };
 
 export type WooProductVariation = {
@@ -95,6 +101,7 @@ export type WooProduct = {
   sku?: string;
   brand?: string;
   condition?: string;
+  specifications: WooProductSpecification[];
 
   seller?: {
     id?: string;
@@ -272,7 +279,9 @@ function getImages(item: any): string[] {
     return item?.image ? [getImageSrc(item.image)] : ['/logo.jpg'];
   }
 
-  const images = item.images.map(getImageSrc).filter(Boolean);
+  const images = deduplicateProductImages(
+    item.images.map(getImageSrc).filter(Boolean)
+  );
 
   return images.length > 0 ? images : ['/logo.jpg'];
 }
@@ -306,7 +315,9 @@ function getProductGalleryImages(product: any): string[] {
     .map((variant) => variant.original || variant.large || variant.medium || variant.card || variant.thumb)
     .filter(Boolean) as string[];
 
-  if (variantOriginals.length) return variantOriginals;
+  if (variantOriginals.length) {
+    return deduplicateProductImages(variantOriginals);
+  }
 
   const fallbackImages = getImages(product);
   return fallbackImages.length ? fallbackImages : ['/logo.jpg'];
@@ -460,14 +471,22 @@ function getMarketplaceStockLabel(item: any): {
 }
 
 function mapWooAttributes(product: any): WooProductAttribute[] {
-  const rawAttributes = product.attributes || [];
+  const rawAttributes = Array.isArray(product.attributes)
+    ? product.attributes
+    : [];
 
   return rawAttributes
     .map((attribute: any) => {
-      const options =
-        attribute.terms?.map((term: any) => term.name) ||
-        attribute.options ||
-        [];
+      const rawOptions = Array.isArray(attribute.terms)
+        ? attribute.terms.map((term: any) => term?.name || term?.value || term)
+        : Array.isArray(attribute.options)
+          ? attribute.options
+          : attribute.value !== undefined && attribute.value !== null
+            ? [attribute.value]
+            : [];
+      const options = rawOptions
+        .map((option: unknown) => String(option || '').trim())
+        .filter(Boolean);
 
       return {
         id: attribute.id || 0,
@@ -477,6 +496,27 @@ function mapWooAttributes(product: any): WooProductAttribute[] {
       };
     })
     .filter((attribute: WooProductAttribute) => attribute.options.length > 0);
+}
+
+function mapWooSpecifications(product: any): WooProductSpecification[] {
+  const specifications = Array.isArray(product?.specifications)
+    ? product.specifications
+    : [];
+  const seen = new Set<string>();
+
+  return specifications
+    .map((item: any) => ({
+      label: String(item?.label || item?.name || '').trim(),
+      value: String(item?.value || '').trim(),
+    }))
+    .filter((item: WooProductSpecification) => {
+      const key = item.label.toLowerCase();
+
+      if (!item.label || !item.value || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 80);
 }
 
 function mapVariationAttributes(variation: any): Record<string, string> {
@@ -626,6 +666,7 @@ export function mapWooProduct(product: any): WooProduct {
 
   const categories = mapCategories(product);
   const mappedAttributes = mapWooAttributes(product);
+  const specifications = mapWooSpecifications(product);
   const getAttributeValue = (name: string) =>
     mappedAttributes.find(
       (attribute) => attribute.name.toLowerCase() === name.toLowerCase()
@@ -706,6 +747,7 @@ shortDescriptionHtml:
     sku: String(product.sku || ''),
     brand: String(product.brand || getAttributeValue('Brand') || ''),
     condition: String(product.condition || getAttributeValue('Condition') || ''),
+    specifications,
 
     categoryIds: categories.map((category: any) => category.id),
     categories,
@@ -979,6 +1021,33 @@ export async function fetchWooProductById(
   };
 }
 
+function mapWooProductDetailResponse(detailData: any): WooProduct | null {
+  const foundProduct = detailData?.product || detailData;
+
+  if (!foundProduct || !foundProduct.id) return null;
+
+  const product = mapWooProduct(foundProduct);
+
+  if (!isMarketplaceProductAvailable(product)) {
+    throw new Error(
+      'This product is out of stock and is no longer available on the marketplace.'
+    );
+  }
+
+  const variations = Array.isArray(detailData?.variations)
+    ? detailData.variations.map(mapWooVariation)
+    : [];
+
+  return {
+    ...product,
+    variations,
+    hasOptions:
+      product.hasOptions ||
+      product.type === 'variable' ||
+      variations.length > 0,
+  };
+}
+
 export async function fetchWooProductBySlug(
   slug: string
 ): Promise<WooProduct | null> {
@@ -988,23 +1057,12 @@ export async function fetchWooProductBySlug(
     return fetchWooProductById(numericProductId);
   }
 
-  const params = new URLSearchParams({
-    slug,
-    per_page: '1',
-  });
+  const detailResponse = await fetch(
+    `${MARKETPLACE_PRODUCTS_API}/slug/${encodeURIComponent(slug)}`
+  );
+  const detailData = await parseJsonResponse(detailResponse);
 
-  const listResponse = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`);
-  const listData = await parseJsonResponse(listResponse);
-
-  const foundProduct = Array.isArray(listData.products)
-    ? listData.products[0]
-    : null;
-
-  if (!foundProduct) {
-    return null;
-  }
-
-  return fetchWooProductById(Number(foundProduct.id));
+  return mapWooProductDetailResponse(detailData);
 }
 
 export async function fetchWooProductReviews(

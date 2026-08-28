@@ -59,6 +59,14 @@ import { openProductConversation } from '@/api/chat'
 import gsap from 'gsap'
 import { getFastProductImage } from '@/lib/productImages'
 import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
+import {
+  deduplicateProductImages,
+  getPinchOriginPercent,
+} from '@/lib/productGallery'
+import {
+  extractDescriptionSpecificationRows,
+  mergeProductSpecificationRows,
+} from '@/lib/productDetails'
 
 function getVariationLabel(variation: WooProductVariation) {
   const values = Object.values(variation.attributes || {}).filter(Boolean)
@@ -271,6 +279,7 @@ export default function ProductPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [galleryScale, setGalleryScale] = useState(1)
+  const [galleryZoomOrigin, setGalleryZoomOrigin] = useState({ x: 50, y: 50 })
   const [galleryTouchStartX, setGalleryTouchStartX] = useState<number | null>(null)
   const [galleryTouchStartY, setGalleryTouchStartY] = useState<number | null>(null)
   const [galleryPinchDistance, setGalleryPinchDistance] = useState<number | null>(null)
@@ -282,9 +291,6 @@ export default function ProductPage() {
   const [isOpeningChat, setIsOpeningChat] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showVariations, setShowVariations] = useState(false)
-  const [touchStartX, setTouchStartX] = useState<number | null>(null)
-  const [touchStartY, setTouchStartY] = useState<number | null>(null)
-
   const [selectedAttributes, setSelectedAttributes] =
     useState<Record<string, string>>({})
 
@@ -294,8 +300,17 @@ export default function ProductPage() {
   const { isAuthenticated } = useAccount()
 
   const pageRef = useRef<HTMLDivElement>(null)
+  const galleryViewportRef = useRef<HTMLDivElement>(null)
+  const galleryImageRef = useRef<HTMLImageElement>(null)
+  const galleryPinchBoundsRef = useRef<DOMRect | null>(null)
   const galleryHistoryStateRef = useRef(false)
   const suppressGalleryTapRef = useRef(false)
+  const productTouchGestureRef = useRef<{
+    startX: number
+    startY: number
+    moved: boolean
+    multiTouch: boolean
+  } | null>(null)
 
   useEffect(() => {
     if (!slug) return
@@ -305,12 +320,13 @@ export default function ProductPage() {
     setSelectedImage(0)
     setIsGalleryOpen(false)
     setGalleryScale(1)
+    setGalleryZoomOrigin({ x: 50, y: 50 })
     setGalleryTouchStartX(null)
     setGalleryTouchStartY(null)
     setGalleryPinchDistance(null)
-    setGalleryTouchStartY(null)
-    setGalleryPinchDistance(null)
+    galleryPinchBoundsRef.current = null
     setSelectedAttributes({})
+    setActiveTab('description')
     setQuantity(1)
     setShowFullDescription(false)
     setShowVariations(false)
@@ -542,23 +558,29 @@ export default function ProductPage() {
   const productDetailRows = useMemo(() => {
     if (!product) return []
 
-    const rows = (product.attributes || []).map((attribute) => ({
+    const publicSpecifications = (product.specifications || []).map((item) => ({
+      label: item.label,
+      value: item.value,
+    }))
+    const attributeSpecifications = (product.attributes || []).map((attribute) => ({
       label: attribute.name,
       value: (attribute.options || []).join(', '),
     }))
-    const existingLabels = new Set(rows.map((row) => row.label.toLowerCase()))
+    const descriptionSpecifications = extractDescriptionSpecificationRows(
+      getProductDescriptionHtml(product)
+    )
+    const marketplaceSpecifications = [
+      { label: 'Condition', value: product.condition || '' },
+      { label: 'Brand', value: product.brand || '' },
+      { label: 'SKU', value: product.sku || '' },
+    ]
 
-    const addDetail = (label: string, value?: string) => {
-      if (!value || existingLabels.has(label.toLowerCase())) return
-      rows.push({ label, value })
-      existingLabels.add(label.toLowerCase())
-    }
-
-    addDetail('Condition', product.condition)
-    addDetail('Brand', product.brand)
-    addDetail('SKU', product.sku)
-
-    return rows.filter((row) => row.value)
+    return mergeProductSpecificationRows(
+      publicSpecifications,
+      attributeSpecifications,
+      descriptionSpecifications,
+      marketplaceSpecifications
+    )
   }, [product])
   const verifiedReviews = useMemo(
     () => productReviews.filter((review) => review.verified),
@@ -586,15 +608,18 @@ export default function ProductPage() {
   const openGallery = (index = selectedImage) => {
     setSelectedImage(index)
     setGalleryScale(1)
+    setGalleryZoomOrigin({ x: 50, y: 50 })
     setIsGalleryOpen(true)
   }
 
   const closeGallery = (options: { skipHistoryBack?: boolean } = {}) => {
     setIsGalleryOpen(false)
     setGalleryScale(1)
+    setGalleryZoomOrigin({ x: 50, y: 50 })
     setGalleryTouchStartX(null)
     setGalleryTouchStartY(null)
     setGalleryPinchDistance(null)
+    galleryPinchBoundsRef.current = null
 
     if (!options.skipHistoryBack && galleryHistoryStateRef.current) {
       galleryHistoryStateRef.current = false
@@ -629,11 +654,14 @@ export default function ProductPage() {
   }, [isGalleryOpen])
 
   const zoomGalleryIn = () => {
+    setGalleryZoomOrigin({ x: 50, y: 50 })
     setGalleryScale((current) => Math.min(3, Number((current + 0.5).toFixed(1))))
   }
 
   const zoomGalleryOut = () => {
-    setGalleryScale((current) => Math.max(1, Number((current - 0.5).toFixed(1))))
+    const nextScale = Math.max(1, Number((galleryScale - 0.5).toFixed(1)))
+    setGalleryScale(nextScale)
+    if (nextScale === 1) setGalleryZoomOrigin({ x: 50, y: 50 })
   }
 
   const getTouchDistance = (touches: React.TouchList) => {
@@ -652,12 +680,25 @@ export default function ProductPage() {
       setGalleryPinchDistance(getTouchDistance(event.touches))
       setGalleryTouchStartX(null)
       setGalleryTouchStartY(null)
+      const zoomSurface = galleryImageRef.current || galleryViewportRef.current
+      if (zoomSurface) {
+        const bounds = zoomSurface.getBoundingClientRect()
+        galleryPinchBoundsRef.current = bounds
+        setGalleryZoomOrigin(
+          getPinchOriginPercent(
+            event.touches[0],
+            event.touches[1],
+            bounds
+          )
+        )
+      }
       return
     }
 
     setGalleryTouchStartX(event.touches[0]?.clientX ?? null)
     setGalleryTouchStartY(event.touches[0]?.clientY ?? null)
     setGalleryPinchDistance(null)
+    galleryPinchBoundsRef.current = null
   }
 
   const handleGalleryTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -672,6 +713,17 @@ export default function ProductPage() {
 
     event.preventDefault()
 
+    const bounds = galleryPinchBoundsRef.current
+    if (bounds) {
+      setGalleryZoomOrigin(
+        getPinchOriginPercent(
+          event.touches[0],
+          event.touches[1],
+          bounds
+        )
+      )
+    }
+
     const distanceDelta = currentDistance - galleryPinchDistance
 
     if (Math.abs(distanceDelta) < 8) return
@@ -685,6 +737,7 @@ export default function ProductPage() {
   const handleGalleryTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
     if (galleryPinchDistance !== null || event.changedTouches.length > 1) {
       setGalleryPinchDistance(null)
+      galleryPinchBoundsRef.current = null
       setGalleryTouchStartX(null)
       setGalleryTouchStartY(null)
       return
@@ -729,12 +782,11 @@ export default function ProductPage() {
         ? [product.image]
         : ['/logo.jpg']
 
-  const displayImages = activeImage
-    ? [
-        activeImage,
-        ...productImages.filter((img) => img !== activeImage),
-      ]
-    : productImages
+  const displayImages = deduplicateProductImages([
+    activeImage,
+    ...productImages,
+  ])
+  if (displayImages.length === 0) displayImages.push('/logo.jpg')
 
   const shipping = getShippingDetails({
     subtotal: activePrice,
@@ -762,6 +814,8 @@ export default function ProductPage() {
   const goToPreviousImage = () => {
     if (displayImages.length <= 1) return
 
+    setGalleryScale(1)
+    setGalleryZoomOrigin({ x: 50, y: 50 })
     setSelectedImage((current) =>
       current === 0 ? displayImages.length - 1 : current - 1
     )
@@ -770,6 +824,8 @@ export default function ProductPage() {
   const goToNextImage = () => {
     if (displayImages.length <= 1) return
 
+    setGalleryScale(1)
+    setGalleryZoomOrigin({ x: 50, y: 50 })
     setSelectedImage((current) =>
       current >= displayImages.length - 1 ? 0 : current + 1
     )
@@ -790,6 +846,7 @@ export default function ProductPage() {
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
         setGalleryScale(1)
+        setGalleryZoomOrigin({ x: 50, y: 50 })
         setSelectedImage((current) =>
           current === 0 ? displayImages.length - 1 : current - 1
         )
@@ -799,6 +856,7 @@ export default function ProductPage() {
       if (event.key === 'ArrowRight') {
         event.preventDefault()
         setGalleryScale(1)
+        setGalleryZoomOrigin({ x: 50, y: 50 })
         setSelectedImage((current) =>
           current >= displayImages.length - 1 ? 0 : current + 1
         )
@@ -808,6 +866,7 @@ export default function ProductPage() {
       if (event.key === 'Home') {
         event.preventDefault()
         setGalleryScale(1)
+        setGalleryZoomOrigin({ x: 50, y: 50 })
         setSelectedImage(0)
         return
       }
@@ -815,6 +874,7 @@ export default function ProductPage() {
       if (event.key === 'End') {
         event.preventDefault()
         setGalleryScale(1)
+        setGalleryZoomOrigin({ x: 50, y: 50 })
         setSelectedImage(Math.max(0, displayImages.length - 1))
         return
       }
@@ -840,41 +900,55 @@ export default function ProductPage() {
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     suppressGalleryTapRef.current = false
-    setTouchStartX(event.touches[0]?.clientX ?? null)
-    setTouchStartY(event.touches[0]?.clientY ?? null)
+    const touch = event.touches[0]
+
+    productTouchGestureRef.current = touch
+      ? {
+          startX: touch.clientX,
+          startY: touch.clientY,
+          moved: false,
+          multiTouch: event.touches.length !== 1,
+        }
+      : null
   }
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null || touchStartY === null) return
+    const gesture = productTouchGestureRef.current
+    if (!gesture) return
 
-    const currentX = event.touches[0]?.clientX ?? touchStartX
-    const currentY = event.touches[0]?.clientY ?? touchStartY
+    if (event.touches.length !== 1) {
+      gesture.multiTouch = true
+      return
+    }
+
+    const currentX = event.touches[0]?.clientX ?? gesture.startX
+    const currentY = event.touches[0]?.clientY ?? gesture.startY
 
     if (
-      Math.abs(currentX - touchStartX) > 8 ||
-      Math.abs(currentY - touchStartY) > 8
+      Math.abs(currentX - gesture.startX) > 8 ||
+      Math.abs(currentY - gesture.startY) > 8
     ) {
+      gesture.moved = true
       suppressGalleryTapRef.current = true
     }
   }
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null || touchStartY === null) return
+    const gesture = productTouchGestureRef.current
+    productTouchGestureRef.current = null
+    if (!gesture || gesture.multiTouch) return
 
-    const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX
-    const touchEndY = event.changedTouches[0]?.clientY ?? touchStartY
-    const distanceX = touchStartX - touchEndX
-    const distanceY = touchStartY - touchEndY
+    const touchEndX = event.changedTouches[0]?.clientX ?? gesture.startX
+    const touchEndY = event.changedTouches[0]?.clientY ?? gesture.startY
+    const distanceX = gesture.startX - touchEndX
+    const distanceY = gesture.startY - touchEndY
 
-    if (Math.abs(distanceX) > 8 || Math.abs(distanceY) > 8) {
+    if (gesture.moved || Math.abs(distanceX) > 8 || Math.abs(distanceY) > 8) {
       suppressGalleryTapRef.current = true
       window.setTimeout(() => {
         suppressGalleryTapRef.current = false
       }, 450)
     }
-
-    setTouchStartX(null)
-    setTouchStartY(null)
 
     if (Math.abs(distanceX) > 45 && Math.abs(distanceX) > Math.abs(distanceY) * 1.5) {
       event.preventDefault()
@@ -883,6 +957,16 @@ export default function ProductPage() {
       } else {
         goToPreviousImage()
       }
+      return
+    }
+
+    if (!gesture.moved && Math.abs(distanceX) <= 8 && Math.abs(distanceY) <= 8) {
+      event.preventDefault()
+      suppressGalleryTapRef.current = true
+      openGallery(selectedImage)
+      window.setTimeout(() => {
+        suppressGalleryTapRef.current = false
+      }, 450)
     }
   }
 
@@ -1712,16 +1796,25 @@ export default function ProductPage() {
                   onValueChange={setActiveTab}
                   className="rounded-2xl bg-dh-gray p-2.5"
                 >
-                  <TabsList className="grid w-full grid-cols-3 overflow-hidden rounded-2xl bg-white p-1">
-                    <TabsTrigger value="description">
+                  <TabsList className="grid h-auto w-full grid-cols-3 overflow-hidden rounded-2xl bg-white p-1">
+                    <TabsTrigger
+                      value="description"
+                      className="min-w-0 rounded-xl px-2 py-2.5 text-xs font-black text-dh-dark-gray transition data-[state=active]:bg-dh-primary data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm"
+                    >
                       Description
                     </TabsTrigger>
 
-                    <TabsTrigger value="details">
+                    <TabsTrigger
+                      value="details"
+                      className="min-w-0 rounded-xl px-2 py-2.5 text-xs font-black text-dh-dark-gray transition data-[state=active]:bg-dh-primary data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm"
+                    >
                       Details
                     </TabsTrigger>
 
-                    <TabsTrigger value="trust">
+                    <TabsTrigger
+                      value="trust"
+                      className="min-w-0 rounded-xl px-1.5 py-2.5 text-[11px] font-black text-dh-dark-gray transition data-[state=active]:bg-dh-primary data-[state=active]:text-white data-[state=active]:shadow-sm sm:px-2 sm:text-sm"
+                    >
                       Trust/Feedback
                     </TabsTrigger>
                   </TabsList>
@@ -1758,32 +1851,58 @@ export default function ProductPage() {
                   </TabsContent>
 
                   <TabsContent value="details" className="mt-3 rounded-2xl bg-white p-4">
-                    <div className="space-y-3">
-                      <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
-                        <span className="text-sm font-semibold text-dh-dark-gray">
-                          Product type
-                        </span>
-
-                        <span className="font-medium capitalize text-right break-words">
-                          {product.type}
-                        </span>
+                    <div className="space-y-4">
+                      <div className="flex items-end justify-between gap-3 border-b border-dh-light-gray pb-3">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b77716]">
+                            Product information
+                          </p>
+                          <h2 className="mt-0.5 font-display text-lg font-black text-dh-primary">
+                            Item specifications
+                          </h2>
+                        </div>
+                        {productDetailRows.length > 0 && (
+                          <span className="shrink-0 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-black text-dh-primary">
+                            {productDetailRows.length}
+                          </span>
+                        )}
                       </div>
 
-                      {productDetailRows.map((detail) => (
-                        <div
-                          key={`${detail.label}-${detail.value}`}
-                          className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3"
-                        >
+                      {productDetailRows.length > 0 ? (
+                        <dl className="overflow-hidden rounded-2xl border border-dh-light-gray">
+                          {productDetailRows.map((detail, index) => (
+                            <div
+                              key={`${detail.label}-${detail.value}`}
+                              className={`grid grid-cols-[minmax(105px,0.42fr)_minmax(0,0.58fr)] gap-3 px-3 py-2.5 text-sm sm:grid-cols-[minmax(150px,0.38fr)_minmax(0,0.62fr)] sm:px-4 ${
+                                index % 2 === 0 ? 'bg-dh-gray' : 'bg-white'
+                              }`}
+                            >
+                              <dt className="font-bold text-dh-dark-gray">
+                                {detail.label}
+                              </dt>
+                              <dd className="min-w-0 break-words font-semibold text-dh-primary">
+                                {detail.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-dh-light-gray bg-dh-gray px-4 py-5 text-sm text-dh-dark-gray">
+                          This seller has not added item specifications yet.
+                        </div>
+                      )}
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="flex justify-between gap-3 rounded-xl bg-dh-gray px-3 py-2.5">
                           <span className="text-sm font-semibold text-dh-dark-gray">
-                            {detail.label}
+                            Product type
                           </span>
-                          <span className="text-right font-medium break-words">
-                            {detail.value}
+                          <span className="text-right text-sm font-bold capitalize text-dh-primary">
+                            {product.type}
                           </span>
                         </div>
-                      ))}
 
-                      <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
+                        <div className="flex justify-between gap-3 rounded-xl bg-dh-gray px-3 py-2.5">
                         <span className="text-sm font-semibold text-dh-dark-gray">
                           Availability
                         </span>
@@ -1791,10 +1910,10 @@ export default function ProductPage() {
                         <span className="font-medium text-right">
                           <StockBadge item={activeStockItem as any} />
                         </span>
-                      </div>
+                        </div>
 
                       {sellerDisplay.storeName && (
-                        <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
+                        <div className="flex justify-between gap-3 rounded-xl bg-dh-gray px-3 py-2.5">
                           <span className="text-sm font-semibold text-dh-dark-gray">
                             Store
                           </span>
@@ -1808,7 +1927,7 @@ export default function ProductPage() {
                         </div>
                       )}
 
-                      <div className="flex justify-between gap-4 rounded-2xl bg-dh-gray px-4 py-3">
+                      <div className="flex justify-between gap-3 rounded-xl bg-dh-gray px-3 py-2.5">
                         <span className="text-sm font-semibold text-dh-dark-gray">
                           Rating
                         </span>
@@ -1816,6 +1935,7 @@ export default function ProductPage() {
                         <span className="font-medium text-right">
                           {ratingText}
                         </span>
+                      </div>
                       </div>
                     </div>
                   </TabsContent>
@@ -2071,7 +2191,10 @@ export default function ProductPage() {
             </div>
           </div>
 
-          <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-3 py-4">
+          <div
+            ref={galleryViewportRef}
+            className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-3 py-4"
+          >
             {displayImages.length > 1 && (
               <button
                 type="button"
@@ -2084,12 +2207,16 @@ export default function ProductPage() {
             )}
 
             <img
+              ref={galleryImageRef}
               src={displayImages[selectedImage]}
               alt={product.name}
               className="max-h-full max-w-full select-none object-contain transition-transform duration-200"
-              style={{ transform: `scale(${galleryScale})` }}
+              style={{
+                transform: `scale(${galleryScale})`,
+                transformOrigin: `${galleryZoomOrigin.x}% ${galleryZoomOrigin.y}%`,
+              }}
               draggable={false}
-/>
+            />
 
             {displayImages.length > 1 && (
               <button
@@ -2111,6 +2238,7 @@ export default function ProductPage() {
                 onClick={() => {
                   setSelectedImage(index)
                   setGalleryScale(1)
+                  setGalleryZoomOrigin({ x: 50, y: 50 })
                 }}
                 className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition ${
                   selectedImage === index
