@@ -86,6 +86,8 @@ type CreatePaymentIntentPayload = {
 type CreatePaymentIntentResponse = {
   clientSecret: string
   paymentIntentId: string
+  amount: number
+  currency: string
 }
 
 type VerifyStripePaymentResponse = {
@@ -102,6 +104,7 @@ async function paymentsFetch<T>(
 
   const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
     ...options,
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(accountToken ? { Authorization: `Bearer ${accountToken}` } : {}),

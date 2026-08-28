@@ -12,6 +12,8 @@ const assert = (condition, message) => {
 const checkout = read('src/pages/CheckoutPage.tsx')
 const overlay = read('src/components/checkout/CheckoutProgressOverlay.tsx')
 const stripe = read('src/components/payments/StripeCheckoutForm.tsx')
+const lencoApi = read('src/api/lenco.ts')
+const paymentsApi = read('src/api/payments.ts')
 const product = read('src/pages/ProductPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
@@ -66,10 +68,31 @@ assert(
   'the overlay must retain confirmed, failed, delayed, and retry states'
 )
 assert(
-  stripe.includes('onProcessing?.()') &&
-    stripe.includes('onFailure?.(message)') &&
-    stripe.includes('await onSuccess()'),
-  'card processing and results must flow through the shared blocking experience'
+  !checkout.includes('Prepare Card Payment') &&
+    checkout.includes("mode: 'payment'") &&
+    checkout.includes('onCreatePayment={createCardPaymentOnSubmit}') &&
+    checkout.includes('onConfirming={handleCardPaymentConfirming}'),
+  'card fields must render immediately with no prepare-order step'
+)
+const stripeSubmitIndex = stripe.indexOf('await elements.submit()')
+const stripeOverlayIndex = stripe.indexOf('onProcessing?.()')
+const stripeIntentIndex = stripe.indexOf('await onCreatePayment?.()')
+const stripeConfirmIndex = stripe.indexOf('await stripe.confirmPayment')
+assert(
+  stripeSubmitIndex >= 0 &&
+    stripeSubmitIndex < stripeOverlayIndex &&
+    stripeOverlayIndex < stripeIntentIndex &&
+    stripeIntentIndex < stripeConfirmIndex &&
+    stripe.includes("onFailure?.(message, 'confirmation')") &&
+    stripe.includes('await onSuccess('),
+  'card details must validate before pay-time order creation and shared blocking confirmation'
+)
+assert(
+  checkout.includes('window.setTimeout(poll, 1500)') &&
+    checkout.includes('elapsedMs < 30_000 ? 2500 : 5000') &&
+    lencoApi.includes("cache: 'no-store'") &&
+    paymentsApi.includes("cache: 'no-store'"),
+  'payment checks must remain responsive, bounded, local-ledger based, and non-cacheable'
 )
 
 assert(
