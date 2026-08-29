@@ -14,6 +14,15 @@ const STORE_PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
 const MARKETPLACE_PRODUCTS_API = `${PAYMENTS_API_URL}/api/products`;
 const MARKETPLACE_SEARCH_API = `${PAYMENTS_API_URL}/api/search/products`;
 
+const PRODUCT_DETAIL_FRESH_MS = 30_000;
+const PRODUCT_DETAIL_STALE_MS = 90_000;
+const PRODUCT_DETAIL_TIMEOUT_MS = 10_000;
+const PRODUCT_DETAIL_CACHE_PREFIX = 'digitalhood_product_detail_v2:';
+const PRODUCT_DETAIL_CACHE_INDEX = `${PRODUCT_DETAIL_CACHE_PREFIX}index`;
+const PRODUCT_DETAIL_CACHE_MAX = 12;
+const productDetailCache = new Map<string, { data: unknown; storedAt: number }>();
+const productDetailRequests = new Map<string, Promise<unknown>>();
+
 export type MarketplaceStockTone = 'success' | 'warning' | 'danger' | 'muted';
 
 export type WooProductAttribute = {
@@ -248,6 +257,98 @@ async function parseJsonResponse(response: Response) {
   }
 
   return data;
+}
+
+function readProductDetailCache(key: string) {
+  const memory = productDetailCache.get(key);
+  if (memory) return memory;
+
+  try {
+    const raw = window.sessionStorage.getItem(`${PRODUCT_DETAIL_CACHE_PREFIX}${key}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== 'object' || !parsed.data || !parsed.storedAt) return null;
+    productDetailCache.set(key, parsed);
+    return parsed as { data: unknown; storedAt: number };
+  } catch {
+    return null;
+  }
+}
+
+function rememberProductDetail(key: string, data: unknown) {
+  const entry = { data, storedAt: Date.now() };
+  productDetailCache.delete(key);
+  productDetailCache.set(key, entry);
+
+  while (productDetailCache.size > PRODUCT_DETAIL_CACHE_MAX) {
+    const oldest = productDetailCache.keys().next().value;
+    if (!oldest) break;
+    productDetailCache.delete(oldest);
+  }
+
+  try {
+    const storedIndex = JSON.parse(
+      window.sessionStorage.getItem(PRODUCT_DETAIL_CACHE_INDEX) || '[]'
+    );
+    const index = Array.isArray(storedIndex)
+      ? storedIndex.filter((item) => typeof item === 'string' && item !== key)
+      : [];
+    index.push(key);
+
+    while (index.length > PRODUCT_DETAIL_CACHE_MAX) {
+      const oldest = index.shift();
+      if (oldest) window.sessionStorage.removeItem(`${PRODUCT_DETAIL_CACHE_PREFIX}${oldest}`);
+    }
+
+    window.sessionStorage.setItem(
+      `${PRODUCT_DETAIL_CACHE_PREFIX}${key}`,
+      JSON.stringify(entry)
+    );
+    window.sessionStorage.setItem(PRODUCT_DETAIL_CACHE_INDEX, JSON.stringify(index));
+  } catch {
+    // Memory cache remains available when browser storage is restricted.
+  }
+}
+
+async function fetchProductDetailDocument(key: string, url: string) {
+  const cached = readProductDetailCache(key);
+  if (cached && Date.now() - cached.storedAt <= PRODUCT_DETAIL_FRESH_MS) {
+    return cached.data;
+  }
+
+  const pending = productDetailRequests.get(key);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(
+      () => controller.abort(),
+      PRODUCT_DETAIL_TIMEOUT_MS
+    );
+
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      const data = await parseJsonResponse(response);
+      rememberProductDetail(key, data);
+      return data;
+    } catch (error) {
+      if (cached && Date.now() - cached.storedAt <= PRODUCT_DETAIL_STALE_MS) {
+        return cached.data;
+      }
+      throw error;
+    } finally {
+      globalThis.clearTimeout(timeoutId);
+    }
+  })().finally(() => {
+    if (productDetailRequests.get(key) === request) {
+      productDetailRequests.delete(key);
+    }
+  });
+
+  productDetailRequests.set(key, request);
+  return request;
 }
 
 function getPrice(item: any): number {
@@ -1054,13 +1155,17 @@ export async function fetchWooProductBySlug(
   const numericProductId = Number(slug);
 
   if (Number.isFinite(numericProductId) && numericProductId > 0) {
-    return fetchWooProductById(numericProductId);
+    const detailData = await fetchProductDetailDocument(
+      `id:${numericProductId}:lean`,
+      `${MARKETPLACE_PRODUCTS_API}/${numericProductId}?include_variations=0`
+    );
+    return mapWooProductDetailResponse(detailData);
   }
 
-  const detailResponse = await fetch(
-    `${MARKETPLACE_PRODUCTS_API}/slug/${encodeURIComponent(slug)}`
+  const detailData = await fetchProductDetailDocument(
+    `slug:${slug}:lean`,
+    `${MARKETPLACE_PRODUCTS_API}/slug/${encodeURIComponent(slug)}?include_variations=0`
   );
-  const detailData = await parseJsonResponse(detailResponse);
 
   return mapWooProductDetailResponse(detailData);
 }

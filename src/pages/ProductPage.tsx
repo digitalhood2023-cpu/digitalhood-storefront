@@ -40,6 +40,7 @@ import {
 
 import {
   fetchWooProductBySlug,
+  fetchWooProductVariations,
   fetchWooProducts,
   fetchWooProductReviews,
   isMarketplaceProductAvailable,
@@ -311,9 +312,13 @@ export default function ProductPage() {
     moved: boolean
     multiTouch: boolean
   } | null>(null)
+  const productLoadIdRef = useRef(0)
 
   useEffect(() => {
     if (!slug) return
+
+    const loadId = productLoadIdRef.current + 1
+    productLoadIdRef.current = loadId
 
     setIsLoading(true)
     setLoadError('')
@@ -338,6 +343,8 @@ export default function ProductPage() {
 
     fetchWooProductBySlug(slug)
       .then((item) => {
+        if (productLoadIdRef.current !== loadId) return
+
         if (!item || !isMarketplaceProductAvailable(item)) {
           setLoadError(
             item
@@ -351,58 +358,89 @@ export default function ProductPage() {
         setProduct(item)
         window.scrollTo(0, 0)
 
-        setAreReviewsLoading(true)
-        fetchWooProductReviews(item.id)
-          .then(setProductReviews)
-          .catch((error) => {
-            console.error(error)
-            setReviewsError('Buyer feedback is temporarily unavailable.')
-          })
-          .finally(() => setAreReviewsLoading(false))
+        if (item.type === 'variable') {
+          fetchWooProductVariations(item.id)
+            .then((variations) => {
+              if (productLoadIdRef.current !== loadId) return
+              setProduct((current) => current?.id === item.id
+                ? {
+                    ...current,
+                    variations,
+                    hasOptions: current.hasOptions || variations.length > 0,
+                  }
+                : current)
+            })
+            .catch((error) => console.error('Product options unavailable:', error))
+        }
 
-        const categoryId = item.categoryIds?.[0] || item.categories?.[0]?.id || null
+        globalThis.setTimeout(() => {
+          if (productLoadIdRef.current !== loadId) return
 
-        fetchWooProducts(32, 1, '', categoryId)
-          .then(({ products }) => {
-            const filtered = products.filter(
-              (recommended) => recommended.id !== item.id
-            )
+          setAreReviewsLoading(true)
+          fetchWooProductReviews(item.id)
+            .then((reviews) => {
+              if (productLoadIdRef.current === loadId) setProductReviews(reviews)
+            })
+            .catch((error) => {
+              console.error(error)
+              if (productLoadIdRef.current === loadId) {
+                setReviewsError('Buyer feedback is temporarily unavailable.')
+              }
+            })
+            .finally(() => {
+              if (productLoadIdRef.current === loadId) setAreReviewsLoading(false)
+            })
 
-            const buckets = getRecommendationBuckets(item, filtered)
-            setRecommendedProducts(buckets.similar)
-            setNewArrivalProducts(buckets.newArrivals)
-            setHotSellingProducts(buckets.hotSelling)
-          })
-          .catch((error) => {
-            console.error(error)
+          const categoryId = item.categoryIds?.[0] || item.categories?.[0]?.id || null
 
-            fetchWooProducts(32, 1)
-              .then(({ products }) => {
-                const filtered = products.filter(
-                  (recommended) => recommended.id !== item.id
-                )
+          fetchWooProducts(32, 1, '', categoryId)
+            .then(({ products }) => {
+              if (productLoadIdRef.current !== loadId) return
+              const filtered = products.filter(
+                (recommended) => recommended.id !== item.id
+              )
 
-                const buckets = getRecommendationBuckets(item, filtered)
-                setRecommendedProducts(buckets.similar)
-                setNewArrivalProducts(buckets.newArrivals)
-                setHotSellingProducts(buckets.hotSelling)
-              })
-              .catch((fallbackError) => {
-                console.error(fallbackError)
-                setRecommendedProducts([])
-                setNewArrivalProducts([])
-                setHotSellingProducts([])
-              })
-          })
+              const buckets = getRecommendationBuckets(item, filtered)
+              setRecommendedProducts(buckets.similar)
+              setNewArrivalProducts(buckets.newArrivals)
+              setHotSellingProducts(buckets.hotSelling)
+            })
+            .catch((error) => {
+              console.error(error)
+
+              fetchWooProducts(32, 1)
+                .then(({ products }) => {
+                  if (productLoadIdRef.current !== loadId) return
+                  const filtered = products.filter(
+                    (recommended) => recommended.id !== item.id
+                  )
+
+                  const buckets = getRecommendationBuckets(item, filtered)
+                  setRecommendedProducts(buckets.similar)
+                  setNewArrivalProducts(buckets.newArrivals)
+                  setHotSellingProducts(buckets.hotSelling)
+                })
+                .catch((fallbackError) => {
+                  console.error(fallbackError)
+                  if (productLoadIdRef.current !== loadId) return
+                  setRecommendedProducts([])
+                  setNewArrivalProducts([])
+                  setHotSellingProducts([])
+                })
+            })
+        }, 60)
       })
       .catch((error) => {
+        if (productLoadIdRef.current !== loadId) return
         console.error(error)
 
         setLoadError(
           error?.message || 'We could not load this product right now.'
         )
       })
-      .finally(() => setIsLoading(false))
+      .finally(() => {
+        if (productLoadIdRef.current === loadId) setIsLoading(false)
+      })
   }, [slug])
 
   useEffect(() => {

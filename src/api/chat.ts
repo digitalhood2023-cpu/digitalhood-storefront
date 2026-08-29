@@ -359,9 +359,11 @@ async function chatFetch<T>(
 
   const method = String(options.method || 'GET').toUpperCase()
   const canRetry = method === 'GET'
+  const canSafelyRetryMutation =
+    method === 'POST' && path === '/api/conversations/product'
   const cacheKey = `${tokenCacheFingerprint(token)}:${path}`
   const cached = canRetry ? chatResponseCache.get(cacheKey) : undefined
-  const attempts = canRetry ? 3 : 1
+  const attempts = canRetry || canSafelyRetryMutation ? 3 : 1
   let lastError: ChatRequestError | null = null
 
   const isMessageHistoryRequest = path.includes('/messages')
@@ -420,7 +422,11 @@ async function chatFetch<T>(
         return cached.value as T
       }
 
-      if (!canRetry || !lastError.retryable || attempt === attempts - 1) break
+      if (
+        (!canRetry && !canSafelyRetryMutation) ||
+        !lastError.retryable ||
+        attempt === attempts - 1
+      ) break
       await waitForChatRetry(350 * (2 ** attempt))
     } finally {
       globalThis.clearTimeout(timeoutId)
