@@ -96,7 +96,11 @@ export default function SellerStorePage() {
   const [trustSummary, setTrustSummary] = useState<FeedbackSummary | null>(null)
   const [recentFeedback, setRecentFeedback] = useState<MarketplaceFeedback[]>([])
   const filterRequestIdRef = useRef(0)
-  const loadMoreScrollYRef = useRef<number | null>(null)
+  const loadMoreAnchorRef = useRef<{
+    productId: string
+    viewportTop: number
+    previousScrollBehavior: string
+  } | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
 
@@ -201,11 +205,49 @@ export default function SellerStorePage() {
   )
 
   useLayoutEffect(() => {
-    if (loadMoreScrollYRef.current === null) return
+    const anchorSnapshot = loadMoreAnchorRef.current
+    if (!anchorSnapshot) return
 
-    const scrollY = loadMoreScrollYRef.current
-    loadMoreScrollYRef.current = null
-    window.scrollTo({ top: scrollY, behavior: 'auto' })
+    const root = document.documentElement
+    let secondFrame = 0
+
+    const keepExistingProductInPlace = () => {
+      const anchor = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-store-product-id]')
+      ).find(
+        (element) =>
+          element.dataset.storeProductId === anchorSnapshot.productId
+      )
+
+      if (!anchor) return
+
+      const movement =
+        anchor.getBoundingClientRect().top - anchorSnapshot.viewportTop
+
+      if (Math.abs(movement) > 0.5) {
+        window.scrollBy({ top: movement, left: 0, behavior: 'auto' })
+      }
+    }
+
+    keepExistingProductInPlace()
+
+    const firstFrame = window.requestAnimationFrame(() => {
+      keepExistingProductInPlace()
+      secondFrame = window.requestAnimationFrame(() => {
+        keepExistingProductInPlace()
+        root.style.scrollBehavior = anchorSnapshot.previousScrollBehavior
+        loadMoreAnchorRef.current = null
+      })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      window.cancelAnimationFrame(secondFrame)
+      root.style.scrollBehavior = anchorSnapshot.previousScrollBehavior
+      if (loadMoreAnchorRef.current === anchorSnapshot) {
+        loadMoreAnchorRef.current = null
+      }
+    }
   }, [products.length, store?.page])
 
   async function loadFilteredStore(
@@ -439,7 +481,23 @@ export default function SellerStorePage() {
         return
       }
 
-      loadMoreScrollYRef.current = window.scrollY
+      const anchorProduct = store.products[store.products.length - 1]
+      const anchorProductId = anchorProduct ? String(anchorProduct.id) : ''
+      const anchorElement = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-store-product-id]')
+      ).find(
+        (element) => element.dataset.storeProductId === anchorProductId
+      )
+
+      if (anchorElement) {
+        const root = document.documentElement
+        loadMoreAnchorRef.current = {
+          productId: anchorProductId,
+          viewportTop: anchorElement.getBoundingClientRect().top,
+          previousScrollBehavior: root.style.scrollBehavior,
+        }
+        root.style.scrollBehavior = 'auto'
+      }
 
       setStore((currentStore) => {
         if (!currentStore) {
@@ -1294,6 +1352,7 @@ export default function SellerStorePage() {
                       return (
                         <article
                           key={product.id}
+                          data-store-product-id={String(product.id)}
                           className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-0.5 hover:shadow-lg"
                         >
                           <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
