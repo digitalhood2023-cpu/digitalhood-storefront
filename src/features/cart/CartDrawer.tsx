@@ -18,6 +18,7 @@ import { useCartStore } from '@/store/cartStore'
 type CartDrawerProps = {
   isOpen: boolean
   onClose: () => void
+  headerOffset?: number
 }
 
 type CartDrawerItem = {
@@ -144,7 +145,11 @@ function groupCartItemsByStore(items: CartDrawerItem[]) {
   return Array.from(groups.values())
 }
 
-export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
+export function CartDrawer({
+  isOpen,
+  onClose,
+  headerOffset = 0,
+}: CartDrawerProps) {
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
   const increaseQuantity = useCartStore((state) => state.increaseQuantity)
@@ -177,7 +182,13 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         onClick={dismissDrawer}
       />
 
-      <aside className="absolute right-0 top-0 flex h-full w-[94vw] max-w-[420px] flex-col bg-slate-50 shadow-2xl">
+      <aside
+        className="absolute right-0 flex w-[94vw] max-w-[420px] flex-col overflow-hidden bg-slate-50 shadow-2xl"
+        style={{
+          top: `${Math.max(0, headerOffset)}px`,
+          height: `calc(100dvh - ${Math.max(0, headerOffset)}px)`,
+        }}
+      >
         <div className="border-b border-slate-200 bg-white px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>

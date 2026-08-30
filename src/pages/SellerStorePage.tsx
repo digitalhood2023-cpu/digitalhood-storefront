@@ -15,9 +15,6 @@ import {
   SlidersHorizontal,
   Star,
   Store,
-  ThumbsDown,
-  ThumbsUp,
-  MinusCircle,
   X,
 } from 'lucide-react'
 
@@ -25,7 +22,6 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
 import SellerStoreSearchAutocomplete from '@/components/search/SellerStoreSearchAutocomplete'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -70,32 +66,8 @@ function getStockText(product: PublicSellerProduct) {
   return product.stockLabel || 'Available'
 }
 
-function formatYears(years?: number) {
-  const value = safeNumber(years)
-
-  if (value <= 0) return 'New seller'
-  if (value < 1) return 'Under 1 year'
-  if (value === 1) return '1 year'
-
-  return `${value.toLocaleString('en-ZM')} years`
-}
-
-function getRatingLabel(store: PublicSellerStore) {
-  if (!store.stats.ratingAverage || store.stats.ratingCount <= 0) {
-    return 'No ratings yet'
-  }
-
-  return `${store.stats.ratingAverage.toFixed(1)} / 5`
-}
-
-function getRatingSubtext(store: PublicSellerStore) {
-  if (!store.stats.ratingAverage || store.stats.ratingCount <= 0) {
-    return 'New feedback will appear here'
-  }
-
-  return `${store.stats.ratingCount.toLocaleString('en-ZM')} verified rating${
-    store.stats.ratingCount === 1 ? '' : 's'
-  }`
+function getStoreAgeYears(years?: number) {
+  return Math.max(0, Math.floor(safeNumber(years)))
 }
 
 export default function SellerStorePage() {
@@ -569,23 +541,20 @@ export default function SellerStorePage() {
           </section>
         ) : (
           <>
-            <section className="bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8 xl:px-12">
-              <div className="mx-auto max-w-[1500px] overflow-hidden rounded-2xl bg-white shadow-sm">
+            <section className="bg-gray-50 px-3 pt-2 sm:px-6 lg:px-8 xl:px-12">
+              <div className="mx-auto max-w-[1500px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div
-                  className="h-24 bg-dh-primary sm:h-32"
+                  className="relative h-[86px] bg-dh-primary sm:h-[104px]"
                   style={{
                     backgroundImage: seller.coverPhotoUrl
-                      ? `linear-gradient(90deg, rgba(38,36,140,0.88), rgba(38,36,140,0.32)), url(${seller.coverPhotoUrl})`
+                      ? `linear-gradient(90deg, rgba(23,21,95,0.94), rgba(23,21,95,0.48)), url(${seller.coverPhotoUrl})`
                       : 'linear-gradient(135deg, #26248c, #ffb54a)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                   }}
-                />
-
-                <div className="px-4 pb-4 sm:px-5 lg:px-6">
-                  <div className="-mt-9 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                      <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-dh-primary shadow-md sm:h-24 sm:w-24">
+                >
+                  <div className="absolute inset-x-0 bottom-0 flex min-w-0 items-end gap-2.5 p-2.5 sm:gap-3 sm:p-3">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/90 bg-dh-primary shadow-md sm:h-16 sm:w-16">
                         {seller.profilePhotoUrl ? (
                           <img
                             src={seller.profilePhotoUrl}
@@ -593,115 +562,74 @@ export default function SellerStorePage() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <Store className="h-10 w-10 text-[#ffb54a]" />
+                          <Store className="h-7 w-7 text-[#ffb54a]" />
+                        )}
+                    </div>
+
+                    <div className="min-w-0 flex-1 pb-0.5 text-white">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <h1 className="truncate font-display text-lg font-black tracking-tight sm:text-2xl">
+                          {seller.storeName}
+                        </h1>
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ffb54a] px-2 py-0.5 text-[9px] font-black text-[#17155f]">
+                          <BadgeCheck className="h-3 w-3" /> Verified
+                        </span>
+                        {getStoreAgeYears(seller.yearsOnDigitalHood) === 0 && (
+                          <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-black text-white ring-1 ring-white/20">
+                            New seller
+                          </span>
                         )}
                       </div>
 
-                      <div className="pb-1">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <Badge className="bg-[#ffb54a] text-black hover:bg-[#ffb54a]">
-                            Verified seller
-                          </Badge>
+                      <div className="mt-1 flex min-w-0 items-center gap-2 text-[10px] font-semibold text-white/75 sm:text-xs">
                           {seller.verified && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                              <BadgeCheck className="h-3.5 w-3.5" />
+                            <span className="inline-flex shrink-0 items-center gap-1 text-emerald-200">
+                              <BadgeCheck className="h-3 w-3" />
                               DigitalHood approved
                             </span>
                           )}
-                        </div>
-
-                        <h1 className="font-display text-2xl font-black tracking-tight text-dh-primary sm:text-3xl">
-                          {seller.storeName}
-                        </h1>
-
-                        {seller.tagline && (
-                          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-gray-500">
+                          {seller.tagline && (
+                          <p className="min-w-0 truncate">
                             {seller.tagline}
                           </p>
                         )}
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[500px]">
+                <div className="grid grid-cols-4 divide-x divide-slate-100">
                       {[
-                        ['Years', formatYears(seller.yearsOnDigitalHood)],
+                        ['Years', getStoreAgeYears(seller.yearsOnDigitalHood).toLocaleString('en-ZM')],
                         ['Sold', store.stats.itemsSold.toLocaleString('en-ZM')],
                         ['Products', store.stats.productsLive.toLocaleString('en-ZM')],
-                        ['Rating', getRatingLabel(store)],
+                        [
+                          'Rating',
+                          store.stats.ratingAverage && store.stats.ratingCount > 0
+                            ? store.stats.ratingAverage.toFixed(1)
+                            : '—',
+                        ],
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-2xl bg-gray-50 px-3 py-2.5">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
-                            {label}
-                          </p>
-                          <p className="mt-1 truncate font-display text-lg font-black text-dh-primary">
+                        <div key={label} className="min-w-0 px-1.5 py-2 text-center sm:py-2.5">
+                          <p className="truncate font-display text-sm font-black leading-none text-dh-primary sm:text-base">
                             {value}
+                          </p>
+                          <p className="mt-1 truncate text-[8px] font-black uppercase tracking-[0.08em] text-slate-400 sm:text-[9px]">
+                            {label}
                           </p>
                         </div>
                       ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             </section>
 
-            <section className="mx-auto max-w-[1500px] px-4 pt-3 sm:px-6 lg:px-8 xl:px-12">
-              <div className="flex flex-col gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ffb54a]/15 text-[#b87500]">
-                    <Star className="h-5 w-5 fill-[#ffb54a] text-[#ffb54a]" />
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-black text-dh-primary">
-                      {getRatingLabel(store)}
-                    </p>
-                    <p className="text-xs font-semibold text-gray-500">
-                      {getRatingSubtext(store)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
-                  <div className="flex items-center justify-between rounded-2xl bg-green-50 px-3 py-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-black text-green-700">
-                      <ThumbsUp className="h-3.5 w-3.5" />
-                      Positive
-                    </span>
-                    <span className="font-display text-sm font-black text-green-800">
-                      {(store.stats.feedback?.positive || 0).toLocaleString('en-ZM')}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-3 py-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-black text-amber-700">
-                      <MinusCircle className="h-3.5 w-3.5" />
-                      Neutral
-                    </span>
-                    <span className="font-display text-sm font-black text-amber-800">
-                      {(store.stats.feedback?.neutral || 0).toLocaleString('en-ZM')}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-2xl bg-red-50 px-3 py-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-black text-red-700">
-                      <ThumbsDown className="h-3.5 w-3.5" />
-                      Negative
-                    </span>
-                    <span className="font-display text-sm font-black text-red-800">
-                      {(store.stats.feedback?.negative || 0).toLocaleString('en-ZM')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="mx-auto grid max-w-[1500px] gap-4 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8 xl:px-12">
-              <aside className="space-y-4 text-center lg:text-left">
-                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                  <h2 className="font-display text-xl font-black text-dh-primary">
+            <section className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:px-6 lg:grid-cols-[250px_minmax(0,1fr)] lg:px-8 xl:px-12">
+              <aside className="order-2 space-y-3 text-center lg:order-1 lg:text-left">
+                <div className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
+                  <h2 className="font-display text-base font-black text-dh-primary">
                     About this store
                   </h2>
-                  <p className="mt-3 text-sm leading-6 text-gray-600">
+                  <p className="mt-1.5 text-xs leading-5 text-gray-600">
                     {seller.description ||
                       'This seller is approved to sell on DigitalHood Marketplace.'}
                   </p>
@@ -709,13 +637,13 @@ export default function SellerStorePage() {
 
               </aside>
 
-              <section className="min-w-0">
-                <div className="mb-4 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+              <section className="order-1 min-w-0 lg:order-2">
+                <div className="mb-2 flex items-end justify-between gap-3 text-left">
                   <div>
-                    <h2 className="font-display text-2xl font-black text-dh-primary sm:text-3xl">
+                    <h2 className="font-display text-lg font-black text-dh-primary sm:text-xl">
                       Products by {seller.storeName}
                     </h2>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-0.5 text-[11px] text-gray-500 sm:text-xs">
                       {products.length
                         ? `Showing ${products.length.toLocaleString(
                             'en-ZM'
@@ -738,14 +666,14 @@ export default function SellerStorePage() {
 
                   <Link
                     to="/shop"
-                    className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-bold text-dh-primary hover:bg-dh-primary hover:text-white"
+                    className="hidden items-center rounded-full border border-dh-primary px-3 py-1.5 text-xs font-bold text-dh-primary hover:bg-dh-primary hover:text-white sm:inline-flex"
                   >
                     Continue shopping
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </div>
 
-                <div className="mb-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100 sm:p-4">
+                <div className="mb-3 rounded-xl bg-white p-2.5 shadow-sm ring-1 ring-gray-100 sm:p-3">
                   <div className="flex items-center gap-2">
                     <SellerStoreSearchAutocomplete
                       sellerKey={

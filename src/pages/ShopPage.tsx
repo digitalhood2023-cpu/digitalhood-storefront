@@ -31,7 +31,6 @@ import SEO from '@/components/SEO';
 import StockBadge from '@/components/StockBadge';
 import SearchAutocomplete from '@/components/search/SearchAutocomplete';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useCartStore } from '@/store/cartStore';
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -1636,51 +1635,13 @@ export default function ShopPage() {
 
       <main className="overflow-x-hidden py-4 lg:py-6">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-                    <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <Badge className="mb-3 bg-[#ffb54a] text-black hover:bg-[#ffb54a]">
-                  DigitalHood Marketplace
-                </Badge>
-
-                <h1 className="font-display text-2xl font-bold leading-tight text-dh-primary sm:text-3xl">
-                  {selectedCategory
-                    ? selectedCategory.name
-                    : searchQuery
-                      ? 'Search products'
-                      : 'Shop products'}
-                </h1>
-
-                <p className="mt-1 text-sm text-dh-dark-gray">
-                  {selectedCategory
-                    ? selectedCategory.description ||
-                      `Browse ${selectedCategory.name.toLowerCase()} products.`
-                    : 'Search, filter and shop verified marketplace products.'}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                  >
-                    Clear filters
-                    <X className="ml-2 h-4 w-4" />
-                  </button>
-                )}
-
-                <Link
-                  to="/categories"
-                  className="inline-flex items-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-dh-secondary"
-                >
-                  Browse categories
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </div>
-            </div>
-          </section>
+          <h1 className="sr-only">
+            {selectedCategory
+              ? selectedCategory.name
+              : searchQuery
+                ? `Search results for ${searchQuery}`
+                : 'Shop products'}
+          </h1>
 
           <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">

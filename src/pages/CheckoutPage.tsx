@@ -850,6 +850,13 @@ export default function CheckoutPage() {
       return 'Mobile Money payment number is required.'
     }
 
+    if (
+      paymentMethod === 'mobile' &&
+      !detectMobileMoneyOperator(formData.paymentPhone)
+    ) {
+      return 'Enter a valid MTN or Airtel Mobile Money number.'
+    }
+
     return ''
   }
 
@@ -1340,6 +1347,16 @@ export default function CheckoutPage() {
       return
     }
 
+    const mobileMoneyOperator =
+      paymentMethod === 'mobile'
+        ? detectMobileMoneyOperator(formData.paymentPhone)
+        : null
+
+    if (paymentMethod === 'mobile' && !mobileMoneyOperator) {
+      setCheckoutError('Enter a valid MTN or Airtel Mobile Money number.')
+      return
+    }
+
     checkoutSubmissionRef.current = true
     setIsSubmitting(true)
     setCheckoutProgressStage('creating')
@@ -1371,7 +1388,7 @@ export default function CheckoutPage() {
           response = await initiateLencoMobileMoney({
             amount: finalTotal,
             phone: formData.paymentPhone,
-            operator: detectMobileMoneyOperator(formData.paymentPhone),
+            operator: mobileMoneyOperator!,
             reference,
             orderId: order.orderId,
             customerName: formData.fullName,
@@ -2089,6 +2106,19 @@ export default function CheckoutPage() {
                       placeholder="e.g. 097XXXXXXX or +26097XXXXXXX"
                       className="mt-1.5 h-9 rounded-lg bg-dh-gray text-xs"
                     />
+
+                    <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px]">
+                      <span className="text-dh-dark-gray">Network detected automatically</span>
+                      {detectMobileMoneyOperator(formData.paymentPhone) ? (
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-black text-emerald-700">
+                          {detectMobileMoneyOperator(formData.paymentPhone) === 'mtn'
+                            ? 'MTN MoMo'
+                            : 'Airtel Money'}
+                        </span>
+                      ) : formData.paymentPhone.trim() ? (
+                        <span className="font-bold text-rose-600">Check number</span>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 

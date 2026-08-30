@@ -125,7 +125,9 @@ export async function verifyLencoMobileMoney(
   }, 8_000)
 }
 
-export function detectMobileMoneyOperator(phone: string): 'mtn' | 'airtel' {
+export type MobileMoneyOperator = 'mtn' | 'airtel'
+
+export function detectMobileMoneyOperator(phone: string): MobileMoneyOperator | null {
   const cleaned = phone.replace(/\D/g, '')
 
   if (
@@ -150,5 +152,5 @@ export function detectMobileMoneyOperator(phone: string): 'mtn' | 'airtel' {
     return 'airtel'
   }
 
-  return 'mtn'
+  return null
 }

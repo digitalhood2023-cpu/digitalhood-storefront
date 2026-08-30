@@ -190,7 +190,13 @@ function NotificationRow({
   )
 }
 
-export default function NotificationDrawer() {
+type NotificationDrawerProps = {
+  headerOffset?: number
+}
+
+export default function NotificationDrawer({
+  headerOffset = 0,
+}: NotificationDrawerProps) {
   const {
     notifications,
     unreadCount,
@@ -206,7 +212,14 @@ export default function NotificationDrawer() {
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && closeNotifications()}>
-      <SheetContent className="w-full gap-0 border-l-slate-200 p-0 sm:max-w-[430px]">
+      <SheetContent
+        className="w-full gap-0 overflow-hidden border-l-slate-200 p-0 sm:max-w-[430px]"
+        style={{
+          top: `${Math.max(0, headerOffset)}px`,
+          bottom: 'auto',
+          height: `calc(100dvh - ${Math.max(0, headerOffset)}px)`,
+        }}
+      >
         <SheetHeader className="border-b border-slate-100 px-4 py-3 pr-12 text-left">
           <div className="flex items-center justify-between gap-3">
             <div>

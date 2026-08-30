@@ -958,9 +958,13 @@ export default function Header() {
         </header>
       </div>
 
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        headerOffset={headerHeight}
+      />
       <WishlistDrawer />
-      <NotificationDrawer />
+      <NotificationDrawer headerOffset={headerHeight} />
     </>
   )
 }

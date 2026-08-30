@@ -13,6 +13,7 @@ import {
   startOrderPaymentRecovery,
   verifyOrderPaymentRecovery,
 } from '@/api/paymentRecovery'
+import { detectMobileMoneyOperator } from '@/api/lenco'
 import StripeCheckoutForm, {
   type PreparedStripePayment,
 } from '@/components/payments/StripeCheckoutForm'
@@ -54,7 +55,6 @@ export default function OrderPaymentRetryPage() {
   const [error, setError] = useState('')
   const [retry, setRetry] = useState<CustomerOrderPaymentRetryResponse | null>(null)
   const [phone, setPhone] = useState('')
-  const [operator, setOperator] = useState('mtn')
   const [mobileStatus, setMobileStatus] = useState('')
   const [countdown, setCountdown] = useState('0d 00h 00m 00s')
   const [selectedMethod, setSelectedMethod] = useState<'card' | 'mobile'>('mobile')
@@ -117,6 +117,11 @@ export default function OrderPaymentRetryPage() {
     },
   }), [order?.currency, order?.total])
 
+  const detectedOperator = useMemo(
+    () => detectMobileMoneyOperator(phone),
+    [phone]
+  )
+
   useEffect(() => {
     if (retry?.mode !== 'mobile' || !retry.reference) return
     let active = true
@@ -167,6 +172,12 @@ export default function OrderPaymentRetryPage() {
 
   const prepareMobilePayment = async () => {
     if (!order?.paymentRetry?.eligible) return
+
+    if (!detectedOperator) {
+      setError('Enter a valid MTN or Airtel Mobile Money number.')
+      return
+    }
+
     setPreparing(true)
     setError('')
     try {
@@ -176,7 +187,7 @@ export default function OrderPaymentRetryPage() {
           paymentMethod: 'mobile',
           clientAttemptId: createAttemptId(),
           phone,
-          operator,
+          operator: detectedOperator,
         },
         recoveryToken
       )
@@ -375,13 +386,23 @@ export default function OrderPaymentRetryPage() {
                 </div>
 
                 {!retry && selectedMethod === 'mobile' && (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_150px]">
-                    <div><Label htmlFor="retry-phone">Mobile Money number</Label><Input id="retry-phone" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 h-11" placeholder="0971234567" /></div>
-                    <div><Label htmlFor="retry-network">Network</Label><select id="retry-network" value={operator} onChange={(event) => setOperator(event.target.value)} className="mt-1.5 h-11 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="mtn">MTN MoMo</option><option value="airtel">Airtel Money</option></select></div>
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                    <Label htmlFor="retry-phone">Mobile Money number</Label>
+                    <Input id="retry-phone" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 h-11" placeholder="0971234567" inputMode="tel" autoComplete="tel" />
+                    <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-500">Network detected automatically</span>
+                      {detectedOperator ? (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700">
+                          {detectedOperator === 'mtn' ? 'MTN MoMo' : 'Airtel Money'}
+                        </span>
+                      ) : phone.trim() ? (
+                        <span className="font-bold text-rose-600">Check number</span>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 
-                {!retry && selectedMethod === 'mobile' && <Button type="button" onClick={prepareMobilePayment} disabled={preparing || !phone.trim()} className="mt-4 h-11 w-full rounded-xl bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]">{preparing ? 'Sending secure prompt…' : 'Send Mobile Money prompt'}</Button>}
+                {!retry && selectedMethod === 'mobile' && <Button type="button" onClick={prepareMobilePayment} disabled={preparing || !detectedOperator} className="mt-4 h-11 w-full rounded-xl bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]">{preparing ? 'Sending secure prompt…' : 'Send Mobile Money prompt'}</Button>}
 
                 {selectedMethod === 'card' && retry?.mode !== 'mobile' && (
                   <div className="mt-4">
