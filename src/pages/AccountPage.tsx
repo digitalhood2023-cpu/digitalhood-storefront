@@ -21,6 +21,7 @@ import {
   Trash2,
   UserRound,
   X,
+  Bell,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -32,6 +33,7 @@ import { Label } from '@/components/ui/label'
 
 import { useAccount } from '@/context/AccountContext'
 import { useWishlist } from '@/context/WishlistContext'
+import { useNotifications } from '@/context/NotificationsContext'
 
 import {
   addCustomerSavedAddress,
@@ -388,6 +390,7 @@ export default function AccountPage() {
   } = useAccount()
 
   const { items: wishlistItems } = useWishlist()
+  const { unreadCount: notificationUnreadCount } = useNotifications()
 
   const [orders, setOrders] = useState<AccountOrder[]>([])
   const [savedAddresses, setSavedAddresses] = useState<SavedCustomerAddress[]>([])
@@ -780,7 +783,7 @@ export default function AccountPage() {
             </div>
           </section>
 
-          <section aria-label="Account tools" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <section aria-label="Account tools" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <DashboardCard
               icon={<ShoppingBag className="h-5 w-5" />}
               label="Orders"
@@ -795,6 +798,18 @@ export default function AccountPage() {
               value="Inbox"
               helper="Chat with marketplace sellers."
               href="/account/messages"
+            />
+
+            <DashboardCard
+              icon={<Bell className="h-5 w-5" />}
+              label="Notifications"
+              value={
+                notificationUnreadCount > 0
+                  ? `${notificationUnreadCount > 99 ? '99+' : notificationUnreadCount} new`
+                  : 'All caught up'
+              }
+              helper="Orders, payments, messages and offers."
+              href="/account/notifications"
             />
 
             <DashboardCard
