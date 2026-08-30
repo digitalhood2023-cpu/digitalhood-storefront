@@ -156,12 +156,26 @@ export type WooProduct = {
 };
 
 export type WooProductReview = {
-  id: number;
+  id: string | number;
   reviewer: string;
   review: string;
+  title?: string;
   rating: number;
   verified: boolean;
   dateCreated?: string;
+  tags?: string[];
+  dimensions?: Record<string, number>;
+  media?: Array<{
+    id?: string;
+    type: 'image' | 'video';
+    url: string;
+    thumbnailUrl?: string;
+    mimeType?: string;
+  }>;
+  response?: {
+    text?: string;
+    responderRole?: string;
+  } | null;
 };
 
 export type WooCategory = {
@@ -1186,12 +1200,27 @@ export async function fetchWooProductReviews(
   const reviews = Array.isArray(data.reviews) ? data.reviews : [];
 
   return reviews.map((review: any) => ({
-    id: Number(review.id),
+    id: String(review.id || ''),
     reviewer: String(review.reviewer || 'Marketplace buyer'),
     review: stripHtml(String(review.review || '')),
+    title: stripHtml(String(review.title || '')),
     rating: Math.max(0, Math.min(5, Number(review.rating || 0))),
     verified: Boolean(review.verified),
     dateCreated: review.dateCreated || review.date_created || '',
+    tags: Array.isArray(review.tags) ? review.tags.map(String) : [],
+    dimensions:
+      review.dimensions && typeof review.dimensions === 'object'
+        ? review.dimensions
+        : {},
+    media: Array.isArray(review.media)
+      ? review.media
+          .filter((item: { url?: unknown }) => typeof item?.url === 'string' && item.url)
+          .slice(0, 5)
+      : [],
+    response:
+      review.response && typeof review.response === 'object'
+        ? review.response
+        : null,
   }));
 }
 

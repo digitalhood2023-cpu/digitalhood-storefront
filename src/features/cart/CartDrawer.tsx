@@ -79,6 +79,13 @@ function isUnavailable(item: CartDrawerItem) {
     return true
   }
 
+  if (
+    item.stockStatus !== 'onbackorder' &&
+    item.stockQuantity !== null &&
+    item.stockQuantity !== undefined &&
+    item.quantity > item.stockQuantity
+  ) return true
+
   return false
 }
 
@@ -379,9 +386,9 @@ export function CartDrawer({
                             <button
                               type="button"
                               onClick={() => increaseQuantity(item.id)}
-                              disabled={unavailable}
+                              disabled={unavailable || (item.stockStatus !== 'onbackorder' && item.stockQuantity !== null && item.stockQuantity !== undefined && item.quantity >= item.stockQuantity)}
                               className={`flex h-7 w-7 items-center justify-center ${
-                                unavailable
+                                unavailable || (item.stockStatus !== 'onbackorder' && item.stockQuantity !== null && item.stockQuantity !== undefined && item.quantity >= item.stockQuantity)
                                   ? 'cursor-not-allowed text-gray-300'
                                   : 'hover:bg-dh-gray'
                               }`}

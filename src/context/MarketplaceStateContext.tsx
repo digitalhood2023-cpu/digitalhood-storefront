@@ -55,15 +55,22 @@ function mergeStoreSearches(
 function normalizeCartItems(items: AccountMarketplaceCartItem[] = []): CartItem[] {
   return items
     .filter((item) => Number(item?.id) > 0 && Number(item?.productId) > 0)
-    .map((item) => ({
-      ...item,
-      id: Number(item.id),
-      productId: Number(item.productId),
-      variationId: item.variationId ? Number(item.variationId) : undefined,
-      price: Math.max(0, Number(item.price || 0)),
-      regularPrice: Math.max(0, Number(item.regularPrice || item.price || 0)),
-      quantity: Math.max(1, Math.min(99, Number(item.quantity || 1))),
-    }))
+    .map((item) => {
+      const requested = Math.max(1, Math.min(99, Number(item.quantity || 1)))
+      const stockQuantity = Number(item.stockQuantity)
+      const stockLimit = item.stockStatus !== 'onbackorder' && Number.isFinite(stockQuantity) && item.stockQuantity !== null && item.stockQuantity !== undefined
+        ? Math.max(0, Math.floor(stockQuantity))
+        : null
+      return {
+        ...item,
+        id: Number(item.id),
+        productId: Number(item.productId),
+        variationId: item.variationId ? Number(item.variationId) : undefined,
+        price: Math.max(0, Number(item.price || 0)),
+        regularPrice: Math.max(0, Number(item.regularPrice || item.price || 0)),
+        quantity: stockLimit !== null && stockLimit > 0 ? Math.min(requested, stockLimit) : requested,
+      }
+    })
     .slice(0, 100)
 }
 
@@ -73,16 +80,19 @@ function mergeCartItems(accountItems: CartItem[], guestItems: CartItem[]) {
   for (const item of [...accountItems, ...guestItems]) {
     const existing = byId.get(item.id)
 
-    byId.set(
-      item.id,
-      existing
-        ? {
-            ...existing,
-            ...item,
-            quantity: Math.max(existing.quantity, item.quantity),
-          }
-        : item
-    )
+    const merged = existing
+      ? { ...existing, ...item, quantity: Math.max(existing.quantity, item.quantity) }
+      : item
+    const stockQuantity = Number(merged.stockQuantity)
+    const stockLimit = merged.stockStatus !== 'onbackorder' && Number.isFinite(stockQuantity) && merged.stockQuantity !== null && merged.stockQuantity !== undefined
+      ? Math.max(0, Math.floor(stockQuantity))
+      : null
+    byId.set(merged.id, {
+      ...merged,
+      quantity: stockLimit !== null && stockLimit > 0
+        ? Math.min(merged.quantity, stockLimit)
+        : merged.quantity,
+    })
   }
 
   return Array.from(byId.values()).slice(0, 100)
