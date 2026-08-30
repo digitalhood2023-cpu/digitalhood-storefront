@@ -238,6 +238,79 @@ export type AccountProduct = {
   >
 }
 
+export type AccountNotificationCategory =
+  | 'orders'
+  | 'payments'
+  | 'delivery'
+  | 'messages'
+  | 'support'
+  | 'account'
+  | 'offers'
+  | 'marketplace'
+
+export type AccountNotification = {
+  id: string
+  category: AccountNotificationCategory
+  type: string
+  title: string
+  body: string
+  actionUrl?: string | null
+  imageUrl?: string | null
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  entityType?: string | null
+  entityId?: string | null
+  metadata?: Record<string, unknown>
+  createdAt?: string | null
+  updatedAt?: string | null
+  readAt?: string | null
+  archivedAt?: string | null
+  expiresAt?: string | null
+}
+
+export type AccountNotificationSummary = {
+  unread: number
+  orders?: number
+  payments?: number
+  delivery?: number
+  messages?: number
+  support?: number
+  account?: number
+  offers?: number
+  marketplace?: number
+  latestAt?: string | null
+}
+
+export type AccountNotificationPreferences = {
+  inAppEnabled: boolean
+  emailEnabled: boolean
+  orderUpdates: boolean
+  paymentUpdates: boolean
+  deliveryUpdates: boolean
+  messageUpdates: boolean
+  supportUpdates: boolean
+  accountUpdates: boolean
+  offers: boolean
+  marketplaceNews: boolean
+  quietHoursEnabled: boolean
+  quietHoursStart: string
+  quietHoursEnd: string
+  updatedAt?: string | null
+}
+
+export type AccountNotificationsResponse = {
+  success: boolean
+  notifications: AccountNotification[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasMore: boolean
+  }
+  summary: AccountNotificationSummary
+  preferences: AccountNotificationPreferences
+}
+
 export type AuthResponse = {
   success: boolean
   token: string
@@ -990,6 +1063,71 @@ export async function removeCustomerWishlistItem(productId: number) {
       method: 'DELETE',
     }
   )
+}
+
+export async function getCustomerNotifications(options: {
+  page?: number
+  limit?: number
+  filter?: 'all' | 'unread' | AccountNotificationCategory
+} = {}) {
+  const params = new URLSearchParams({
+    page: String(options.page || 1),
+    limit: String(options.limit || 15),
+    filter: options.filter || 'all',
+  })
+
+  return accountFetch<AccountNotificationsResponse>(
+    `/api/account/notifications?${params.toString()}`
+  )
+}
+
+export async function getCustomerNotificationSummary() {
+  return accountFetch<{
+    success: boolean
+    summary: AccountNotificationSummary
+  }>('/api/account/notifications/summary')
+}
+
+export async function updateCustomerNotification(
+  notificationId: string,
+  update: { read?: boolean; archived?: boolean }
+) {
+  return accountFetch<{
+    success: boolean
+    notification: AccountNotification
+  }>(
+    `/api/account/notifications/${encodeURIComponent(notificationId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(update),
+    }
+  )
+}
+
+export async function markAllCustomerNotificationsRead() {
+  return accountFetch<{ success: boolean; updated: number }>(
+    '/api/account/notifications/mark-all-read',
+    { method: 'POST' }
+  )
+}
+
+export async function getCustomerNotificationPreferences() {
+  return accountFetch<{
+    success: boolean
+    preferences: AccountNotificationPreferences
+  }>('/api/account/notification-preferences')
+}
+
+export async function updateCustomerNotificationPreferences(
+  preferences: Partial<AccountNotificationPreferences>
+) {
+  return accountFetch<{
+    success: boolean
+    preferences: AccountNotificationPreferences
+  }>('/api/account/notification-preferences', {
+    method: 'PUT',
+    body: JSON.stringify(preferences),
+  })
 }
 
 export async function logoutCustomerAccount() {

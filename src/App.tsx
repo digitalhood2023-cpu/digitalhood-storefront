@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigationType, useParams } from 'react-router-dom'
 
 import { AccountProvider } from '@/context/AccountContext'
+import { NotificationsProvider } from '@/context/NotificationsContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import { MarketplaceStateProvider } from '@/context/MarketplaceStateContext'
@@ -27,6 +28,7 @@ const AccountDetailsPage = lazy(() => import('@/pages/AccountDetailsPage'))
 const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPage'))
 const AccountOrderIssuePage = lazy(() => import('@/pages/AccountOrderIssuePage'))
 const AccountMessagesPage = lazy(() => import('@/pages/AccountMessagesPage'))
+const AccountNotificationsPage = lazy(() => import('@/pages/AccountNotificationsPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'))
@@ -119,9 +121,10 @@ function LegacyOrderDetailsRedirect() {
 function App() {
   return (
     <AccountProvider>
-      <MarketplaceStateProvider>
-        <WishlistProvider>
-          <RecentlyViewedProvider>
+      <NotificationsProvider>
+        <MarketplaceStateProvider>
+          <WishlistProvider>
+            <RecentlyViewedProvider>
             <MarketplaceSEO />
             <NavigationScrollManager />
 
@@ -152,6 +155,7 @@ function App() {
                 <Route path="/account/orders/:orderId/report" element={<AccountOrderIssuePage />} />
                 <Route path="/account/messages" element={<AccountMessagesPage />} />
                 <Route path="/account/messages/:conversationId" element={<AccountMessagesPage />} />
+                <Route path="/account/notifications" element={<AccountNotificationsPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -198,9 +202,10 @@ function App() {
                 </Routes>
               </Suspense>
             </div>
-          </RecentlyViewedProvider>
-        </WishlistProvider>
-      </MarketplaceStateProvider>
+            </RecentlyViewedProvider>
+          </WishlistProvider>
+        </MarketplaceStateProvider>
+      </NotificationsProvider>
     </AccountProvider>
   )
 }

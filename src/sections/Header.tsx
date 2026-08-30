@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BadgePercent,
@@ -19,6 +19,7 @@ import {
   Store,
   MessageCircle,
   LayoutGrid,
+  Bell,
 } from 'lucide-react'
 
 import { useWishlist } from '@/context/WishlistContext'
@@ -33,7 +34,9 @@ import { CartButton } from '@/features/cart/CartButton'
 import { CartDrawer } from '@/features/cart/CartDrawer'
 import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import WishlistDrawer from '@/components/wishlist/WishlistDrawer'
+import NotificationDrawer from '@/components/notifications/NotificationDrawer'
 import SearchAutocomplete from '@/components/search/SearchAutocomplete'
+import { useNotifications } from '@/context/NotificationsContext'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,11 +62,16 @@ function getCustomerDisplayName(customer: {
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [menuCategories, setMenuCategories] = useState<WooCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [messageUnreadCount, setMessageUnreadCount] = useState(0)
+  const [headerHeight, setHeaderHeight] = useState(96)
+  const lastScrollYRef = useRef(0)
+  const scrollFrameRef = useRef<number | null>(null)
+  const headerShellRef = useRef<HTMLDivElement | null>(null)
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -106,12 +114,17 @@ export default function Header() {
 
   const { items: wishlistItems, openWishlistDrawer } = useWishlist()
   const { customer, isAuthenticated, logout } = useAccount()
+  const {
+    unreadCount: notificationUnreadCount,
+    isOpen: isNotificationsOpen,
+    openNotifications,
+  } = useNotifications()
 
   const customerDisplayName = getCustomerDisplayName(customer)
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setMessageUnreadCount(0)
+      queueMicrotask(() => setMessageUnreadCount(0))
       return
     }
 
@@ -164,6 +177,7 @@ export default function Header() {
     const handleUnreadRefresh =
       () => {
         void refreshUnreadCount()
+        window.dispatchEvent(new Event('digitalhood:notification-refresh'))
       }
 
     async function connectUnreadSocket() {
@@ -240,17 +254,71 @@ export default function Header() {
   })
 
   useEffect(() => {
+    const element = headerShellRef.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(([entry]) => {
+      const nextHeight = Math.max(1, Math.ceil(entry.contentRect.height))
+      setHeaderHeight((current) => (current === nextHeight ? current : nextHeight))
+    })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    lastScrollYRef.current = Math.max(0, window.scrollY)
+
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 32)
+      if (scrollFrameRef.current !== null) return
+
+      scrollFrameRef.current = window.requestAnimationFrame(() => {
+        const currentScrollY = Math.max(0, window.scrollY)
+        const scrollDelta = currentScrollY - lastScrollYRef.current
+
+        setIsScrolled(currentScrollY > 32)
+
+        if (
+          currentScrollY <= 12 ||
+          isMobileMenuOpen ||
+          isCartOpen ||
+          isNotificationsOpen
+        ) {
+          setIsHeaderVisible(true)
+        } else if (scrollDelta < -1) {
+          // Reveal on the first intentional upward movement.
+          setIsHeaderVisible(true)
+        } else if (scrollDelta > 5 && currentScrollY > 120) {
+          setIsHeaderVisible(false)
+        }
+
+        lastScrollYRef.current = currentScrollY
+        scrollFrameRef.current = null
+      })
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
 
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current)
+        scrollFrameRef.current = null
+      }
+    }
+  }, [isCartOpen, isMobileMenuOpen, isNotificationsOpen])
 
   useEffect(() => {
-    setIsMobileMenuOpen(false)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setIsMobileMenuOpen(false)
+      setIsHeaderVisible(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [location])
 
   useEffect(() => {
@@ -278,9 +346,26 @@ export default function Header() {
     navigate('/')
   }
 
+  const handleNotifications = () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
+
+    openNotifications()
+  }
+
   return (
     <>
-      <div className="sticky left-0 right-0 top-0 z-[100]">
+      <div aria-hidden="true" style={{ height: `${headerHeight}px` }} />
+      <div
+        ref={headerShellRef}
+        className={`fixed inset-x-0 top-0 z-[100] transform-gpu transition-transform duration-150 ease-out will-change-transform ${
+          isHeaderVisible || isMobileMenuOpen || isCartOpen || isNotificationsOpen
+            ? 'translate-y-0'
+            : '-translate-y-full'
+        }`}
+      >
         <div className="hidden bg-black py-1.5 text-xs text-white md:block">
         <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center gap-6">
@@ -451,6 +536,26 @@ export default function Header() {
                 )}
               </Button>
 
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleNotifications}
+                className="relative hover:bg-gray-100"
+                aria-label={
+                  notificationUnreadCount > 0
+                    ? `Notifications, ${notificationUnreadCount} unread`
+                    : 'Notifications'
+                }
+              >
+                <Bell className="h-5 w-5" />
+                {notificationUnreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ffb54a] px-1 text-[10px] font-black text-[#17155f] ring-2 ring-white">
+                    {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                  </span>
+                )}
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -491,6 +596,23 @@ export default function Header() {
                         <Link to="/orders" className="cursor-pointer">
                           <ShoppingBag className="mr-2 h-4 w-4" />
                           My Orders
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/account/notifications"
+                          className="flex cursor-pointer items-center justify-between gap-3"
+                        >
+                          <span className="flex items-center">
+                            <Bell className="mr-2 h-4 w-4" />
+                            Notifications
+                          </span>
+                          {notificationUnreadCount > 0 && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ffb54a] px-1.5 text-[10px] font-black text-[#26248c]">
+                              {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                            </span>
+                          )}
                         </Link>
                       </DropdownMenuItem>
 
@@ -576,13 +698,23 @@ export default function Header() {
             </div>
 
             <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden">
-              <Link
-                to="/track-order"
-                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
-                aria-label="Track order"
+              <button
+                type="button"
+                onClick={handleNotifications}
+                className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
+                aria-label={
+                  notificationUnreadCount > 0
+                    ? `Notifications, ${notificationUnreadCount} unread`
+                    : 'Notifications'
+                }
               >
-                <PackageCheck className="h-5 w-5" />
-              </Link>
+                <Bell className="h-5 w-5" />
+                {notificationUnreadCount > 0 && (
+                  <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ffb54a] px-1 text-[9px] font-black text-[#17155f] ring-2 ring-white">
+                    {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                  </span>
+                )}
+              </button>
 
               <Link
                 to={isAuthenticated ? '/account' : '/login'}
@@ -692,6 +824,24 @@ export default function Header() {
                         </span>
                       )}
                     </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false)
+                        openNotifications()
+                      }}
+                      className="flex items-center justify-between gap-2 rounded-xl bg-dh-gray px-3 py-2.5 text-left font-bold transition hover:bg-dh-secondary/20"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Bell className="h-4 w-4" /> Notifications
+                      </span>
+                      {notificationUnreadCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ffb54a] px-1.5 text-[10px] font-black text-[#26248c]">
+                          {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                        </span>
+                      )}
+                    </button>
                   </>
                 ) : (
                   <>
@@ -810,6 +960,7 @@ export default function Header() {
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       <WishlistDrawer />
+      <NotificationDrawer />
     </>
   )
 }
