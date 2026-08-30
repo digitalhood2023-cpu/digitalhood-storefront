@@ -66,6 +66,20 @@ function PageLoader() {
   )
 }
 
+function SellerFeedbackRedirect() {
+  const location = useLocation()
+
+  useEffect(() => {
+    const feedbackId = new URLSearchParams(location.search).get('feedback')
+    const destination = new URL('/feedback', 'https://seller.digitalhood.info')
+
+    if (feedbackId) destination.searchParams.set('feedback', feedbackId)
+    window.location.replace(destination.toString())
+  }, [location.search])
+
+  return <PageLoader />
+}
+
 function NavigationScrollManager() {
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -159,6 +173,7 @@ function App() {
                 <Route path="/account/messages/:conversationId" element={<AccountMessagesPage />} />
                 <Route path="/account/notifications" element={<AccountNotificationsPage />} />
                 <Route path="/account/feedback" element={<AccountFeedbackPage />} />
+                <Route path="/seller-feedback" element={<SellerFeedbackRedirect />} />
                 <Route path="/member/:memberKey" element={<MemberFeedbackPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />

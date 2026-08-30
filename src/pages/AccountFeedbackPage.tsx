@@ -275,9 +275,18 @@ function GivenCard({ feedback }: { feedback: MarketplaceFeedback }) {
   )
 }
 
-function ReceivedCard({ feedback }: { feedback: MarketplaceFeedback }) {
+function ReceivedCard({
+  feedback,
+  highlighted = false,
+}: {
+  feedback: MarketplaceFeedback
+  highlighted?: boolean
+}) {
   return (
-    <article className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+    <article
+      id={`feedback-${feedback.id}`}
+      className={`scroll-mt-24 rounded-2xl bg-white p-3 shadow-sm ring-1 transition ${highlighted ? 'ring-2 ring-[#ffb54a]' : 'ring-slate-100'}`}
+    >
       <div className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><UserRoundCheck className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-dh-primary">{feedback.authorName || 'Marketplace seller'}</p><div className="mt-1 flex items-center gap-2"><Stars compact value={feedback.rating} /><span className="text-[10px] font-semibold text-slate-400">{formatDate(feedback.submittedAt)}</span></div></div><span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-700">Verified order</span></div>
       {feedback.comment && <p className="mt-2 text-xs leading-5 text-slate-600">{feedback.comment}</p>}
       <p className="mt-2 text-[10px] font-bold text-slate-400">Positive transaction feedback from a seller you bought from.</p>
@@ -288,8 +297,14 @@ function ReceivedCard({ feedback }: { feedback: MarketplaceFeedback }) {
 export default function AccountFeedbackPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
+  const requestedView = params.get('view')
+  const requestedFeedbackId = params.get('feedback') || ''
   const { isAuthenticated, isLoading: accountLoading } = useAccount()
-  const [view, setView] = useState<View>('pending')
+  const [view, setView] = useState<View>(
+    requestedView === 'received' || requestedView === 'given'
+      ? requestedView
+      : 'pending'
+  )
   const [eligibilities, setEligibilities] = useState<FeedbackEligibility[]>([])
   const [given, setGiven] = useState<MarketplaceFeedback[]>([])
   const [received, setReceived] = useState<MarketplaceFeedback[]>([])
@@ -322,12 +337,30 @@ export default function AccountFeedbackPage() {
   }, [accountLoading, isAuthenticated, navigate])
 
   useEffect(() => {
+    if (requestedView === 'received' || requestedView === 'given' || requestedView === 'pending') {
+      setView(requestedView)
+    }
+  }, [requestedView])
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       if (isAuthenticated) void load()
     }, 0)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, params.toString()])
+
+  useEffect(() => {
+    if (loading || view !== 'received' || !requestedFeedbackId) return
+
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`feedback-${requestedFeedbackId}`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [loading, requestedFeedbackId, view])
 
   const pending = useMemo(
     () => eligibilities.filter((item) => item.status === 'eligible'),
@@ -384,7 +417,13 @@ export default function AccountFeedbackPage() {
             ) : view === 'given' && given.length ? (
               given.map((item) => <GivenCard key={item.id} feedback={item} />)
             ) : view === 'received' && received.length ? (
-              received.map((item) => <ReceivedCard key={item.id} feedback={item} />)
+              received.map((item) => (
+                <ReceivedCard
+                  key={item.id}
+                  feedback={item}
+                  highlighted={item.id === requestedFeedbackId}
+                />
+              ))
             ) : (
               <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
                 <PackageCheck className="mx-auto h-9 w-9 text-dh-primary" />
