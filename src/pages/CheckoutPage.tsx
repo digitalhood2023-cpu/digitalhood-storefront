@@ -134,6 +134,13 @@ function isUnavailable(item: CheckoutCartItem) {
     return true
   }
 
+  if (
+    item.stockStatus !== 'onbackorder' &&
+    item.stockQuantity !== null &&
+    item.stockQuantity !== undefined &&
+    item.quantity > item.stockQuantity
+  ) return true
+
   return false
 }
 

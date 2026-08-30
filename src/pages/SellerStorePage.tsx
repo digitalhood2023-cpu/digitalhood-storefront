@@ -41,6 +41,11 @@ import {
   type PublicSellerStore,
 } from '@/api/publicSellers'
 import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
+import {
+  getPublicFeedback,
+  type FeedbackSummary,
+  type MarketplaceFeedback,
+} from '@/api/feedback'
 
 function safeNumber(value: unknown, fallback = 0) {
   const numericValue = Number(value)
@@ -88,6 +93,8 @@ export default function SellerStorePage() {
   const [maxPrice, setMaxPrice] = useState('')
   const [sort, setSort] = useState('featured')
   const [addedProductId, setAddedProductId] = useState<string | number | null>(null)
+  const [trustSummary, setTrustSummary] = useState<FeedbackSummary | null>(null)
+  const [recentFeedback, setRecentFeedback] = useState<MarketplaceFeedback[]>([])
   const filterRequestIdRef = useRef(0)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
@@ -114,6 +121,25 @@ export default function SellerStorePage() {
         )
       })
       .finally(() => setIsLoading(false))
+  }, [sellerKey])
+
+  useEffect(() => {
+    if (!sellerKey) return
+    let active = true
+    getPublicFeedback('sellers', sellerKey)
+      .then((response) => {
+        if (!active) return
+        setTrustSummary(response.summary)
+        setRecentFeedback(response.feedback)
+      })
+      .catch(() => {
+        if (!active) return
+        setTrustSummary(null)
+        setRecentFeedback([])
+      })
+    return () => {
+      active = false
+    }
   }, [sellerKey])
 
   const seller = store?.seller
@@ -605,8 +631,10 @@ export default function SellerStorePage() {
                         ['Products', store.stats.productsLive.toLocaleString('en-ZM')],
                         [
                           'Rating',
-                          store.stats.ratingAverage && store.stats.ratingCount > 0
-                            ? store.stats.ratingAverage.toFixed(1)
+                          trustSummary?.count
+                            ? trustSummary.averageRating.toFixed(1)
+                            : store.stats.ratingAverage && store.stats.ratingCount > 0
+                              ? store.stats.ratingAverage.toFixed(1)
                             : '—',
                         ],
                       ].map(([label, value]) => (
@@ -633,6 +661,37 @@ export default function SellerStorePage() {
                     {seller.description ||
                       'This seller is approved to sell on DigitalHood Marketplace.'}
                   </p>
+                </div>
+
+                <div className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#b77716]">Verified buyers</p>
+                      <h2 className="font-display text-base font-black text-dh-primary">Seller feedback</h2>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-dh-primary">{trustSummary?.count ? trustSummary.averageRating.toFixed(1) : '—'}</p>
+                      <p className="text-[10px] font-bold text-slate-400">{trustSummary?.count || 0} ratings</p>
+                    </div>
+                  </div>
+                  {trustSummary?.count ? (
+                    <>
+                      <div className="mt-2 flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-2">
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700"><BadgeCheck className="h-3.5 w-3.5" /> {trustSummary.positivePercent}% positive</span>
+                        <span className="flex gap-0.5">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={`h-3 w-3 ${index < Math.round(trustSummary.averageRating) ? 'fill-[#ffb54a] text-[#ffb54a]' : 'text-slate-300'}`} />)}</span>
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        {recentFeedback.slice(0, 3).map((feedback) => (
+                          <div key={feedback.id} className="border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                            <div className="flex items-center justify-between gap-2"><p className="truncate text-[11px] font-black text-dh-primary">{feedback.authorName}</p><span className="text-[10px] font-black text-[#b77716]">{feedback.rating}.0 ★</span></div>
+                            {feedback.comment && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-500">{feedback.comment}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-xs leading-5 text-slate-500">This store has not received verified delivery feedback yet.</p>
+                  )}
                 </div>
 
               </aside>

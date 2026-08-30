@@ -783,13 +783,21 @@ export default function AccountPage() {
             </div>
           </section>
 
-          <section aria-label="Account tools" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+          <section aria-label="Account tools" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
             <DashboardCard
               icon={<ShoppingBag className="h-5 w-5" />}
               label="Orders"
               value={orders.length ? `${orders.length} recent` : 'View orders'}
               helper="Purchases and delivery status."
               href="/orders"
+            />
+
+            <DashboardCard
+              icon={<Star className="h-5 w-5" />}
+              label="Feedback"
+              value="Rate purchases"
+              helper="Review delivered items and sellers."
+              href="/account/feedback"
             />
 
             <DashboardCard

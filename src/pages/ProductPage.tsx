@@ -577,12 +577,29 @@ export default function ProductPage() {
 
   const activeStockItem = matchingVariation || product
 
+  const activeStockStatus = String(
+    (activeStockItem as any)?.stockStatus ||
+    (activeStockItem as any)?.stock_status ||
+    ''
+  )
+  const activeStockQuantityValue =
+    (activeStockItem as any)?.stockQuantity ??
+    (activeStockItem as any)?.stock_quantity
+  const activeStockQuantity = Number(activeStockQuantityValue)
+  const activeStockLimit = activeStockStatus !== 'onbackorder' &&
+    activeStockQuantityValue !== null &&
+    activeStockQuantityValue !== undefined &&
+    Number.isFinite(activeStockQuantity)
+    ? Math.max(0, Math.floor(activeStockQuantity))
+    : null
+
   const activeCanAddToCart = Boolean(
     activeStockItem &&
       (activeStockItem as any).canAddToCart !== false &&
       (activeStockItem as any).can_add_to_cart !== false &&
       (activeStockItem as any).stockStatus !== 'outofstock' &&
-      (activeStockItem as any).stock_status !== 'outofstock'
+      (activeStockItem as any).stock_status !== 'outofstock' &&
+      activeStockLimit !== 0
   )
 
   const canProceedToBuy = Boolean(
@@ -842,11 +859,13 @@ export default function ProductPage() {
     }))
 
     setSelectedImage(0)
+    setQuantity(1)
   }
 
   const handleDirectVariationSelect = (variation: WooProductVariation) => {
     setSelectedAttributes(variation.attributes || {})
     setSelectedImage(0)
+    setQuantity(1)
   }
 
   const goToPreviousImage = () => {
@@ -1703,8 +1722,10 @@ export default function ProductPage() {
 
                     <button
                       type="button"
-                      onClick={() => setQuantity((prev) => prev + 1)}
-                      className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center"
+                      onClick={() => setQuantity((prev) => Math.min(activeStockLimit ?? 99, prev + 1))}
+                      disabled={activeStockLimit !== null && quantity >= activeStockLimit}
+                      className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label={activeStockLimit !== null && quantity >= activeStockLimit ? `Maximum ${activeStockLimit} available` : 'Increase quantity'}
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -2045,10 +2066,41 @@ export default function ProductPage() {
                                     Verified purchase
                                   </span>
                                 </div>
+                                {review.title && (
+                                  <p className="mt-3 text-sm font-black text-dh-primary">
+                                    {review.title}
+                                  </p>
+                                )}
                                 {review.review && (
-                                  <p className="mt-3 text-sm leading-6 text-dh-dark-gray">
+                                  <p className={`${review.title ? 'mt-1' : 'mt-3'} text-sm leading-6 text-dh-dark-gray`}>
                                     {review.review}
                                   </p>
+                                )}
+                                {review.tags && review.tags.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {review.tags.slice(0, 6).map((tag) => (
+                                      <span key={tag} className="rounded-full bg-dh-gray px-2 py-1 text-[10px] font-bold capitalize text-dh-primary">
+                                        {tag.replace(/_/g, ' ')}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {review.media && review.media.length > 0 && (
+                                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                                    {review.media.map((media, index) => media.type === 'video' ? (
+                                      <video key={`${media.url}-${index}`} src={media.url} controls preload="metadata" className="aspect-square w-full rounded-xl bg-black object-cover" />
+                                    ) : (
+                                      <a key={`${media.url}-${index}`} href={media.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl bg-dh-gray">
+                                        <img src={media.thumbnailUrl || media.url} alt="Buyer feedback" loading="lazy" className="aspect-square w-full object-cover transition hover:scale-105" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                                {review.response?.text && (
+                                  <div className="mt-3 rounded-xl border-l-2 border-[#ffb54a] bg-dh-gray p-3 text-xs leading-5 text-dh-dark-gray">
+                                    <span className="font-black text-dh-primary">Seller response: </span>
+                                    {review.response.text}
+                                  </div>
                                 )}
                                 {review.dateCreated && (
                                   <p className="mt-2 text-xs font-semibold text-gray-500">

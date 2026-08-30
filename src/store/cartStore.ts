@@ -157,6 +157,36 @@ const getStockQuantity = (product: CartProduct): number | null => {
   return Number.isNaN(quantity) ? null : quantity
 }
 
+const getAvailableStockLimit = (product: CartProduct): number | null => {
+  if (getStockStatus(product) === 'onbackorder') return null
+  const quantity = getStockQuantity(product)
+  if (quantity === null || !Number.isFinite(quantity)) return null
+  return Math.max(0, Math.floor(quantity))
+}
+
+const normalizeRequestedQuantity = (value: number): number => {
+  const quantity = Number(value)
+  return Number.isFinite(quantity)
+    ? Math.max(1, Math.min(99, Math.floor(quantity)))
+    : 1
+}
+
+const getCartItemStockLimit = (item: CartItem): number | null => {
+  if (item.stockStatus === 'onbackorder') return null
+  if (item.stockQuantity === null || item.stockQuantity === undefined) return null
+  const quantity = Number(item.stockQuantity)
+  return Number.isFinite(quantity) ? Math.max(0, Math.floor(quantity)) : null
+}
+
+const clampCartItemQuantity = (item: CartItem): CartItem => {
+  const requested = normalizeRequestedQuantity(item.quantity)
+  const limit = getCartItemStockLimit(item)
+  return {
+    ...item,
+    quantity: limit !== null && limit > 0 ? Math.min(requested, limit) : requested,
+  }
+}
+
 const getManageStock = (product: CartProduct): boolean => {
   return Boolean(product.manage_stock ?? product.manageStock ?? false)
 }
@@ -407,15 +437,40 @@ export const useCartStore = create<CartStore>()(
 
         const existingItem = items.find((item) => item.id === cartItemId)
 
-        const safeQuantity = Math.max(1, Number(quantity || 1))
+        const safeQuantity = normalizeRequestedQuantity(quantity)
+        const stockLimit = getAvailableStockLimit(selectedProduct)
+
+        if (stockLimit !== null && stockLimit <= 0) {
+          alert('This item is out of stock.')
+          return false
+        }
 
         if (existingItem) {
+          const requestedTotal = existingItem.quantity + safeQuantity
+          const nextQuantity = stockLimit === null
+            ? Math.min(99, requestedTotal)
+            : Math.min(stockLimit, requestedTotal)
+
+          if (nextQuantity <= existingItem.quantity) {
+            alert(`Only ${stockLimit} available. Your cart already has the maximum quantity.`)
+            return false
+          }
+
+          if (nextQuantity < requestedTotal) {
+            alert(`Only ${stockLimit} available. Your cart quantity was limited to ${nextQuantity}.`)
+          }
+
           set({
             items: items.map((item) =>
               item.id === cartItemId
                 ? {
                     ...item,
-                    quantity: item.quantity + safeQuantity,
+                    quantity: nextQuantity,
+                    stockStatus: getStockStatus(selectedProduct),
+                    stockQuantity: getStockQuantity(selectedProduct),
+                    stockLabel: getStockLabel(selectedProduct),
+                    stockTone: getStockTone(selectedProduct),
+                    canAddToCart: getCanAddToCart(selectedProduct),
                     variationLabel: item.variationLabel || variationLabel,
                     sellerStoreName: item.sellerStoreName || sellerInfo.sellerStoreName,
                     sellerKey: item.sellerKey || sellerInfo.sellerKey,
@@ -445,6 +500,14 @@ export const useCartStore = create<CartStore>()(
             product.price
         )
 
+        const initialQuantity = stockLimit === null
+          ? safeQuantity
+          : Math.min(stockLimit, safeQuantity)
+
+        if (initialQuantity < safeQuantity) {
+          alert(`Only ${stockLimit} available. ${initialQuantity} added to your cart.`)
+        }
+
         set({
           items: [
             ...items,
@@ -463,7 +526,7 @@ export const useCartStore = create<CartStore>()(
                 selectedProduct.image ||
                 product.image ||
                 '',
-              quantity: safeQuantity,
+              quantity: initialQuantity,
               stockStatus: getStockStatus(selectedProduct),
               stockQuantity: getStockQuantity(selectedProduct),
               stockLabel: getStockLabel(selectedProduct),
@@ -490,12 +553,20 @@ export const useCartStore = create<CartStore>()(
       },
 
       increaseQuantity: (productId) => {
+        const current = get().items.find((item) => item.id === productId)
+        if (!current) return
+        const stockLimit = getCartItemStockLimit(current)
+        if (stockLimit !== null && current.quantity >= stockLimit) {
+          alert(`Only ${stockLimit} available. You cannot add more of this item.`)
+          return
+        }
+
         set({
           items: get().items.map((item) =>
             item.id === productId
               ? {
                   ...item,
-                  quantity: item.quantity + 1,
+                  quantity: Math.min(99, item.quantity + 1),
                 }
               : item
           ),
@@ -517,7 +588,7 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => set({ items: [] }),
 
-      replaceItems: (items) => set({ items }),
+      replaceItems: (items) => set({ items: items.map(clampCartItemQuantity) }),
 
       getCartCount: () => {
         return get().items.reduce(

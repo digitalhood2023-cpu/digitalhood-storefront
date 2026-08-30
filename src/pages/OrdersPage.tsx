@@ -12,6 +12,7 @@ import {
   PackageCheck,
   Search,
   ShoppingBag,
+  Star,
   Truck,
 } from 'lucide-react'
 
@@ -175,6 +176,15 @@ function OrderCard({ order }: { order: AccountOrder }) {
           <p className="hidden max-w-xs truncate text-xs font-semibold text-slate-500 sm:block">
             Expected {order.deliveryEstimate.label}
           </p>
+        )}
+        {['delivered', 'completed'].includes(normalizeStatus(order.status)) && (
+          <Link
+            to={`/account/feedback?order=${encodeURIComponent(String(order.id))}`}
+            className="inline-flex h-9 items-center justify-center rounded-full border border-dh-primary px-3 text-xs font-bold text-dh-primary hover:bg-dh-primary/5"
+          >
+            <Star className="mr-1.5 h-3.5 w-3.5" />
+            Leave feedback
+          </Link>
         )}
         <Link
           to={`/track-order/${order.id}`}
