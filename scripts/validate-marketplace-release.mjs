@@ -25,6 +25,7 @@ const orders = read('src/pages/OrdersPage.tsx')
 const accountApi = read('src/api/account.ts')
 const cartDrawer = read('src/features/cart/CartDrawer.tsx')
 const wishlistDrawer = read('src/components/wishlist/WishlistDrawer.tsx')
+const sellerStore = read('src/pages/SellerStorePage.tsx')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
 const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
 const supportLinks = read('src/lib/supportLinks.ts')
@@ -186,6 +187,15 @@ assert(
     wishlistDrawer.includes('View full wishlist') &&
     !wishlistDrawer.includes('grid-cols-[96px_minmax(0,1fr)]'),
   'cart and wishlist drawer products must remain compact without losing their actions'
+)
+assert(
+  sellerStore.includes('data-store-product-id') &&
+    sellerStore.includes('loadMoreAnchorRef') &&
+    sellerStore.includes('keepExistingProductInPlace') &&
+    sellerStore.includes("root.style.scrollBehavior = 'auto'") &&
+    sellerStore.includes('currentStore.products.concat(appendedProducts)') &&
+    sellerStore.includes('filterRequestId !== filterRequestIdRef.current'),
+  'seller-store pagination must append downward and preserve the last existing product viewport anchor'
 )
 assert(
   tracking.includes('Coupon ') &&
