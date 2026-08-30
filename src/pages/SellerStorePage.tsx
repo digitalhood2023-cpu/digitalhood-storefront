@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -96,6 +96,7 @@ export default function SellerStorePage() {
   const [trustSummary, setTrustSummary] = useState<FeedbackSummary | null>(null)
   const [recentFeedback, setRecentFeedback] = useState<MarketplaceFeedback[]>([])
   const filterRequestIdRef = useRef(0)
+  const loadMoreScrollYRef = useRef<number | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
 
@@ -198,6 +199,14 @@ export default function SellerStorePage() {
     () => [...products],
     [products]
   )
+
+  useLayoutEffect(() => {
+    if (loadMoreScrollYRef.current === null) return
+
+    const scrollY = loadMoreScrollYRef.current
+    loadMoreScrollYRef.current = null
+    window.scrollTo({ top: scrollY, behavior: 'auto' })
+  }, [products.length, store?.page])
 
   async function loadFilteredStore(
     nextFilters = currentFilters
@@ -415,6 +424,7 @@ export default function SellerStorePage() {
 
     setIsLoadingMore(true)
     setLoadMoreError('')
+    const filterRequestId = filterRequestIdRef.current
 
     try {
       const nextPage =
@@ -425,26 +435,23 @@ export default function SellerStorePage() {
           currentFilters
         )
 
+      if (filterRequestId !== filterRequestIdRef.current) {
+        return
+      }
+
+      loadMoreScrollYRef.current = window.scrollY
+
       setStore((currentStore) => {
         if (!currentStore) {
           return nextPage
         }
 
-        const productsById =
-          new Map<
-            string,
-            PublicSellerProduct
-          >()
-
-        for (const product of [
-          ...currentStore.products,
-          ...nextPage.products,
-        ]) {
-          productsById.set(
-            String(product.id),
-            product
-          )
-        }
+        const existingProductIds = new Set(
+          currentStore.products.map((product) => String(product.id))
+        )
+        const appendedProducts = nextPage.products.filter(
+          (product) => !existingProductIds.has(String(product.id))
+        )
 
         return {
           ...currentStore,
@@ -456,9 +463,7 @@ export default function SellerStorePage() {
             nextPage.stats ||
             currentStore.stats,
           products:
-            Array.from(
-              productsById.values()
-            ),
+            currentStore.products.concat(appendedProducts),
           count:
             nextPage.count ||
             currentStore.count,
@@ -1396,7 +1401,10 @@ export default function SellerStorePage() {
 
                     {(hasMoreProducts ||
                       loadMoreError) && (
-                      <div className="mt-6 flex flex-col items-center gap-3">
+                      <div
+                        className="mt-6 flex flex-col items-center gap-3"
+                        style={{ overflowAnchor: 'none' }}
+                      >
                         {loadMoreError && (
                           <p
                             role="alert"
