@@ -64,7 +64,10 @@ export function NotificationsProvider({
     setError('')
 
     try {
-      const response = await getCustomerNotifications({ limit: 12 })
+      const response = await getCustomerNotifications({
+        limit: 12,
+        filter: 'unread',
+      })
       setNotifications(response.notifications)
       setUnreadCount(Math.max(0, Number(response.summary?.unread || 0)))
     } catch (requestError) {
@@ -91,22 +94,15 @@ export function NotificationsProvider({
       const current = notifications.find((item) => item.id === notificationId)
       if (!current || current.readAt) return
 
-      const readAt = new Date().toISOString()
       setNotifications((items) =>
-        items.map((item) =>
-          item.id === notificationId ? { ...item, readAt } : item
-        )
+        items.filter((item) => item.id !== notificationId)
       )
       setUnreadCount((count) => Math.max(0, count - 1))
 
       try {
         await updateCustomerNotification(notificationId, { read: true })
       } catch {
-        setNotifications((items) =>
-          items.map((item) =>
-            item.id === notificationId ? current : item
-          )
-        )
+        setNotifications(notifications)
         setUnreadCount((count) => count + 1)
       }
     },
@@ -116,11 +112,7 @@ export function NotificationsProvider({
   const markAllRead = useCallback(async () => {
     const previous = notifications
     const previousCount = unreadCount
-    const readAt = new Date().toISOString()
-
-    setNotifications((items) =>
-      items.map((item) => ({ ...item, readAt: item.readAt || readAt }))
-    )
+    setNotifications([])
     setUnreadCount(0)
 
     try {

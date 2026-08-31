@@ -209,6 +209,9 @@ export default function NotificationDrawer({
     markAllRead,
     archiveNotification,
   } = useNotifications()
+  const unreadNotifications = notifications.filter(
+    (notification) => !notification.readAt
+  )
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && closeNotifications()}>
@@ -247,7 +250,7 @@ export default function NotificationDrawer({
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {isLoading && notifications.length === 0 ? (
+          {isLoading && unreadNotifications.length === 0 ? (
             <div className="space-y-1 p-3">
               {Array.from({ length: 5 }).map((_, index) => (
                 <div
@@ -256,7 +259,7 @@ export default function NotificationDrawer({
                 />
               ))}
             </div>
-          ) : error && notifications.length === 0 ? (
+          ) : error && unreadNotifications.length === 0 ? (
             <div className="m-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
               <CircleAlert className="h-5 w-5" />
               <p className="mt-2 text-sm font-black">Updates are reconnecting</p>
@@ -270,8 +273,8 @@ export default function NotificationDrawer({
                 Retry
               </button>
             </div>
-          ) : notifications.length > 0 ? (
-            notifications.map((notification) => (
+          ) : unreadNotifications.length > 0 ? (
+            unreadNotifications.map((notification) => (
               <NotificationRow
                 key={notification.id}
                 notification={notification}
