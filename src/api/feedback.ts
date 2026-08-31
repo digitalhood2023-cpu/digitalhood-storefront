@@ -117,17 +117,37 @@ export async function getFeedbackEligibilities(options: {
   orderId?: string | number
   page?: number
   limit?: number
+  sync?: boolean
 } = {}) {
   const params = new URLSearchParams()
   if (options.orderId) params.set('order', String(options.orderId))
   if (options.page) params.set('page', String(options.page))
   if (options.limit) params.set('limit', String(options.limit))
+  if (options.sync === false) params.set('sync', '0')
   const query = params.size ? `?${params.toString()}` : ''
   return accountFeedbackRequest<{
     success: boolean
     eligibilities: FeedbackEligibility[]
     pagination: Pagination
   }>(`/api/account/feedback/eligibilities${query}`)
+}
+
+export async function getAllFeedbackEligibilities() {
+  const first = await getFeedbackEligibilities({ page: 1, limit: 50 })
+  const pages = Math.max(1, Number(first.pagination?.pages || 1))
+
+  if (pages === 1) return first.eligibilities || []
+
+  const remaining = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, index) =>
+      getFeedbackEligibilities({ page: index + 2, limit: 50, sync: false })
+    )
+  )
+
+  return [
+    ...(first.eligibilities || []),
+    ...remaining.flatMap((response) => response.eligibilities || []),
+  ]
 }
 
 export async function getGivenFeedback(page = 1) {

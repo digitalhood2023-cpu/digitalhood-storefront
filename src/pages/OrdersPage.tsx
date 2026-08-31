@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowRight,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -22,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAccount } from '@/context/AccountContext'
 import { getCustomerOrders, type AccountOrder } from '@/api/account'
+import { getAllFeedbackEligibilities, type FeedbackEligibility } from '@/api/feedback'
+import { getOrderFeedbackProgress, type OrderFeedbackProgress } from '@/lib/feedbackProgress'
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
 
 function formatPrice(amount?: string | number, currency = 'ZMW') {
@@ -93,7 +96,15 @@ function StatusIcon({ status }: { status?: string }) {
   return <Package className="h-3.5 w-3.5" />
 }
 
-function OrderCard({ order }: { order: AccountOrder }) {
+function OrderCard({
+  order,
+  feedbackProgress,
+  feedbackReady,
+}: {
+  order: AccountOrder
+  feedbackProgress: OrderFeedbackProgress
+  feedbackReady: boolean
+}) {
   const storeGroups = groupOrderItemsByStore(order.items || [])
   const itemCount = (order.items || []).reduce(
     (total, item) => total + Math.max(1, Number(item.quantity || 1)),
@@ -159,6 +170,11 @@ function OrderCard({ order }: { order: AccountOrder }) {
                     <span className="mt-0.5 block text-[10px] font-semibold text-slate-500">
                       Qty {item.quantity} · {formatPrice(item.total, order.currency)}
                     </span>
+                    {feedbackProgress.reviewedOrderItemIds.has(Number(item.id)) && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-black text-emerald-700">
+                        <CheckCircle2 className="h-3 w-3" /> Reviewed
+                      </span>
+                    )}
                   </span>
                 </Link>
               ))}
@@ -177,14 +193,21 @@ function OrderCard({ order }: { order: AccountOrder }) {
             Expected {order.deliveryEstimate.label}
           </p>
         )}
-        {['delivered', 'completed'].includes(normalizeStatus(order.status)) && (
+        {['delivered', 'completed'].includes(normalizeStatus(order.status)) && feedbackReady && feedbackProgress.pending > 0 && (
           <Link
             to={`/account/feedback?order=${encodeURIComponent(String(order.id))}`}
             className="inline-flex h-9 items-center justify-center rounded-full border border-dh-primary px-3 text-xs font-bold text-dh-primary hover:bg-dh-primary/5"
           >
             <Star className="mr-1.5 h-3.5 w-3.5" />
-            Leave feedback
+            {feedbackProgress.submitted > 0
+              ? `${feedbackProgress.pending} review${feedbackProgress.pending === 1 ? '' : 's'} left`
+              : 'Leave feedback'}
           </Link>
+        )}
+        {['delivered', 'completed'].includes(normalizeStatus(order.status)) && feedbackReady && feedbackProgress.pending === 0 && feedbackProgress.submitted > 0 && (
+          <span className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Feedback left
+          </span>
         )}
         <Link
           to={`/track-order/${order.id}`}
@@ -231,6 +254,8 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalOrders, setTotalOrders] = useState(0)
+  const [feedbackEligibilities, setFeedbackEligibilities] = useState<FeedbackEligibility[]>([])
+  const [feedbackReady, setFeedbackReady] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) navigate('/login?redirect=/orders')
@@ -293,6 +318,26 @@ export default function OrdersPage() {
       mounted = false
     }
   }, [debouncedSearch, isAuthenticated, page, statusFilter])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let active = true
+
+    getAllFeedbackEligibilities()
+      .then((eligibilities) => {
+        if (active) setFeedbackEligibilities(eligibilities)
+      })
+      .catch(() => {
+        // Orders still remain usable if feedback history is temporarily unavailable.
+      })
+      .finally(() => {
+        if (active) setFeedbackReady(true)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [isAuthenticated])
 
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
@@ -374,7 +419,14 @@ export default function OrdersPage() {
             ) : orders.length > 0 ? (
               <>
                 <div className={`grid gap-3 transition-opacity ${isOrdersLoading ? 'opacity-60' : 'opacity-100'}`} aria-busy={isOrdersLoading}>
-                  {orders.map((order) => <OrderCard key={order.id} order={order} />)}
+                  {orders.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      feedbackProgress={getOrderFeedbackProgress(feedbackEligibilities, order.id)}
+                      feedbackReady={feedbackReady}
+                    />
+                  ))}
                 </div>
 
                 {(totalPages > 1 || isOrdersLoading) && (

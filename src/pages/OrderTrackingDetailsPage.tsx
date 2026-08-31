@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, Check, CircleDot, Clock3, MapPin, PackageCheck, Radio, ReceiptText, RefreshCw, ShieldAlert, ShoppingBag, Star, Store, Truck } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, CheckCircle2, CircleDot, Clock3, MapPin, PackageCheck, Radio, ReceiptText, RefreshCw, ShieldAlert, ShoppingBag, Star, Store, Truck } from 'lucide-react'
 
 import { getCustomerOrder } from '@/api/account'
+import { getFeedbackEligibilities, type FeedbackEligibility } from '@/api/feedback'
 import { getOrderPaymentRecovery } from '@/api/paymentRecovery'
 import type { CustomerOrder } from '@/api/orders'
 import { Button } from '@/components/ui/button'
 import { useAccount } from '@/context/AccountContext'
 import { groupOrderItemsByStore } from '@/lib/orderStoreOwnership'
+import { getOrderFeedbackProgress } from '@/lib/feedbackProgress'
 import { formatOrderDate, formatOrderMoney, getTrackingState, normalizeTrackingStatus, type TrackableOrder } from '@/lib/orderTracking'
 import { buildAccountOrderSupportUrl, buildOrderSupportUrl } from '@/lib/supportLinks'
 import Footer from '@/sections/Footer'
@@ -155,6 +157,10 @@ export default function OrderTrackingDetailsPage() {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [refreshNotice, setRefreshNotice] = useState('')
+  const [feedbackState, setFeedbackState] = useState<{
+    orderId: string
+    eligibilities: FeedbackEligibility[]
+  } | null>(null)
 
   useEffect(() => {
     if (accountLoading) return
@@ -204,7 +210,49 @@ export default function OrderTrackingDetailsPage() {
     }
   }, [accountLoading, guestOrder, isAuthenticated, orderId, recoveryToken])
 
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      !order?.id ||
+      !['delivered', 'completed'].includes(normalizeTrackingStatus(order.status))
+    ) {
+      return
+    }
+
+    let active = true
+    const feedbackOrderId = String(order.id)
+
+    getFeedbackEligibilities({ orderId: order.id, limit: 50 })
+      .then((response) => {
+        if (active) {
+          setFeedbackState({
+            orderId: feedbackOrderId,
+            eligibilities: response.eligibilities || [],
+          })
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setFeedbackState({ orderId: feedbackOrderId, eligibilities: [] })
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [isAuthenticated, order?.id, order?.status])
+
   const groups = useMemo(() => groupOrderItemsByStore(order?.items || []), [order])
+  const feedbackReady = feedbackState?.orderId === String(order?.id || '')
+  const feedbackProgress = useMemo(
+    () => getOrderFeedbackProgress(
+      feedbackState?.orderId === String(order?.id || '')
+        ? feedbackState.eligibilities
+        : [],
+      order?.id || orderId
+    ),
+    [feedbackState, order?.id, orderId]
+  )
   const state = order ? getTrackingState(order) : null
   const deliveryTracking = order?.deliveryTracking
   const progress = order ? journeyPosition(order) : 0
@@ -299,7 +347,7 @@ export default function OrderTrackingDetailsPage() {
                         {group.items.map((item) => (
                           <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex items-center gap-3 py-2.5 hover:text-[#28256d]">
                             {item.image ? <img src={item.image} alt="" className="h-12 w-12 rounded-lg bg-white object-cover" /> : <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white"><ShoppingBag className="h-4 w-4 text-slate-300" /></span>}
-                            <span className="min-w-0 flex-1"><span className="block line-clamp-2 text-sm font-bold text-slate-800">{item.name}</span><span className="mt-0.5 block text-xs text-slate-500">Qty {item.quantity}</span></span>
+                            <span className="min-w-0 flex-1"><span className="block line-clamp-2 text-sm font-bold text-slate-800">{item.name}</span><span className="mt-0.5 block text-xs text-slate-500">Qty {item.quantity}</span>{feedbackProgress.reviewedOrderItemIds.has(Number(item.id)) && <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-black text-emerald-700"><CheckCircle2 className="h-3 w-3" /> Reviewed</span>}</span>
                             <span className="text-xs font-black text-slate-700">{formatOrderMoney(item.total, order.currency)}</span>
                           </Link>
                         ))}
@@ -312,10 +360,15 @@ export default function OrderTrackingDetailsPage() {
               <div className="space-y-4">
                 <OrderSummary order={order} isCashOnDelivery={isCashOnDelivery} isClosed={state.closed} />
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="mb-3 flex items-center gap-2 font-black text-[#16143f]"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
-                {isAuthenticated && ['delivered', 'completed'].includes(normalizeTrackingStatus(order.status)) && (
+                {isAuthenticated && ['delivered', 'completed'].includes(normalizeTrackingStatus(order.status)) && feedbackReady && feedbackProgress.pending > 0 && (
                   <section className="rounded-2xl border border-[#f5a623]/30 bg-[#fff8ec] p-3 shadow-sm">
-                    <div className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 fill-[#f5a623] text-[#f5a623]" /><div><p className="text-sm font-black text-slate-800">How was your purchase?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">Rate the products and sellers from this verified delivery.</p></div></div>
-                    <Button asChild className="mt-3 h-9 w-full bg-[#28256d] text-xs font-bold text-white"><Link to={`/account/feedback?order=${encodeURIComponent(String(order.id))}`}>Leave verified feedback</Link></Button>
+                    <div className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 fill-[#f5a623] text-[#f5a623]" /><div><p className="text-sm font-black text-slate-800">{feedbackProgress.submitted > 0 ? 'Finish your feedback' : 'How was your purchase?'}</p><p className="mt-0.5 text-xs leading-5 text-slate-500">{feedbackProgress.pending} verified review{feedbackProgress.pending === 1 ? '' : 's'} still available for this order.</p></div></div>
+                    <Button asChild className="mt-3 h-9 w-full bg-[#28256d] text-xs font-bold text-white"><Link to={`/account/feedback?order=${encodeURIComponent(String(order.id))}`}>{feedbackProgress.submitted > 0 ? 'Continue feedback' : 'Leave verified feedback'}</Link></Button>
+                  </section>
+                )}
+                {isAuthenticated && ['delivered', 'completed'].includes(normalizeTrackingStatus(order.status)) && feedbackReady && feedbackProgress.pending === 0 && feedbackProgress.submitted > 0 && (
+                  <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
+                    <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><div><p className="text-sm font-black text-emerald-900">Feedback complete</p><p className="mt-0.5 text-xs leading-5 text-emerald-700">You already reviewed this purchase. Thank you for helping the marketplace.</p></div></div>
                   </section>
                 )}
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={isAuthenticated ? buildAccountOrderSupportUrl(order) : buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>

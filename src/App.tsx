@@ -46,7 +46,6 @@ const HeadphonesPage = lazy(() => import('@/pages/seo/HeadphonesPage'))
 const PowerBankPage = lazy(() => import('@/pages/seo/PowerBankPage'))
 const ScreenRepairPage = lazy(() => import('@/pages/seo/ScreenRepairPage'))
 const AboutUsPage = lazy(() => import('@/pages/seo/AboutUsPage'))
-const ContactPage = lazy(() => import('@/pages/seo/ContactPage'))
 const SupportPage = lazy(() => import('@/pages/SupportPage'))
 
 function PageLoader() {
@@ -208,7 +207,7 @@ function App() {
                 <Route path="/power-banks-zambia" element={<PowerBankPage />} />
                 <Route path="/screen-repair-zambia" element={<ScreenRepairPage />} />
                 <Route path="/about" element={<AboutUsPage />} />
-                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/contact" element={<SupportPage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/support/track" element={<SupportPage />} />
 

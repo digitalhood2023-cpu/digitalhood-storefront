@@ -15,6 +15,7 @@ import {
   MessageCircle,
   PackageCheck,
   Search,
+  Send,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { useAccount } from '@/context/AccountContext'
 import {
   getAllCustomerOrderCases,
+  replyToCustomerOrderCase,
   type AccountOrderCase,
   type AccountOrderCaseAttachment,
 } from '@/api/account'
@@ -274,8 +276,8 @@ function EmptyCases() {
         Your support inbox is clear
       </h2>
       <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-dh-dark-gray">
-        When you report an issue from an order, the case and every support
-        update will appear here.
+        When you contact DigitalHood or report an order issue, the case and
+        every support update will appear here.
       </p>
       <Link
         to="/orders"
@@ -299,6 +301,9 @@ export default function AccountSupportCasesPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<CaseFilter>('all')
+  const [replyMessage, setReplyMessage] = useState('')
+  const [replyError, setReplyError] = useState('')
+  const [isReplying, setIsReplying] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -389,6 +394,27 @@ export default function AccountSupportCasesPage() {
     [filteredCases, selectedCaseNumber]
   )
 
+  const sendAccountContactReply = async () => {
+    if (!selectedCase || replyMessage.trim().length < 2) {
+      setReplyError('Enter your reply before sending.')
+      return
+    }
+
+    setIsReplying(true)
+    setReplyError('')
+    try {
+      await replyToCustomerOrderCase(selectedCase.caseNumber, {
+        message: replyMessage.trim(),
+      })
+      setReplyMessage('')
+      await loadCases({ silent: true })
+    } catch (error) {
+      setReplyError(error instanceof Error ? error.message : 'Unable to send your reply.')
+    } finally {
+      setIsReplying(false)
+    }
+  }
+
   if (isLoading || (!isAuthenticated && !isLoading)) {
     return (
       <div className="flex min-h-[100svh] flex-col bg-dh-gray">
@@ -428,13 +454,10 @@ export default function AccountSupportCasesPage() {
               </p>
             </div>
 
-            <Link
-              to="/orders"
-              className="inline-flex h-10 items-center justify-center rounded-full border border-dh-light-gray bg-white px-4 text-xs font-bold text-dh-primary hover:border-dh-primary"
-            >
-              <PackageCheck className="mr-2 h-4 w-4" />
-              Report from an order
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/contact" className="inline-flex h-10 items-center justify-center rounded-full border border-dh-light-gray bg-white px-4 text-xs font-bold text-dh-primary hover:border-dh-primary"><LifeBuoy className="mr-2 h-4 w-4" />Contact DigitalHood</Link>
+              <Link to="/orders" className="inline-flex h-10 items-center justify-center rounded-full border border-dh-light-gray bg-white px-4 text-xs font-bold text-dh-primary hover:border-dh-primary"><PackageCheck className="mr-2 h-4 w-4" />Report from an order</Link>
+            </div>
           </div>
 
           <section className="mt-4 overflow-hidden rounded-2xl border border-dh-light-gray bg-white shadow-sm">
@@ -501,7 +524,11 @@ export default function AccountSupportCasesPage() {
                         key={item.caseNumber}
                         item={item}
                         isSelected={selectedCase?.caseNumber === item.caseNumber}
-                        onSelect={() => setSelectedCaseNumber(item.caseNumber)}
+                        onSelect={() => {
+                          setSelectedCaseNumber(item.caseNumber)
+                          setReplyMessage('')
+                          setReplyError('')
+                        }}
                       />
                     ))}
 
@@ -569,6 +596,17 @@ export default function AccountSupportCasesPage() {
                           Reply now
                           <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                         </Link>
+                      </div>
+                    )}
+
+                    {needsCustomerReply(selectedCase) && !selectedCase.order?.orderId && (
+                      <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-3.5">
+                        <p className="text-sm font-bold text-orange-900">DigitalHood needs your reply</p>
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                          <textarea value={replyMessage} onChange={(event) => setReplyMessage(event.target.value.slice(0, 4000))} rows={2} placeholder="Add the information requested by Support" className="min-h-20 flex-1 resize-none rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm outline-none focus:border-dh-primary" />
+                          <Button type="button" onClick={() => void sendAccountContactReply()} disabled={isReplying} className="h-10 shrink-0 rounded-full bg-orange-700 px-4 text-xs font-bold text-white sm:self-end"><Send className="mr-1.5 h-3.5 w-3.5" />{isReplying ? 'Sending…' : 'Send reply'}</Button>
+                        </div>
+                        {replyError && <p className="mt-2 text-xs font-bold text-red-700">{replyError}</p>}
                       </div>
                     )}
 

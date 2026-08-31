@@ -14,11 +14,12 @@ export type SupportCaseType =
   | 'BUSINESS_INQUIRY'
   | 'TECHNICAL_ISSUE'
   | 'FRAUD_REPORT'
+  | 'OTHER'
 
 export type CreateSupportCasePayload = {
   type: SupportCaseType
-  name: string
-  email: string
+  name?: string
+  email?: string
   phone?: string
   subject: string
   message: string
@@ -28,7 +29,7 @@ export type CreateSupportCasePayload = {
   startedAt?: number
   companyWebsite?: string
   caseDetails?: Record<string, string>
-  'cf-turnstile-response': string
+  'cf-turnstile-response'?: string
 }
 
 export type PublicSupportCase = {
@@ -57,24 +58,28 @@ export type PublicSupportCase = {
 }
 
 async function supportRequest<T>(path: string, options: RequestInit = {}) {
+  const token = getAccountToken()
   const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
   })
 
-  let data: any = null
+  let data: Record<string, unknown> | null = null
 
   try {
-    data = await response.json()
+    data = await response.json() as Record<string, unknown>
   } catch {
     data = null
   }
 
   if (!response.ok) {
-    throw new Error(data?.details || data?.error || data?.message || `Request failed with status ${response.status}`)
+    const detail = [data?.details, data?.error, data?.message]
+      .find((value): value is string => typeof value === 'string' && value.length > 0)
+    throw new Error(detail || `Request failed with status ${response.status}`)
   }
 
   return data as T
@@ -112,3 +117,4 @@ export async function lookupSupportCase(payload: {
     body: JSON.stringify(payload),
   })
 }
+import { getAccountToken } from '@/api/account'

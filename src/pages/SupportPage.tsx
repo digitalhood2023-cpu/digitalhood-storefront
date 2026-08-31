@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
+  LifeBuoy,
+  Loader2,
   Mail,
   PackageSearch,
   Search,
   Send,
+  ShieldCheck,
 } from 'lucide-react'
 
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
 import SEO from '@/components/SEO'
+import { useAccount } from '@/context/AccountContext'
 import {
   createSupportCase,
   lookupSupportCase,
@@ -183,8 +187,20 @@ const supportTypes: Array<{ value: SupportCaseType; label: string; helper: strin
   { value: 'SELLER_SUPPORT', label: 'Seller support', helper: 'Seller account, store or product listing help.' },
   { value: 'PRODUCT_INQUIRY', label: 'Product inquiry', helper: 'Questions before buying a product.' },
   { value: 'QUOTE_REQUEST', label: 'Quotation request', helper: 'Formal quotations for companies, schools and tenders.' },
+  { value: 'BUSINESS_INQUIRY', label: 'Business inquiry', helper: 'Partnerships, company supply and marketplace opportunities.' },
   { value: 'TECHNICAL_ISSUE', label: 'Technical issue', helper: 'Website, checkout or account technical problem.' },
+  { value: 'FRAUD_REPORT', label: 'Safety or fraud report', helper: 'Report suspicious marketplace activity safely.' },
+  { value: 'OTHER', label: 'Other', helper: 'Anything that does not fit the options above.' },
 ]
+
+const ACCOUNT_SUPPORT_TYPES = new Set<SupportCaseType>([
+  'GENERAL_CONTACT',
+  'QUOTE_REQUEST',
+  'BUSINESS_INQUIRY',
+  'TECHNICAL_ISSUE',
+  'FRAUD_REPORT',
+  'OTHER',
+])
 
 const supportCaseFormConfigs: Partial<Record<SupportCaseType, SupportCaseFormConfig>> = {
   GENERAL_CONTACT: {
@@ -308,6 +324,12 @@ const supportCaseFormConfigs: Partial<Record<SupportCaseType, SupportCaseFormCon
       { name: 'relatedOrderOrProduct', label: 'Related order/product/seller', placeholder: 'Order number, product link or seller name' },
     ],
   },
+  OTHER: {
+    subjectPlaceholder: 'What would you like to contact us about?',
+    messageLabel: 'Message',
+    messagePlaceholder: 'Tell us clearly how DigitalHood can help.',
+    fields: [],
+  },
 }
 
 const defaultSupportFormConfig: SupportCaseFormConfig = {
@@ -363,6 +385,7 @@ function StatusPill({ value }: { value?: string }) {
 export default function SupportPage() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { customer, isAuthenticated, isLoading: accountLoading } = useAccount()
   const [mode, setMode] = useState<SupportMode>(() => {
     return location.pathname.includes('/track') || searchParams.get('mode') === 'track'
       ? 'track'
@@ -393,6 +416,13 @@ export default function SupportPage() {
     caseNumber: '',
     email: '',
   })
+
+  const availableSupportTypes = useMemo(
+    () => isAuthenticated
+      ? supportTypes.filter((type) => ACCOUNT_SUPPORT_TYPES.has(type.value))
+      : supportTypes,
+    [isAuthenticated]
+  )
 
   useEffect(() => {
     const typeParam = searchParams.get('type') as SupportCaseType | null
@@ -435,7 +465,7 @@ export default function SupportPage() {
   }, [location.pathname, searchParams])
 
   useEffect(() => {
-    if (!successCaseNumber) return
+    if (!successCaseNumber || isAuthenticated) return
 
     const syncTimer = window.setTimeout(() => {
       setTrackForm((current) => ({
@@ -446,15 +476,19 @@ export default function SupportPage() {
     }, 0)
 
     return () => window.clearTimeout(syncTimer)
-  }, [successCaseNumber, form.email])
+  }, [isAuthenticated, successCaseNumber, form.email])
+
+  const effectiveType = isAuthenticated && !ACCOUNT_SUPPORT_TYPES.has(form.type)
+    ? 'GENERAL_CONTACT'
+    : form.type
 
   const selectedType = useMemo(() => {
-    return supportTypes.find((item) => item.value === form.type) || supportTypes[0]
-  }, [form.type])
+    return availableSupportTypes.find((item) => item.value === effectiveType) || availableSupportTypes[0]
+  }, [availableSupportTypes, effectiveType])
 
   const selectedFormConfig = useMemo(() => {
-    return supportCaseFormConfigs[form.type] || defaultSupportFormConfig
-  }, [form.type])
+    return supportCaseFormConfigs[effectiveType] || defaultSupportFormConfig
+  }, [effectiveType])
 
   function updateCaseDetail(name: string, value: string) {
     setForm((current) => ({
@@ -472,7 +506,7 @@ export default function SupportPage() {
     setSuccessCaseNumber('')
     setLookedUpCase(null)
 
-    if (!turnstileToken) {
+    if (!isAuthenticated && !turnstileToken) {
       setError('Please complete the human verification before submitting.')
       return
     }
@@ -480,17 +514,28 @@ export default function SupportPage() {
     setIsSubmitting(true)
 
     try {
-      const response = await createSupportCase({
-        ...form,
-        'cf-turnstile-response': turnstileToken,
-        startedAt,
-        pageUrl: window.location.href,
-      })
+      const response = await createSupportCase(isAuthenticated
+        ? {
+            type: effectiveType,
+            subject: form.subject,
+            message: form.message,
+            companyWebsite: form.companyWebsite,
+            startedAt,
+            pageUrl: window.location.href,
+          }
+        : {
+            ...form,
+            'cf-turnstile-response': turnstileToken,
+            startedAt,
+            pageUrl: window.location.href,
+          })
 
       setSuccessCaseNumber(response.caseNumber)
-      setTurnstileToken('')
-      setTurnstileResetKey((current) => current + 1)
-      setMode('track')
+      if (!isAuthenticated) {
+        setTurnstileToken('')
+        setTurnstileResetKey((current) => current + 1)
+        setMode('track')
+      }
       setForm((current) => ({
         ...current,
         subject: '',
@@ -501,8 +546,10 @@ export default function SupportPage() {
       }))
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to create support case.')
-      setTurnstileToken('')
-      setTurnstileResetKey((current) => current + 1)
+      if (!isAuthenticated) {
+        setTurnstileToken('')
+        setTurnstileResetKey((current) => current + 1)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -524,45 +571,62 @@ export default function SupportPage() {
     }
   }
 
+  if (accountLoading) {
+    return (
+      <div className="flex min-h-[100svh] flex-col bg-[#f7f8ff]">
+        <Header />
+        <main className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#26248c]" />
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
   return (
     <>
       <Header />
 
       <main className="flex min-h-[100svh] flex-col bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
       <SEO
-        title="DigitalHood Support Cases Zambia | DigitalHood"
-        description="Create and track DigitalHood support cases for orders, payments, delivery, warranty, returns and seller support in Zambia."
+        title="Contact DigitalHood Support | DigitalHood"
+        description="Contact DigitalHood securely or create and track a guest support case in Zambia."
       />
 
 
-      <section className="mx-auto max-w-7xl px-4 py-8 lg:px-6">
-        <div className="mb-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setMode('create')}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black transition ${
-              mode === 'create'
-                ? 'bg-[#26248c] text-white'
-                : 'bg-white text-[#26248c] ring-1 ring-slate-100 hover:bg-[#fff7ec]'
-            }`}
-          >
-            <Send className="h-4 w-4" />
-            Create support case
-          </button>
+      <section className="mx-auto w-full max-w-6xl px-3 py-5 sm:px-5 sm:py-7 lg:px-6">
+        <div className="mb-4 overflow-hidden rounded-2xl bg-[#191744] p-4 text-white shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-2xl">
+              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5a623]">
+                {isAuthenticated ? <ShieldCheck className="h-3.5 w-3.5" /> : <LifeBuoy className="h-3.5 w-3.5" />}
+                {isAuthenticated ? 'Account contact' : 'DigitalHood support'}
+              </p>
+              <h1 className="mt-1.5 text-xl font-black sm:text-2xl">
+                {isAuthenticated ? `How can we help${customer?.firstName ? `, ${customer.firstName}` : ''}?` : 'Tell us how we can help'}
+              </h1>
+              <p className="mt-1.5 text-sm leading-6 text-white/65">
+                {isAuthenticated
+                  ? 'Your verified account details are attached securely. Choose a reason, add a subject and tell us what you need.'
+                  : 'Create a support request or use your case number and email to check an existing request.'}
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setMode('track')}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black transition ${
-              mode === 'track'
-                ? 'bg-[#26248c] text-white'
-                : 'bg-white text-[#26248c] ring-1 ring-slate-100 hover:bg-[#fff7ec]'
-            }`}
-          >
-            <Search className="h-4 w-4" />
-            Track existing case
-          </button>
+            {isAuthenticated && (
+              <div className="flex flex-wrap gap-2">
+                <Link to="/account/support-cases" className="inline-flex h-9 items-center rounded-full bg-white/10 px-3 text-xs font-bold text-white hover:bg-white/15">My support cases</Link>
+                <Link to="/orders" className="inline-flex h-9 items-center rounded-full bg-[#f5a623] px-3 text-xs font-black text-[#191744] hover:bg-[#ffb536]">Order help</Link>
+              </div>
+            )}
+          </div>
         </div>
+
+        {!isAuthenticated && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setMode('create')} className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black transition ${mode === 'create' ? 'bg-[#26248c] text-white' : 'bg-white text-[#26248c] ring-1 ring-slate-200'}`}><Send className="h-4 w-4" /> Create support case</button>
+            <button type="button" onClick={() => setMode('track')} className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black transition ${mode === 'track' ? 'bg-[#26248c] text-white' : 'bg-white text-[#26248c] ring-1 ring-slate-200'}`}><Search className="h-4 w-4" /> Track existing case</button>
+          </div>
+        )}
 
         {error && (
           <p className="mb-5 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700 ring-1 ring-red-100">
@@ -578,32 +642,35 @@ export default function SupportPage() {
             </p>
             <p className="mt-2 text-2xl font-black text-[#26248c]">{successCaseNumber}</p>
             <p className="mt-1 text-sm font-semibold text-green-700">
-              Keep this case number. We also sent a confirmation email if your email address was correct.
+              {isAuthenticated
+                ? 'It is linked to your account. You can follow every update in My support cases.'
+                : 'Keep this case number. We also sent a confirmation to the email you provided.'}
             </p>
+            {isAuthenticated && <Link to={`/account/support-cases?case=${encodeURIComponent(successCaseNumber)}`} className="mt-3 inline-flex h-9 items-center rounded-full bg-emerald-700 px-4 text-xs font-black text-white">Open my support cases</Link>}
           </div>
         )}
 
-        {mode === 'create' ? (
-          <form onSubmit={handleCreateCase} className="grid gap-6 rounded-[2rem] bg-white p-5 shadow-xl shadow-slate-200/70 ring-1 ring-slate-100 lg:grid-cols-[360px_1fr] lg:p-6">
+        {mode === 'create' || isAuthenticated ? (
+          <form onSubmit={handleCreateCase} className="grid gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[280px_1fr] lg:p-5">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
                 Support type
               </p>
               <div className="mt-4 grid gap-2">
-                {supportTypes.map((type) => (
+                {availableSupportTypes.map((type) => (
                   <button
                     key={type.value}
                     type="button"
                     onClick={() => setForm((current) => ({ ...current, type: type.value, caseDetails: {} }))}
                     className={`rounded-2xl p-3 text-left transition ${
-                      form.type === type.value
+                      effectiveType === type.value
                         ? 'bg-[#26248c] text-white'
                         : 'bg-slate-50 text-slate-700 hover:bg-[#fff7ec]'
                     }`}
                   >
                     <p className="text-sm font-black">{type.label}</p>
                     <p className={`mt-1 text-xs font-semibold leading-5 ${
-                      form.type === type.value ? 'text-white/65' : 'text-slate-500'
+                      effectiveType === type.value ? 'text-white/65' : 'text-slate-500'
                     }`}>
                       {type.helper}
                     </p>
@@ -634,7 +701,7 @@ export default function SupportPage() {
                 className="hidden"
               />
 
-              <div className="grid gap-3 md:grid-cols-2">
+              {!isAuthenticated && <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-1">
                   <span className="text-xs font-black uppercase tracking-wide text-slate-500">Full name</span>
                   <input
@@ -678,9 +745,9 @@ export default function SupportPage() {
                     required={['ORDER_SUPPORT', 'PAYMENT_SUPPORT', 'DELIVERY_SUPPORT', 'RETURN_REFUND', 'WARRANTY_CLAIM'].includes(form.type)}
                   />
                 </label>
-              </div>
+              </div>}
 
-              {selectedFormConfig.fields.length > 0 && (
+              {!isAuthenticated && selectedFormConfig.fields.length > 0 && (
                 <div className="grid gap-3 md:grid-cols-2">
                   {selectedFormConfig.fields.map((field) => (
                     <label
@@ -738,10 +805,12 @@ export default function SupportPage() {
                 />
               </label>
 
-              <TurnstileWidget
-                onTokenChange={setTurnstileToken}
-                resetKey={turnstileResetKey}
-              />
+              {!isAuthenticated && (
+                <TurnstileWidget
+                  onTokenChange={setTurnstileToken}
+                  resetKey={turnstileResetKey}
+                />
+              )}
 
               <button
                 type="submit"
@@ -749,7 +818,7 @@ export default function SupportPage() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#26248c] px-5 py-4 text-sm font-black text-white transition hover:bg-[#ffb54a] hover:text-[#26248c] disabled:opacity-60 md:w-max"
               >
                 <Send className="h-4 w-4" />
-                {isSubmitting ? 'Creating case...' : 'Create support case'}
+                {isSubmitting ? 'Sending…' : isAuthenticated ? 'Send to DigitalHood' : 'Create support case'}
               </button>
             </div>
           </form>
