@@ -52,6 +52,11 @@ type TurnstileApi = {
     options: {
       sitekey: string
       action: string
+      appearance?: 'always' | 'execute' | 'interaction-only'
+      theme?: 'auto' | 'light' | 'dark'
+      size?: 'normal' | 'flexible' | 'compact'
+      retry?: 'auto' | 'never'
+      'refresh-expired'?: 'auto' | 'manual' | 'never'
       callback: (token: string) => void
       'expired-callback': () => void
       'error-callback': () => void
@@ -118,9 +123,11 @@ function loadTurnstileScript() {
 function TurnstileWidget({
   onTokenChange,
   resetKey,
+  interactionOnly = false,
 }: {
   onTokenChange: (token: string) => void
   resetKey: number
+  interactionOnly?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
@@ -136,7 +143,12 @@ function TurnstileWidget({
 
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
-          action: 'turnstile-spin-v2',
+          action: interactionOnly ? 'account-contact' : 'guest-support',
+          appearance: interactionOnly ? 'interaction-only' : 'always',
+          theme: 'auto',
+          size: interactionOnly ? 'flexible' : 'normal',
+          retry: 'auto',
+          'refresh-expired': 'auto',
           callback: (token) => onTokenChange(token),
           'expired-callback': () => onTokenChange(''),
           'error-callback': () => onTokenChange(''),
@@ -152,7 +164,7 @@ function TurnstileWidget({
         widgetIdRef.current = null
       }
     }
-  }, [onTokenChange])
+  }, [interactionOnly, onTokenChange])
 
   useEffect(() => {
     if (resetKey > 0 && widgetIdRef.current && window.turnstile) {
@@ -162,9 +174,9 @@ function TurnstileWidget({
   }, [onTokenChange, resetKey])
 
   return (
-    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-      <p className="mb-3 text-xs font-black text-[#26248c]">
-        Human verification
+    <div className={interactionOnly ? 'rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100' : 'rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100'}>
+      <p className={`${interactionOnly ? 'mb-1 text-[10px] text-slate-500' : 'mb-3 text-xs font-black text-[#26248c]'}`}>
+        {interactionOnly ? 'Protected by automatic Cloudflare verification' : 'Human verification'}
       </p>
 
       <div
@@ -506,7 +518,7 @@ export default function SupportPage() {
     setSuccessCaseNumber('')
     setLookedUpCase(null)
 
-    if (!isAuthenticated && !turnstileToken) {
+    if (!turnstileToken) {
       setError('Please complete the human verification before submitting.')
       return
     }
@@ -520,6 +532,7 @@ export default function SupportPage() {
             subject: form.subject,
             message: form.message,
             companyWebsite: form.companyWebsite,
+            'cf-turnstile-response': turnstileToken,
             startedAt,
             pageUrl: window.location.href,
           }
@@ -531,9 +544,9 @@ export default function SupportPage() {
           })
 
       setSuccessCaseNumber(response.caseNumber)
+      setTurnstileToken('')
+      setTurnstileResetKey((current) => current + 1)
       if (!isAuthenticated) {
-        setTurnstileToken('')
-        setTurnstileResetKey((current) => current + 1)
         setMode('track')
       }
       setForm((current) => ({
@@ -546,10 +559,8 @@ export default function SupportPage() {
       }))
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to create support case.')
-      if (!isAuthenticated) {
-        setTurnstileToken('')
-        setTurnstileResetKey((current) => current + 1)
-      }
+      setTurnstileToken('')
+      setTurnstileResetKey((current) => current + 1)
     } finally {
       setIsSubmitting(false)
     }
@@ -805,12 +816,11 @@ export default function SupportPage() {
                 />
               </label>
 
-              {!isAuthenticated && (
-                <TurnstileWidget
-                  onTokenChange={setTurnstileToken}
-                  resetKey={turnstileResetKey}
-                />
-              )}
+              <TurnstileWidget
+                onTokenChange={setTurnstileToken}
+                resetKey={turnstileResetKey}
+                interactionOnly={isAuthenticated}
+              />
 
               <button
                 type="submit"
