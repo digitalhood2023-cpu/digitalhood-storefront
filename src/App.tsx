@@ -8,6 +8,7 @@ import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import { MarketplaceStateProvider } from '@/context/MarketplaceStateContext'
 import MarketplaceSEO from '@/components/MarketplaceSEO'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
+import { getCurrentSellerDomainContext, getMarketplaceUrl } from '@/lib/sellerDomains'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -15,6 +16,7 @@ const ShopPage = lazy(() => import('@/pages/ShopPage'))
 const CategoriesPage = lazy(() => import('@/pages/CategoriesPage'))
 const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const SellerStorePage = lazy(() => import('@/pages/SellerStorePage'))
+const SellerDomainStorefrontPage = lazy(() => import('@/pages/SellerDomainStorefrontPage'))
 const ShopsPage = lazy(() => import('@/pages/ShopsPage'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
@@ -134,6 +136,25 @@ function LegacyOrderDetailsRedirect() {
 }
 
 function App() {
+  const sellerDomain = getCurrentSellerDomainContext()
+
+  if (sellerDomain) {
+    if (window.location.pathname !== '/') {
+      window.location.replace(
+        getMarketplaceUrl(
+          `${window.location.pathname}${window.location.search}${window.location.hash}`
+        )
+      )
+      return <PageLoader />
+    }
+
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <SellerDomainStorefrontPage hostname={sellerDomain.hostname} />
+      </Suspense>
+    )
+  }
+
   return (
     <AccountProvider>
       <NotificationsProvider>

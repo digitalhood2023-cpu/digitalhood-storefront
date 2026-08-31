@@ -40,12 +40,14 @@ import {
   type PublicSellerProduct,
   type PublicSellerStore,
 } from '@/api/publicSellers'
+import { fetchSellerStorefrontDomain } from '@/api/storefrontDomains'
 import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 import {
   getPublicFeedback,
   type FeedbackSummary,
   type MarketplaceFeedback,
 } from '@/api/feedback'
+import type { Product } from '@/types'
 
 function safeNumber(value: unknown, fallback = 0) {
   const numericValue = Number(value)
@@ -105,27 +107,60 @@ export default function SellerStorePage() {
   const { toggleWishlist, isInWishlist } = useWishlist()
 
   useEffect(() => {
-    if (!sellerKey) return
+    if (!sellerKey || window.location.hostname !== 'store.digitalhood.info') return
+    let active = true
 
-    setIsLoading(true)
-    setError('')
-    setLoadMoreError('')
-    setStore(null)
-
-    fetchPublicSellerStore(
-      sellerKey,
-      1,
-      24
-    )
-      .then(setStore)
-      .catch((requestError) => {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : 'Unable to load seller store.'
-        )
+    fetchSellerStorefrontDomain(sellerKey)
+      .then((response) => {
+        if (!active || !response.domain?.canonicalUrl) return
+        const destination = new URL(response.domain.canonicalUrl)
+        destination.search = window.location.search
+        window.location.replace(destination.toString())
       })
-      .finally(() => setIsLoading(false))
+      .catch(() => {
+        // Pre-domain sellers remain available on the marketplace path until
+        // the backend reconciliation secures their permanent hostname.
+      })
+
+    return () => {
+      active = false
+    }
+  }, [sellerKey])
+
+  useEffect(() => {
+    if (!sellerKey) return
+    let active = true
+
+    void Promise.resolve().then(async () => {
+      if (!active) return
+      setIsLoading(true)
+      setError('')
+      setLoadMoreError('')
+      setStore(null)
+
+      try {
+        const nextStore = await fetchPublicSellerStore(
+          sellerKey,
+          1,
+          24
+        )
+        if (active) setStore(nextStore)
+      } catch (requestError) {
+        if (active) {
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : 'Unable to load seller store.'
+          )
+        }
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    })
+
+    return () => {
+      active = false
+    }
   }, [sellerKey])
 
   useEffect(() => {
@@ -148,7 +183,10 @@ export default function SellerStorePage() {
   }, [sellerKey])
 
   const seller = store?.seller
-  const products = store?.products || []
+  const products = useMemo(
+    () => store?.products || [],
+    [store?.products]
+  )
 
   const currentFilters = {
     q: searchQuery,
@@ -1378,7 +1416,7 @@ export default function SellerStorePage() {
 
                             <button
                               type="button"
-                              onClick={() => toggleWishlist(product as any)}
+                              onClick={() => toggleWishlist(product as unknown as Product)}
                               className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full shadow-sm ${
                                 isInWishlist(String(product.id))
                                   ? 'bg-red-500 text-white'

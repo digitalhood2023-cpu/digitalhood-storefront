@@ -16,6 +16,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY server.js ./server.js
+COPY server ./server
 COPY --from=build /app/dist ./dist
 
 ENV NODE_ENV=production

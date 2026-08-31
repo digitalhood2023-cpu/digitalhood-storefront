@@ -101,14 +101,14 @@ function condition(product) {
   return undefined
 }
 
-function productGraph(product, path) {
+function productGraph(product, path, sellerCanonicalUrl = '') {
   const url = absolute(path)
   const price = finite(product?.price)
   const rating = finite(product?.averageRating || product?.average_rating)
   const count = finite(product?.ratingCount || product?.rating_count || product?.reviewCount || product?.review_count)
   const sellerName = text(product?.sellerStoreName || product?.seller_store_name || product?.seller?.storeName || NAME)
   const sellerKey = text(product?.sellerKey || product?.seller_key || product?.seller?.key || 'digitalhood')
-  const sellerUrl = absolute(`/seller/${encodeURIComponent(sellerKey)}`)
+  const sellerUrl = sellerCanonicalUrl || absolute(`/seller/${encodeURIComponent(sellerKey)}`)
   const images = Array.from(new Set([
     product?.imageOriginal, product?.imageLarge, product?.image,
     ...(Array.isArray(product?.images) ? product.images.map((item) => typeof item === 'string' ? item : item?.src || item?.url) : []),
@@ -151,29 +151,33 @@ async function productSeo(slug) {
   if (!product?.id) return null
   const canonicalSlug = product.slug || slug
   const path = `/product/${encodeURIComponent(canonicalSlug)}`
+  const sellerKey = text(product?.sellerKey || product?.seller_key || product?.seller?.key)
+  const sellerDomain = sellerKey
+    ? await fetchJson(`${API}/api/public/storefront-hosts/seller/${encodeURIComponent(sellerKey)}`)
+    : null
   return {
     title: text(product.name),
     description: text(product.shortDescription || product.short_description || product.description || `Buy ${product.name} on DigitalHood Marketplace Zambia.`),
     path, image: absolute(product.imageOriginal || product.imageLarge || product.image, IMAGE),
-    type: 'product', noindex: false, graph: productGraph(product, path),
+    type: 'product', noindex: false, graph: productGraph(product, path, sellerDomain?.domain?.url || ''),
   }
 }
 
-async function sellerSeo(key) {
+async function sellerSeo(key, options = {}) {
   const data = await fetchJson(`${API}/api/public/sellers/${encodeURIComponent(key)}`)
   const seller = data?.seller
   if (!seller?.key) return null
-  const path = `/seller/${encodeURIComponent(seller.key)}`
-  const url = absolute(path)
+  const path = options.canonicalPath || `/seller/${encodeURIComponent(seller.key)}`
+  const url = options.canonicalUrl || absolute(path)
   const description = text(seller.tagline || seller.description || `Shop products from ${seller.storeName} on DigitalHood Marketplace Zambia.`)
   const graph = [
     { '@type': 'ProfilePage', '@id': `${url}#profile`, url, name: `${text(seller.storeName)} on DigitalHood`, description, mainEntity: { '@id': `${url}#seller` } },
     { '@type': 'Organization', '@id': `${url}#seller`, name: text(seller.storeName), url, description, ...(seller.profilePhotoUrl ? { image: absolute(seller.profilePhotoUrl) } : {}) },
   ]
-  return { title: text(seller.storeName), description, path, image: absolute(seller.profilePhotoUrl, IMAGE), type: 'profile', noindex: false, graph }
+  return { title: text(seller.storeName), description, path, canonicalUrl: url, image: absolute(seller.profilePhotoUrl, IMAGE), type: 'profile', noindex: false, graph }
 }
 
-export async function buildServerSeo(pathname) {
+export async function buildServerSeo(pathname, options = {}) {
   const path = normalize(pathname)
   const product = path.match(/^\/product\/([^/]+)$/)
   if (product) {
@@ -183,7 +187,7 @@ export async function buildServerSeo(pathname) {
   const seller = path.match(/^\/(?:seller|stores)\/([^/]+)$/)
   if (seller) {
     const key = decode(seller[1])
-    return key ? (await sellerSeo(key)) || { ...base(path), noindex: true } : { ...base(path), noindex: true }
+    return key ? (await sellerSeo(key, options)) || { ...base(path), noindex: true } : { ...base(path), noindex: true }
   }
   if (path === '/') {
     const graph = [
@@ -197,7 +201,7 @@ export async function buildServerSeo(pathname) {
 
 function head(seo) {
   const title = seo.title.toLowerCase().includes(NAME.toLowerCase()) ? seo.title : `${seo.title} | ${NAME}`
-  const canonical = absolute(seo.path)
+  const canonical = seo.canonicalUrl || absolute(seo.path)
   const robots = seo.noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large'
   const ld = seo.noindex || !seo.graph?.length ? '' : `<script type="application/ld+json">${json({ '@context': 'https://schema.org', '@graph': seo.graph })}</script>`
   return `${START}\n<title>${esc(title)}</title>\n<meta name="description" content="${esc(seo.description)}" />\n<meta name="robots" content="${robots}" />\n<meta name="googlebot" content="${robots}" />\n<link rel="canonical" href="${esc(canonical)}" />\n<meta property="og:title" content="${esc(title)}" />\n<meta property="og:description" content="${esc(seo.description)}" />\n<meta property="og:type" content="${esc(seo.type || 'website')}" />\n<meta property="og:url" content="${esc(canonical)}" />\n<meta property="og:image" content="${esc(seo.image || IMAGE)}" />\n<meta property="og:locale" content="en_ZM" />\n<meta property="og:site_name" content="DigitalHood" />\n<meta name="twitter:card" content="summary_large_image" />\n<meta name="twitter:title" content="${esc(title)}" />\n<meta name="twitter:description" content="${esc(seo.description)}" />\n<meta name="twitter:image" content="${esc(seo.image || IMAGE)}" />\n${ld}\n${END}`
@@ -217,16 +221,29 @@ export async function getIndexHtml(distDir) {
 
 export async function getSitemapXml() {
   const paths = new Set(PUBLIC_ROUTES)
+  const sellerKeys = new Set()
   for (let page = 1; page <= MAX_SITEMAP_PAGES; page += 1) {
     const data = await fetchJson(`${API}/api/products?per_page=${PAGE_SIZE}&page=${page}`)
     const products = Array.isArray(data?.products) ? data.products : []
     for (const product of products) {
       if (product?.id) paths.add(`/product/${encodeURIComponent(product.slug || product.id)}`)
       const sellerKey = product?.sellerKey || product?.seller_key || product?.seller?.key
-      if (sellerKey) paths.add(`/seller/${encodeURIComponent(sellerKey)}`)
+      if (sellerKey) sellerKeys.add(String(sellerKey))
     }
     const totalPages = Number(data?.totalPages || data?.total_pages || 1)
     if (!products.length || page >= totalPages) break
+  }
+  const sellerKeyList = Array.from(sellerKeys)
+  const domainLookupConcurrency = 8
+  for (let index = 0; index < sellerKeyList.length; index += domainLookupConcurrency) {
+    const batch = sellerKeyList.slice(index, index + domainLookupConcurrency)
+    await Promise.all(batch.map(async (sellerKey) => {
+      const result = await fetchJson(`${API}/api/public/storefront-hosts/seller/${encodeURIComponent(sellerKey)}`)
+      paths.add(
+        result?.domain?.url ||
+        `/seller/${encodeURIComponent(sellerKey)}`
+      )
+    }))
   }
   const urls = Array.from(paths).sort().map((item) => `  <url><loc>${xml(absolute(item))}</loc></url>`).join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`

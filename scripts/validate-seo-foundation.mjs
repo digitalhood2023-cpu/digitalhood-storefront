@@ -15,6 +15,7 @@ const indexHtml = read('index.html')
 const sitemap = read('public/sitemap.xml')
 const server = read('server.js')
 const serverSeo = read('server/marketplaceSeo.js')
+const sellerDomainServer = read('server/sellerDomains.js')
 
 assert(app.includes('<MarketplaceSEO />'), 'MarketplaceSEO must be mounted globally')
 assert(seo.includes('application/ld+json'), 'SEO component must manage JSON-LD')
@@ -42,6 +43,9 @@ assert(serverSeo.includes("'@type': 'Product'"), 'server-rendered product JSON-L
 assert(serverSeo.includes("'@type': 'OnlineStore'"), 'server-rendered store JSON-LD is missing')
 assert(serverSeo.includes(".replace(/</g, '\\\\u003c')"), 'server JSON-LD must escape HTML opening brackets')
 assert(!serverSeo.includes('SearchAction'), 'server must not emit retired SearchAction markup')
+assert(server.includes('resolveSellerDomainForKey'), 'seller paths must redirect to their canonical marketplace domains')
+assert(serverSeo.includes('seo.canonicalUrl || absolute'), 'server SEO must support branded seller canonical URLs')
+assert(sellerDomainServer.includes('isSafeSellerDomainUrl'), 'seller canonical redirects must validate the marketplace suffix')
 
 for (const privatePath of ['/cart', '/checkout', '/wishlist', '/account', '/orders', '/login']) {
   assert(!sitemap.includes(`${privatePath}</loc>`), `${privatePath} must not appear in sitemap`)

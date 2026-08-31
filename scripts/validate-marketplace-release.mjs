@@ -26,6 +26,9 @@ const accountApi = read('src/api/account.ts')
 const cartDrawer = read('src/features/cart/CartDrawer.tsx')
 const wishlistDrawer = read('src/components/wishlist/WishlistDrawer.tsx')
 const sellerStore = read('src/pages/SellerStorePage.tsx')
+const sellerDomainStore = read('src/pages/SellerDomainStorefrontPage.tsx')
+const sellerDomains = read('src/lib/sellerDomains.ts')
+const storefrontServer = read('server.js')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
 const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
 const supportLinks = read('src/lib/supportLinks.ts')
@@ -196,6 +199,15 @@ assert(
     sellerStore.includes('currentStore.products.concat(appendedProducts)') &&
     sellerStore.includes('filterRequestId !== filterRequestIdRef.current'),
   'seller-store pagination must append downward and preserve the last existing product viewport anchor'
+)
+assert(
+  sellerDomainStore.includes('Accounts, messaging and payments remain protected') &&
+    sellerDomainStore.includes('/product/${encodeURIComponent') &&
+    sellerDomains.includes("label.includes('.')") &&
+    sellerDomains.includes("label.startsWith('xn--')") &&
+    storefrontServer.includes("res.status(421)") &&
+    storefrontServer.includes('resolveSellerDomainHostname'),
+  'seller domains must remain isolated branded storefronts with central secure transactions'
 )
 assert(
   tracking.includes('Coupon ') &&

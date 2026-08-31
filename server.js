@@ -9,12 +9,62 @@ import {
   getSitemapXml,
   injectSeo,
 } from './server/marketplaceSeo.js';
+import {
+  parseSellerDomainHostname,
+  resolveSellerDomainForKey,
+  resolveSellerDomainHostname,
+} from './server/sellerDomains.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const SELLER_STOREFRONT_SUFFIX =
+  process.env.SELLER_STOREFRONT_SUFFIX ||
+  process.env.VITE_SELLER_STOREFRONT_SUFFIX ||
+  'store.digitalhood.info';
+const MARKETPLACE_ORIGIN = String(
+  process.env.MARKETPLACE_ORIGIN || 'https://store.digitalhood.info'
+).replace(/\/+$/, '');
+const PAYMENTS_API_URL =
+  process.env.PAYMENTS_API_URL || 'https://payments.digitalhood.info';
+
+function getSellerDomainRequest(req) {
+  return parseSellerDomainHostname(req.hostname, SELLER_STOREFRONT_SUFFIX);
+}
+
+app.use((req, res, next) => {
+  const sellerDomain = getSellerDomainRequest(req);
+  if (!sellerDomain) return next();
+
+  res.setHeader('Vary', 'Host');
+
+  if (req.path.startsWith('/api/')) {
+    return res.status(421).json({
+      error: 'Marketplace transactions use the secure DigitalHood origin.',
+      marketplaceUrl: `${MARKETPLACE_ORIGIN}${req.originalUrl}`,
+    });
+  }
+
+  const isStaticAsset =
+    req.path.startsWith('/assets/') ||
+    req.path === '/logo.jpg' ||
+    req.path === '/favicon.ico' ||
+    /\.(?:css|js|map|png|jpe?g|webp|avif|gif|svg|ico|woff2?|ttf|otf)$/i.test(req.path);
+
+  if (req.path !== '/' && !isStaticAsset) {
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      return res.status(421).json({
+        error: 'Marketplace transactions use the secure DigitalHood origin.',
+      });
+    }
+
+    return res.redirect(308, `${MARKETPLACE_ORIGIN}${req.originalUrl}`);
+  }
+
+  return next();
+});
 
 /**
  * IMPORTANT:
@@ -263,6 +313,58 @@ app.use(
 
 app.use(async (req, res) => {
   try {
+    const sellerDomain = getSellerDomainRequest(req);
+
+    if (sellerDomain && req.path === '/') {
+      const resolution = await resolveSellerDomainHostname(
+        sellerDomain.hostname,
+        {
+          apiBase: PAYMENTS_API_URL,
+          suffix: SELLER_STOREFRONT_SUFFIX,
+        }
+      );
+
+      if (resolution?.redirect && resolution?.domain?.canonicalUrl) {
+        const destination = new URL(resolution.domain.canonicalUrl);
+        destination.search = req.url.includes('?')
+          ? req.url.slice(req.url.indexOf('?'))
+          : '';
+        return res.redirect(308, destination.toString());
+      }
+
+      const seo = resolution?.seller?.key
+        ? await buildServerSeo(
+            `/seller/${encodeURIComponent(resolution.seller.key)}`,
+            {
+              canonicalUrl: resolution.domain.canonicalUrl,
+              canonicalPath: '/',
+            }
+          )
+        : {
+            ...(await buildServerSeo('/')),
+            title: 'Store unavailable',
+            description: 'This DigitalHood seller storefront is not currently available.',
+            canonicalUrl: `https://${sellerDomain.hostname}/`,
+            noindex: true,
+          };
+      const html = injectSeo(await getIndexHtml(distDir), seo);
+
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      if (seo.noindex) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      return res.type('html').send(html);
+    }
+
+    const sellerMatch = req.path.match(/^\/(?:seller|stores)\/([^/]+)$/);
+    if (sellerMatch) {
+      const domain = await resolveSellerDomainForKey(sellerMatch[1], {
+        apiBase: PAYMENTS_API_URL,
+        suffix: SELLER_STOREFRONT_SUFFIX,
+      });
+      if (domain?.domain?.canonicalUrl) {
+        return res.redirect(308, domain.domain.canonicalUrl);
+      }
+    }
+
     const seo = await buildServerSeo(req.path);
     const html = injectSeo(await getIndexHtml(distDir), seo);
 
@@ -278,6 +380,10 @@ app.use(async (req, res) => {
   } catch (error) {
     console.error('HTML SEO rendering failed:', error?.message || error);
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    if (getSellerDomainRequest(req)) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      res.status(503);
+    }
     return res.sendFile(path.join(distDir, 'index.html'));
   }
 });
