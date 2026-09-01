@@ -43,7 +43,7 @@ assert(serverSeo.includes("'@type': 'Product'"), 'server-rendered product JSON-L
 assert(serverSeo.includes("'@type': 'OnlineStore'"), 'server-rendered store JSON-LD is missing')
 assert(serverSeo.includes(".replace(/</g, '\\\\u003c')"), 'server JSON-LD must escape HTML opening brackets')
 assert(!serverSeo.includes('SearchAction'), 'server must not emit retired SearchAction markup')
-assert(server.includes('resolveSellerDomainForKey'), 'seller paths must redirect to their canonical marketplace domains')
+assert(!server.includes('resolveSellerDomainForKey'), 'central seller pages must remain on the marketplace origin')
 assert(serverSeo.includes('seo.canonicalUrl || absolute'), 'server SEO must support branded seller canonical URLs')
 assert(sellerDomainServer.includes('isSafeSellerDomainUrl'), 'seller canonical redirects must validate the marketplace suffix')
 

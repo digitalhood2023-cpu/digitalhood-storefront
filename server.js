@@ -11,7 +11,6 @@ import {
 } from './server/marketplaceSeo.js';
 import {
   parseSellerDomainHostname,
-  resolveSellerDomainForKey,
   resolveSellerDomainHostname,
 } from './server/sellerDomains.js';
 
@@ -352,17 +351,6 @@ app.use(async (req, res) => {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       if (seo.noindex) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       return res.type('html').send(html);
-    }
-
-    const sellerMatch = req.path.match(/^\/(?:seller|stores)\/([^/]+)$/);
-    if (sellerMatch) {
-      const domain = await resolveSellerDomainForKey(sellerMatch[1], {
-        apiBase: PAYMENTS_API_URL,
-        suffix: SELLER_STOREFRONT_SUFFIX,
-      });
-      if (domain?.domain?.canonicalUrl) {
-        return res.redirect(308, domain.domain.canonicalUrl);
-      }
     }
 
     const seo = await buildServerSeo(req.path);

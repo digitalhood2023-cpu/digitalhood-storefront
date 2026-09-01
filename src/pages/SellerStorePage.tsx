@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BadgeCheck,
   Check,
+  ExternalLink,
   Filter,
   Heart,
   LifeBuoy,
@@ -80,6 +81,7 @@ function getStoreAgeYears(years?: number) {
 export default function SellerStorePage() {
   const { sellerKey } = useParams<{ sellerKey: string }>()
   const [store, setStore] = useState<PublicSellerStore | null>(null)
+  const [storefrontUrl, setStorefrontUrl] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -90,6 +92,7 @@ export default function SellerStorePage() {
   const [searchDraft, setSearchDraft] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [category, setCategory] = useState('')
+  const [storeCategory, setStoreCategory] = useState('')
   const [availability, setAvailability] = useState('')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
@@ -107,19 +110,16 @@ export default function SellerStorePage() {
   const { toggleWishlist, isInWishlist } = useWishlist()
 
   useEffect(() => {
-    if (!sellerKey || window.location.hostname !== 'store.digitalhood.info') return
+    if (!sellerKey) return
     let active = true
 
     fetchSellerStorefrontDomain(sellerKey)
       .then((response) => {
-        if (!active || !response.domain?.canonicalUrl) return
-        const destination = new URL(response.domain.canonicalUrl)
-        destination.search = window.location.search
-        window.location.replace(destination.toString())
+        if (!active) return
+        setStorefrontUrl(response.domain?.canonicalUrl || '')
       })
       .catch(() => {
-        // Pre-domain sellers remain available on the marketplace path until
-        // the backend reconciliation secures their permanent hostname.
+        if (active) setStorefrontUrl('')
       })
 
     return () => {
@@ -191,6 +191,7 @@ export default function SellerStorePage() {
   const currentFilters = {
     q: searchQuery,
     category,
+    storeCategory,
     availability,
     minPrice,
     maxPrice,
@@ -200,6 +201,7 @@ export default function SellerStorePage() {
   const activeFilterCount = [
     searchQuery,
     category,
+    storeCategory,
     availability,
     minPrice,
     maxPrice,
@@ -215,6 +217,11 @@ export default function SellerStorePage() {
     store?.facets.categories.find(
       (item) =>
         item.slug === category
+    )
+
+  const selectedStoreCategory =
+    store?.storeCategories.find(
+      (item) => item.id === storeCategory || item.slug === storeCategory
     )
 
   const resultDescription =
@@ -414,6 +421,14 @@ export default function SellerStorePage() {
     )
   }
 
+  function selectStoreCategory(nextCategory: string) {
+    setStoreCategory(nextCategory)
+    void loadFilteredStore({
+      ...currentFilters,
+      storeCategory: nextCategory,
+    })
+  }
+
   function handleSortChange(
     nextSort: string
   ) {
@@ -429,6 +444,7 @@ export default function SellerStorePage() {
     setSearchDraft('')
     setSearchQuery('')
     setCategory('')
+    setStoreCategory('')
     setAvailability('')
     setMinPrice('')
     setMaxPrice('')
@@ -437,6 +453,7 @@ export default function SellerStorePage() {
     void loadFilteredStore({
       q: '',
       category: '',
+      storeCategory: '',
       availability: '',
       minPrice: '',
       maxPrice: '',
@@ -448,6 +465,7 @@ export default function SellerStorePage() {
     key:
       | 'search'
       | 'category'
+      | 'storeCategory'
       | 'availability'
       | 'price'
       | 'sort'
@@ -465,6 +483,11 @@ export default function SellerStorePage() {
     if (key === 'category') {
       setCategory('')
       nextFilters.category = ''
+    }
+
+    if (key === 'storeCategory') {
+      setStoreCategory('')
+      nextFilters.storeCategory = ''
     }
 
     if (
@@ -680,6 +703,16 @@ export default function SellerStorePage() {
                     backgroundPosition: 'center',
                   }}
                 >
+                  {storefrontUrl && (
+                    <a
+                      href={storefrontUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute right-2.5 top-2.5 z-10 inline-flex items-center rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-black text-dh-primary shadow-sm ring-1 ring-white/50 transition hover:bg-[#ffb54a] sm:right-3 sm:top-3 sm:text-xs"
+                    >
+                      Visit our store <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                    </a>
+                  )}
                   <div className="absolute inset-x-0 bottom-0 flex min-w-0 items-end gap-2.5 p-2.5 sm:gap-3 sm:p-3">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/90 bg-dh-primary shadow-md sm:h-16 sm:w-16">
                         {seller.profilePhotoUrl ? (
@@ -833,6 +866,31 @@ export default function SellerStorePage() {
                   </Link>
                 </div>
 
+                {store.storeCategories.length > 0 && (
+                  <div className="mb-2 flex gap-2 overflow-x-auto pb-1" aria-label={`${seller.storeName} categories`}>
+                    <button
+                      type="button"
+                      onClick={() => selectStoreCategory('')}
+                      disabled={isFiltering}
+                      className={`shrink-0 rounded-full px-3 py-2 text-xs font-black transition ${!storeCategory ? 'bg-dh-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-dh-primary'}`}
+                    >
+                      All products <span className="ml-1 opacity-65">{store.stats.productsLive}</span>
+                    </button>
+                    {store.storeCategories.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectStoreCategory(item.id)}
+                        disabled={isFiltering}
+                        title={item.description}
+                        className={`shrink-0 rounded-full px-3 py-2 text-xs font-black transition ${storeCategory === item.id ? 'bg-dh-primary text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:ring-dh-primary'}`}
+                      >
+                        {item.name} <span className="ml-1 opacity-65">{item.productCount}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mb-3 rounded-xl bg-white p-2.5 shadow-sm ring-1 ring-gray-100 sm:p-3">
                   <div className="flex items-center gap-2">
                     <SellerStoreSearchAutocomplete
@@ -900,7 +958,7 @@ export default function SellerStorePage() {
                       className="h-10 min-w-0 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
                     >
                       <option value="">
-                        All categories
+                        All marketplace categories
                       </option>
                       {store.facets.categories.map(
                         (item) => (
@@ -1090,6 +1148,17 @@ export default function SellerStorePage() {
                         </button>
                       )}
 
+                      {storeCategory && (
+                        <button
+                          type="button"
+                          onClick={() => removeFilter('storeCategory')}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#fff7e8] px-3 py-1.5 text-xs font-black text-[#8a5700]"
+                        >
+                          Store: {selectedStoreCategory?.name || storeCategory}
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+
                       {availability && (
                         <button
                           type="button"
@@ -1182,9 +1251,28 @@ export default function SellerStorePage() {
 
                     <div className="overflow-y-auto px-4 pb-2">
                       <div className="space-y-4">
+                        {store.storeCategories.length > 0 && (
+                          <div>
+                            <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-500">
+                              Store category
+                            </label>
+                            <select
+                              value={storeCategory}
+                              onChange={(event) => setStoreCategory(event.target.value)}
+                              className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
+                            >
+                              <option value="">All store products</option>
+                              {store.storeCategories.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name} ({item.productCount})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                         <div>
                           <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-gray-500">
-                            Category
+                            Marketplace category
                           </label>
 
                           <select
@@ -1197,7 +1285,7 @@ export default function SellerStorePage() {
                             className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-dh-primary outline-none focus:border-dh-primary"
                           >
                             <option value="">
-                              All categories
+                              All marketplace categories
                             </option>
                             {store.facets.categories.map(
                               (item) => (

@@ -210,6 +210,15 @@ assert(
   'seller domains must remain isolated branded storefronts with central secure transactions'
 )
 assert(
+  sellerStore.includes('Visit our store') &&
+    sellerStore.includes('target="_blank"') &&
+    sellerStore.includes('setStorefrontUrl') &&
+    !sellerStore.includes('window.location.replace(destination.toString())') &&
+    !storefrontServer.includes('resolveSellerDomainForKey') &&
+    !storefrontServer.includes('const sellerMatch = req.path.match'),
+  'central seller pages must remain in the marketplace and expose the branded domain only as a new-tab link'
+)
+assert(
   tracking.includes('Coupon ') &&
     tracking.includes('Discount') &&
     tracking.includes('Shipping') &&

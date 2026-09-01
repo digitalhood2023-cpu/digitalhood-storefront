@@ -61,6 +61,7 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
+  const [storeCategory, setStoreCategory] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -122,9 +123,28 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   const canonicalUrl = resolution?.domain.canonicalUrl || `https://${hostname}`
   const marketplaceStoresUrl = getMarketplaceUrl('/shops')
   const filters = useMemo(
-    () => ({ q: query.trim(), category, sort: 'featured' }),
-    [query, category]
+    () => ({ q: query.trim(), category, storeCategory, sort: 'featured' }),
+    [query, category, storeCategory]
   )
+
+  async function chooseStoreCategory(categoryId: string) {
+    if (!resolution) return
+    setStoreCategory(categoryId)
+    setIsFiltering(true)
+    setError('')
+    try {
+      setStore(await fetchPublicSellerStore(
+        resolution.seller.key,
+        1,
+        24,
+        { ...filters, storeCategory: categoryId }
+      ))
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to open this store category.')
+    } finally {
+      setIsFiltering(false)
+    }
+  }
 
   async function applyFilters(event: FormEvent) {
     event.preventDefault()
@@ -337,6 +357,28 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
 
           <div className="min-w-0">
             <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+              {store.storeCategories.length > 0 && (
+                <div className="mb-3 flex gap-2 overflow-x-auto pb-1" aria-label="Store categories">
+                  <button
+                    type="button"
+                    onClick={() => void chooseStoreCategory('')}
+                    className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${!storeCategory ? 'bg-[#26248c] text-white' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                    All products <span className="ml-1 opacity-70">{store.stats.productsLive}</span>
+                  </button>
+                  {store.storeCategories.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => void chooseStoreCategory(item.id)}
+                      title={item.description}
+                      className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${storeCategory === item.id ? 'bg-[#26248c] text-white' : 'bg-slate-100 text-slate-600'}`}
+                    >
+                      {item.name} <span className="ml-1 opacity-70">{item.productCount}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <form onSubmit={applyFilters} className="flex flex-col gap-2 sm:flex-row">
                 <label className="relative min-w-0 flex-1">
                   <span className="sr-only">Search this store</span>
@@ -353,7 +395,7 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
                   onChange={(event) => setCategory(event.target.value)}
                   className="h-10 rounded-full border border-slate-200 bg-slate-50 px-4 text-xs font-black text-[#26248c] outline-none"
                 >
-                  <option value="">All categories</option>
+                  <option value="">All marketplace categories</option>
                   {store.facets.categories.map((item) => (
                     <option key={item.slug} value={item.slug}>{item.name} ({item.count})</option>
                   ))}

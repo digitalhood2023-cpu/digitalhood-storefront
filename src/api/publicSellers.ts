@@ -162,6 +162,16 @@ export type PublicSellerProduct = {
   ratingCount?: number
   reviewCount?: number
   categories?: Array<{ id: number | string; name: string; slug?: string }>
+  storeCategories?: PublicSellerStoreCategory[]
+}
+
+export type PublicSellerStoreCategory = {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  position?: number
+  productCount: number
 }
 
 export type PublicSellerStoreSuggestionProduct = {
@@ -205,6 +215,7 @@ export type PublicSellerStoreSuggestionsResponse = {
 export type PublicSellerStoreFilters = {
   q?: string
   category?: string
+  storeCategory?: string
   availability?: string
   minPrice?: string | number
   maxPrice?: string | number
@@ -243,6 +254,7 @@ export type PublicSellerStore = {
       total: number
     }
   }
+  storeCategories: PublicSellerStoreCategory[]
   products: PublicSellerProduct[]
   count: number
   page: number
@@ -250,6 +262,7 @@ export type PublicSellerStore = {
   totalPages: number
   facets: {
     categories: PublicSellerStoreFacetCategory[]
+    storeCategories: PublicSellerStoreCategory[]
     availability: {
       inStock: number
       onSale: number
@@ -262,6 +275,7 @@ export type PublicSellerStore = {
   appliedFilters: {
     q: string
     category: string
+    storeCategory: string
     availability: string
     minPrice: number | null
     maxPrice: number | null
@@ -336,6 +350,17 @@ function normalizePublicSellerStore(
       Array.isArray(data?.products)
         ? data.products
         : [],
+    storeCategories:
+      Array.isArray(data?.storeCategories)
+        ? data.storeCategories.map((category: Record<string, unknown>) => ({
+            id: String(category?.id || ''),
+            name: String(category?.name || ''),
+            slug: String(category?.slug || ''),
+            description: String(category?.description || ''),
+            position: Number(category?.position || 0),
+            productCount: Math.max(0, Number(category?.productCount || 0) || 0),
+          })).filter((category: PublicSellerStoreCategory) => category.id && category.name)
+        : [],
     count:
       Number(data?.count || 0) || 0,
     page:
@@ -387,6 +412,16 @@ function normalizePublicSellerStore(
                   category.slug
               )
           : [],
+      storeCategories:
+        Array.isArray(data?.facets?.storeCategories)
+          ? data.facets.storeCategories.map((category: Record<string, unknown>) => ({
+              id: String(category?.id || ''),
+              name: String(category?.name || ''),
+              slug: String(category?.slug || ''),
+              description: '',
+              productCount: Math.max(0, Number(category?.count || category?.productCount || 0) || 0),
+            })).filter((category: PublicSellerStoreCategory) => category.id && category.name)
+          : [],
       availability: {
         inStock:
           Math.max(
@@ -436,6 +471,11 @@ function normalizePublicSellerStore(
         String(
           data?.appliedFilters
             ?.category || ''
+        ),
+      storeCategory:
+        String(
+          data?.appliedFilters
+            ?.storeCategory || ''
         ),
       availability:
         String(
@@ -505,6 +545,10 @@ export async function fetchPublicSellerStore(
       String(
         filters.category || ''
       ).trim(),
+    storeCategory:
+      String(
+        filters.storeCategory || ''
+      ).trim(),
     availability:
       String(
         filters.availability || ''
@@ -545,6 +589,10 @@ export async function fetchPublicSellerStore(
       'category',
       normalizedFilters.category
     )
+  }
+
+  if (normalizedFilters.storeCategory) {
+    query.set('store_category', normalizedFilters.storeCategory)
   }
 
   if (
@@ -588,6 +636,8 @@ export async function fetchPublicSellerStore(
     normalizedFilters.q
       .toLowerCase(),
     normalizedFilters.category
+      .toLowerCase(),
+    normalizedFilters.storeCategory
       .toLowerCase(),
     normalizedFilters.availability
       .toLowerCase(),
