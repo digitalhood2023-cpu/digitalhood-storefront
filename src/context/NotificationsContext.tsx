@@ -15,6 +15,10 @@ import {
   type AccountNotification,
 } from '@/api/account'
 import { useAccount } from '@/context/AccountContext'
+import {
+  flushOfflineActions,
+  queueOfflineAction,
+} from '@/lib/networkResilience'
 
 type NotificationsContextValue = {
   notifications: AccountNotification[]
@@ -102,6 +106,14 @@ export function NotificationsProvider({
       try {
         await updateCustomerNotification(notificationId, { read: true })
       } catch {
+        if (!navigator.onLine) {
+          try {
+            await queueOfflineAction({ type: 'notification_read', entityId: notificationId })
+            return
+          } catch {
+            // IndexedDB can be unavailable in private browsing; restore the server state below.
+          }
+        }
         setNotifications(notifications)
         setUnreadCount((count) => count + 1)
       }
@@ -118,6 +130,14 @@ export function NotificationsProvider({
     try {
       await markAllCustomerNotificationsRead()
     } catch {
+      if (!navigator.onLine) {
+        try {
+          await queueOfflineAction({ type: 'notification_mark_all_read' })
+          return
+        } catch {
+          // IndexedDB can be unavailable in private browsing; restore the server state below.
+        }
+      }
       setNotifications(previous)
       setUnreadCount(previousCount)
     }
@@ -138,6 +158,14 @@ export function NotificationsProvider({
       try {
         await updateCustomerNotification(notificationId, { archived: true })
       } catch {
+        if (!navigator.onLine) {
+          try {
+            await queueOfflineAction({ type: 'notification_archive', entityId: notificationId })
+            return
+          } catch {
+            // IndexedDB can be unavailable in private browsing; restore the server state below.
+          }
+        }
         setNotifications(previous)
         if (target && !target.readAt) {
           setUnreadCount((count) => count + 1)
@@ -203,6 +231,28 @@ export function NotificationsProvider({
       cancelled = true
     }
   }, [isAuthenticated, isOpen, refreshNotifications])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const flush = () => {
+      void flushOfflineActions(async (action) => {
+        if (action.type === 'notification_mark_all_read') {
+          await markAllCustomerNotificationsRead()
+          return
+        }
+        if (!action.entityId) throw new Error('Notification id is missing.')
+        await updateCustomerNotification(
+          action.entityId,
+          action.type === 'notification_archive' ? { archived: true } : { read: true }
+        )
+      }).then(() => void refreshSummary())
+    }
+
+    window.addEventListener('online', flush)
+    if (navigator.onLine) flush()
+    return () => window.removeEventListener('online', flush)
+  }, [isAuthenticated, refreshSummary])
 
   const value = useMemo<NotificationsContextValue>(
     () => ({

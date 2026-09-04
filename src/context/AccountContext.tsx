@@ -20,6 +20,7 @@ import {
   type AccountCustomer,
 } from '@/api/account'
 import { clearMarketplacePersonalBrowserState } from '@/lib/marketplaceBrowserState'
+import { clearOfflineAccountQueue } from '@/lib/networkResilience'
 import { useCartStore } from '@/store/cartStore'
 
 type AccountContextValue = {
@@ -64,6 +65,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     const token = getAccountToken()
 
     if (!token) {
+      void clearOfflineAccountQueue()
       setCustomer(null)
       setIsLoading(false)
       return null
@@ -87,6 +89,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         clearCachedAccountCustomer()
         useCartStore.getState().clearCart()
         clearMarketplacePersonalBrowserState()
+        void clearOfflineAccountQueue()
         setCustomer(null)
       }
 
@@ -122,6 +125,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     } finally {
       useCartStore.getState().clearCart()
       clearMarketplacePersonalBrowserState()
+      void clearOfflineAccountQueue()
       setIsLoading(false)
     }
   }, [])

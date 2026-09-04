@@ -5,8 +5,15 @@ import { Toaster } from 'react-hot-toast'
 
 import App from './App'
 import { AppProviders } from './providers/AppProviders'
+import {
+  applyNetworkPreferences,
+  registerDigitalHoodServiceWorker,
+} from './lib/networkResilience'
 
 import './index.css'
+
+applyNetworkPreferences()
+registerDigitalHoodServiceWorker()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

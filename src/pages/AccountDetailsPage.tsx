@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   ChevronRight,
+  Gauge,
   Loader2,
   Save,
   ShieldCheck,
@@ -18,9 +19,11 @@ import Footer from '@/sections/Footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
 import { useAccount } from '@/context/AccountContext'
 import { updateCustomerProfile } from '@/api/account'
+import { isLowDataConnection, setDataSaverPreference } from '@/lib/networkResilience'
 
 export default function AccountDetailsPage() {
   const navigate = useNavigate()
@@ -41,6 +44,7 @@ export default function AccountDetailsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [dataSaver, setDataSaver] = useState(() => isLowDataConnection())
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -274,6 +278,29 @@ export default function AccountDetailsPage() {
                     support cases and marketplace activity.
                   </p>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-dh-primary" aria-hidden="true" />
+                  <div>
+                    <Label htmlFor="account-data-saver" className="font-semibold text-slate-900">
+                      Data Saver
+                    </Label>
+                    <p className="mt-1 text-xs leading-5 text-dh-dark-gray">
+                      Reduce background media and favour lighter marketplace content on slower networks.
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="account-data-saver"
+                  checked={dataSaver}
+                  onCheckedChange={(checked) => {
+                    setDataSaver(checked)
+                    setDataSaverPreference(checked)
+                  }}
+                  aria-label="Use less mobile data"
+                />
               </div>
 
               <div className="flex justify-end border-t border-slate-100 pt-5">

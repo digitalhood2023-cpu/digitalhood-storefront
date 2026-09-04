@@ -1,6 +1,10 @@
 {
   "name": "DigitalHood Marketplace",
   "short_name": "DigitalHood",
+  "description": "Shop trusted products from Zambian sellers with secure DigitalHood checkout.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +17,14 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#000000",
+  "theme_color": "#15125f",
   "background_color": "#ffffff",
-  "display": "standalone"
+  "display": "standalone",
+  "orientation": "any",
+  "categories": ["shopping", "business"],
+  "shortcuts": [
+    { "name": "Shop", "short_name": "Shop", "url": "/shop" },
+    { "name": "Track order", "short_name": "Track", "url": "/track-order" },
+    { "name": "Messages", "short_name": "Messages", "url": "/account/messages" }
+  ]
 }

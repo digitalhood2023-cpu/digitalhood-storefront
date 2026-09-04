@@ -7,6 +7,7 @@ import { WishlistProvider } from '@/context/WishlistContext'
 import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext'
 import { MarketplaceStateProvider } from '@/context/MarketplaceStateContext'
 import MarketplaceSEO from '@/components/MarketplaceSEO'
+import NetworkStatusBanner from '@/components/NetworkStatusBanner'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import { getCurrentSellerDomainContext, getMarketplaceUrl } from '@/lib/sellerDomains'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
@@ -151,6 +152,7 @@ function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <SellerDomainStorefrontPage hostname={sellerDomain.hostname} />
+        <NetworkStatusBanner />
       </Suspense>
     )
   }
@@ -163,6 +165,7 @@ function App() {
             <RecentlyViewedProvider>
             <MarketplaceSEO />
             <NavigationScrollManager />
+            <NetworkStatusBanner />
 
             <div className="min-h-[100svh]">
               <Suspense fallback={<PageLoader />}>

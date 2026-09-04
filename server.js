@@ -293,6 +293,17 @@ app.use(
         return;
       }
 
+      if (normalizedPath.endsWith('/sw.js')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Service-Worker-Allowed', '/');
+        return;
+      }
+
+      if (normalizedPath.endsWith('/site.webmanifest')) {
+        res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
+        return;
+      }
+
       if (normalizedPath.includes('/assets/')) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         return;
