@@ -29,6 +29,49 @@ const MARKETPLACE_ORIGIN = String(
 const PAYMENTS_API_URL =
   process.env.PAYMENTS_API_URL || 'https://payments.digitalhood.info';
 
+const STOREFRONT_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "connect-src 'self' https://digitalhood.info https://*.digitalhood.info wss://*.digitalhood.info https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://cloudflareinsights.com",
+  "frame-src https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+].join('; ');
+
+function applyStorefrontSecurityHeaders(req, res, next) {
+  const forwardedProtocol = String(req.headers['x-forwarded-proto'] || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase();
+  const secureTransport = req.secure || forwardedProtocol === 'https';
+  res.setHeader('Content-Security-Policy', STOREFRONT_CONTENT_SECURITY_POLICY);
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  res.setHeader('Origin-Agent-Cluster', '?1');
+  res.setHeader(
+    'Permissions-Policy',
+    'accelerometer=(), camera=(self), geolocation=(self), gyroscope=(), microphone=(), payment=(self), usb=()'
+  );
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && secureTransport) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  return next();
+}
+
+app.disable('x-powered-by');
+app.use(applyStorefrontSecurityHeaders);
+
 function getSellerDomainRequest(req) {
   return parseSellerDomainHostname(req.hostname, SELLER_STOREFRONT_SUFFIX);
 }
@@ -88,13 +131,6 @@ app.use(
  * JSON parser only for our custom backend routes.
  */
 app.use(express.json());
-
-app.use((_req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
 
 app.post('/api/lenco/mobile-money', async (req, res) => {
   try {

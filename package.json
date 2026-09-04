@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && tsc -b && vite build",
+    "build": "node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build",
     "validate:seo": "node scripts/validate-seo-foundation.mjs",
     "validate:release": "node scripts/validate-marketplace-release.mjs",
     "validate:network": "node scripts/validate-network-resilience.mjs",
+    "validate:accessibility-security": "node scripts/validate-accessibility-security.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server.js"

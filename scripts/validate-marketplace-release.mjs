@@ -155,10 +155,10 @@ assert(
   'product details must show imported specifications, visible active tabs, and use the direct detail endpoint'
 )
 assert(
-  html.includes('maximum-scale=1.0') &&
-    html.includes('user-scalable=no') &&
+  html.includes('maximum-scale=5.0') &&
+    html.includes('user-scalable=yes') &&
     html.includes('viewport-fit=cover'),
-  'browser page zoom must remain disabled while the controlled gallery owns zoom'
+  'browser zoom must remain accessible while product gestures suppress accidental gallery opening'
 )
 
 assert(
