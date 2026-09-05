@@ -20,6 +20,7 @@ const product = read('src/pages/ProductPage.tsx')
 const productDetails = read('src/lib/productDetails.ts')
 const productGallery = read('src/lib/productGallery.ts')
 const woocommerce = read('src/lib/woocommerce.ts')
+const shop = read('src/pages/ShopPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
 const accountApi = read('src/api/account.ts')
@@ -155,6 +156,34 @@ assert(
   'product details must show imported specifications, visible active tabs, and use the direct detail endpoint'
 )
 assert(
+  woocommerce.includes('data?.summary?.averageRating') &&
+    product.includes('averageRating: summary.averageRating') &&
+    product.includes('ratingCount: summary.count') &&
+    product.includes('getPublicFeedback(\'sellers\', sellerKey)') &&
+    product.includes('% positive feedback'),
+  'product ratings and seller reputation must come from their independent verified-feedback summaries'
+)
+assert(
+  product.includes('lg:items-start') &&
+    product.includes('product-info min-w-0 rounded-3xl') &&
+    !product.includes('lg:sticky lg:top-24 lg:self-start'),
+  'desktop product media and purchase cards must remain top-aligned'
+)
+assert(
+  shop.includes('grid-cols-[104px_minmax(0,1fr)]') &&
+    shop.includes("'grid-cols-1 gap-2 sm:gap-3'") &&
+    shop.includes("'mb-1 hidden sm:flex'") &&
+    !shop.includes('flex flex-col min-h-[220px]'),
+  'shop list mode must keep one compact horizontal product row per mobile row'
+)
+assert(
+  buyerChat.includes("size?: 'xs' | 'sm' | 'md'") &&
+    buyerChat.includes('h-[calc(100dvh-7.25rem)]') &&
+    buyerChat.includes('text-[12px] font-medium leading-[17px]') &&
+    buyerChat.includes('mb-0.5 w-full rounded-xl px-2 py-1.5'),
+  'chat inbox rows and message bubbles must retain the compact responsive density'
+)
+assert(
   html.includes('maximum-scale=5.0') &&
     html.includes('user-scalable=yes') &&
     html.includes('viewport-fit=cover'),
@@ -225,6 +254,12 @@ assert(
     tracking.includes("shippingTotal === 0 ? 'Free'") &&
     tracking.includes('taxTotal'),
   'full order detail must retain its transparent cost breakdown'
+)
+assert(
+  tracking.includes('lg:items-start') &&
+    tracking.includes('self-start rounded-2xl') &&
+    !tracking.includes('Stock reservation'),
+  'order cards must avoid stretched blank space and never expose stock-reservation internals'
 )
 
 assert(

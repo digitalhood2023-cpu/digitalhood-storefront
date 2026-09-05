@@ -2067,12 +2067,17 @@ export default function ShopPage() {
                   className={`grid ${
                     viewMode === 'grid'
                       ? 'grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4 xl:grid-cols-4 2xl:grid-cols-5'
-                      : 'grid-cols-1 gap-4'
+                      : 'grid-cols-1 gap-2 sm:gap-3'
                   }`}
                 >
                   {sortedProducts.map((product) => {
                     const soldText = getSoldText(product);
                     const ratingText = getRatingText(product);
+                    const compactRatingText =
+                      safeNumber(product.averageRating) > 0 &&
+                      safeNumber(product.ratingCount) > 0
+                        ? `${safeNumber(product.averageRating).toFixed(1)} (${safeNumber(product.ratingCount)})`
+                        : 'No ratings';
                     const sellerDisplay = getProductSellerDisplay(product);
                     const shouldViewOptions =
                       product.hasOptions || product.type === 'variable';
@@ -2083,18 +2088,18 @@ export default function ShopPage() {
                         key={product.id}
                         className={`group overflow-hidden rounded-2xl border border-transparent bg-white shadow-sm transition-all duration-300 hover:border-dh-primary/15 hover:shadow-lg ${
                           viewMode === 'list'
-                            ? 'flex flex-col min-h-[220px] items-stretch hover:-translate-y-0 sm:flex-row'
+                            ? 'grid min-h-0 grid-cols-[104px_minmax(0,1fr)] items-stretch hover:-translate-y-0 sm:grid-cols-[132px_minmax(0,1fr)] lg:grid-cols-[156px_minmax(0,1fr)]'
                             : 'hover:-translate-y-1'
                         }`}
                       >
                         <div
                           className={`relative overflow-hidden bg-gray-100 ${
                             viewMode === 'list'
-                              ? 'aspect-[4/3] w-full shrink-0 sm:aspect-auto sm:w-48 lg:w-60'
+                              ? 'aspect-square h-full min-h-[104px] w-full sm:min-h-[124px]'
                               : 'aspect-[4/3]'
                           }`}
                         >
-                          <Link to={`/product/${product.slug}`}>
+                          <Link to={`/product/${product.slug}`} className="block h-full">
                             <img
                               src={getOptimizedImageUrl(product.image, 'card')}
                               srcSet={getImageSrcSet(product.image, 'card')}
@@ -2108,11 +2113,11 @@ export default function ShopPage() {
                             />
                           </Link>
 
-                          <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                          <div className={`absolute right-1.5 top-1.5 flex flex-col gap-1.5 opacity-100 transition-opacity sm:right-2 sm:top-2 sm:opacity-0 sm:group-hover:opacity-100 ${viewMode === 'list' ? 'lg:opacity-0' : ''}`}>
                             <button
                               type="button"
                               onClick={() => toggleWishlist(product as any)}
-                              className={`flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm transition-all hover:scale-110 ${
+                              className={`flex items-center justify-center rounded-full bg-white shadow-sm transition-all hover:scale-110 ${viewMode === 'list' ? 'h-7 w-7' : 'h-8 w-8'} ${
                                 isInWishlist(String(product.id))
                                   ? 'text-red-500'
                                   : 'text-gray-600 hover:text-red-500'
@@ -2129,7 +2134,7 @@ export default function ShopPage() {
                             <Link
                               to={`/product/${product.slug}`}
                               onClick={saveShopReturnState}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm transition-all hover:scale-110 hover:text-dh-primary"
+                              className={`${viewMode === 'list' ? 'hidden sm:flex' : 'flex'} h-8 w-8 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm transition-all hover:scale-110 hover:text-dh-primary`}
                               aria-label={`View ${product.name}`}
                             >
                               <Eye className="h-4 w-4" />
@@ -2138,20 +2143,20 @@ export default function ShopPage() {
                         </div>
 
                         <div
-                          className={`flex flex-1 flex-col p-3 sm:p-4 ${
+                          className={`flex min-w-0 flex-1 flex-col ${viewMode === 'list' ? 'p-2 sm:p-3' : 'p-3 sm:p-4'} ${
                             viewMode === 'list'
-                              ? 'sm:p-5 lg:grid lg:grid-cols-[1fr_240px] lg:items-center lg:gap-6'
+                              ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center lg:gap-4'
                               : ''
                           }`}
                         >
                           <div className="min-w-0">
-                          <div className="mb-2 flex items-center gap-1 text-xs text-dh-dark-gray">
-                            <Star className="h-4 w-4 fill-[#ffb54a] text-[#ffb54a]" />
-                            <span className="font-medium">{ratingText}</span>
+                          <div className={`${viewMode === 'list' ? 'mb-1 gap-0.5 text-[10px] leading-3 sm:text-[11px]' : 'mb-2 gap-1 text-xs'} flex items-center text-dh-dark-gray`}>
+                            <Star className={`${viewMode === 'list' ? 'h-3 w-3' : 'h-4 w-4'} fill-[#ffb54a] text-[#ffb54a]`} />
+                            <span className="truncate font-medium">{viewMode === 'list' ? compactRatingText : ratingText}</span>
                           </div>
 
                           <Link to={`/product/${product.slug}`}>
-                            <h3 className="mb-2 line-clamp-2 min-h-[2.4rem] text-sm font-black leading-5 text-dh-primary transition-colors hover:text-[#ffb54a]">
+                            <h3 className={`${viewMode === 'list' ? 'mb-1 min-h-0 text-xs leading-4 sm:text-sm sm:leading-5' : 'mb-2 min-h-[2.4rem] text-sm leading-5'} line-clamp-2 font-black text-dh-primary transition-colors hover:text-[#ffb54a]`}>
                               {product.name}
                             </h3>
                           </Link>
@@ -2159,7 +2164,7 @@ export default function ShopPage() {
                           {sellerDisplay.storeName && (
                             <Link
                               to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
-                              className="mb-2 inline-flex max-w-full items-center gap-1 text-[11px] font-bold text-dh-dark-gray transition-colors hover:text-dh-primary"
+                              className={`${viewMode === 'list' ? 'mb-1 hidden sm:inline-flex' : 'mb-2 inline-flex'} max-w-full items-center gap-1 text-[11px] font-bold text-dh-dark-gray transition-colors hover:text-dh-primary`}
                               onClick={saveShopReturnState}
                             >
                               <span className="truncate">
@@ -2173,7 +2178,7 @@ export default function ShopPage() {
                             </Link>
                           )}
 
-                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <div className={`${viewMode === 'list' ? 'mb-1 hidden sm:flex' : 'mb-3 flex'} flex-wrap items-center gap-2`}>
                             <StockBadge item={product as any} />
 
                             {soldText && (
@@ -2188,12 +2193,12 @@ export default function ShopPage() {
                           <div
                             className={`mt-auto ${
                               viewMode === 'list'
-                                ? 'rounded-2xl bg-dh-gray p-4 lg:mt-0'
+                                ? 'flex items-center gap-2 sm:mt-2 lg:mt-0 lg:block lg:rounded-xl lg:bg-dh-gray lg:p-3'
                                 : ''
                             }`}
                           >
-                            <div className="mb-3 flex items-center justify-between gap-2">
-                              <span className="font-display text-base font-black text-dh-primary sm:text-lg">
+                            <div className={`${viewMode === 'list' ? 'mb-0 shrink-0 lg:mb-2' : 'mb-3'} flex items-center justify-between gap-2`}>
+                              <span className={`${viewMode === 'list' ? 'text-sm sm:text-base' : 'text-base sm:text-lg'} font-display font-black text-dh-primary`}>
                                 {formatPrice(product.price)}
                               </span>
 
@@ -2205,9 +2210,12 @@ export default function ShopPage() {
                             </div>
 
                           {shouldViewOptions ? (
-                            <Link to={`/product/${product.slug}`}>
+                            <Link
+                              to={`/product/${product.slug}`}
+                              className={viewMode === 'list' ? 'flex-1 lg:block' : undefined}
+                            >
                               <Button
-                                className="w-full bg-black hover:bg-[#ffb54a] hover:text-black text-white"
+                                className={`${viewMode === 'list' ? 'h-8 w-full px-2 text-[10px] sm:text-xs' : 'w-full'} bg-black text-white hover:bg-[#ffb54a] hover:text-black`}
                                 size="sm"
                               >
                                 <CheckCircle className="w-4 h-4 mr-2" />
@@ -2219,7 +2227,7 @@ export default function ShopPage() {
                               type="button"
                               disabled={!canBuyDirectly}
                               onClick={() => handleAddToCart(product)}
-                              className={`w-full transition-all ${
+                              className={`${viewMode === 'list' ? 'h-8 flex-1 px-2 text-[10px] sm:text-xs lg:w-full' : 'w-full'} transition-all ${
                                 addedToCart === product.id
                                   ? 'bg-green-500 hover:bg-green-600 text-white'
                                   : canBuyDirectly
