@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "javascriptTotalBytes": 1650000,
+  "javascriptTotalGzipBytes": 520000,
+  "javascriptLargestChunkBytes": 620000,
+  "javascriptLargestChunkGzipBytes": 200000,
+  "cssTotalBytes": 210000,
+  "cssTotalGzipBytes": 35000
+}

@@ -1,0 +1,38 @@
+/* Source-controlled executable cache classification for the DigitalHood service worker. */
+self.DIGITALHOOD_NETWORK_POLICY = Object.freeze({
+  schemaVersion: 1,
+  version: 'dh-pwa-v2',
+  retainedVersions: ['dh-pwa-v2', 'dh-pwa-v1'],
+  maxPublicEntries: 80,
+  maxAssetEntries: 120,
+  maxPublicResponseBytes: 524288,
+  applicationShell: [
+    '/',
+    '/offline.html',
+    '/site.webmanifest',
+    '/network-cache-policy.js',
+    '/logo.jpg',
+    '/favicon.ico',
+    '/android-chrome-192x192.png',
+    '/android-chrome-512x512.png',
+  ],
+  networkOnlyPrefixes: [
+    '/api/account',
+    '/api/auth',
+    '/api/admin',
+    '/api/seller',
+    '/api/chat',
+    '/api/create-order',
+    '/api/lenco',
+    '/api/payments',
+    '/checkout',
+    '/orders',
+    '/track-order',
+  ],
+  publicReadPrefixes: [
+    '/api/public/products',
+    '/api/public/sellers',
+    '/api/public/stores',
+    '/api/public/status',
+  ],
+})

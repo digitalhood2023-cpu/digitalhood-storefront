@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import vm from 'node:vm'
 
 const read = (path) => fs.readFileSync(path, 'utf8')
 const assert = (condition, message) => {
@@ -6,6 +7,10 @@ const assert = (condition, message) => {
 }
 
 const worker = read('public/sw.js')
+const policySource = read('public/network-cache-policy.js')
+const policySandbox = { self: {} }
+vm.runInNewContext(policySource, policySandbox)
+const policy = policySandbox.self.DIGITALHOOD_NETWORK_POLICY
 const network = read('src/lib/networkResilience.ts')
 const account = read('src/context/AccountContext.tsx')
 const notifications = read('src/context/NotificationsContext.tsx')
@@ -25,8 +30,15 @@ for (const prohibited of [
   '/orders',
   '/track-order',
 ]) {
-  assert(worker.includes(`'${prohibited}'`), `${prohibited} must remain network-only`)
+  assert(policy.networkOnlyPrefixes.includes(prohibited), `${prohibited} must remain network-only`)
 }
+
+assert(worker.includes("importScripts('/network-cache-policy.js')"), 'the service worker must load the executable cache policy')
+assert(policy.version === policy.retainedVersions[0], 'the current service-worker cache version must be first in rollback retention')
+assert(policy.retainedVersions.length === 2, 'exactly one previous public shell version must be retained for rollback')
+assert(policy.maxPublicEntries <= 100 && policy.maxAssetEntries <= 150, 'runtime caches must have bounded entry counts')
+assert(policy.maxPublicResponseBytes <= 524288, 'public API cache entries must stay under 512 KiB')
+assert(worker.includes("cacheControl.includes('private')") && worker.includes("cacheControl.includes('no-store')"), 'private and no-store responses must never be cached')
 
 assert(
   worker.includes("request.method !== 'GET'") &&

@@ -37,5 +37,9 @@ for (const marker of [
 assert(server.includes("app.disable('x-powered-by')"), 'framework disclosure must be disabled')
 assert(server.includes("forwardedProtocol === 'https'"), 'HSTS must be proxy-aware')
 assert(server.indexOf('applyStorefrontSecurityHeaders') < server.indexOf("'/api/wc/store'"), 'headers must cover proxied responses')
+assert(!server.includes('LENCO_SECRET_KEY'), 'the storefront must never call Lenco with a provider secret')
+assert(!server.includes('WC_CONSUMER_SECRET'), 'the storefront must never hold privileged WooCommerce credentials')
+assert(!server.includes("app.post('/api/woocommerce/orders/"), 'the storefront must not expose privileged order mutation routes')
+assert(!server.includes("app.post('/api/lenco/mobile-money'"), 'Mobile Money initiation belongs only to the hardened payments API')
 
 console.log('Accessibility and security validation passed')

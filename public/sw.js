@@ -1,37 +1,14 @@
 /* DigitalHood low-data service worker. Sensitive and transactional APIs are never cached. */
-const VERSION = 'dh-pwa-v1'
+importScripts('/network-cache-policy.js')
+
+const POLICY = self.DIGITALHOOD_NETWORK_POLICY
+if (!POLICY) throw new Error('DigitalHood cache policy is unavailable')
+const VERSION = POLICY.version
 const SHELL_CACHE = `${VERSION}:shell`
 const PUBLIC_CACHE = `${VERSION}:public`
-const APP_SHELL = [
-  '/',
-  '/offline.html',
-  '/site.webmanifest',
-  '/logo.jpg',
-  '/favicon.ico',
-  '/android-chrome-192x192.png',
-  '/android-chrome-512x512.png',
-]
-
-const PROHIBITED_PREFIXES = [
-  '/api/account',
-  '/api/auth',
-  '/api/admin',
-  '/api/seller',
-  '/api/chat',
-  '/api/create-order',
-  '/api/lenco',
-  '/api/payments',
-  '/checkout',
-  '/orders',
-  '/track-order',
-]
-
-const PUBLIC_READ_PREFIXES = [
-  '/api/public/products',
-  '/api/public/sellers',
-  '/api/public/stores',
-  '/api/public/status',
-]
+const APP_SHELL = POLICY.applicationShell
+const PROHIBITED_PREFIXES = POLICY.networkOnlyPrefixes
+const PUBLIC_READ_PREFIXES = POLICY.publicReadPrefixes
 
 function isProhibited(url) {
   return PROHIBITED_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))
@@ -41,6 +18,23 @@ function isPublicRead(request, url) {
   return request.method === 'GET' && PUBLIC_READ_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))
 }
 
+async function trimCache(cacheName, maximumEntries) {
+  const cache = await caches.open(cacheName)
+  const keys = await cache.keys()
+  const overflow = keys.length - maximumEntries
+  if (overflow > 0) await Promise.all(keys.slice(0, overflow).map((key) => cache.delete(key)))
+}
+
+async function isPublicResponseCacheable(response) {
+  if (!response.ok || response.headers.get('set-cookie')) return false
+  const cacheControl = String(response.headers.get('cache-control') || '').toLowerCase()
+  if (cacheControl.includes('private') || cacheControl.includes('no-store')) return false
+  const contentLength = Number(response.headers.get('content-length') || 0)
+  if (contentLength) return contentLength <= POLICY.maxPublicResponseBytes
+  const body = await response.clone().arrayBuffer()
+  return body.byteLength <= POLICY.maxPublicResponseBytes
+}
+
 async function cacheFirst(request) {
   const cached = await caches.match(request)
   if (cached) return cached
@@ -48,6 +42,7 @@ async function cacheFirst(request) {
   if (response.ok) {
     const cache = await caches.open(SHELL_CACHE)
     await cache.put(request, response.clone())
+    await trimCache(SHELL_CACHE, POLICY.maxAssetEntries)
   }
   return response
 }
@@ -57,8 +52,9 @@ async function staleWhileRevalidate(request) {
   const cached = await cache.match(request)
   const network = fetch(request)
     .then(async (response) => {
-      if (response.ok && !response.headers.get('set-cookie')) {
+      if (await isPublicResponseCacheable(response)) {
         await cache.put(request, response.clone())
+        await trimCache(PUBLIC_CACHE, POLICY.maxPublicEntries)
       }
       return response
     })
@@ -77,7 +73,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => !key.startsWith(VERSION)).map((key) => caches.delete(key)))
+      Promise.all(keys.filter((key) => !POLICY.retainedVersions.some((version) => key.startsWith(version))).map((key) => caches.delete(key)))
     )
   )
   self.clients.claim()
@@ -90,9 +86,10 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(async () =>
-        (await caches.match('/')) || (await caches.match('/offline.html'))
-      )
+      fetch(request).catch(async () => {
+        const currentShell = await caches.open(SHELL_CACHE)
+        return (await currentShell.match('/')) || (await currentShell.match('/offline.html'))
+      })
     )
     return
   }

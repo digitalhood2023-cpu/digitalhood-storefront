@@ -18,6 +18,7 @@ function isDataUrl(url: string) {
 
 const CLOUDFLARE_IMAGE_ZONE = 'https://digitalhood.info'
 const CLOUDFLARE_IMAGE_QUALITY = 80
+const CLOUDFLARE_LOW_DATA_IMAGE_QUALITY = 68
 
 function isDigitalHoodHostname(hostname: string) {
   const normalized = hostname.toLowerCase()
@@ -37,10 +38,11 @@ function isOptimizableWordPressImage(url: URL) {
 }
 
 function buildCloudflareImageUrl(source: URL, width: number) {
+  const lowData = typeof document !== 'undefined' && document.documentElement.dataset.dataSaver === 'on'
   const options = [
     `width=${width}`,
     'fit=scale-down',
-    `quality=${CLOUDFLARE_IMAGE_QUALITY}`,
+    `quality=${lowData ? CLOUDFLARE_LOW_DATA_IMAGE_QUALITY : CLOUDFLARE_IMAGE_QUALITY}`,
     'format=auto',
   ].join(',')
 
