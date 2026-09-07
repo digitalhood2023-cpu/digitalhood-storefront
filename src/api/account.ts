@@ -875,7 +875,11 @@ export type CustomerOrderPaymentVerificationResponse = {
   failed: boolean
   pending: boolean
   terminal: boolean
+  retryAllowed?: boolean
+  requiresCustomerAction?: boolean
+  providerProcessing?: boolean
   status: string
+  message?: string
   reference?: string
   paymentIntentId?: string
   orderId: number
@@ -901,7 +905,9 @@ export async function startCustomerOrderPaymentRetry(
 
 export async function verifyCustomerOrderPaymentRetry(
   orderId: string | number,
-  payment: { reference: string } | { paymentIntentId: string }
+  payment:
+    | { reference: string }
+    | { paymentIntentId: string; clientOutcome?: 'failed' | 'unknown' }
 ) {
   const response = await accountFetch<CustomerOrderPaymentVerificationResponse>(
     `/api/account/orders/${encodeURIComponent(String(orderId))}/payment-retry/verify`,

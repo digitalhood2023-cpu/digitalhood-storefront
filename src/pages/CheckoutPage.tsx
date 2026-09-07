@@ -454,7 +454,7 @@ export default function CheckoutPage() {
   }, [checkoutProgressStage])
 
   useEffect(() => {
-    if (checkoutProgressStage === 'idle' || checkoutProgressStage === 'confirmed') return
+    if (!['creating', 'requesting-payment', 'awaiting-approval', 'confirming'].includes(checkoutProgressStage)) return
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
@@ -1032,10 +1032,10 @@ export default function CheckoutPage() {
     stopLencoPolling()
 
     const pollingStartedAt = Date.now()
-    const verificationWindowMs = 5 * 60 * 1000
-    // Poll local DigitalHood payment state for the five-minute provider
-    // verification window. Provider reconciliation runs on the backend; this
-    // loop never launches a second Mobile Money prompt.
+    const foregroundConfirmationBudgetMs = 10_000
+    // Keep the blocking customer wait short. The durable ledger and provider
+    // reconciliation continue after this foreground budget, and this loop
+    // never launches a second Mobile Money prompt.
 
     setCheckoutProgressStage('awaiting-approval')
     setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
@@ -1098,14 +1098,14 @@ export default function CheckoutPage() {
 
       const elapsedMs = Date.now() - pollingStartedAt
 
-      if (elapsedMs >= verificationWindowMs) {
+      if (elapsedMs >= foregroundConfirmationBudgetMs) {
         stopLencoPolling()
         setIsSubmitting(false)
         setCheckoutProgressStage('delayed')
         setSuccessState({
-          title: 'Payment Confirmation Delayed',
+          title: 'Payment Is Still Being Confirmed',
           message:
-            'The five-minute confirmation window ended without a final provider result. Your order is still reserved and DigitalHood will keep checking it securely in the background.',
+            'The provider has not returned a final result within 10 seconds. Your order is reserved and DigitalHood is continuing the same secure check in the background.',
           nextStep:
             'If money was deducted, do not pay again. Open the same order to view its payment state or contact support with the payment reference.',
           confirmed: false,
@@ -1118,11 +1118,11 @@ export default function CheckoutPage() {
       // Check the local ledger more quickly while the customer's PIN action is
       // fresh, then ease back. This never turns each browser poll into a Lenco
       // request, so confirmation feels faster without creating provider load.
-      const nextDelayMs = elapsedMs < 30_000 ? 2500 : 5000
+      const nextDelayMs = 1500
       lencoPollingRef.current = window.setTimeout(poll, nextDelayMs)
     }
 
-    lencoPollingRef.current = window.setTimeout(poll, 1500)
+    lencoPollingRef.current = window.setTimeout(poll, 750)
   }
 
   const createCardPaymentOnSubmit = async (): Promise<PreparedStripePayment> => {
@@ -1226,7 +1226,8 @@ export default function CheckoutPage() {
       try {
         const verification = await verifyStripePayment(
           paymentIntentId,
-          createdRecoveryTokenRef.current || createdRecoveryToken
+          createdRecoveryTokenRef.current || createdRecoveryToken,
+          'failed'
         )
 
         if (verification.paid || verification.success) {
@@ -1239,24 +1240,24 @@ export default function CheckoutPage() {
 
         if (verification.pending) {
           setSuccessState({
-            title: 'Checking Card Payment',
-            message: 'The card provider has not returned a final result yet. DigitalHood is safely checking this same order.',
-            nextStep: 'Do not submit another payment yet. Open the order to check its live payment status.',
+            title: 'Card Confirmation Pending',
+            message: verification.message || 'The card provider has not returned a final result yet. DigitalHood is safely checking this same order.',
+            nextStep: 'No second charge will be started while this attempt is uncertain. Open the order to see its live payment status.',
             confirmed: false,
           })
           setOrderComplete(true)
-          setCheckoutProgressStage('failed')
+          setCheckoutProgressStage('delayed')
           return
         }
       } catch {
         setSuccessState({
-          title: 'Checking Card Payment',
+          title: 'Card Confirmation Pending',
           message: 'Your connection changed while the provider result was being checked. The existing order remains protected.',
-          nextStep: 'Do not submit another payment yet. Open the order and DigitalHood will keep checking the provider.',
+          nextStep: 'Open the order to see the live provider state. DigitalHood will keep checking this same attempt.',
           confirmed: false,
         })
         setOrderComplete(true)
-        setCheckoutProgressStage('failed')
+        setCheckoutProgressStage('delayed')
         return
       }
     }

@@ -82,7 +82,7 @@ export async function createWooCommerceOrder(payload) {
 }
 
 export async function createStripePaymentIntent(payload) {
-  const response = await fetch(`${PAYMENTS_API_URL}/create-payment-intent`, {
+  const response = await fetch(`${PAYMENTS_API_URL}/api/payments/stripe/intents`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -91,11 +91,11 @@ export async function createStripePaymentIntent(payload) {
   return parseJsonResponse(response);
 }
 
-export async function verifyStripePayment(paymentIntentId) {
-  const response = await fetch(`${PAYMENTS_API_URL}/verify-stripe-payment`, {
+export async function verifyStripePayment(paymentIntentId, clientOutcome = "unknown") {
+  const response = await fetch(`${PAYMENTS_API_URL}/api/payments/stripe/verify`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ paymentIntentId }),
+    body: JSON.stringify({ paymentIntentId, clientOutcome }),
   });
 
   return parseJsonResponse(response);
