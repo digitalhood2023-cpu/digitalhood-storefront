@@ -80,9 +80,11 @@ assert(
 assert(
   !checkout.includes('Prepare Card Payment') &&
     checkout.includes("mode: 'payment'") &&
+    checkout.includes("paymentMethodTypes: ['card', 'link']") &&
+    paymentRetryPage.includes("paymentMethodTypes: ['card', 'link']") &&
     checkout.includes('onCreatePayment={createCardPaymentOnSubmit}') &&
     checkout.includes('onConfirming={handleCardPaymentConfirming}'),
-  'card fields must render immediately with no prepare-order step'
+  'card fields must render immediately with one explicit card and Link method contract'
 )
 const stripeSubmitIndex = stripe.indexOf('await elements.submit()')
 const stripeOverlayIndex = stripe.indexOf('onProcessing?.()')
@@ -94,6 +96,7 @@ assert(
     stripeOverlayIndex < stripeIntentIndex &&
     stripeIntentIndex < stripeConfirmIndex &&
     stripe.includes("await onFailure?.(") &&
+    stripe.includes('getCustomerCardErrorMessage') &&
     stripe.includes("'confirmation',") &&
     stripe.includes('preparedPayment?.paymentIntentId') &&
     stripe.includes('await onSuccess('),

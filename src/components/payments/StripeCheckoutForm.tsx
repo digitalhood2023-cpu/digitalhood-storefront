@@ -29,6 +29,20 @@ type StripeCheckoutFormProps = {
   ) => void | Promise<void>
 }
 
+function getCustomerCardErrorMessage(message: string | undefined, fallback: string) {
+  const normalized = String(message || '').trim()
+
+  if (
+    /automatic payment methods|allowed_payment_method_types|payment_method_types/i.test(
+      normalized
+    )
+  ) {
+    return 'The secure card form could not complete this payment. Please retry Card or choose Mobile Money on the same order.'
+  }
+
+  return normalized || fallback
+}
+
 export default function StripeCheckoutForm({
   amount,
   disabled = false,
@@ -105,10 +119,14 @@ export default function StripeCheckoutForm({
         redirect: 'if_required',
       })
     } catch (confirmationError) {
-      const message =
+      const providerMessage =
         confirmationError instanceof Error
           ? confirmationError.message
           : 'The card provider could not be reached. Please try again.'
+      const message = getCustomerCardErrorMessage(
+        providerMessage,
+        'The card provider could not be reached. Please try again.'
+      )
 
       setError(message)
       submissionInFlightRef.current = false
@@ -122,7 +140,10 @@ export default function StripeCheckoutForm({
     }
 
     if (result.error) {
-      const message = result.error.message || 'Payment failed.'
+      const message = getCustomerCardErrorMessage(
+        result.error.message,
+        'Payment failed.'
+      )
       setError(message)
       submissionInFlightRef.current = false
       setIsPaying(false)
