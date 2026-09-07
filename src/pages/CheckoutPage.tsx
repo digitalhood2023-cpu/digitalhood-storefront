@@ -1033,9 +1033,12 @@ export default function CheckoutPage() {
 
     const pollingStartedAt = Date.now()
     const foregroundConfirmationBudgetMs = 10_000
+    const liveConfirmationWatchMs = 5 * 60_000
+    let hasEnteredBackgroundConfirmation = false
     // Keep the blocking customer wait short. The durable ledger and provider
-    // reconciliation continue after this foreground budget, and this loop
-    // never launches a second Mobile Money prompt.
+    // reconciliation continue after this foreground budget. The same status
+    // watch also remains active while this page is open, and it never launches
+    // a second Mobile Money prompt.
 
     setCheckoutProgressStage('awaiting-approval')
     setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
@@ -1098,8 +1101,11 @@ export default function CheckoutPage() {
 
       const elapsedMs = Date.now() - pollingStartedAt
 
-      if (elapsedMs >= foregroundConfirmationBudgetMs) {
-        stopLencoPolling()
+      if (
+        elapsedMs >= foregroundConfirmationBudgetMs &&
+        !hasEnteredBackgroundConfirmation
+      ) {
+        hasEnteredBackgroundConfirmation = true
         setIsSubmitting(false)
         setCheckoutProgressStage('delayed')
         setSuccessState({
@@ -1112,13 +1118,22 @@ export default function CheckoutPage() {
           failed: false,
         })
         setOrderComplete(true)
+      }
+
+      if (elapsedMs >= liveConfirmationWatchMs) {
+        stopLencoPolling()
         return
       }
 
-      // Check the local ledger more quickly while the customer's PIN action is
-      // fresh, then ease back. This never turns each browser poll into a Lenco
-      // request, so confirmation feels faster without creating provider load.
-      const nextDelayMs = 1500
+      // Stay responsive while the phone prompt is fresh, then ease back. The
+      // backend coalesces provider checks through a PostgreSQL lease, so this
+      // remains safe when several tabs or application replicas are active.
+      const nextDelayMs =
+        elapsedMs < foregroundConfirmationBudgetMs
+          ? 1250
+          : elapsedMs < 30_000
+            ? 2000
+            : 5000
       lencoPollingRef.current = window.setTimeout(poll, nextDelayMs)
     }
 
