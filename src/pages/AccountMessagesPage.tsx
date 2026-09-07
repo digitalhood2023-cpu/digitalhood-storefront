@@ -372,7 +372,7 @@ function ConversationAvatar({
 }: {
   item?: ChatInboxItem
   online?: boolean
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md'
 }) {
   const name =
     getConversationTitle(item)
@@ -386,7 +386,9 @@ function ConversationAvatar({
     ''
 
   const sizeClass =
-    size === 'sm'
+    size === 'xs'
+      ? 'h-8 w-8 text-[10px]'
+      : size === 'sm'
       ? 'h-10 w-10 text-xs'
       : 'h-11 w-11 text-sm'
 
@@ -456,7 +458,7 @@ function MessageAvatar({
       : null)
 
   return (
-    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[10px] font-black text-dh-primary shadow-sm ring-1 ring-slate-200">
+    <span className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[9px] font-black text-dh-primary shadow-sm ring-1 ring-slate-200">
       {getInitials(displayName, message.sender?.type === 'seller' ? 'S' : 'B')}
       {avatarUrl && (
         <img
@@ -620,8 +622,8 @@ function ProductContextCard({
   ).trim()
 
   const card = (
-    <div className="flex items-center gap-3 p-3">
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+    <div className="flex items-center gap-2 p-2">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
         {image ? (
           <img src={image} alt={name} className="h-full w-full object-cover" />
         ) : (
@@ -631,8 +633,8 @@ function ProductContextCard({
 
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-black uppercase tracking-wide text-dh-secondary">Product inquiry</p>
-        <p className="truncate text-sm font-black text-dh-primary">{name}</p>
-        {price && <p className="mt-1 text-xs font-bold text-slate-500">{price}</p>}
+        <p className="truncate text-xs font-black text-dh-primary">{name}</p>
+        {price && <p className="mt-0.5 text-[11px] font-bold text-slate-500">{price}</p>}
       </div>
 
       {productReference && <span className="shrink-0 text-[10px] font-black text-dh-primary">View →</span>}
@@ -640,7 +642,7 @@ function ProductContextCard({
   )
 
   return (
-    <div className="mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm">
+    <div className="mb-1 overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
       {productReference ? (
         <Link to={`/product/${encodeURIComponent(productReference)}`} className="block transition hover:bg-slate-50" aria-label={`View ${name}`}>
           {card}
@@ -788,10 +790,10 @@ function OrderContextCard({
       )
 
   return (
-    <div className="mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm">
-      <div className="border-b border-slate-100 p-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-dh-secondary/15 text-dh-primary">
+    <div className="mb-1 overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
+      <div className="border-b border-slate-100 p-2">
+        <div className="flex items-start gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-dh-secondary/15 text-dh-primary">
             <PackageCheck className="h-5 w-5" />
           </div>
 
@@ -800,11 +802,11 @@ function OrderContextCard({
               Order inquiry
             </p>
 
-            <p className="truncate text-sm font-black text-dh-primary">
+            <p className="truncate text-xs font-black text-dh-primary">
               Order #{orderNumber}
             </p>
 
-            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+            <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">
               {storeName}
             </p>
           </div>
@@ -825,7 +827,7 @@ function OrderContextCard({
               <Link
                 key={item.id}
                 to={`/product/${encodeURIComponent(item.productId)}`}
-                className="flex items-center gap-2.5 px-3 py-2"
+                className="flex items-center gap-2 px-2 py-1.5"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
                   {item.imageUrl ? (
@@ -3131,22 +3133,22 @@ export default function AccountMessagesPage() {
     <div className="flex min-h-[100svh] flex-col bg-dh-gray">
       <Header />
 
-      <main className="py-2 lg:py-3">
+      <main className="py-1.5 lg:py-2">
         <div className="container mx-auto max-w-[1536px] px-3 sm:px-5 lg:px-6">
-          <div className={`${conversationId ? 'hidden md:flex' : 'flex'} mb-2 flex-wrap items-center justify-between gap-3`}>
+          <div className={`${conversationId ? 'hidden md:flex' : 'flex'} mb-1.5 flex-wrap items-center justify-between gap-2`}>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-dh-secondary">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-dh-secondary sm:text-xs">
                 DigitalHood Marketplace
               </p>
 
-              <h1 className="font-display text-xl font-black text-dh-primary sm:text-2xl">
+              <h1 className="font-display text-lg font-black leading-tight text-dh-primary sm:text-xl">
                 Messages
               </h1>
             </div>
 
             <Link
               to="/account"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black text-dh-primary shadow-sm transition hover:bg-dh-primary hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-dh-primary shadow-sm transition hover:bg-dh-primary hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" />
               My account
@@ -3162,7 +3164,7 @@ export default function AccountMessagesPage() {
             </div>
           )}
 
-          <div className="grid h-[calc(100dvh-8.75rem)] min-h-[520px] max-h-[1100px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg md:h-[calc(100dvh-12rem)] md:grid-cols-[300px_minmax(0,1fr)] lg:h-[calc(100dvh-9rem)] xl:grid-cols-[330px_minmax(0,1fr)]">
+          <div className="grid h-[calc(100dvh-7.25rem)] min-h-[440px] max-h-[1100px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg md:h-[calc(100dvh-10.5rem)] md:grid-cols-[280px_minmax(0,1fr)] lg:h-[calc(100dvh-8rem)] xl:grid-cols-[310px_minmax(0,1fr)]">
             <aside
               className={`border-r border-slate-100 ${
                 conversationId
@@ -3170,13 +3172,13 @@ export default function AccountMessagesPage() {
                   : 'flex'
               } flex-col`}
             >
-              <div className="flex items-center justify-between border-b border-slate-100 p-4">
+              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
                 <div>
-                  <p className="font-display text-lg font-black text-dh-primary">
+                  <p className="font-display text-base font-black leading-tight text-dh-primary">
                     Conversations
                   </p>
 
-                  <p className="text-xs font-semibold text-slate-400">
+                  <p className="text-[10px] font-semibold text-slate-400">
                     Buyers and marketplace stores
                   </p>
                 </div>
@@ -3190,15 +3192,15 @@ export default function AccountMessagesPage() {
 
                     void loadInbox()
                   }}
-                  className="rounded-full bg-dh-gray p-2 text-dh-primary transition hover:bg-dh-secondary/20"
+                  className="rounded-full bg-dh-gray p-1.5 text-dh-primary transition hover:bg-dh-secondary/20"
                   aria-label="Refresh messages"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="border-b border-slate-100 px-3 pb-3">
-                <label className="flex items-center gap-2 rounded-2xl bg-dh-gray px-3 py-2.5">
+              <div className="border-b border-slate-100 px-2.5 py-2">
+                <label className="flex items-center gap-2 rounded-xl bg-dh-gray px-2.5 py-2">
                   <Search className="h-4 w-4 text-slate-400" />
 
                   <input
@@ -3211,12 +3213,12 @@ export default function AccountMessagesPage() {
                     type="search"
                     aria-label="Search conversations"
                     placeholder="Search conversations..."
-                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                    className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none placeholder:text-slate-400"
                   />
                 </label>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-2">
+              <div className="flex-1 overflow-y-auto p-1.5">
                 {isLoadingInbox ? (
                   <div
                     role="status"
@@ -3264,16 +3266,16 @@ export default function AccountMessagesPage() {
                               `/account/messages/${item.conversationId}`
                             )
                           }
-                          className={`mb-1 w-full rounded-2xl p-3 text-left transition ${
+                          className={`mb-0.5 w-full rounded-xl px-2 py-1.5 text-left transition ${
                             active
                               ? 'bg-dh-primary text-white'
                               : 'hover:bg-dh-gray'
                           }`}
                         >
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-center gap-2">
                             <ConversationAvatar
                               item={item}
-                              size="sm"
+                              size="xs"
                               online={
                                 active &&
                                 sellerOnline ===
@@ -3283,7 +3285,7 @@ export default function AccountMessagesPage() {
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="truncate text-sm font-black">
+                                <p className="truncate text-xs font-black leading-4">
                                   {getConversationTitle(
                                     item
                                   )}
@@ -3301,7 +3303,7 @@ export default function AccountMessagesPage() {
                               </div>
 
                               <p
-                                className={`mt-1 truncate text-xs font-semibold ${
+                                className={`truncate text-[10px] font-semibold leading-3 ${
                                   active
                                     ? 'text-white/70'
                                     : 'text-slate-400'
@@ -3437,7 +3439,7 @@ export default function AccountMessagesPage() {
                           void loadOlderMessages()
                         }
                       }}
-                      className="chat-wallpaper h-full overflow-y-auto p-2.5 sm:p-3"
+                      className="chat-wallpaper h-full overflow-y-auto p-2 sm:p-2.5"
                     >
                     {isLoadingMessages ? (
                       <div className="flex h-full min-h-64 items-center justify-center">
@@ -3455,7 +3457,7 @@ export default function AccountMessagesPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         {messages.map(
                           (
                             message,
@@ -3506,8 +3508,8 @@ export default function AccountMessagesPage() {
 
                             const dateSeparator =
                               showDateSeparator ? (
-                                <div className="flex items-center justify-center py-1">
-                                  <span className="rounded-full bg-slate-200/80 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                                <div className="flex items-center justify-center py-0.5">
+                                  <span className="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
                                     {formatMessageDate(
                                       message.createdAt
                                     )}
@@ -3519,11 +3521,11 @@ export default function AccountMessagesPage() {
                               return (
                                 <div
                                   key={`${message.messageId}-${message.sequence}`}
-                                  className="space-y-3"
+                                  className="space-y-1.5"
                                 >
                                   {dateSeparator}
 
-                                  <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-semibold leading-5 text-slate-500">
+                                  <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-[11px] font-semibold leading-4 text-slate-500">
                                     {message.text}
                                   </div>
                                 </div>
@@ -3533,12 +3535,12 @@ export default function AccountMessagesPage() {
                             return (
                               <div
                                 key={`${message.messageId}-${message.sequence}`}
-                                className="space-y-2"
+                                className="space-y-1"
                               >
                                 {dateSeparator}
 
                                 <div
-                                  className={`flex items-end gap-2 ${
+                                  className={`flex items-end gap-1.5 ${
                                   isBuyer
                                     ? 'justify-end'
                                     : 'justify-start'
@@ -3553,7 +3555,7 @@ export default function AccountMessagesPage() {
                                 )}
 
                                 <div
-                                  className={`max-w-[86%] rounded-2xl border px-3 py-1.5 shadow-sm sm:max-w-[72%] ${
+                                  className={`max-w-[84%] rounded-xl border px-2.5 py-1 shadow-sm sm:max-w-[68%] ${
                                     isBuyer
                                       ? 'rounded-br-md border-indigo-950 bg-[#312e81] text-white'
                                       : 'rounded-bl-md border-slate-200 bg-white text-slate-950'
@@ -3562,7 +3564,7 @@ export default function AccountMessagesPage() {
                                   {!message.deleted &&
                                     message.replyToMessageId && (
                                     <div
-                                      className={`mb-2 rounded-xl border px-3 py-2 ${
+                                      className={`mb-1.5 rounded-lg border px-2.5 py-1.5 ${
                                         isBuyer
                                           ? 'border-white/15 bg-white/10'
                                           : 'border-slate-200 bg-slate-50'
@@ -3579,7 +3581,7 @@ export default function AccountMessagesPage() {
                                       </p>
 
                                       <p
-                                        className={`mt-0.5 truncate text-xs font-semibold ${
+                                        className={`mt-0.5 truncate text-[11px] font-semibold ${
                                           isBuyer
                                             ? 'text-white/85'
                                             : 'text-slate-600'
@@ -3594,7 +3596,7 @@ export default function AccountMessagesPage() {
 
                                   {message.deleted && (
                                     <p
-                                      className={`text-sm font-medium italic ${
+                                      className={`text-xs font-medium italic ${
                                         isBuyer
                                           ? 'text-white/70'
                                           : 'text-slate-400'
@@ -3651,13 +3653,13 @@ export default function AccountMessagesPage() {
                                       'order_card' &&
                                     messageKind !== 'image' &&
                                     messageKind !== 'video' && (
-                                    <p className="whitespace-pre-wrap break-words font-sans text-[14px] font-medium leading-5 tracking-[-0.01em]">
+                                    <p className="whitespace-pre-wrap break-words font-sans text-[12px] font-medium leading-[17px] tracking-[-0.01em] sm:text-[13px] sm:leading-[18px]">
                                       {message.text}
                                     </p>
                                   )}
 
                                   <p
-                                    className={`mt-1.5 text-[10px] font-semibold ${
+                                    className={`mt-1 text-[9px] font-semibold ${
                                       isBuyer
                                         ? 'text-white/60'
                                         : 'text-slate-400'
@@ -3715,7 +3717,7 @@ export default function AccountMessagesPage() {
 
                                   {!message.deleted && !message.localStatus && (
                                     <div
-                                      className={`mt-1 flex items-center gap-3 text-[9px] font-black ${
+                                      className={`mt-0.5 flex items-center gap-2.5 text-[9px] font-black ${
                                         isBuyer
                                           ? 'text-white/70'
                                           : 'text-slate-400'
@@ -3867,7 +3869,7 @@ export default function AccountMessagesPage() {
                     onSubmit={
                       handleSend
                     }
-                    className="border-t border-slate-100 bg-white p-2"
+                    className="border-t border-slate-100 bg-white p-1.5 sm:p-2"
                   >
                     {(replyingTo ||
                       editingMessage) && (
@@ -4149,7 +4151,7 @@ export default function AccountMessagesPage() {
                         type="button"
                         onClick={() => mediaInputRef.current?.click()}
                         disabled={isPreparingMedia}
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-dh-primary transition hover:border-dh-primary hover:bg-dh-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label="Attach an image or video"
                         title="Attach photo or video"
                       >
@@ -4232,7 +4234,7 @@ export default function AccountMessagesPage() {
                               : 'Write a message...'
                         }
                         rows={1}
-                        className="min-h-12 max-h-36 flex-1 resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 font-sans text-[15px] font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
+                        className="min-h-10 max-h-28 flex-1 resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 font-sans text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
                       />
 
                       <button
@@ -4244,7 +4246,7 @@ export default function AccountMessagesPage() {
                           ) ||
                           !draft.trim()
                         }
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#312e81] text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#312e81] text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isSending ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
@@ -4254,7 +4256,7 @@ export default function AccountMessagesPage() {
                       </button>
                     </div>
 
-                    <div className="mt-2 flex items-center justify-between gap-3 px-1">
+                    <div className="mt-1 flex items-center justify-between gap-3 px-1">
                       <p className="text-[10px] font-semibold text-slate-400">
                         Enter to send · Shift + Enter for a new line
                       </p>

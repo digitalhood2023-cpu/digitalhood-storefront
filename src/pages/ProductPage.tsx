@@ -56,6 +56,10 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
 import { useAccount } from '@/context/AccountContext'
 import { openProductConversation } from '@/api/chat'
+import {
+  getPublicFeedback,
+  type FeedbackSummary,
+} from '@/api/feedback'
 
 import gsap from 'gsap'
 import { getFastProductImage } from '@/lib/productImages'
@@ -79,13 +83,13 @@ function getVariationLabel(variation: WooProductVariation) {
   return values.join(' / ')
 }
 
-function getRatingText(product: WooProduct) {
-  if (!product.averageRating || product.ratingCount <= 0) {
+function getRatingText(averageRating: number, ratingCount: number) {
+  if (!averageRating || ratingCount <= 0) {
     return 'No verified ratings yet'
   }
 
-  return `${product.averageRating.toFixed(1)} ★ · ${product.ratingCount} verified ${
-    product.ratingCount === 1 ? 'rating' : 'ratings'
+  return `${averageRating.toFixed(1)} ★ · ${ratingCount} verified ${
+    ratingCount === 1 ? 'rating' : 'ratings'
   }`
 }
 
@@ -101,7 +105,10 @@ function getSellerInitials(storeName = '') {
     .join('') || 'DH'
 }
 
-function getProductSellerDisplay(product: WooProduct) {
+function getProductSellerDisplay(
+  product: WooProduct,
+  feedbackSummary: FeedbackSummary | null
+) {
   const storeName =
     product.sellerStoreName ||
     product.seller?.storeName ||
@@ -121,15 +128,6 @@ function getProductSellerDisplay(product: WooProduct) {
     sellerKey === 'digitalhood' ||
     storeName.toLowerCase() === 'digitalhood'
 
-  const ratingCount = Number(product.ratingCount || product.reviewCount || 0)
-  const averageRating = Number(product.averageRating || 0)
-  const positivePercent =
-    ratingCount > 0 && averageRating > 0
-      ? Math.min(100, Math.max(0, Math.round((averageRating / 5) * 100)))
-      : isOfficialDigitalHood
-        ? 100
-        : null
-
   const sellerAvatarUrl =
     product.sellerAvatarUrl ||
     product.sellerProfilePhotoUrl ||
@@ -145,8 +143,8 @@ function getProductSellerDisplay(product: WooProduct) {
     avatarUrl: sellerAvatarUrl || (isOfficialDigitalHood ? '/logo.jpg' : ''),
     initials: getSellerInitials(storeName),
     feedbackText:
-      positivePercent !== null
-        ? `${positivePercent}% positive`
+      feedbackSummary && feedbackSummary.count > 0
+        ? `${Math.round(feedbackSummary.positivePercent)}% positive feedback`
         : 'New seller',
   }
 }
@@ -275,6 +273,8 @@ export default function ProductPage() {
   const [newArrivalProducts, setNewArrivalProducts] = useState<WooProduct[]>([])
   const [hotSellingProducts, setHotSellingProducts] = useState<WooProduct[]>([])
   const [productReviews, setProductReviews] = useState<WooProductReview[]>([])
+  const [sellerFeedbackSummary, setSellerFeedbackSummary] =
+    useState<FeedbackSummary | null>(null)
   const [areReviewsLoading, setAreReviewsLoading] = useState(false)
   const [reviewsError, setReviewsError] = useState('')
   const [selectedImage, setSelectedImage] = useState(0)
@@ -339,6 +339,7 @@ export default function ProductPage() {
     setNewArrivalProducts([])
     setHotSellingProducts([])
     setProductReviews([])
+    setSellerFeedbackSummary(null)
     setReviewsError('')
 
     fetchWooProductBySlug(slug)
@@ -378,8 +379,23 @@ export default function ProductPage() {
 
           setAreReviewsLoading(true)
           fetchWooProductReviews(item.id)
-            .then((reviews) => {
-              if (productLoadIdRef.current === loadId) setProductReviews(reviews)
+            .then(({ reviews, summary }) => {
+              if (productLoadIdRef.current !== loadId) return
+
+              setProductReviews(reviews)
+              setProduct((current) =>
+                current?.id === item.id && summary.count > 0
+                  ? {
+                      ...current,
+                      averageRating: summary.averageRating,
+                      ratingCount: summary.count,
+                      reviewCount: summary.count,
+                      average_rating: String(summary.averageRating),
+                      rating_count: summary.count,
+                      review_count: summary.count,
+                    }
+                  : current
+              )
             })
             .catch((error) => {
               console.error(error)
@@ -442,6 +458,29 @@ export default function ProductPage() {
         if (productLoadIdRef.current === loadId) setIsLoading(false)
       })
   }, [slug])
+
+  useEffect(() => {
+    const sellerKey = product?.sellerKey || product?.seller?.key || ''
+
+    if (!sellerKey) {
+      setSellerFeedbackSummary(null)
+      return
+    }
+
+    let active = true
+
+    getPublicFeedback('sellers', sellerKey)
+      .then((response) => {
+        if (active) setSellerFeedbackSummary(response.summary)
+      })
+      .catch(() => {
+        if (active) setSellerFeedbackSummary(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [product?.seller?.key, product?.sellerKey])
 
   useEffect(() => {
     if (!product) return
@@ -609,7 +648,9 @@ export default function ProductPage() {
   )
 
   const soldText = product ? getSoldText(product) : ''
-  const ratingText = product ? getRatingText(product) : ''
+  const ratingText = product
+    ? getRatingText(product.averageRating, product.ratingCount)
+    : ''
   const productDetailRows = useMemo(() => {
     if (!product) return []
 
@@ -650,7 +691,7 @@ export default function ProductPage() {
     )
   }, [verifiedReviews])
   const sellerDisplay = product
-    ? getProductSellerDisplay(product)
+    ? getProductSellerDisplay(product, sellerFeedbackSummary)
     : {
         storeName: '',
         sellerUrl: '',
@@ -1372,7 +1413,7 @@ export default function ProductPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid min-w-0 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:gap-6 xl:grid-cols-[0.82fr_1.18fr] xl:gap-8">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:gap-6 xl:grid-cols-[0.82fr_1.18fr] xl:gap-8">
               <div className="product-image min-w-0 rounded-3xl bg-white p-3 shadow-sm sm:p-4 lg:self-start">
                 <div className="mb-3">
                   <h1 className="break-words font-display text-lg font-black leading-snug text-black sm:text-xl lg:text-2xl">
@@ -1465,7 +1506,7 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-24 lg:self-start xl:p-6">
+              <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:self-start xl:p-6">
                 <div className="mb-4">
                   {sellerDisplay.storeName && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dh-light-gray bg-dh-gray p-2.5">
@@ -1485,11 +1526,11 @@ export default function ProductPage() {
                           )}
                         </span>
 
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-black leading-tight text-dh-primary">
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span className="truncate text-sm font-black leading-tight text-dh-primary">
                             {sellerDisplay.storeName}
                           </span>
-                          <span className="block truncate text-[11px] font-bold leading-tight text-green-700">
+                          <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black leading-tight text-emerald-700">
                             {sellerDisplay.feedbackText}
                           </span>
                         </span>
@@ -1559,9 +1600,14 @@ export default function ProductPage() {
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary">
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary"
+                        aria-label={ratingText}
+                      >
                         <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                        {product.averageRating ? product.averageRating.toFixed(1) : 'No ratings'}
+                        {product.ratingCount > 0 && product.averageRating > 0
+                          ? `${product.averageRating.toFixed(1)} (${product.ratingCount})`
+                          : 'No ratings'}
                       </span>
 
                       {soldText && (

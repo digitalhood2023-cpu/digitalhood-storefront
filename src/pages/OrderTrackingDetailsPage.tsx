@@ -269,7 +269,7 @@ export default function OrderTrackingDetailsPage() {
   return (
     <div className="flex min-h-[100svh] flex-col bg-[#f6f7fb]">
       <Header />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-5 sm:py-7">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-3 py-5 sm:px-5 sm:py-7">
         <Link to="/track-order" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#28256d]"><ArrowLeft className="h-4 w-4" /> All orders</Link>
 
         {displayLoading && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Loading order journey…</div>}
@@ -328,25 +328,17 @@ export default function OrderTrackingDetailsPage() {
               {refreshNotice && <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-amber-800">{refreshNotice}</p>}
             </section>}
 
-            {!state.trackable && order.inventoryReservation && (
-              <section className={`mt-4 rounded-2xl border p-4 text-sm leading-6 shadow-sm ${order.inventoryReservation.reserved ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-600'}`}>
-                <p className="font-black text-slate-900">Stock reservation</p>
-                <p className="mt-1">{order.inventoryReservation.message}</p>
-                {order.inventoryReservation.reserved && order.inventoryReservation.releasesAt && <p className="mt-1 text-xs font-bold">Reserved until {formatOrderDate(order.inventoryReservation.releasesAt, true)}</p>}
-              </section>
-            )}
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
-              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)] lg:items-start lg:gap-4">
+              <section className="self-start rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <div className="flex items-center justify-between"><h2 className="font-black text-[#16143f]">Items and sellers</h2><span className="text-xs font-bold text-slate-400">{order.items?.length || 0} item{order.items?.length === 1 ? '' : 's'}</span></div>
-                <div className="mt-3 space-y-4">
+                <div className="mt-2.5 space-y-3">
                   {groups.map((group) => (
-                    <div key={group.key} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                      <Link to={group.sellerUrl} className="flex items-center gap-2 text-sm font-black text-[#28256d] hover:underline"><Store className="h-4 w-4" /> {group.storeName}</Link>
-                      <div className="mt-2 divide-y divide-slate-200">
+                    <div key={group.key} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                      <Link to={group.sellerUrl} className="flex items-center gap-1.5 text-xs font-black text-[#28256d] hover:underline"><Store className="h-3.5 w-3.5" /> {group.storeName}</Link>
+                      <div className="mt-1.5 divide-y divide-slate-200">
                         {group.items.map((item) => (
-                          <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex items-center gap-3 py-2.5 hover:text-[#28256d]">
-                            {item.image ? <img src={item.image} alt="" className="h-12 w-12 rounded-lg bg-white object-cover" /> : <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white"><ShoppingBag className="h-4 w-4 text-slate-300" /></span>}
+                          <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex items-center gap-2.5 py-2 hover:text-[#28256d]">
+                            {item.image ? <img src={item.image} alt="" className="h-10 w-10 rounded-lg bg-white object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white"><ShoppingBag className="h-4 w-4 text-slate-300" /></span>}
                             <span className="min-w-0 flex-1"><span className="block line-clamp-2 text-sm font-bold text-slate-800">{item.name}</span><span className="mt-0.5 block text-xs text-slate-500">Qty {item.quantity}</span>{feedbackProgress.reviewedOrderItemIds.has(Number(item.id)) && <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-black text-emerald-700"><CheckCircle2 className="h-3 w-3" /> Reviewed</span>}</span>
                             <span className="text-xs font-black text-slate-700">{formatOrderMoney(item.total, order.currency)}</span>
                           </Link>
@@ -357,7 +349,7 @@ export default function OrderTrackingDetailsPage() {
                 </div>
               </section>
 
-              <div className="space-y-4">
+              <div className="grid content-start gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <OrderSummary order={order} isCashOnDelivery={isCashOnDelivery} isClosed={state.closed} />
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="mb-3 flex items-center gap-2 font-black text-[#16143f]"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
                 {isAuthenticated && ['delivered', 'completed'].includes(normalizeTrackingStatus(order.status)) && feedbackReady && feedbackProgress.pending > 0 && (

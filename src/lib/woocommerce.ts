@@ -178,6 +178,17 @@ export type WooProductReview = {
   } | null;
 };
 
+export type WooProductReviewSummary = {
+  count: number;
+  averageRating: number;
+  positivePercent: number;
+};
+
+export type WooProductReviewsResponse = {
+  reviews: WooProductReview[];
+  summary: WooProductReviewSummary;
+};
+
 export type WooCategory = {
   id: number;
   name: string;
@@ -1187,8 +1198,13 @@ export async function fetchWooProductBySlug(
 export async function fetchWooProductReviews(
   productId: number,
   limit = 20
-): Promise<WooProductReview[]> {
-  if (!productId) return [];
+): Promise<WooProductReviewsResponse> {
+  if (!productId) {
+    return {
+      reviews: [],
+      summary: { count: 0, averageRating: 0, positivePercent: 0 },
+    };
+  }
 
   const params = new URLSearchParams({
     per_page: String(Math.max(1, Math.min(50, limit))),
@@ -1199,7 +1215,7 @@ export async function fetchWooProductReviews(
   const data = await parseJsonResponse(response);
   const reviews = Array.isArray(data.reviews) ? data.reviews : [];
 
-  return reviews.map((review: any) => ({
+  const mappedReviews: WooProductReview[] = reviews.map((review: any) => ({
     id: String(review.id || ''),
     reviewer: String(review.reviewer || 'Marketplace buyer'),
     review: stripHtml(String(review.review || '')),
@@ -1222,6 +1238,37 @@ export async function fetchWooProductReviews(
         ? review.response
         : null,
   }));
+
+  const verifiedReviews = mappedReviews.filter(
+    (review: WooProductReview) => review.verified
+  );
+  const fallbackAverage = verifiedReviews.length
+    ? verifiedReviews.reduce(
+        (total: number, review: WooProductReview) => total + review.rating,
+        0
+      ) / verifiedReviews.length
+    : 0;
+  const summaryCount = Math.max(
+    0,
+    Number(data?.summary?.count ?? data?.count ?? verifiedReviews.length) || 0
+  );
+  const summaryAverage = Math.max(
+    0,
+    Math.min(5, Number(data?.summary?.averageRating ?? fallbackAverage) || 0)
+  );
+  const summaryPositivePercent = Math.max(
+    0,
+    Math.min(100, Number(data?.summary?.positivePercent ?? 0) || 0)
+  );
+
+  return {
+    reviews: mappedReviews,
+    summary: {
+      count: summaryCount,
+      averageRating: summaryAverage,
+      positivePercent: summaryPositivePercent,
+    },
+  };
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {
