@@ -108,11 +108,23 @@ assert(
   'Pay Now must offer Card and Mobile Money on the same order with deferred card preparation'
 )
 assert(
-  checkout.includes('window.setTimeout(poll, 1500)') &&
-    checkout.includes('elapsedMs < 30_000 ? 2500 : 5000') &&
+  checkout.includes('foregroundConfirmationBudgetMs = 10_000') &&
+    checkout.includes('window.setTimeout(poll, 750)') &&
+    checkout.includes('const nextDelayMs = 1500') &&
+    !checkout.includes('const verificationWindowMs = 5 * 60 * 1000') &&
     lencoApi.includes("cache: 'no-store'") &&
-    paymentsApi.includes("cache: 'no-store'"),
-  'payment checks must remain responsive, bounded, local-ledger based, and non-cacheable'
+    paymentsApi.includes("cache: 'no-store'") &&
+    paymentsApi.includes("'/api/payments/stripe/intents'") &&
+    paymentsApi.includes("'/api/payments/stripe/verify'") &&
+    paymentsApi.includes("clientOutcome: 'failed' | 'unknown'"),
+  'payment checks must use gateway-safe routes, a ten-second foreground budget, local ledger state, and no-store responses'
+)
+assert(
+  paymentRetryPage.includes("{ paymentIntentId, clientOutcome: 'failed' }") &&
+    paymentRetryPage.includes("const handleCardPaymentFailure = async") &&
+    paymentRetryPage.includes("lifecycle: 'pay-now'") &&
+    paymentRetryPage.includes('switchAllowed: true'),
+  'a terminal card failure must immediately reopen Card and Mobile Money on the same order'
 )
 
 assert(

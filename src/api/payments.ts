@@ -98,6 +98,10 @@ type VerifyStripePaymentResponse = {
   failed?: boolean
   pending?: boolean
   terminal?: boolean
+  retryAllowed?: boolean
+  requiresCustomerAction?: boolean
+  providerProcessing?: boolean
+  message?: string
 }
 
 async function paymentsFetch<T>(
@@ -153,7 +157,7 @@ export function createStripePaymentIntent(
   payload: CreatePaymentIntentPayload
 ) {
   return paymentsFetch<CreatePaymentIntentResponse>(
-    '/create-payment-intent',
+    '/api/payments/stripe/intents',
     {
       method: 'POST',
       body: JSON.stringify({
@@ -166,13 +170,14 @@ export function createStripePaymentIntent(
 
 export function verifyStripePayment(
   paymentIntentId: string,
-  recoveryToken = ''
+  recoveryToken = '',
+  clientOutcome: 'failed' | 'unknown' = 'unknown'
 ) {
   return paymentsFetch<VerifyStripePaymentResponse>(
-    '/verify-stripe-payment',
+    '/api/payments/stripe/verify',
     {
       method: 'POST',
-      body: JSON.stringify({ paymentIntentId, recoveryToken }),
+      body: JSON.stringify({ paymentIntentId, recoveryToken, clientOutcome }),
     }
   )
 }

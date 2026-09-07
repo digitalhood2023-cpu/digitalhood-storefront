@@ -297,7 +297,7 @@ export default function OrderPaymentRetryPage() {
     try {
       const result = await verifyOrderPaymentRecovery(
         orderId,
-        { paymentIntentId },
+        { paymentIntentId, clientOutcome: 'failed' },
         recoveryToken
       )
 
@@ -306,9 +306,23 @@ export default function OrderPaymentRetryPage() {
         return
       }
 
-      if (!result.pending) setRetry(null)
+      if (!result.pending) {
+        setRetry(null)
+        setOrder((current) => current
+          ? {
+              ...current,
+              paymentRetry: {
+                ...(current.paymentRetry || { eligible: true }),
+                eligible: true,
+                lifecycle: 'pay-now',
+                switchAllowed: true,
+                message: result.message || 'Choose Card or Mobile Money to retry this order.',
+              },
+            }
+          : current)
+      }
       setError(result.pending
-        ? 'The card provider is still checking this payment. DigitalHood will keep this order safe until the result is final.'
+        ? result.message || 'The card provider is still checking this payment. DigitalHood will keep this order safe until the result is final.'
         : `${message} You can retry this order with Card or Mobile Money.`)
     } catch {
       setError('DigitalHood is checking the card provider before allowing another payment. Please wait a moment.')

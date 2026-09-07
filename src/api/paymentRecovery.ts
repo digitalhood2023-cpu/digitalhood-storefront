@@ -85,7 +85,9 @@ export function startOrderPaymentRecovery(
 
 export function verifyOrderPaymentRecovery(
   orderId: string | number,
-  payment: { reference: string } | { paymentIntentId: string },
+  payment:
+    | { reference: string }
+    | { paymentIntentId: string; clientOutcome?: 'failed' | 'unknown' },
   recoveryToken = ''
 ) {
   return recoveryFetch<CustomerOrderPaymentVerificationResponse>(
