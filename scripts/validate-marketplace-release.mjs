@@ -112,15 +112,18 @@ assert(
 )
 assert(
   checkout.includes('foregroundConfirmationBudgetMs = 10_000') &&
+    checkout.includes('liveConfirmationWatchMs = 5 * 60_000') &&
     checkout.includes('window.setTimeout(poll, 750)') &&
-    checkout.includes('const nextDelayMs = 1500') &&
-    !checkout.includes('const verificationWindowMs = 5 * 60 * 1000') &&
+    checkout.includes('? 1250') &&
+    checkout.includes('? 2000') &&
+    checkout.includes(': 5000') &&
+    checkout.includes('hasEnteredBackgroundConfirmation') &&
     lencoApi.includes("cache: 'no-store'") &&
     paymentsApi.includes("cache: 'no-store'") &&
     paymentsApi.includes("'/api/payments/stripe/intents'") &&
     paymentsApi.includes("'/api/payments/stripe/verify'") &&
     paymentsApi.includes("clientOutcome: 'failed' | 'unknown'"),
-  'payment checks must use gateway-safe routes, a ten-second foreground budget, local ledger state, and no-store responses'
+  'payment checks must use gateway-safe routes, a ten-second blocking budget, a bounded same-reference live watch, and no-store responses'
 )
 assert(
   paymentRetryPage.includes("{ paymentIntentId, clientOutcome: 'failed' }") &&
