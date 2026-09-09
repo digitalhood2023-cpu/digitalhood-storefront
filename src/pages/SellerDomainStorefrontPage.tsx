@@ -2,16 +2,16 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight,
   BadgeCheck,
-  ExternalLink,
   Filter,
   Folder,
   Grid2X2,
+  Heart,
   LayoutList,
   Loader2,
-  LockKeyhole,
   PackageCheck,
   RotateCcw,
   ShoppingBag,
+  ShoppingCart,
   Star,
   Store,
 } from 'lucide-react'
@@ -39,6 +39,9 @@ import {
   getProductImageSizes,
 } from '@/lib/productImages'
 import { SELLER_ORDER_COMPLETE_NOTICE } from '@/pages/SellerOrderCompletePage'
+import { useWishlist } from '@/context/WishlistContext'
+import { useCartStore } from '@/store/cartStore'
+import type { Product } from '@/types'
 
 type StoreViewMode = 'grid' | 'list'
 
@@ -108,6 +111,16 @@ function getProductUrl(product: PublicSellerProduct) {
   return `/product/${encodeURIComponent(product.slug || String(product.id))}`
 }
 
+function getStockToneClass(product: PublicSellerProduct) {
+  if (product.canAddToCart === false || product.stockStatus === 'outofstock') {
+    return 'bg-red-50 text-red-700'
+  }
+  if (product.stockTone === 'warning' || (product.stockQuantity ?? 99) <= 3) {
+    return 'bg-amber-50 text-amber-700'
+  }
+  return 'bg-emerald-50 text-emerald-700'
+}
+
 function DomainLoader() {
   return (
     <div className="flex min-h-[100svh] items-center justify-center bg-slate-50 px-5">
@@ -145,7 +158,10 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   const [isFiltering, setIsFiltering] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [showOrderComplete, setShowOrderComplete] = useState(false)
+  const [addedProductId, setAddedProductId] = useState<string | number | null>(null)
   const filterRequestIdRef = useRef(0)
+  const addItem = useCartStore((state) => state.addItem)
+  const { toggleWishlist, isInWishlist } = useWishlist()
 
   useEffect(() => {
     let shouldShowNotice = false
@@ -344,6 +360,52 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
     )
   }
 
+  function handleAddToCart(product: PublicSellerProduct) {
+    if (!seller) return
+
+    if (product.type === 'variable') {
+      window.location.assign(getProductUrl(product))
+      return
+    }
+
+    if (product.canAddToCart === false || product.stockStatus === 'outofstock') {
+      return
+    }
+
+    const added = addItem(
+      {
+        id: Number(product.id),
+        productId: Number(product.id),
+        name: product.name,
+        slug: product.slug,
+        type: product.type,
+        price: Number(product.price || 0),
+        regular_price: Number(product.regularPrice || product.price || 0),
+        image: getFastProductImage(product, 'card'),
+        stock_status: product.stockStatus,
+        stock_quantity: product.stockQuantity,
+        stock_label: product.stockLabel,
+        stock_tone: product.stockTone,
+        can_add_to_cart: product.canAddToCart,
+        sellerStoreName: seller.storeName,
+        sellerKey: seller.key,
+        sellerUrl: '/',
+        sellerVerified: Boolean(seller.verified),
+        sellerCustomerId: seller.id,
+        sellerAvatarUrl: seller.profilePhotoUrl || '',
+        sellerFeedbackText:
+          store.stats.feedback.total > 0
+            ? `${Math.round((Number(store.stats.feedback.positive || 0) / Number(store.stats.feedback.total || 1)) * 100)}% positive`
+            : 'New seller',
+      },
+      1
+    )
+
+    if (!added) return
+    setAddedProductId(product.id)
+    window.setTimeout(() => setAddedProductId(null), 1600)
+  }
+
   async function loadMore() {
     if (!resolution || !store || !hasMore || isLoadingMore) return
     setIsLoadingMore(true)
@@ -443,100 +505,62 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
         )}
 
         <section
-          className="relative overflow-hidden rounded-2xl bg-[#17155f] text-white shadow-sm"
+          className="relative overflow-hidden rounded-xl bg-[#17155f] text-white shadow-sm"
           style={{
             backgroundImage: seller.coverPhotoUrl
-              ? `linear-gradient(90deg, rgba(23,21,95,.97), rgba(38,36,140,.76)), url(${seller.coverPhotoUrl})`
-              : 'linear-gradient(130deg, #17155f 0%, #302da0 68%, #694979 130%)',
+              ? `linear-gradient(90deg, rgba(23,21,95,.97), rgba(38,36,140,.78)), url(${seller.coverPhotoUrl})`
+              : 'linear-gradient(125deg, #17155f 0%, #302da0 72%, #694979 135%)',
             backgroundPosition: 'center',
             backgroundSize: 'cover',
           }}
         >
-          <div className="p-3 sm:p-4">
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/25 bg-white/10 sm:h-16 sm:w-16">
-                  {seller.profilePhotoUrl ? (
-                    <img
-                      src={seller.profilePhotoUrl}
-                      alt={seller.storeName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Store className="h-7 w-7 text-[#ffb54a]" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <h1 className="max-w-full truncate text-xl font-black leading-tight sm:text-2xl">
-                      {seller.storeName}
-                    </h1>
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ffb54a] px-2 py-1 text-[9px] font-black text-[#17155f]">
-                      <BadgeCheck className="h-3 w-3" /> Approved
-                    </span>
-                  </div>
-                  <p className="mt-0.5 line-clamp-1 max-w-2xl text-[11px] font-semibold text-white/70 sm:text-xs">
-                    {seller.tagline || seller.description || 'Approved DigitalHood marketplace seller.'}
-                  </p>
-                  <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.12em] text-[#ffcf87]">
-                    {resolution.domain.hostname}
-                  </p>
-                </div>
+          <div className="flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/25 bg-white/10 sm:h-14 sm:w-14">
+                {seller.profilePhotoUrl ? (
+                  <img src={seller.profilePhotoUrl} alt={seller.storeName} className="h-full w-full object-cover" />
+                ) : (
+                  <Store className="h-6 w-6 text-[#ffb54a]" />
+                )}
               </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <h1 className="truncate text-lg font-black leading-tight sm:text-xl">{seller.storeName}</h1>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ffb54a] px-2 py-1 text-[8px] font-black text-[#17155f]">
+                    <BadgeCheck className="h-2.5 w-2.5" /> Approved
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-1 max-w-xl text-[10px] font-semibold text-white/70 sm:text-[11px]">
+                  {seller.tagline || seller.description || 'Approved DigitalHood marketplace seller.'}
+                </p>
+                <details className="group mt-0.5 max-w-xl text-[9px] font-bold text-[#ffcf87]">
+                  <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <span className="group-open:hidden">About store +</span>
+                    <span className="hidden group-open:inline">Close −</span>
+                  </summary>
+                  <p className="mt-1 text-[10px] font-semibold leading-4 text-white/75">
+                    {seller.description || 'This seller is approved to trade on DigitalHood Marketplace.'}
+                    {positive === null ? '' : ` ${positive}% positive buyer feedback.`}
+                  </p>
+                </details>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-4 divide-x divide-white/10 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/10 sm:w-[350px] sm:shrink-0">
-                {[
-                  ['Years', years],
-                  ['Sold', store.stats.itemsSold],
-                  ['Products', store.stats.productsLive],
-                  ['Rating', store.stats.ratingAverage ? store.stats.ratingAverage.toFixed(1) : '—'],
-                ].map(([label, value]) => (
-                  <div key={label} className="px-1.5 py-1.5 text-center sm:py-2">
-                    <p className="text-xs font-black sm:text-sm">{value}</p>
-                    <p className="mt-0.5 text-[7px] font-black uppercase tracking-wide text-white/50 sm:text-[8px]">
-                      {label}
-                    </p>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-4 divide-x divide-white/10 overflow-hidden rounded-lg bg-white/10 ring-1 ring-white/10 sm:w-[330px] sm:shrink-0">
+              {[
+                ['Years', years],
+                ['Sold', store.stats.itemsSold],
+                ['Products', store.stats.productsLive],
+                ['Rating', store.stats.ratingAverage ? store.stats.ratingAverage.toFixed(1) : 'New'],
+              ].map(([label, value]) => (
+                <div key={label} className="px-1 py-1.5 text-center">
+                  <p className="text-xs font-black sm:text-sm">{value}</p>
+                  <p className="text-[7px] font-black uppercase tracking-wide text-white/50">{label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
-
-        <details className="group mt-2 rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[11px] font-bold text-slate-600 [&::-webkit-details-marker]:hidden">
-            <span className="flex min-w-0 items-center gap-2">
-              <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-              <span className="sm:hidden">Protected checkout</span>
-              <span className="hidden truncate sm:inline">
-                Accounts, messaging and payments remain protected by DigitalHood Marketplace.
-              </span>
-            </span>
-            <span className="flex shrink-0 items-center gap-2">
-              <span className="inline-flex items-center gap-1 font-black text-[#a46b17]">
-                <Star className="h-3.5 w-3.5 fill-current" />
-                {store.stats.ratingAverage?.toFixed(1) || 'New'}
-                <span className="font-bold text-slate-400">({store.stats.ratingCount})</span>
-              </span>
-              <span className="text-[#26248c] group-open:hidden">Details +</span>
-              <span className="hidden text-[#26248c] group-open:inline">Close −</span>
-            </span>
-          </summary>
-          <div className="grid gap-2 border-t border-slate-100 px-3 py-2.5 text-[11px] font-semibold leading-5 text-slate-500 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <p>
-              {seller.description || 'This seller is approved to trade on DigitalHood Marketplace.'}{' '}
-              <span className="font-black text-emerald-700">
-                {positive === null ? 'Feedback profile is new.' : `${positive}% positive feedback.`}
-              </span>
-            </p>
-            <a
-              href={marketplaceStoresUrl}
-              className="inline-flex items-center font-black text-[#26248c]"
-            >
-              All marketplace stores <ExternalLink className="ml-1 h-3.5 w-3.5" />
-            </a>
-          </div>
-        </details>
 
         {store.storeCategories.length > 0 && (
           <nav
@@ -595,24 +619,27 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
         )}
 
         <section className="mt-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
-          <SellerStoreSearchAutocomplete
-            sellerKey={seller.key}
-            storeName={seller.storeName}
-            value={searchDraft}
-            onValueChange={setSearchDraft}
-            onSearch={(nextQuery) => void applySearch(nextQuery)}
-            onCategorySelect={(selectedCategory, nextQuery) =>
-              void applySuggestedCategory(selectedCategory.slug, nextQuery)
-            }
-            popularCategories={store.facets.categories}
-            isSearching={isFiltering}
-          />
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+            <div className="min-w-0 flex-1 lg:max-w-[640px]">
+              <SellerStoreSearchAutocomplete
+                sellerKey={seller.key}
+                storeName={seller.storeName}
+                value={searchDraft}
+                onValueChange={setSearchDraft}
+                onSearch={(nextQuery) => void applySearch(nextQuery)}
+                onCategorySelect={(selectedCategory, nextQuery) =>
+                  void applySuggestedCategory(selectedCategory.slug, nextQuery)
+                }
+                popularCategories={store.facets.categories}
+                isSearching={isFiltering}
+              />
+            </div>
 
-          <div className="mt-2 flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5 lg:flex-1">
             <button
               type="button"
               onClick={() => setIsFilterPanelOpen((current) => !current)}
-              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11px] font-black transition ${
+              className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11px] font-black transition ${
                 isFilterPanelOpen || activeFilterCount
                   ? 'bg-[#26248c] text-white'
                   : 'bg-slate-100 text-slate-600'
@@ -633,7 +660,7 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
               <select
                 value={sort}
                 onChange={(event) => void changeSort(event.target.value)}
-                className="h-9 w-full min-w-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-black text-[#26248c] outline-none sm:px-3 sm:text-xs"
+                className="h-10 w-full min-w-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-black text-[#26248c] outline-none sm:px-3 sm:text-xs"
               >
                 <option value="featured">Featured</option>
                 <option value="popular">Popular</option>
@@ -644,11 +671,11 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
               </select>
             </label>
 
-            <div className="flex h-9 shrink-0 items-center rounded-full bg-slate-100 p-1" aria-label="Product view">
+            <div className="flex h-10 shrink-0 items-center rounded-full bg-slate-100 p-1" aria-label="Product view">
               <button
                 type="button"
                 onClick={() => changeViewMode('grid')}
-                className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition ${
                   viewMode === 'grid' ? 'bg-white text-[#26248c] shadow-sm' : 'text-slate-400'
                 }`}
                 aria-label="Grid view"
@@ -659,7 +686,7 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
               <button
                 type="button"
                 onClick={() => changeViewMode('list')}
-                className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition ${
                   viewMode === 'list' ? 'bg-white text-[#26248c] shadow-sm' : 'text-slate-400'
                 }`}
                 aria-label="List view"
@@ -667,6 +694,11 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
               >
                 <LayoutList className="h-3.5 w-3.5" />
               </button>
+            </div>
+
+              <span className="ml-auto hidden shrink-0 text-right text-[9px] font-black leading-3 text-slate-400 sm:block">
+                {products.length} shown<br />{store.count} products
+              </span>
             </div>
           </div>
 
@@ -753,22 +785,6 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
           )}
         </section>
 
-        <div className="mt-2 flex items-center justify-between gap-3 px-0.5">
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-black text-[#26248c] sm:text-base">
-              Products by {seller.storeName}
-            </h2>
-            <p className="text-[10px] font-semibold text-slate-500 sm:text-xs">
-              {products.length} shown · {store.count} live products
-            </p>
-          </div>
-          {isFiltering && (
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-black text-[#26248c]">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating
-            </span>
-          )}
-        </div>
-
         {error && (
           <p className="mt-2 rounded-xl bg-red-50 p-2.5 text-xs font-bold text-red-700">{error}</p>
         )}
@@ -781,47 +797,118 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
                 : 'mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3'
             }
           >
-            {products.map((product, index) => (
-              <a
-                key={product.id}
-                href={getProductUrl(product)}
-                className={`group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md ${
-                  viewMode === 'list' ? 'flex min-h-24' : ''
-                }`}
-              >
-                <div
-                  className={
-                    viewMode === 'grid'
-                      ? 'aspect-[4/3] overflow-hidden bg-slate-100'
-                      : 'aspect-square w-24 shrink-0 overflow-hidden bg-slate-100 sm:w-28'
-                  }
+            {products.map((product, index) => {
+              const productUrl = getProductUrl(product)
+              const canAddDirectly =
+                product.canAddToCart !== false &&
+                product.stockStatus !== 'outofstock' &&
+                product.type !== 'variable'
+              const canOpenOptions = product.type === 'variable'
+              const rating = Number(product.averageRating || 0)
+              const ratingCount = Number(product.ratingCount || 0)
+              const totalSales = Number(product.totalSales || 0)
+
+              return (
+                <article
+                  key={product.id}
+                  className={`group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md ${
+                    viewMode === 'list'
+                      ? 'grid min-h-24 grid-cols-[96px_minmax(0,1fr)] sm:grid-cols-[112px_minmax(0,1fr)]'
+                      : 'flex h-full flex-col'
+                  }`}
                 >
-                  <img
-                    src={getFastProductImage(product, 'card')}
-                    srcSet={getFastProductSrcSet(product)}
-                    sizes={getProductImageSizes('card')}
-                    alt={product.name}
-                    loading={index < 4 ? 'eager' : 'lazy'}
-                    fetchPriority={index < 2 ? 'high' : 'auto'}
-                    className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
-                  />
-                </div>
-                <div className={`min-w-0 p-2 ${viewMode === 'list' ? 'flex flex-1 flex-col justify-center' : ''}`}>
-                  <p className="line-clamp-2 min-h-8 text-[11px] font-black leading-4 text-slate-800 sm:text-xs">
-                    {product.name}
-                  </p>
-                  <div className="mt-1.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-black text-[#26248c]">
-                      {formatPrice(product.price)}
+                  <div
+                    className={`relative overflow-hidden bg-slate-100 ${
+                      viewMode === 'grid' ? 'aspect-[4/3]' : 'aspect-square h-full min-h-24'
+                    }`}
+                  >
+                    <a href={productUrl} className="block h-full" aria-label={`View ${product.name}`}>
+                      <img
+                        src={getFastProductImage(product, 'card')}
+                        srcSet={getFastProductSrcSet(product)}
+                        sizes={getProductImageSizes('card')}
+                        alt={product.name}
+                        loading={index < 4 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        fetchPriority={index < 2 ? 'high' : 'auto'}
+                        onError={(event) => {
+                          event.currentTarget.src = '/logo.jpg'
+                        }}
+                        className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
+                      />
+                    </a>
+
+                    <span className={`absolute left-1.5 top-1.5 max-w-[calc(100%-44px)] truncate rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-wide shadow-sm ${getStockToneClass(product)}`}>
+                      {product.stockLabel || (canAddDirectly || canOpenOptions ? 'In stock' : 'Unavailable')}
                     </span>
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#ff9f1c]" />
+                    <button
+                      type="button"
+                      onClick={() => toggleWishlist(product as unknown as Product)}
+                      className={`absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full shadow-sm transition hover:scale-105 ${
+                        isInWishlist(String(product.id))
+                          ? 'bg-red-500 text-white'
+                          : 'bg-white/95 text-slate-500 hover:text-red-500'
+                      }`}
+                      aria-label={`Save ${product.name}`}
+                    >
+                      <Heart className={`h-3.5 w-3.5 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
+                    </button>
                   </div>
-                  <p className="mt-0.5 truncate text-[8px] font-black uppercase tracking-wide text-emerald-600 sm:text-[9px]">
-                    {product.stockLabel || 'Available'}
-                  </p>
-                </div>
-              </a>
-            ))}
+
+                  <div className="flex min-w-0 flex-1 flex-col p-2">
+                    <div className="flex min-w-0 items-center justify-between gap-1 text-[9px] font-bold text-slate-400">
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <Star className="h-3 w-3 shrink-0 fill-[#ffb54a] text-[#ffb54a]" />
+                        <span className="truncate">
+                          {rating > 0 && ratingCount > 0 ? `${rating.toFixed(1)} (${ratingCount})` : 'New'}
+                        </span>
+                      </span>
+                      {totalSales > 0 && <span className="shrink-0">{totalSales.toLocaleString('en-ZM')} sold</span>}
+                    </div>
+
+                    <a href={productUrl} className="mt-1 block">
+                      <h2 className={`line-clamp-2 text-[11px] font-black leading-4 text-slate-800 transition hover:text-[#26248c] sm:text-xs ${viewMode === 'grid' ? 'min-h-8' : ''}`}>
+                        {product.name}
+                      </h2>
+                    </a>
+
+                    <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#26248c]">{formatPrice(product.price)}</p>
+                        {Number(product.regularPrice || 0) > Number(product.price || 0) && (
+                          <p className="truncate text-[9px] font-semibold text-slate-400 line-through">
+                            {formatPrice(product.regularPrice)}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!canAddDirectly && !canOpenOptions}
+                        onClick={() => handleAddToCart(product)}
+                        className={`inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-[10px] font-black transition ${
+                          addedProductId === product.id
+                            ? 'bg-emerald-500 text-white'
+                            : canAddDirectly || canOpenOptions
+                              ? 'bg-[#26248c] text-white hover:bg-[#ffb54a] hover:text-[#17155f]'
+                              : 'cursor-not-allowed bg-slate-100 text-slate-400'
+                        }`}
+                        aria-label={`${canOpenOptions ? 'View options for' : 'Add to cart'} ${product.name}`}
+                      >
+                        {addedProductId === product.id ? (
+                          'Added'
+                        ) : canOpenOptions ? (
+                          'Options'
+                        ) : canAddDirectly ? (
+                          <><ShoppingCart className="h-3 w-3" /> Add</>
+                        ) : (
+                          'Unavailable'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
           </div>
         ) : (
           <div className="mt-2 rounded-xl bg-white p-7 text-center ring-1 ring-slate-200">

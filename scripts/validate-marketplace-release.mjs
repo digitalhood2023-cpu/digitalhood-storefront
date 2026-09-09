@@ -252,7 +252,7 @@ assert(
   'seller-store pagination must append downward and preserve the last existing product viewport anchor'
 )
 assert(
-  sellerDomainStore.includes('Accounts, messaging and payments remain protected') &&
+  sellerDomainStore.includes('SellerDomainCommerceFooter') &&
     sellerDomainStore.includes('/product/${encodeURIComponent') &&
     sellerDomains.includes("label.includes('.')") &&
     sellerDomains.includes("label.startsWith('xn--')") &&
@@ -273,6 +273,18 @@ assert(
     !sellerDomainStore.includes('lg:grid-cols-[220px_minmax(0,1fr)]') &&
     !sellerDomainStore.includes('min-h-[170px]'),
   'seller personal stores must remain compact, product-first, sortable, and usable in grid or list view'
+)
+assert(
+  sellerDomainStore.includes('lg:max-w-[640px]') &&
+    sellerDomainStore.includes('handleAddToCart(product)') &&
+    sellerDomainStore.includes('product.averageRating') &&
+    sellerDomainStore.includes('product.ratingCount') &&
+    sellerDomainStore.includes('toggleWishlist(product as unknown as Product)') &&
+    sellerDomainStore.includes('sellerFeedbackText') &&
+    sellerDomainStore.includes('<ShoppingCart className="h-3 w-3" /> Add') &&
+    !sellerDomainStore.includes('Products by {seller.storeName}') &&
+    !sellerDomainStore.includes('Accounts, messaging and payments remain protected'),
+  'seller-domain landing pages must keep one compact commerce toolbar and marketplace-grade product actions without duplicate panels'
 )
 assert(
   sellerDomainStore.includes('SellerStoreSearchAutocomplete') &&
