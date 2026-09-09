@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ExternalLink, ShieldCheck, ShoppingCart, Store } from 'lucide-react'
+import { CircleUserRound, ExternalLink, ShieldCheck, ShoppingCart, Store } from 'lucide-react'
 
 import { getMarketplaceUrl } from '@/lib/sellerDomains'
 import { useCartStore } from '@/store/cartStore'
@@ -7,11 +7,13 @@ import { useCartStore } from '@/store/cartStore'
 type SellerChromeProps = {
   storeName?: string
   profilePhotoUrl?: string
+  marketplaceBrand?: boolean
 }
 
 export function SellerDomainCommerceHeader({
   storeName = 'Marketplace store',
   profilePhotoUrl = '',
+  marketplaceBrand = false,
 }: SellerChromeProps) {
   const cartCount = useCartStore((state) => state.getCartCount())
 
@@ -20,7 +22,9 @@ export function SellerDomainCommerceHeader({
       <div className="mx-auto flex h-14 max-w-[1500px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
-            {profilePhotoUrl ? (
+            {marketplaceBrand ? (
+              <img src="/logo.jpg" alt="DigitalHood" className="h-full w-full object-contain" />
+            ) : profilePhotoUrl ? (
               <img src={profilePhotoUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <Store className="h-4 w-4 text-[#26248c]" />
@@ -28,10 +32,10 @@ export function SellerDomainCommerceHeader({
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-black text-[#26248c]">
-              {storeName}
+              {marketplaceBrand ? 'DigitalHood Marketplace' : storeName}
             </span>
             <span className="hidden text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700 sm:block">
-              Verified DigitalHood store
+              {marketplaceBrand ? 'Verified seller storefront' : 'Verified DigitalHood store'}
             </span>
           </span>
         </Link>
@@ -39,9 +43,11 @@ export function SellerDomainCommerceHeader({
         <nav className="flex shrink-0 items-center gap-1.5">
           <a
             href={getMarketplaceUrl('/account')}
-            className="hidden rounded-full px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100 sm:inline-flex"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-black text-slate-600 hover:bg-slate-100 sm:w-auto sm:px-3"
+            aria-label="My account"
           >
-            My account
+            <CircleUserRound className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">My account</span>
           </a>
           <Link
             to="/cart"

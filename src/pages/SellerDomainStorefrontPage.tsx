@@ -1,24 +1,29 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight,
   BadgeCheck,
   ExternalLink,
+  Grid2X2,
+  LayoutList,
   Loader2,
   LockKeyhole,
   PackageCheck,
   Search,
-  ShieldCheck,
   ShoppingBag,
-  ShoppingCart,
   Star,
   Store,
 } from 'lucide-react'
 
 import SEO from '@/components/SEO'
 import {
+  SellerDomainCommerceFooter,
+  SellerDomainCommerceHeader,
+} from '@/components/seller/SellerDomainCommerceChrome'
+import {
   fetchPublicSellerStore,
   type PublicSellerProduct,
   type PublicSellerStore,
+  type PublicSellerStoreFilters,
 } from '@/api/publicSellers'
 import {
   resolveSellerStorefrontHostname,
@@ -30,8 +35,11 @@ import {
   getFastProductSrcSet,
   getProductImageSizes,
 } from '@/lib/productImages'
-import { useCartStore } from '@/store/cartStore'
 import { SELLER_ORDER_COMPLETE_NOTICE } from '@/pages/SellerOrderCompletePage'
+
+type StoreViewMode = 'grid' | 'list'
+
+const STORE_VIEW_KEY = 'digitalhood-seller-store-view-v1'
 
 function formatPrice(value: unknown) {
   const amount = Number(value || 0)
@@ -48,8 +56,8 @@ function getProductUrl(product: PublicSellerProduct) {
 function DomainLoader() {
   return (
     <div className="flex min-h-[100svh] items-center justify-center bg-slate-50 px-5">
-      <div className="rounded-3xl bg-white p-7 text-center shadow-sm ring-1 ring-slate-200">
-        <Loader2 className="mx-auto h-9 w-9 animate-spin text-[#26248c]" />
+      <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#26248c]" />
         <p className="mt-3 text-sm font-black text-[#26248c]">Opening verified store…</p>
       </div>
     </div>
@@ -63,21 +71,35 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [storeCategory, setStoreCategory] = useState('')
+  const [sort, setSort] = useState('featured')
+  const [viewMode, setViewMode] = useState<StoreViewMode>(() => {
+    if (typeof window === 'undefined') return 'grid'
+    try {
+      return window.localStorage.getItem(STORE_VIEW_KEY) === 'list' ? 'list' : 'grid'
+    } catch {
+      return 'grid'
+    }
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [showOrderComplete, setShowOrderComplete] = useState(false)
-  const cartCount = useCartStore((state) => state.getCartCount())
+  const filterRequestIdRef = useRef(0)
 
   useEffect(() => {
+    let shouldShowNotice = false
     try {
       if (window.sessionStorage.getItem(SELLER_ORDER_COMPLETE_NOTICE) === '1') {
         window.sessionStorage.removeItem(SELLER_ORDER_COMPLETE_NOTICE)
-        setShowOrderComplete(true)
+        shouldShowNotice = true
       }
     } catch {
       // The store remains usable when session storage is unavailable.
     }
+
+    if (!shouldShowNotice) return
+    const noticeTimer = window.setTimeout(() => setShowOrderComplete(true), 0)
+    return () => window.clearTimeout(noticeTimer)
   }, [])
 
   useEffect(() => {
@@ -136,49 +158,72 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
     : null
   const canonicalUrl = resolution?.domain.canonicalUrl || `https://${hostname}`
   const marketplaceStoresUrl = getMarketplaceUrl('/shops')
-  const filters = useMemo(
-    () => ({ q: query.trim(), category, storeCategory, sort: 'featured' }),
-    [query, category, storeCategory]
+  const filters = useMemo<PublicSellerStoreFilters>(
+    () => ({ q: query.trim(), category, storeCategory, sort }),
+    [query, category, storeCategory, sort]
   )
 
-  async function chooseStoreCategory(categoryId: string) {
+  async function refreshStore(
+    nextFilters: PublicSellerStoreFilters,
+    fallbackMessage: string
+  ) {
     if (!resolution) return
-    setStoreCategory(categoryId)
+    const requestId = ++filterRequestIdRef.current
     setIsFiltering(true)
     setError('')
+
     try {
-      setStore(await fetchPublicSellerStore(
+      const nextStore = await fetchPublicSellerStore(
         resolution.seller.key,
         1,
         24,
-        { ...filters, storeCategory: categoryId }
-      ))
+        nextFilters
+      )
+      if (requestId === filterRequestIdRef.current) setStore(nextStore)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to open this store category.')
+      if (requestId !== filterRequestIdRef.current) return
+      setError(requestError instanceof Error ? requestError.message : fallbackMessage)
     } finally {
-      setIsFiltering(false)
+      if (requestId === filterRequestIdRef.current) setIsFiltering(false)
     }
+  }
+
+  function changeViewMode(nextViewMode: StoreViewMode) {
+    setViewMode(nextViewMode)
+    try {
+      window.localStorage.setItem(STORE_VIEW_KEY, nextViewMode)
+    } catch {
+      // The chosen view still applies for this visit when storage is unavailable.
+    }
+  }
+
+  async function chooseStoreCategory(categoryId: string) {
+    setStoreCategory(categoryId)
+    await refreshStore(
+      { ...filters, storeCategory: categoryId },
+      'Unable to open this store category.'
+    )
+  }
+
+  async function changeMarketplaceCategory(nextCategory: string) {
+    setCategory(nextCategory)
+    await refreshStore(
+      { ...filters, category: nextCategory },
+      'Unable to filter this store.'
+    )
+  }
+
+  async function changeSort(nextSort: string) {
+    setSort(nextSort)
+    await refreshStore(
+      { ...filters, sort: nextSort },
+      'Unable to sort this store.'
+    )
   }
 
   async function applyFilters(event: FormEvent) {
     event.preventDefault()
-    if (!resolution) return
-    setIsFiltering(true)
-    setError('')
-
-    try {
-      setStore(
-        await fetchPublicSellerStore(resolution.seller.key, 1, 24, filters)
-      )
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to search this store.'
-      )
-    } finally {
-      setIsFiltering(false)
-    }
+    await refreshStore(filters, 'Unable to search this store.')
   }
 
   async function loadMore() {
@@ -225,13 +270,13 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
           path={canonicalUrl}
           noindex
         />
-        <div className="max-w-md rounded-3xl bg-white p-7 text-center shadow-sm ring-1 ring-slate-200">
-          <Store className="mx-auto h-11 w-11 text-[#26248c]" />
-          <h1 className="mt-4 text-2xl font-black text-[#26248c]">Store unavailable</h1>
+        <div className="max-w-md rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <Store className="mx-auto h-10 w-10 text-[#26248c]" />
+          <h1 className="mt-3 text-xl font-black text-[#26248c]">Store unavailable</h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{error}</p>
           <a
-            href={getMarketplaceUrl('/shops')}
-            className="mt-5 inline-flex items-center rounded-full bg-[#26248c] px-5 py-3 text-sm font-black text-white"
+            href={marketplaceStoresUrl}
+            className="mt-4 inline-flex items-center rounded-full bg-[#26248c] px-5 py-2.5 text-sm font-black text-white"
           >
             Browse marketplace <ArrowRight className="ml-2 h-4 w-4" />
           </a>
@@ -243,7 +288,7 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   if (!resolution || !store || !seller) return <DomainLoader />
 
   return (
-    <div className="min-h-[100svh] bg-slate-50 text-slate-900">
+    <div className="flex min-h-[100svh] flex-col bg-slate-50 text-slate-900">
       <SEO
         title={seller.storeName}
         description={
@@ -255,64 +300,44 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
         image={seller.profilePhotoUrl}
       />
 
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-[1500px] items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
-          <a href={getMarketplaceUrl('/')} className="flex min-w-0 items-center gap-2">
-            <img src="/logo.jpg" alt="DigitalHood" className="h-9 w-9 rounded-xl object-contain" />
-            <span className="hidden text-sm font-black text-[#26248c] sm:inline">
-              DigitalHood Marketplace
-            </span>
-          </a>
-          <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-[11px] font-black text-emerald-700 sm:inline-flex">
-              <ShieldCheck className="h-3.5 w-3.5" /> Verified marketplace store
-            </span>
-            <a
-              href={getMarketplaceUrl('/account')}
-              className="rounded-full bg-[#26248c] px-4 py-2 text-xs font-black text-white"
-            >
-              My account
-            </a>
-            <a
-              href="/cart"
-              className="relative inline-flex h-9 items-center gap-1.5 rounded-full bg-[#ffb54a] px-3 text-xs font-black text-[#17155f]"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span className="hidden sm:inline">Cart</span>
-              {cartCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#17155f] px-1 text-[10px] text-white">
-                  {cartCount > 99 ? '99+' : cartCount}
-                </span>
-              )}
-            </a>
-          </div>
-        </div>
-      </header>
+      <SellerDomainCommerceHeader
+        storeName={seller.storeName}
+        profilePhotoUrl={seller.profilePhotoUrl}
+        marketplaceBrand
+      />
 
-      <main className="mx-auto max-w-[1500px] px-3 py-3 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1500px] flex-1 px-2.5 py-2.5 sm:px-6 lg:px-8">
         {showOrderComplete && (
-          <section className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
+          <section className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">
             <div className="flex items-center gap-2 text-xs font-black sm:text-sm">
               <PackageCheck className="h-4 w-4 shrink-0" />
-              Order confirmed. DigitalHood is now preparing your order updates.
+              Order confirmed. DigitalHood is preparing your order updates.
             </div>
-            <button type="button" onClick={() => setShowOrderComplete(false)} className="text-lg leading-none" aria-label="Dismiss">×</button>
+            <button
+              type="button"
+              onClick={() => setShowOrderComplete(false)}
+              className="text-lg leading-none"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
           </section>
         )}
-        <section className="overflow-hidden rounded-2xl bg-[#17155f] text-white shadow-lg">
-          <div
-            className="relative min-h-[170px] p-4 sm:p-6"
-            style={{
-              backgroundImage: seller.coverPhotoUrl
-                ? `linear-gradient(90deg, rgba(23,21,95,.96), rgba(23,21,95,.58)), url(${seller.coverPhotoUrl})`
-                : 'linear-gradient(135deg, #17155f 0%, #302da0 60%, #a46b17 150%)',
-              backgroundPosition: 'center',
-              backgroundSize: 'cover',
-            }}
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+
+        <section
+          className="relative overflow-hidden rounded-2xl bg-[#17155f] text-white shadow-sm"
+          style={{
+            backgroundImage: seller.coverPhotoUrl
+              ? `linear-gradient(90deg, rgba(23,21,95,.97), rgba(38,36,140,.76)), url(${seller.coverPhotoUrl})`
+              : 'linear-gradient(130deg, #17155f 0%, #302da0 68%, #694979 130%)',
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+          }}
+        >
+          <div className="p-3 sm:p-4">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/30 bg-white/10">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/25 bg-white/10 sm:h-16 sm:w-16">
                   {seller.profilePhotoUrl ? (
                     <img
                       src={seller.profilePhotoUrl}
@@ -320,35 +345,39 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <Store className="h-9 w-9 text-[#ffb54a]" />
+                    <Store className="h-7 w-7 text-[#ffb54a]" />
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="truncate text-2xl font-black sm:text-3xl">{seller.storeName}</h1>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#ffb54a] px-2 py-1 text-[10px] font-black text-[#17155f]">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <h1 className="max-w-full truncate text-xl font-black leading-tight sm:text-2xl">
+                      {seller.storeName}
+                    </h1>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#ffb54a] px-2 py-1 text-[9px] font-black text-[#17155f]">
                       <BadgeCheck className="h-3 w-3" /> Approved
                     </span>
                   </div>
-                  <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-white/70 sm:text-sm">
-                    {seller.tagline || seller.description || 'An approved seller on DigitalHood Marketplace Zambia.'}
+                  <p className="mt-0.5 line-clamp-1 max-w-2xl text-[11px] font-semibold text-white/70 sm:text-xs">
+                    {seller.tagline || seller.description || 'Approved DigitalHood marketplace seller.'}
                   </p>
-                  <p className="mt-2 truncate text-[10px] font-black uppercase tracking-[0.14em] text-[#ffcf87]">
+                  <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.12em] text-[#ffcf87]">
                     {resolution.domain.hostname}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 divide-x divide-white/10 rounded-xl bg-white/10 ring-1 ring-white/10 sm:min-w-[360px]">
+              <div className="grid grid-cols-4 divide-x divide-white/10 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/10 sm:w-[350px] sm:shrink-0">
                 {[
                   ['Years', years],
                   ['Sold', store.stats.itemsSold],
                   ['Products', store.stats.productsLive],
                   ['Rating', store.stats.ratingAverage ? store.stats.ratingAverage.toFixed(1) : '—'],
                 ].map(([label, value]) => (
-                  <div key={label} className="px-2 py-3 text-center">
-                    <p className="text-sm font-black">{value}</p>
-                    <p className="mt-1 text-[8px] font-black uppercase tracking-wide text-white/50">{label}</p>
+                  <div key={label} className="px-1.5 py-1.5 text-center sm:py-2">
+                    <p className="text-xs font-black sm:text-sm">{value}</p>
+                    <p className="mt-0.5 text-[7px] font-black uppercase tracking-wide text-white/50 sm:text-[8px]">
+                      {label}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -356,183 +385,257 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
           </div>
         </section>
 
-        <section className="mt-3 flex flex-col gap-2 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-            <LockKeyhole className="h-4 w-4 shrink-0 text-emerald-600" />
-            Accounts, messaging and payments remain protected by DigitalHood Marketplace.
+        <details className="group mt-2 rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[11px] font-bold text-slate-600 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-2">
+              <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <span className="sm:hidden">Protected checkout</span>
+              <span className="hidden truncate sm:inline">
+                Accounts, messaging and payments remain protected by DigitalHood Marketplace.
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="inline-flex items-center gap-1 font-black text-[#a46b17]">
+                <Star className="h-3.5 w-3.5 fill-current" />
+                {store.stats.ratingAverage?.toFixed(1) || 'New'}
+                <span className="font-bold text-slate-400">({store.stats.ratingCount})</span>
+              </span>
+              <span className="text-[#26248c] group-open:hidden">Details +</span>
+              <span className="hidden text-[#26248c] group-open:inline">Close −</span>
+            </span>
+          </summary>
+          <div className="grid gap-2 border-t border-slate-100 px-3 py-2.5 text-[11px] font-semibold leading-5 text-slate-500 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <p>
+              {seller.description || 'This seller is approved to trade on DigitalHood Marketplace.'}{' '}
+              <span className="font-black text-emerald-700">
+                {positive === null ? 'Feedback profile is new.' : `${positive}% positive feedback.`}
+              </span>
+            </p>
+            <a
+              href={marketplaceStoresUrl}
+              className="inline-flex items-center font-black text-[#26248c]"
+            >
+              All marketplace stores <ExternalLink className="ml-1 h-3.5 w-3.5" />
+            </a>
           </div>
-          <a href={marketplaceStoresUrl} className="inline-flex items-center text-xs font-black text-[#26248c]">
-            Browse all marketplace stores <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-          </a>
-        </section>
+        </details>
 
-        <section className="mt-3 grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="space-y-3">
-            <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <h2 className="text-sm font-black text-[#26248c]">About this store</h2>
-              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                {seller.description || 'This seller is approved to trade on DigitalHood Marketplace.'}
-              </p>
-            </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Buyer trust</p>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-2xl font-black text-[#26248c]">
-                  {store.stats.ratingAverage?.toFixed(1) || '—'}
-                </span>
-                <span className="flex items-center gap-1 text-xs font-black text-[#a46b17]">
-                  <Star className="h-4 w-4 fill-current" /> {store.stats.ratingCount}
-                </span>
-              </div>
-              <p className="mt-2 text-xs font-bold text-emerald-700">
-                {positive === null ? 'New seller feedback profile' : `${positive}% positive feedback`}
-              </p>
-            </div>
-          </aside>
-
-          <div className="min-w-0">
-            <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-              {store.storeCategories.length > 0 && (
-                <div className="mb-3 flex gap-2 overflow-x-auto pb-1" aria-label="Store categories">
-                  <button
-                    type="button"
-                    onClick={() => void chooseStoreCategory('')}
-                    className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${!storeCategory ? 'bg-[#26248c] text-white' : 'bg-slate-100 text-slate-600'}`}
-                  >
-                    All products <span className="ml-1 opacity-70">{store.stats.productsLive}</span>
-                  </button>
-                  {store.storeCategories.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => void chooseStoreCategory(item.id)}
-                      title={item.description}
-                      className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${storeCategory === item.id ? 'bg-[#26248c] text-white' : 'bg-slate-100 text-slate-600'}`}
-                    >
-                      {item.name} <span className="ml-1 opacity-70">{item.productCount}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <form onSubmit={applyFilters} className="flex flex-col gap-2 sm:flex-row">
-                <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">Search this store</span>
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder={`Search ${seller.storeName}`}
-                    className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold outline-none focus:border-[#26248c]"
-                  />
-                </label>
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  className="h-10 rounded-full border border-slate-200 bg-slate-50 px-4 text-xs font-black text-[#26248c] outline-none"
-                >
-                  <option value="">All marketplace categories</option>
-                  {store.facets.categories.map((item) => (
-                    <option key={item.slug} value={item.slug}>{item.name} ({item.count})</option>
-                  ))}
-                </select>
+        <section className="mt-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+          {store.storeCategories.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-2" aria-label="Store categories">
+              <button
+                type="button"
+                onClick={() => void chooseStoreCategory('')}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition ${
+                  !storeCategory
+                    ? 'bg-[#26248c] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All <span className="ml-1 opacity-70">{store.stats.productsLive}</span>
+              </button>
+              {store.storeCategories.map((item) => (
                 <button
-                  type="submit"
-                  disabled={isFiltering}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#26248c] px-5 text-xs font-black text-white disabled:opacity-60"
-                >
-                  {isFiltering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search store'}
-                </button>
-              </form>
-            </div>
-
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-black text-[#26248c]">Products by {seller.storeName}</h2>
-                <p className="text-xs font-semibold text-slate-500">{products.length} of {store.count} live products</p>
-              </div>
-              <a href={getMarketplaceUrl('/shop')} className="hidden text-xs font-black text-[#26248c] sm:inline-flex">
-                Browse all DigitalHood <ArrowRight className="ml-1 h-4 w-4" />
-              </a>
-            </div>
-
-            {error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}
-
-            {products.length ? (
-              <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
-                {products.map((product) => (
-                  <a
-                    key={product.id}
-                    href={getProductUrl(product)}
-                    className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <div className="aspect-square overflow-hidden bg-slate-100">
-                      <img
-                        src={getFastProductImage(product, 'card')}
-                        srcSet={getFastProductSrcSet(product)}
-                        sizes={getProductImageSizes('card')}
-                        alt={product.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                      />
-                    </div>
-                    <div className="p-2.5">
-                      <p className="line-clamp-2 min-h-9 text-xs font-black leading-[1.15rem] text-slate-800">{product.name}</p>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="text-sm font-black text-[#26248c]">{formatPrice(product.price)}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-[#ff9f1c]" />
-                      </div>
-                      <p className="mt-1 text-[9px] font-black uppercase tracking-wide text-emerald-600">
-                        {product.stockLabel || 'Available'}
-                      </p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-3 rounded-xl bg-white p-8 text-center ring-1 ring-slate-200">
-                <ShoppingBag className="mx-auto h-9 w-9 text-[#26248c]" />
-                <p className="mt-3 text-sm font-black text-[#26248c]">No matching products</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">Try a different store search.</p>
-              </div>
-            )}
-
-            {hasMore && (
-              <div className="mt-4 text-center">
-                <button
+                  key={item.id}
                   type="button"
-                  onClick={loadMore}
-                  disabled={isLoadingMore}
-                  className="inline-flex items-center rounded-full bg-[#26248c] px-5 py-3 text-xs font-black text-white disabled:opacity-60"
+                  onClick={() => void chooseStoreCategory(item.id)}
+                  title={item.description}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition ${
+                    storeCategory === item.id
+                      ? 'bg-[#26248c] text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
                 >
-                  {isLoadingMore ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <PackageCheck className="mr-2 h-4 w-4" />
-                  )}
-                  Load more products
+                  {item.name} <span className="ml-1 opacity-70">{item.productCount}</span>
                 </button>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
+
+          <form
+            onSubmit={applyFilters}
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 sm:grid-cols-[minmax(260px,1fr)_220px_170px_auto] sm:gap-2"
+          >
+            <label className="relative col-span-full min-w-0 sm:col-span-1">
+              <span className="sr-only">Search this store</span>
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={`Search ${seller.storeName}`}
+                className="h-9 w-full rounded-full border border-slate-200 bg-slate-50 pl-9 pr-10 text-xs font-semibold outline-none transition focus:border-[#26248c] focus:bg-white"
+              />
+              <button
+                type="submit"
+                disabled={isFiltering}
+                className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-[#26248c] text-white disabled:opacity-60"
+                aria-label="Search store"
+              >
+                {isFiltering ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </label>
+
+            <label className="min-w-0">
+              <span className="sr-only">Marketplace category</span>
+              <select
+                value={category}
+                onChange={(event) => void changeMarketplaceCategory(event.target.value)}
+                className="h-9 w-full min-w-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-black text-[#26248c] outline-none sm:px-3 sm:text-xs"
+              >
+                <option value="">All categories</option>
+                {store.facets.categories.map((item) => (
+                  <option key={item.slug} value={item.slug}>
+                    {item.name} ({item.count})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="min-w-0">
+              <span className="sr-only">Sort products</span>
+              <select
+                value={sort}
+                onChange={(event) => void changeSort(event.target.value)}
+                className="h-9 w-full min-w-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-black text-[#26248c] outline-none sm:px-3 sm:text-xs"
+              >
+                <option value="featured">Featured</option>
+                <option value="popular">Popular</option>
+                <option value="rating">Best rated</option>
+                <option value="price_asc">Price: low</option>
+                <option value="price_desc">Price: high</option>
+                <option value="name_asc">A–Z</option>
+              </select>
+            </label>
+
+            <div className="flex h-9 shrink-0 items-center rounded-full bg-slate-100 p-1" aria-label="Product view">
+              <button
+                type="button"
+                onClick={() => changeViewMode('grid')}
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${
+                  viewMode === 'grid' ? 'bg-white text-[#26248c] shadow-sm' : 'text-slate-400'
+                }`}
+                aria-label="Grid view"
+                aria-pressed={viewMode === 'grid'}
+              >
+                <Grid2X2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => changeViewMode('list')}
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${
+                  viewMode === 'list' ? 'bg-white text-[#26248c] shadow-sm' : 'text-slate-400'
+                }`}
+                aria-label="List view"
+                aria-pressed={viewMode === 'list'}
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </form>
         </section>
+
+        <div className="mt-2 flex items-center justify-between gap-3 px-0.5">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-black text-[#26248c] sm:text-base">
+              Products by {seller.storeName}
+            </h2>
+            <p className="text-[10px] font-semibold text-slate-500 sm:text-xs">
+              {products.length} shown · {store.count} live products
+            </p>
+          </div>
+          {isFiltering && (
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-black text-[#26248c]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating
+            </span>
+          )}
+        </div>
+
+        {error && (
+          <p className="mt-2 rounded-xl bg-red-50 p-2.5 text-xs font-bold text-red-700">{error}</p>
+        )}
+
+        {products.length ? (
+          <div
+            className={
+              viewMode === 'grid'
+                ? 'mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+                : 'mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3'
+            }
+          >
+            {products.map((product, index) => (
+              <a
+                key={product.id}
+                href={getProductUrl(product)}
+                className={`group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md ${
+                  viewMode === 'list' ? 'flex min-h-24' : ''
+                }`}
+              >
+                <div
+                  className={
+                    viewMode === 'grid'
+                      ? 'aspect-[4/3] overflow-hidden bg-slate-100'
+                      : 'aspect-square w-24 shrink-0 overflow-hidden bg-slate-100 sm:w-28'
+                  }
+                >
+                  <img
+                    src={getFastProductImage(product, 'card')}
+                    srcSet={getFastProductSrcSet(product)}
+                    sizes={getProductImageSizes('card')}
+                    alt={product.name}
+                    loading={index < 4 ? 'eager' : 'lazy'}
+                    fetchPriority={index < 2 ? 'high' : 'auto'}
+                    className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
+                  />
+                </div>
+                <div className={`min-w-0 p-2 ${viewMode === 'list' ? 'flex flex-1 flex-col justify-center' : ''}`}>
+                  <p className="line-clamp-2 min-h-8 text-[11px] font-black leading-4 text-slate-800 sm:text-xs">
+                    {product.name}
+                  </p>
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-black text-[#26248c]">
+                      {formatPrice(product.price)}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#ff9f1c]" />
+                  </div>
+                  <p className="mt-0.5 truncate text-[8px] font-black uppercase tracking-wide text-emerald-600 sm:text-[9px]">
+                    {product.stockLabel || 'Available'}
+                  </p>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 rounded-xl bg-white p-7 text-center ring-1 ring-slate-200">
+            <ShoppingBag className="mx-auto h-8 w-8 text-[#26248c]" />
+            <p className="mt-2 text-sm font-black text-[#26248c]">No matching products</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">Try another search or category.</p>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={isLoadingMore}
+              className="inline-flex h-10 items-center rounded-full bg-[#26248c] px-5 text-xs font-black text-white disabled:opacity-60"
+            >
+              {isLoadingMore ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <PackageCheck className="mr-2 h-4 w-4" />
+              )}
+              Load more products
+            </button>
+          </div>
+        )}
       </main>
 
-      <footer className="mt-8 bg-[#17155f] text-white">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-[#ffb54a]" />
-            <div>
-              <p className="text-sm font-black">Protected by DigitalHood</p>
-              <p className="text-[10px] font-semibold text-white/55">Marketplace policies, secure checkout and verified feedback apply.</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-4 text-[11px] font-bold text-white/70">
-            <a href={getMarketplaceUrl('/marketplace-terms')}>Marketplace terms</a>
-            <a href={getMarketplaceUrl('/support')}>Support</a>
-            <a href={getMarketplaceUrl('/shops')}>All stores</a>
-          </div>
-        </div>
-      </footer>
+      <SellerDomainCommerceFooter storeName={seller.storeName} />
     </div>
   )
 }
