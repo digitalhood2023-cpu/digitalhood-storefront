@@ -19,6 +19,7 @@ const CategoriesPage = lazy(() => import('@/pages/CategoriesPage'))
 const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const SellerStorePage = lazy(() => import('@/pages/SellerStorePage'))
 const SellerDomainStorefrontPage = lazy(() => import('@/pages/SellerDomainStorefrontPage'))
+const SellerDomainCategoriesPage = lazy(() => import('@/pages/SellerDomainCategoriesPage'))
 const SellerOrderCompletePage = lazy(() => import('@/pages/SellerOrderCompletePage'))
 const ShopsPage = lazy(() => import('@/pages/ShopsPage'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
@@ -158,6 +159,10 @@ function App() {
                 <Route
                   path="/product/:slug"
                   element={<ProductPage sellerDomainHostname={sellerDomain.hostname} />}
+                />
+                <Route
+                  path="/categories"
+                  element={<SellerDomainCategoriesPage hostname={sellerDomain.hostname} />}
                 />
                 <Route
                   path="/cart"

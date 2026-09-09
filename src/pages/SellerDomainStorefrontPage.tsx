@@ -3,18 +3,21 @@ import {
   ArrowRight,
   BadgeCheck,
   ExternalLink,
+  Filter,
+  Folder,
   Grid2X2,
   LayoutList,
   Loader2,
   LockKeyhole,
   PackageCheck,
-  Search,
+  RotateCcw,
   ShoppingBag,
   Star,
   Store,
 } from 'lucide-react'
 
 import SEO from '@/components/SEO'
+import SellerStoreSearchAutocomplete from '@/components/search/SellerStoreSearchAutocomplete'
 import {
   SellerDomainCommerceFooter,
   SellerDomainCommerceHeader,
@@ -41,6 +44,58 @@ type StoreViewMode = 'grid' | 'list'
 
 const STORE_VIEW_KEY = 'digitalhood-seller-store-view-v1'
 
+function readInitialStoreFilters(): PublicSellerStoreFilters {
+  if (typeof window === 'undefined') return { sort: 'featured' }
+
+  const params = new URLSearchParams(window.location.search)
+  const requestedSort = params.get('sort') || 'featured'
+  const allowedSorts = new Set([
+    'featured',
+    'popular',
+    'rating',
+    'price_asc',
+    'price_desc',
+    'name_asc',
+  ])
+
+  return {
+    q: (params.get('q') || '').slice(0, 80),
+    category: (params.get('category') || '').slice(0, 120),
+    storeCategory: (params.get('store_category') || '').slice(0, 120),
+    availability: (params.get('availability') || '').slice(0, 30),
+    minPrice: (params.get('min_price') || '').slice(0, 20),
+    maxPrice: (params.get('max_price') || '').slice(0, 20),
+    sort: allowedSorts.has(requestedSort) ? requestedSort : 'featured',
+  }
+}
+
+function syncStoreFiltersToUrl(filters: PublicSellerStoreFilters) {
+  if (typeof window === 'undefined') return
+
+  const params = new URLSearchParams()
+  const entries = [
+    ['q', filters.q],
+    ['category', filters.category],
+    ['store_category', filters.storeCategory],
+    ['availability', filters.availability],
+    ['min_price', filters.minPrice],
+    ['max_price', filters.maxPrice],
+    ['sort', filters.sort === 'featured' ? '' : filters.sort],
+  ] as const
+
+  for (const [key, value] of entries) {
+    const normalizedValue = String(value ?? '').trim()
+    if (normalizedValue) params.set(key, normalizedValue)
+  }
+
+  const query = params.toString()
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${window.location.pathname}${query ? `?${query}` : ''}`
+  )
+}
+
 function formatPrice(value: unknown) {
   const amount = Number(value || 0)
   return `K${(Number.isFinite(amount) ? amount : 0).toLocaleString('en-ZM', {
@@ -65,13 +120,19 @@ function DomainLoader() {
 }
 
 export default function SellerDomainStorefrontPage({ hostname }: { hostname: string }) {
+  const [initialFilters] = useState(readInitialStoreFilters)
   const [resolution, setResolution] = useState<SellerStorefrontResolution | null>(null)
   const [store, setStore] = useState<PublicSellerStore | null>(null)
   const [error, setError] = useState('')
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('')
-  const [storeCategory, setStoreCategory] = useState('')
-  const [sort, setSort] = useState('featured')
+  const [searchDraft, setSearchDraft] = useState(String(initialFilters.q || ''))
+  const [query, setQuery] = useState(String(initialFilters.q || ''))
+  const [category, setCategory] = useState(String(initialFilters.category || ''))
+  const [storeCategory, setStoreCategory] = useState(String(initialFilters.storeCategory || ''))
+  const [availability, setAvailability] = useState(String(initialFilters.availability || ''))
+  const [minPrice, setMinPrice] = useState(String(initialFilters.minPrice || ''))
+  const [maxPrice, setMaxPrice] = useState(String(initialFilters.maxPrice || ''))
+  const [sort, setSort] = useState(String(initialFilters.sort || 'featured'))
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
   const [viewMode, setViewMode] = useState<StoreViewMode>(() => {
     if (typeof window === 'undefined') return 'grid'
     try {
@@ -123,7 +184,8 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
         const nextStore = await fetchPublicSellerStore(
           nextResolution.seller.key,
           1,
-          24
+          24,
+          initialFilters
         )
         if (active) setStore(nextStore)
       })
@@ -142,7 +204,7 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
     return () => {
       active = false
     }
-  }, [hostname])
+  }, [hostname, initialFilters])
 
   const products = store?.products || []
   const seller = store?.seller
@@ -159,9 +221,18 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   const canonicalUrl = resolution?.domain.canonicalUrl || `https://${hostname}`
   const marketplaceStoresUrl = getMarketplaceUrl('/shops')
   const filters = useMemo<PublicSellerStoreFilters>(
-    () => ({ q: query.trim(), category, storeCategory, sort }),
-    [query, category, storeCategory, sort]
+    () => ({
+      q: query.trim(),
+      category,
+      storeCategory,
+      availability,
+      minPrice,
+      maxPrice,
+      sort,
+    }),
+    [query, category, storeCategory, availability, minPrice, maxPrice, sort]
   )
+  const activeFilterCount = [category, availability, minPrice, maxPrice].filter(Boolean).length
 
   async function refreshStore(
     nextFilters: PublicSellerStoreFilters,
@@ -179,7 +250,10 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
         24,
         nextFilters
       )
-      if (requestId === filterRequestIdRef.current) setStore(nextStore)
+      if (requestId === filterRequestIdRef.current) {
+        setStore(nextStore)
+        syncStoreFiltersToUrl(nextFilters)
+      }
     } catch (requestError) {
       if (requestId !== filterRequestIdRef.current) return
       setError(requestError instanceof Error ? requestError.message : fallbackMessage)
@@ -205,11 +279,22 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
     )
   }
 
-  async function changeMarketplaceCategory(nextCategory: string) {
+  async function applySearch(nextQuery: string) {
+    setSearchDraft(nextQuery)
+    setQuery(nextQuery)
+    await refreshStore(
+      { ...filters, q: nextQuery.trim() },
+      'Unable to search this store.'
+    )
+  }
+
+  async function applySuggestedCategory(nextCategory: string, nextQuery: string) {
+    setSearchDraft(nextQuery)
+    setQuery(nextQuery)
     setCategory(nextCategory)
     await refreshStore(
-      { ...filters, category: nextCategory },
-      'Unable to filter this store.'
+      { ...filters, q: nextQuery.trim(), category: nextCategory },
+      'Unable to open this suggested category.'
     )
   }
 
@@ -223,7 +308,40 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
 
   async function applyFilters(event: FormEvent) {
     event.preventDefault()
+
+    const minimum = minPrice ? Number(minPrice) : null
+    const maximum = maxPrice ? Number(maxPrice) : null
+    if (
+      minimum !== null &&
+      maximum !== null &&
+      Number.isFinite(minimum) &&
+      Number.isFinite(maximum) &&
+      minimum > maximum
+    ) {
+      setError('Minimum price must be lower than maximum price.')
+      return
+    }
+
+    setIsFilterPanelOpen(false)
     await refreshStore(filters, 'Unable to search this store.')
+  }
+
+  async function resetFilters() {
+    setCategory('')
+    setAvailability('')
+    setMinPrice('')
+    setMaxPrice('')
+    setIsFilterPanelOpen(false)
+    await refreshStore(
+      {
+        ...filters,
+        category: '',
+        availability: '',
+        minPrice: '',
+        maxPrice: '',
+      },
+      'Unable to reset store filters.'
+    )
   }
 
   async function loadMore() {
@@ -420,82 +538,97 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
           </div>
         </details>
 
-        <section className="mt-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
-          {store.storeCategories.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-2" aria-label="Store categories">
+        {store.storeCategories.length > 0 && (
+          <nav
+            className="mt-2 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            aria-label="Store categories"
+          >
+            <button
+              type="button"
+              onClick={() => void chooseStoreCategory('')}
+              className={`flex h-14 w-[116px] shrink-0 snap-start items-center gap-2 rounded-xl px-2.5 text-left shadow-sm ring-1 transition ${
+                !storeCategory
+                  ? 'bg-[#26248c] text-white ring-[#26248c]'
+                  : 'bg-white text-slate-700 ring-slate-200 hover:ring-[#26248c]/40'
+              }`}
+            >
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${!storeCategory ? 'bg-white/15' : 'bg-[#26248c]/8 text-[#26248c]'}`}>
+                <ShoppingBag className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[11px] font-black">All products</span>
+                <span className={`block text-[9px] font-bold ${!storeCategory ? 'text-white/60' : 'text-slate-400'}`}>
+                  {store.stats.productsLive} items
+                </span>
+              </span>
+            </button>
+            {store.storeCategories.map((item) => (
               <button
+                key={item.id}
                 type="button"
-                onClick={() => void chooseStoreCategory('')}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition ${
-                  !storeCategory
-                    ? 'bg-[#26248c] text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                onClick={() => void chooseStoreCategory(item.id)}
+                title={item.description}
+                className={`flex h-14 w-[132px] shrink-0 snap-start items-center gap-2 rounded-xl px-2.5 text-left shadow-sm ring-1 transition ${
+                  storeCategory === item.id
+                    ? 'bg-[#26248c] text-white ring-[#26248c]'
+                    : 'bg-white text-slate-700 ring-slate-200 hover:ring-[#26248c]/40'
                 }`}
               >
-                All <span className="ml-1 opacity-70">{store.stats.productsLive}</span>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${storeCategory === item.id ? 'bg-white/15' : 'bg-[#ffb54a]/20 text-[#a46b17]'}`}>
+                  <Folder className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-black">{item.name}</span>
+                  <span className={`block text-[9px] font-bold ${storeCategory === item.id ? 'text-white/60' : 'text-slate-400'}`}>
+                    {item.productCount} items
+                  </span>
+                </span>
               </button>
-              {store.storeCategories.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => void chooseStoreCategory(item.id)}
-                  title={item.description}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition ${
-                    storeCategory === item.id
-                      ? 'bg-[#26248c] text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {item.name} <span className="ml-1 opacity-70">{item.productCount}</span>
-                </button>
-              ))}
-            </div>
-          )}
+            ))}
+            <a
+              href="/categories"
+              className="flex h-14 w-[116px] shrink-0 snap-start items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#26248c]/35 bg-[#26248c]/5 px-3 text-[11px] font-black text-[#26248c]"
+            >
+              View all <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          </nav>
+        )}
 
-          <form
-            onSubmit={applyFilters}
-            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 sm:grid-cols-[minmax(260px,1fr)_220px_170px_auto] sm:gap-2"
-          >
-            <label className="relative col-span-full min-w-0 sm:col-span-1">
-              <span className="sr-only">Search this store</span>
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={`Search ${seller.storeName}`}
-                className="h-9 w-full rounded-full border border-slate-200 bg-slate-50 pl-9 pr-10 text-xs font-semibold outline-none transition focus:border-[#26248c] focus:bg-white"
-              />
-              <button
-                type="submit"
-                disabled={isFiltering}
-                className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-[#26248c] text-white disabled:opacity-60"
-                aria-label="Search store"
-              >
-                {isFiltering ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowRight className="h-3.5 w-3.5" />
-                )}
-              </button>
-            </label>
+        <section className="mt-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+          <SellerStoreSearchAutocomplete
+            sellerKey={seller.key}
+            storeName={seller.storeName}
+            value={searchDraft}
+            onValueChange={setSearchDraft}
+            onSearch={(nextQuery) => void applySearch(nextQuery)}
+            onCategorySelect={(selectedCategory, nextQuery) =>
+              void applySuggestedCategory(selectedCategory.slug, nextQuery)
+            }
+            popularCategories={store.facets.categories}
+            isSearching={isFiltering}
+          />
 
-            <label className="min-w-0">
-              <span className="sr-only">Marketplace category</span>
-              <select
-                value={category}
-                onChange={(event) => void changeMarketplaceCategory(event.target.value)}
-                className="h-9 w-full min-w-0 truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-black text-[#26248c] outline-none sm:px-3 sm:text-xs"
-              >
-                <option value="">All categories</option>
-                {store.facets.categories.map((item) => (
-                  <option key={item.slug} value={item.slug}>
-                    {item.name} ({item.count})
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="mt-2 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsFilterPanelOpen((current) => !current)}
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11px] font-black transition ${
+                isFilterPanelOpen || activeFilterCount
+                  ? 'bg-[#26248c] text-white'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+              aria-expanded={isFilterPanelOpen}
+              aria-controls="seller-store-filters"
+            >
+              <Filter className="h-3.5 w-3.5" /> Filters
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ffb54a] px-1 text-[9px] text-[#17155f]">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
 
-            <label className="min-w-0">
+            <label className="min-w-0 flex-1 sm:max-w-[190px]">
               <span className="sr-only">Sort products</span>
               <select
                 value={sort}
@@ -535,7 +668,89 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
                 <LayoutList className="h-3.5 w-3.5" />
               </button>
             </div>
-          </form>
+          </div>
+
+          {isFilterPanelOpen && (
+            <form
+              id="seller-store-filters"
+              onSubmit={applyFilters}
+              className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 sm:grid-cols-[minmax(180px,1fr)_150px_130px_130px_auto]"
+            >
+              <label className="col-span-2 min-w-0 sm:col-span-1">
+                <span className="mb-1 block text-[9px] font-black uppercase tracking-wide text-slate-400">Category</span>
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-[#26248c]"
+                >
+                  <option value="">All categories</option>
+                  {store.facets.categories.map((item) => (
+                    <option key={item.slug} value={item.slug}>
+                      {item.name} ({item.count})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="min-w-0">
+                <span className="mb-1 block text-[9px] font-black uppercase tracking-wide text-slate-400">Availability</span>
+                <select
+                  value={availability}
+                  onChange={(event) => setAvailability(event.target.value)}
+                  className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-[#26248c]"
+                >
+                  <option value="">Any</option>
+                  <option value="in_stock">In stock</option>
+                  <option value="on_sale">On sale</option>
+                </select>
+              </label>
+
+              <label className="min-w-0">
+                <span className="mb-1 block text-[9px] font-black uppercase tracking-wide text-slate-400">Minimum price</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  value={minPrice}
+                  onChange={(event) => setMinPrice(event.target.value)}
+                  placeholder={store.facets.price.min ? `K${Math.floor(store.facets.price.min)}` : 'Min K'}
+                  className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-[#26248c]"
+                />
+              </label>
+
+              <label className="min-w-0">
+                <span className="mb-1 block text-[9px] font-black uppercase tracking-wide text-slate-400">Maximum price</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  value={maxPrice}
+                  onChange={(event) => setMaxPrice(event.target.value)}
+                  placeholder={store.facets.price.max ? `K${Math.ceil(store.facets.price.max)}` : 'Max K'}
+                  className="h-9 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-[#26248c]"
+                />
+              </label>
+
+              <div className="col-span-2 flex items-end justify-end gap-2 sm:col-span-1">
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void resetFilters()}
+                    className="inline-flex h-9 items-center gap-1 rounded-full px-3 text-[10px] font-black text-slate-500 hover:bg-slate-100"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Reset
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={isFiltering}
+                  className="inline-flex h-9 items-center rounded-full bg-[#26248c] px-4 text-[11px] font-black text-white disabled:opacity-60"
+                >
+                  {isFiltering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply filters'}
+                </button>
+              </div>
+            </form>
+          )}
         </section>
 
         <div className="mt-2 flex items-center justify-between gap-3 px-0.5">

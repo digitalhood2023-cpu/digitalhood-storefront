@@ -28,6 +28,7 @@ const cartDrawer = read('src/features/cart/CartDrawer.tsx')
 const wishlistDrawer = read('src/components/wishlist/WishlistDrawer.tsx')
 const sellerStore = read('src/pages/SellerStorePage.tsx')
 const sellerDomainStore = read('src/pages/SellerDomainStorefrontPage.tsx')
+const sellerDomainCategories = read('src/pages/SellerDomainCategoriesPage.tsx')
 const sellerCheckout = read('src/api/sellerCheckout.ts')
 const sellerOrderComplete = read('src/pages/SellerOrderCompletePage.tsx')
 const appRouter = read('src/App.tsx')
@@ -272,6 +273,21 @@ assert(
     !sellerDomainStore.includes('lg:grid-cols-[220px_minmax(0,1fr)]') &&
     !sellerDomainStore.includes('min-h-[170px]'),
   'seller personal stores must remain compact, product-first, sortable, and usable in grid or list view'
+)
+assert(
+  sellerDomainStore.includes('SellerStoreSearchAutocomplete') &&
+    sellerDomainStore.includes('fetchPublicSellerStoreSuggestions') === false &&
+    sellerDomainStore.includes('minPrice') &&
+    sellerDomainStore.includes('maxPrice') &&
+    sellerDomainStore.includes('availability') &&
+    sellerDomainStore.includes('Minimum price') &&
+    sellerDomainStore.includes('Maximum price') &&
+    sellerDomainStore.includes('snap-x snap-mandatory') &&
+    sellerDomainStore.includes('href="/categories"') &&
+    sellerDomainCategories.includes('Shop by category') &&
+    sellerDomainCategories.includes('/?store_category=') &&
+    appRouter.includes('path="/categories"'),
+  'seller domains must retain seller-scoped autocomplete, compact price filters, a swipeable category rail, and category folders'
 )
 assert(
   appRouter.includes('sellerDomainHostname={sellerDomain.hostname}') &&
