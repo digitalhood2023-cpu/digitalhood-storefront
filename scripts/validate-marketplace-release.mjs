@@ -260,6 +260,20 @@ assert(
   'seller domains must remain isolated branded storefronts with central secure transactions'
 )
 assert(
+  sellerDomainStore.includes('SellerDomainCommerceHeader') &&
+    sellerDomainStore.includes("type StoreViewMode = 'grid' | 'list'") &&
+    sellerDomainStore.includes('aria-label="Grid view"') &&
+    sellerDomainStore.includes('aria-label="List view"') &&
+    sellerDomainStore.includes('<option value="popular">Popular</option>') &&
+    sellerDomainStore.includes('<option value="price_asc">Price: low</option>') &&
+    sellerDomainStore.includes('xl:grid-cols-5 2xl:grid-cols-6') &&
+    sellerDomainStore.includes('aspect-[4/3]') &&
+    sellerDomainStore.includes('filterRequestIdRef') &&
+    !sellerDomainStore.includes('lg:grid-cols-[220px_minmax(0,1fr)]') &&
+    !sellerDomainStore.includes('min-h-[170px]'),
+  'seller personal stores must remain compact, product-first, sortable, and usable in grid or list view'
+)
+assert(
   appRouter.includes('sellerDomainHostname={sellerDomain.hostname}') &&
     appRouter.includes('path="/cart"') &&
     appRouter.includes('path="/order-complete"') &&
