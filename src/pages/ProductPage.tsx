@@ -40,10 +40,12 @@ import {
 
 import {
   fetchWooProductBySlug,
+  fetchSellerWooProductBySlug,
   fetchWooProductVariations,
   fetchWooProducts,
   fetchWooProductReviews,
   isMarketplaceProductAvailable,
+  mapWooProduct,
   type WooProduct,
   type WooProductReview,
   type WooProductVariation,
@@ -72,6 +74,17 @@ import {
   extractDescriptionSpecificationRows,
   mergeProductSpecificationRows,
 } from '@/lib/productDetails'
+import { fetchPublicSellerStore } from '@/api/publicSellers'
+import {
+  resolveSellerStorefrontHostname,
+  type SellerStorefrontResolution,
+} from '@/api/storefrontDomains'
+import { createSellerCheckoutHandoff, submitSellerCheckoutHandoff } from '@/api/sellerCheckout'
+import { getMarketplaceUrl } from '@/lib/sellerDomains'
+import {
+  SellerDomainCommerceFooter,
+  SellerDomainCommerceHeader,
+} from '@/components/seller/SellerDomainCommerceChrome'
 
 function getVariationLabel(variation: WooProductVariation) {
   const values = Object.values(variation.attributes || {}).filter(Boolean)
@@ -264,9 +277,14 @@ function getRecommendationBuckets(
   return { similar, newArrivals, hotSelling }
 }
 
-export default function ProductPage() {
+export default function ProductPage({
+  sellerDomainHostname = '',
+}: {
+  sellerDomainHostname?: string
+}) {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const isSellerDomain = Boolean(sellerDomainHostname)
 
   const [product, setProduct] = useState<WooProduct | null>(null)
   const [recommendedProducts, setRecommendedProducts] = useState<WooProduct[]>([])
@@ -290,6 +308,9 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const [isOpeningChat, setIsOpeningChat] = useState(false)
+  const [isStartingSellerCheckout, setIsStartingSellerCheckout] = useState(false)
+  const [sellerDomainResolution, setSellerDomainResolution] =
+    useState<SellerStorefrontResolution | null>(null)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showVariations, setShowVariations] = useState(false)
   const [selectedAttributes, setSelectedAttributes] =
@@ -315,7 +336,38 @@ export default function ProductPage() {
   const productLoadIdRef = useRef(0)
 
   useEffect(() => {
+    if (!sellerDomainHostname) {
+      setSellerDomainResolution(null)
+      return
+    }
+
+    let active = true
+
+    resolveSellerStorefrontHostname(sellerDomainHostname)
+      .then((resolution) => {
+        if (!active) return
+        if (resolution.redirect && resolution.domain.canonicalUrl) {
+          const destination = new URL(window.location.pathname + window.location.search, resolution.domain.canonicalUrl)
+          window.location.replace(destination.toString())
+          return
+        }
+        setSellerDomainResolution(resolution)
+      })
+      .catch((error) => {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : 'This store is unavailable.')
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [sellerDomainHostname])
+
+  useEffect(() => {
     if (!slug) return
+    if (isSellerDomain && !sellerDomainResolution) return
 
     const loadId = productLoadIdRef.current + 1
     productLoadIdRef.current = loadId
@@ -342,7 +394,11 @@ export default function ProductPage() {
     setSellerFeedbackSummary(null)
     setReviewsError('')
 
-    fetchWooProductBySlug(slug)
+    const productRequest = sellerDomainResolution
+      ? fetchSellerWooProductBySlug(sellerDomainResolution.seller.key, slug)
+      : fetchWooProductBySlug(slug)
+
+    productRequest
       .then((item) => {
         if (productLoadIdRef.current !== loadId) return
 
@@ -359,7 +415,7 @@ export default function ProductPage() {
         setProduct(item)
         window.scrollTo(0, 0)
 
-        if (item.type === 'variable') {
+        if (item.type === 'variable' && !sellerDomainResolution) {
           fetchWooProductVariations(item.id)
             .then((variations) => {
               if (productLoadIdRef.current !== loadId) return
@@ -378,7 +434,30 @@ export default function ProductPage() {
           if (productLoadIdRef.current !== loadId) return
 
           setAreReviewsLoading(true)
-          fetchWooProductReviews(item.id)
+          const reviewsRequest = sellerDomainResolution
+            ? getPublicFeedback('products', item.id).then((response) => ({
+                reviews: (response.feedback || []).map((feedback) => ({
+                  id: feedback.id,
+                  reviewer: feedback.authorName || 'Marketplace buyer',
+                  review: feedback.comment || '',
+                  title: feedback.title || '',
+                  rating: feedback.rating,
+                  verified: feedback.verifiedPurchase,
+                  dateCreated: feedback.submittedAt || '',
+                  tags: feedback.tags || [],
+                  dimensions: feedback.dimensions || {},
+                  media: feedback.media || [],
+                  response: feedback.response,
+                })),
+                summary: {
+                  count: response.summary?.count || 0,
+                  averageRating: response.summary?.averageRating || 0,
+                  positivePercent: response.summary?.positivePercent || 0,
+                },
+              }))
+            : fetchWooProductReviews(item.id)
+
+          reviewsRequest
             .then(({ reviews, summary }) => {
               if (productLoadIdRef.current !== loadId) return
 
@@ -408,8 +487,28 @@ export default function ProductPage() {
             })
 
           const categoryId = item.categoryIds?.[0] || item.categories?.[0]?.id || null
+          const recommendationsRequest = sellerDomainResolution
+            ? fetchPublicSellerStore(sellerDomainResolution.seller.key, 1, 64)
+                .then((store) => ({
+                  products: store.products.map((candidate) => mapWooProduct({
+                    ...candidate,
+                    image: candidate.image,
+                    seller: {
+                      id: store.seller.id,
+                      key: store.seller.key,
+                      storeName: store.seller.storeName,
+                      verified: store.seller.verified,
+                      profilePhotoUrl: store.seller.profilePhotoUrl,
+                    },
+                    sellerKey: store.seller.key,
+                    sellerStoreName: store.seller.storeName,
+                    sellerVerified: store.seller.verified,
+                    sellerProfilePhotoUrl: store.seller.profilePhotoUrl,
+                  })),
+                }))
+            : fetchWooProducts(32, 1, '', categoryId)
 
-          fetchWooProducts(32, 1, '', categoryId)
+          recommendationsRequest
             .then(({ products }) => {
               if (productLoadIdRef.current !== loadId) return
               const filtered = products.filter(
@@ -423,6 +522,8 @@ export default function ProductPage() {
             })
             .catch((error) => {
               console.error(error)
+
+              if (sellerDomainResolution) return
 
               fetchWooProducts(32, 1)
                 .then(({ products }) => {
@@ -457,7 +558,7 @@ export default function ProductPage() {
       .finally(() => {
         if (productLoadIdRef.current === loadId) setIsLoading(false)
       })
-  }, [slug])
+  }, [isSellerDomain, sellerDomainResolution, slug])
 
   useEffect(() => {
     const sellerKey = product?.sellerKey || product?.seller?.key || ''
@@ -537,6 +638,15 @@ export default function ProductPage() {
 
   async function handleOpenSellerChat() {
     if (!product || isOpeningChat) return
+
+    if (isSellerDomain) {
+      window.location.assign(
+        getMarketplaceUrl(
+          `/product/${encodeURIComponent(product.slug || String(product.id))}`
+        )
+      )
+      return
+    }
 
     if (!isAuthenticated) {
       const redirect = `/product/${encodeURIComponent(product.slug || String(product.id))}`
@@ -690,7 +800,7 @@ export default function ProductPage() {
       verifiedReviews.length
     )
   }, [verifiedReviews])
-  const sellerDisplay = product
+  const baseSellerDisplay = product
     ? getProductSellerDisplay(product, sellerFeedbackSummary)
     : {
         storeName: '',
@@ -700,6 +810,9 @@ export default function ProductPage() {
         initials: 'DH',
         feedbackText: 'New seller',
       }
+  const sellerDisplay = isSellerDomain
+    ? { ...baseSellerDisplay, sellerUrl: '/' }
+    : baseSellerDisplay
 
   const openGallery = (index = selectedImage) => {
     setSelectedImage(index)
@@ -1189,7 +1302,7 @@ export default function ProductPage() {
     }, 2000)
   }
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!validateBeforeCartAction()) return
 
     const cartProduct = buildCartProduct()
@@ -1201,6 +1314,31 @@ export default function ProductPage() {
     if (!addedToCart) return
 
     const checkoutItemId = Number(cartProduct.variationId || cartProduct.id)
+
+    if (isSellerDomain) {
+      const checkoutItem = useCartStore
+        .getState()
+        .items.find((item) => Number(item.id) === checkoutItemId)
+
+      if (!checkoutItem) return
+
+      setIsStartingSellerCheckout(true)
+
+      try {
+        const handoff = await createSellerCheckoutHandoff([checkoutItem])
+        submitSellerCheckoutHandoff(handoff.handoffId)
+      } catch (error) {
+        setIsStartingSellerCheckout(false)
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : 'Secure checkout could not be opened.'
+        )
+      }
+
+      return
+    }
+
     navigate(`/checkout?items=${checkoutItemId}`)
   }
 
@@ -1236,7 +1374,9 @@ export default function ProductPage() {
 
           <Link
             to={
-              product?.categories?.[0]
+              isSellerDomain
+                ? '/'
+                : product?.categories?.[0]
                 ? `/shop?category=${product.categories[0].slug}`
                 : '/shop'
             }
@@ -1302,14 +1442,14 @@ export default function ProductPage() {
 
         <ProductRow
           title="Similar products"
-          subtitle="Compare options from the same category."
+          subtitle={isSellerDomain ? 'More options available from this store.' : 'Compare options from the same category.'}
           icon={<BadgeCheck className="h-4 w-4 text-black" />}
           products={recommendedProducts}
         />
 
         <ProductRow
           title="New arrivals"
-          subtitle="Fresh listings recently added to DigitalHood."
+          subtitle={isSellerDomain ? 'Fresh listings from this store.' : 'Fresh listings recently added to DigitalHood.'}
           icon={<Sparkles className="h-4 w-4 text-[#ffb54a]" />}
           products={newArrivalProducts}
         />
@@ -1379,7 +1519,14 @@ export default function ProductPage() {
       ref={pageRef}
       className="flex min-h-[100svh] flex-col overflow-x-hidden bg-dh-gray"
     >
-      <Header />
+      {isSellerDomain ? (
+        <SellerDomainCommerceHeader
+          storeName={sellerDomainResolution?.seller.storeName || sellerDisplay.storeName}
+          profilePhotoUrl={sellerDisplay.avatarUrl}
+        />
+      ) : (
+        <Header />
+      )}
 
       <main className="overflow-x-hidden pb-28 pt-4 lg:pb-16 lg:pt-6">
 
@@ -1855,7 +2002,7 @@ export default function ProductPage() {
                   <Button
                     type="button"
                     onClick={handleBuyNow}
-                    disabled={!canProceedToBuy}
+                    disabled={!canProceedToBuy || isStartingSellerCheckout}
                     className={`h-12 rounded-full font-semibold shadow-sm ${
                       !canProceedToBuy
                         ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
@@ -1863,7 +2010,7 @@ export default function ProductPage() {
                     }`}
                   >
                     <Zap className="w-5 h-5 mr-2" />
-                    Buy it Now
+                    {isStartingSellerCheckout ? 'Opening secure checkout…' : 'Buy it Now'}
                   </Button>
                 </div>
 
@@ -2245,14 +2392,14 @@ export default function ProductPage() {
             <Button
               type="button"
               onClick={handleBuyNow}
-              disabled={!canProceedToBuy}
+              disabled={!canProceedToBuy || isStartingSellerCheckout}
               className={`shrink-0 rounded-full px-5 font-semibold ${
                 !canProceedToBuy
                   ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
                   : 'bg-[#ffb54a] text-black hover:bg-dh-primary hover:text-white'
               }`}
             >
-              Buy
+              {isStartingSellerCheckout ? 'Opening…' : 'Buy'}
             </Button>
           </div>
         </div>
@@ -2393,7 +2540,13 @@ export default function ProductPage() {
         </div>
       )}
 
-      <Footer />
+      {isSellerDomain ? (
+        <SellerDomainCommerceFooter
+          storeName={sellerDomainResolution?.seller.storeName || sellerDisplay.storeName}
+        />
+      ) : (
+        <Footer />
+      )}
     </div>
   )
 }

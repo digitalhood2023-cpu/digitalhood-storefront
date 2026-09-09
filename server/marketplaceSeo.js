@@ -101,8 +101,8 @@ function condition(product) {
   return undefined
 }
 
-function productGraph(product, path, sellerCanonicalUrl = '') {
-  const url = absolute(path)
+function productGraph(product, path, sellerCanonicalUrl = '', canonicalUrl = '') {
+  const url = absolute(canonicalUrl || path)
   const price = finite(product?.price)
   const rating = finite(product?.averageRating || product?.average_rating)
   const count = finite(product?.ratingCount || product?.rating_count || product?.reviewCount || product?.review_count)
@@ -141,7 +141,7 @@ function productGraph(product, path, sellerCanonicalUrl = '') {
   }]
 }
 
-async function productSeo(slug) {
+async function productSeo(slug, options = {}) {
   const lookup = await fetchJson(`${API}/api/products?slug=${encodeURIComponent(slug)}&per_page=1`)
   const listed = Array.isArray(lookup?.products) ? lookup.products[0] : null
   const id = Number(slug) || Number(listed?.id)
@@ -149,17 +149,21 @@ async function productSeo(slug) {
   const detail = await fetchJson(`${API}/api/products/${id}`)
   const product = detail?.product || detail
   if (!product?.id) return null
+  const productSellerKey = text(product?.sellerKey || product?.seller_key || product?.seller?.key)
+  if (options.sellerKey && productSellerKey !== text(options.sellerKey)) return null
   const canonicalSlug = product.slug || slug
   const path = `/product/${encodeURIComponent(canonicalSlug)}`
-  const sellerKey = text(product?.sellerKey || product?.seller_key || product?.seller?.key)
+  const sellerKey = productSellerKey
   const sellerDomain = sellerKey
     ? await fetchJson(`${API}/api/public/storefront-hosts/seller/${encodeURIComponent(sellerKey)}`)
     : null
+  const canonicalUrl = options.canonicalUrl || absolute(path)
+  const sellerCanonicalUrl = options.sellerCanonicalUrl || sellerDomain?.domain?.url || ''
   return {
     title: text(product.name),
     description: text(product.shortDescription || product.short_description || product.description || `Buy ${product.name} on DigitalHood Marketplace Zambia.`),
-    path, image: absolute(product.imageOriginal || product.imageLarge || product.image, IMAGE),
-    type: 'product', noindex: false, graph: productGraph(product, path, sellerDomain?.domain?.url || ''),
+    path, canonicalUrl, image: absolute(product.imageOriginal || product.imageLarge || product.image, IMAGE),
+    type: 'product', noindex: false, graph: productGraph(product, path, sellerCanonicalUrl, canonicalUrl),
   }
 }
 
@@ -182,7 +186,7 @@ export async function buildServerSeo(pathname, options = {}) {
   const product = path.match(/^\/product\/([^/]+)$/)
   if (product) {
     const slug = decode(product[1])
-    return slug ? (await productSeo(slug)) || { ...base(path), noindex: true } : { ...base(path), noindex: true }
+    return slug ? (await productSeo(slug, options)) || { ...base(path), canonicalUrl: options.canonicalUrl, noindex: true } : { ...base(path), canonicalUrl: options.canonicalUrl, noindex: true }
   }
   const seller = path.match(/^\/(?:seller|stores)\/([^/]+)$/)
   if (seller) {

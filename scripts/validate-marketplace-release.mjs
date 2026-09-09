@@ -28,6 +28,9 @@ const cartDrawer = read('src/features/cart/CartDrawer.tsx')
 const wishlistDrawer = read('src/components/wishlist/WishlistDrawer.tsx')
 const sellerStore = read('src/pages/SellerStorePage.tsx')
 const sellerDomainStore = read('src/pages/SellerDomainStorefrontPage.tsx')
+const sellerCheckout = read('src/api/sellerCheckout.ts')
+const sellerOrderComplete = read('src/pages/SellerOrderCompletePage.tsx')
+const appRouter = read('src/App.tsx')
 const sellerDomains = read('src/lib/sellerDomains.ts')
 const storefrontServer = read('server.js')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
@@ -255,6 +258,24 @@ assert(
     storefrontServer.includes("res.status(421)") &&
     storefrontServer.includes('resolveSellerDomainHostname'),
   'seller domains must remain isolated branded storefronts with central secure transactions'
+)
+assert(
+  appRouter.includes('sellerDomainHostname={sellerDomain.hostname}') &&
+    appRouter.includes('path="/cart"') &&
+    appRouter.includes('path="/order-complete"') &&
+    product.includes('fetchSellerWooProductBySlug') &&
+    product.includes('fetchPublicSellerStore(sellerDomainResolution.seller.key') &&
+    sellerCheckout.includes('createSellerCheckoutHandoff') &&
+    sellerCheckout.includes("form.method = 'POST'") &&
+    sellerCheckout.includes("new URL('/checkout/store-handoff'") &&
+    checkout.includes('consumeSellerCheckoutHandoff') &&
+    checkout.includes("checkoutProgressStage !== 'confirmed'") &&
+    sellerOrderComplete.includes('removeItem(itemId)') &&
+    storefrontServer.includes("app.post('/checkout/store-handoff'") &&
+    storefrontServer.includes("app.get('/api/checkout/store-handoff'") &&
+    storefrontServer.includes('httpOnly: true') &&
+    storefrontServer.includes("sameSite: 'lax'"),
+  'seller-domain commerce must keep seller products/cart local and use the server-bound secure checkout handoff'
 )
 assert(
   sellerStore.includes('Visit our store') &&

@@ -10,7 +10,7 @@ import MarketplaceSEO from '@/components/MarketplaceSEO'
 import NetworkStatusBanner from '@/components/NetworkStatusBanner'
 import AccessibilityFoundation from '@/components/AccessibilityFoundation'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
-import { getCurrentSellerDomainContext, getMarketplaceUrl } from '@/lib/sellerDomains'
+import { getCurrentSellerDomainContext } from '@/lib/sellerDomains'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -19,6 +19,7 @@ const CategoriesPage = lazy(() => import('@/pages/CategoriesPage'))
 const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const SellerStorePage = lazy(() => import('@/pages/SellerStorePage'))
 const SellerDomainStorefrontPage = lazy(() => import('@/pages/SellerDomainStorefrontPage'))
+const SellerOrderCompletePage = lazy(() => import('@/pages/SellerOrderCompletePage'))
 const ShopsPage = lazy(() => import('@/pages/ShopsPage'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage'))
@@ -141,23 +142,34 @@ function App() {
   const sellerDomain = getCurrentSellerDomainContext()
 
   if (sellerDomain) {
-    if (window.location.pathname !== '/') {
-      window.location.replace(
-        getMarketplaceUrl(
-          `${window.location.pathname}${window.location.search}${window.location.hash}`
-        )
-      )
-      return <PageLoader />
-    }
-
     return (
-      <>
-        <AccessibilityFoundation />
-        <Suspense fallback={<PageLoader />}>
-          <SellerDomainStorefrontPage hostname={sellerDomain.hostname} />
-          <NetworkStatusBanner />
-        </Suspense>
-      </>
+      <AccountProvider>
+        <WishlistProvider>
+          <RecentlyViewedProvider>
+            <NavigationScrollManager />
+            <AccessibilityFoundation />
+            <NetworkStatusBanner />
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route
+                  path="/"
+                  element={<SellerDomainStorefrontPage hostname={sellerDomain.hostname} />}
+                />
+                <Route
+                  path="/product/:slug"
+                  element={<ProductPage sellerDomainHostname={sellerDomain.hostname} />}
+                />
+                <Route
+                  path="/cart"
+                  element={<CartPage sellerDomainHostname={sellerDomain.hostname} />}
+                />
+                <Route path="/order-complete" element={<SellerOrderCompletePage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </RecentlyViewedProvider>
+        </WishlistProvider>
+      </AccountProvider>
     )
   }
 
