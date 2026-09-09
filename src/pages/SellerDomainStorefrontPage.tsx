@@ -9,6 +9,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   Star,
   Store,
 } from 'lucide-react'
@@ -29,6 +30,8 @@ import {
   getFastProductSrcSet,
   getProductImageSizes,
 } from '@/lib/productImages'
+import { useCartStore } from '@/store/cartStore'
+import { SELLER_ORDER_COMPLETE_NOTICE } from '@/pages/SellerOrderCompletePage'
 
 function formatPrice(value: unknown) {
   const amount = Number(value || 0)
@@ -39,9 +42,7 @@ function formatPrice(value: unknown) {
 }
 
 function getProductUrl(product: PublicSellerProduct) {
-  return getMarketplaceUrl(
-    `/product/${encodeURIComponent(product.slug || String(product.id))}`
-  )
+  return `/product/${encodeURIComponent(product.slug || String(product.id))}`
 }
 
 function DomainLoader() {
@@ -65,6 +66,19 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
   const [isLoading, setIsLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [showOrderComplete, setShowOrderComplete] = useState(false)
+  const cartCount = useCartStore((state) => state.getCartCount())
+
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(SELLER_ORDER_COMPLETE_NOTICE) === '1') {
+        window.sessionStorage.removeItem(SELLER_ORDER_COMPLETE_NOTICE)
+        setShowOrderComplete(true)
+      }
+    } catch {
+      // The store remains usable when session storage is unavailable.
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -259,11 +273,32 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
             >
               My account
             </a>
+            <a
+              href="/cart"
+              className="relative inline-flex h-9 items-center gap-1.5 rounded-full bg-[#ffb54a] px-3 text-xs font-black text-[#17155f]"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline">Cart</span>
+              {cartCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#17155f] px-1 text-[10px] text-white">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
+            </a>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-[1500px] px-3 py-3 sm:px-6 lg:px-8">
+        {showOrderComplete && (
+          <section className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800">
+            <div className="flex items-center gap-2 text-xs font-black sm:text-sm">
+              <PackageCheck className="h-4 w-4 shrink-0" />
+              Order confirmed. DigitalHood is now preparing your order updates.
+            </div>
+            <button type="button" onClick={() => setShowOrderComplete(false)} className="text-lg leading-none" aria-label="Dismiss">×</button>
+          </section>
+        )}
         <section className="overflow-hidden rounded-2xl bg-[#17155f] text-white shadow-lg">
           <div
             className="relative min-h-[170px] p-4 sm:p-6"

@@ -46,6 +46,14 @@ import StripeCheckoutForm, {
   type PreparedStripePayment,
 } from '@/components/payments/StripeCheckoutForm'
 import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
+import {
+  clearRememberedSellerCheckoutHandoff,
+  consumeSellerCheckoutHandoff,
+  readRememberedSellerCheckoutHandoff,
+  rememberSellerCheckoutHandoff,
+  type SellerCheckoutHandoff,
+} from '@/api/sellerCheckout'
+import { isSafeSellerDomainUrl } from '@/lib/sellerDomains'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -270,7 +278,67 @@ export default function CheckoutPage() {
 
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
+  const replaceItems = useCartStore((state) => state.replaceItems)
   const selectedItemParam = searchParams.get('items') || ''
+  const [sellerCheckout, setSellerCheckout] =
+    useState<SellerCheckoutHandoff | null>(null)
+  const [sellerCheckoutItemIds, setSellerCheckoutItemIds] =
+    useState<Set<number> | null>(null)
+  const [sellerCheckoutState, setSellerCheckoutState] =
+    useState<'loading' | 'none' | 'ready' | 'error'>(
+      selectedItemParam ? 'none' : 'loading'
+    )
+  const [sellerCheckoutError, setSellerCheckoutError] = useState('')
+
+  useEffect(() => {
+    if (selectedItemParam) return
+
+    let active = true
+
+    const applySellerCheckout = (handoff: SellerCheckoutHandoff) => {
+      const importedIds = new Set(
+        handoff.items.map((item) => Number(item.id)).filter(Boolean)
+      )
+      const merged = new Map(
+        useCartStore.getState().items.map((item) => [Number(item.id), item])
+      )
+
+      for (const item of handoff.items) merged.set(Number(item.id), item)
+
+      replaceItems(Array.from(merged.values()))
+      setSellerCheckout(handoff)
+      setSellerCheckoutItemIds(importedIds)
+      setSellerCheckoutState('ready')
+    }
+
+    consumeSellerCheckoutHandoff()
+      .then((handoff) => {
+        if (!active) return
+
+        if (!handoff) {
+          const remembered = readRememberedSellerCheckoutHandoff()
+          if (remembered) applySellerCheckout(remembered)
+          else setSellerCheckoutState('none')
+          return
+        }
+
+        rememberSellerCheckoutHandoff(handoff)
+        applySellerCheckout(handoff)
+      })
+      .catch((error) => {
+        if (!active) return
+        setSellerCheckoutError(
+          error instanceof Error
+            ? error.message
+            : 'Secure store checkout could not be opened.'
+        )
+        setSellerCheckoutState('error')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [replaceItems, selectedItemParam])
   const requestedItemIds = useMemo(
     () =>
       new Set(
@@ -285,9 +353,11 @@ export default function CheckoutPage() {
     () =>
       (items as CheckoutCartItem[]).filter(
         (item) =>
-          requestedItemIds.size === 0 || requestedItemIds.has(Number(item.id))
+          sellerCheckoutItemIds
+            ? sellerCheckoutItemIds.has(Number(item.id))
+            : requestedItemIds.size === 0 || requestedItemIds.has(Number(item.id))
       ),
-    [items, requestedItemIds]
+    [items, requestedItemIds, sellerCheckoutItemIds]
   )
   const subtotal = checkoutItems.reduce(
     (total, item) => total + Number(item.price || 0) * Number(item.quantity || 1),
@@ -396,6 +466,18 @@ export default function CheckoutPage() {
   const deliveryTitle = shipping.title
   const deliveryEstimate = shipping.estimate
   const finalTotal = subtotal + deliveryFee
+  const sellerReturnUrl = useMemo(() => {
+    const value = sellerCheckout?.returnUrl || ''
+
+    if (!isSafeSellerDomainUrl(value)) return ''
+
+    try {
+      const url = new URL(value)
+      return url.pathname === '/order-complete' ? url.toString() : ''
+    } catch {
+      return ''
+    }
+  }, [sellerCheckout?.returnUrl])
   const cardPaymentAmountMinor = Math.max(1, Math.round(finalTotal * 100))
   const cardElementsOptions = useMemo<StripeElementsOptions>(
     () => ({
@@ -452,6 +534,18 @@ export default function CheckoutPage() {
     if (checkoutProgressStage === 'idle') return
     return acquireBodyScrollLock()
   }, [checkoutProgressStage])
+
+  useEffect(() => {
+    if (checkoutProgressStage !== 'confirmed' || !sellerReturnUrl) return
+
+    clearRememberedSellerCheckoutHandoff()
+
+    const timeout = window.setTimeout(() => {
+      window.location.assign(sellerReturnUrl)
+    }, 8000)
+
+    return () => window.clearTimeout(timeout)
+  }, [checkoutProgressStage, sellerReturnUrl])
 
   useEffect(() => {
     if (!['creating', 'requesting-payment', 'awaiting-approval', 'confirming'].includes(checkoutProgressStage)) return
@@ -1515,6 +1609,22 @@ export default function CheckoutPage() {
     }
   }
 
+  if (sellerCheckoutState === 'loading') {
+    return (
+      <div className="flex min-h-[100svh] flex-col bg-dh-gray">
+        <Header />
+        <main className="flex flex-1 items-center justify-center px-4 py-12">
+          <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-dh-light-gray">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-dh-primary" />
+            <p className="mt-3 text-sm font-black text-dh-primary">Opening secure store checkout…</p>
+            <p className="mt-1 text-xs text-dh-dark-gray">Checking current stock, seller and pricing.</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
   if (
     checkoutItems.length === 0 &&
     !orderComplete &&
@@ -1535,11 +1645,19 @@ export default function CheckoutPage() {
             </h1>
 
             <p className="text-dh-dark-gray mb-6">
-              The selected items are no longer in your cart. Choose the items you want to pay for.
+              {sellerCheckoutState === 'error'
+                ? sellerCheckoutError
+                : 'The selected items are no longer in your cart. Choose the items you want to pay for.'}
             </p>
 
             <Button
-              onClick={() => navigate('/cart')}
+              onClick={() => {
+                if (sellerCheckout?.handoff?.hostname) {
+                  window.location.assign(`https://${sellerCheckout.handoff.hostname}/cart`)
+                } else {
+                  navigate('/cart')
+                }
+              }}
               className="rounded-full bg-dh-primary px-8 text-white hover:bg-dh-secondary"
             >
               Return to cart
@@ -1559,7 +1677,13 @@ export default function CheckoutPage() {
       <main className="py-5 lg:py-7">
         <div className="mx-auto w-full max-w-[1180px] px-3 sm:px-5 lg:px-6">
           <button
-            onClick={() => navigate('/cart')}
+            onClick={() => {
+              if (sellerCheckout?.handoff?.hostname) {
+                window.location.assign(`https://${sellerCheckout.handoff.hostname}/cart`)
+              } else {
+                navigate('/cart')
+              }
+            }}
             className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -1580,6 +1704,30 @@ export default function CheckoutPage() {
               <p className="mt-1 text-sm text-dh-dark-gray">Review the order and delivery details, then pay securely.</p>
             </div>
           </section>
+
+          {sellerCheckout && (
+            <section className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-emerald-200">
+                {sellerCheckout.seller.profilePhotoUrl ? (
+                  <img
+                    src={sellerCheckout.seller.profilePhotoUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <ShoppingBag className="h-4 w-4 text-emerald-700" />
+                )}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black text-emerald-900">
+                  Secure checkout for {sellerCheckout.seller.storeName}
+                </p>
+                <p className="text-[10px] font-semibold text-emerald-700">
+                  Stock and pricing verified by DigitalHood. You will return to this store after confirmation.
+                </p>
+              </div>
+            </section>
+          )}
 
           {checkoutError && (
             <div className="mb-4 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
@@ -2217,7 +2365,13 @@ export default function CheckoutPage() {
           : successState.failed
             ? 'Choose payment method'
             : 'Check payment status'}
-        onContinueShopping={() => navigate('/')}
+        onContinueShopping={() => {
+          if (checkoutProgressStage === 'confirmed' && sellerReturnUrl) {
+            window.location.assign(sellerReturnUrl)
+          } else {
+            navigate('/')
+          }
+        }}
       />
 
       <Footer />

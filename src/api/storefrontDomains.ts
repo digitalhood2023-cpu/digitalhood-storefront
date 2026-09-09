@@ -4,6 +4,12 @@ const PAYMENTS_API_URL =
   import.meta.env.VITE_PAYMENTS_API_URL ||
   'https://payments.digitalhood.info'
 
+const resolutionCache = new Map<
+  string,
+  { expiresAt: number; value: SellerStorefrontResolution }
+>()
+const resolutionRequests = new Map<string, Promise<SellerStorefrontResolution>>()
+
 export type SellerStorefrontDomain = {
   id: string
   sellerId: string
@@ -64,11 +70,29 @@ function assertSafeDomain(domain?: SellerStorefrontDomain) {
 }
 
 export async function resolveSellerStorefrontHostname(hostname: string) {
-  const payload = await domainFetch<SellerStorefrontResolution>(
-    `/api/public/storefront-hosts/resolve?host=${encodeURIComponent(hostname)}`
-  )
-  assertSafeDomain(payload.domain)
-  return payload
+  const key = String(hostname || '').trim().toLowerCase()
+  const cached = resolutionCache.get(key)
+
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+
+  const pending = resolutionRequests.get(key)
+  if (pending) return pending
+
+  const request = domainFetch<SellerStorefrontResolution>(
+    `/api/public/storefront-hosts/resolve?host=${encodeURIComponent(key)}`
+  ).then((payload) => {
+    assertSafeDomain(payload.domain)
+    resolutionCache.set(key, {
+      expiresAt: Date.now() + (payload.redirect ? 5 * 60_000 : 60_000),
+      value: payload,
+    })
+    return payload
+  }).finally(() => {
+    resolutionRequests.delete(key)
+  })
+
+  resolutionRequests.set(key, request)
+  return request
 }
 
 export async function fetchSellerStorefrontDomain(sellerKey: string) {

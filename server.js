@@ -25,6 +25,7 @@ const SELLER_STOREFRONT_SUFFIX =
 const MARKETPLACE_ORIGIN = String(
   process.env.MARKETPLACE_ORIGIN || 'https://store.digitalhood.info'
 ).replace(/\/+$/, '');
+const MARKETPLACE_HOSTNAME = new URL(MARKETPLACE_ORIGIN).hostname.toLowerCase();
 const PAYMENTS_API_URL =
   process.env.PAYMENTS_API_URL || 'https://payments.digitalhood.info';
 
@@ -33,7 +34,7 @@ const STOREFRONT_CONTENT_SECURITY_POLICY = [
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'self'",
-  "form-action 'self'",
+  "form-action 'self' https://store.digitalhood.info",
   "script-src 'self' 'unsafe-inline' https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
@@ -70,9 +71,19 @@ function applyStorefrontSecurityHeaders(req, res, next) {
 
 app.disable('x-powered-by');
 app.use(applyStorefrontSecurityHeaders);
+app.use(express.urlencoded({ extended: false, limit: '8kb' }));
 
 function getSellerDomainRequest(req) {
   return parseSellerDomainHostname(req.hostname, SELLER_STOREFRONT_SUFFIX);
+}
+
+function isSellerCommercePath(pathname = '/') {
+  return (
+    pathname === '/' ||
+    pathname === '/cart' ||
+    pathname === '/order-complete' ||
+    /^\/product\/[^/]+\/?$/.test(pathname)
+  );
 }
 
 app.use((req, res, next) => {
@@ -94,7 +105,7 @@ app.use((req, res, next) => {
     req.path === '/favicon.ico' ||
     /\.(?:css|js|map|png|jpe?g|webp|avif|gif|svg|ico|woff2?|ttf|otf)$/i.test(req.path);
 
-  if (req.path !== '/' && !isStaticAsset) {
+  if (!isSellerCommercePath(req.path) && !isStaticAsset) {
     if (!['GET', 'HEAD'].includes(req.method)) {
       return res.status(421).json({
         error: 'Marketplace transactions use the secure DigitalHood origin.',
@@ -105,6 +116,149 @@ app.use((req, res, next) => {
   }
 
   return next();
+});
+
+const SELLER_CHECKOUT_COOKIE = '__Host-digitalhood_store_checkout';
+const HANDOFF_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getCookieValue(req, name) {
+  const cookieHeader = String(req.headers.cookie || '');
+
+  for (const item of cookieHeader.split(';')) {
+    const separator = item.indexOf('=');
+    if (separator < 1) continue;
+    const key = item.slice(0, separator).trim();
+    if (key === name) return item.slice(separator + 1).trim();
+  }
+
+  return '';
+}
+
+function encodeCheckoutCookie(payload) {
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+
+function decodeCheckoutCookie(value) {
+  try {
+    const payload = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    const hostname = String(payload?.hostname || '').trim().toLowerCase();
+    const handoffId = String(payload?.handoffId || '').trim();
+
+    if (
+      !HANDOFF_ID_PATTERN.test(handoffId) ||
+      !parseSellerDomainHostname(hostname, SELLER_STOREFRONT_SUFFIX)
+    ) return null;
+
+    return { hostname, handoffId };
+  } catch {
+    return null;
+  }
+}
+
+function clearCheckoutCookie(res) {
+  res.clearCookie(SELLER_CHECKOUT_COOKIE, {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+  });
+}
+
+app.post('/checkout/store-handoff', (req, res) => {
+  const origin = String(req.headers.origin || '').trim();
+  const handoffId = String(req.body?.handoffId || '').trim();
+  let originHostname = '';
+
+  try {
+    const url = new URL(origin);
+    if (url.protocol === 'https:' && !url.username && !url.password && !url.port) {
+      originHostname = url.hostname.toLowerCase();
+    }
+  } catch {
+    originHostname = '';
+  }
+
+  if (
+    String(req.hostname || '').toLowerCase() !== MARKETPLACE_HOSTNAME ||
+    !HANDOFF_ID_PATTERN.test(handoffId) ||
+    !parseSellerDomainHostname(originHostname, SELLER_STOREFRONT_SUFFIX)
+  ) {
+    return res.status(400).type('text').send('This secure store checkout link is invalid.');
+  }
+
+  res.cookie(
+    SELLER_CHECKOUT_COOKIE,
+    encodeCheckoutCookie({ handoffId, hostname: originHostname }),
+    {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 10 * 60 * 1000,
+    }
+  );
+  res.setHeader('Cache-Control', 'no-store');
+  return res.redirect(303, '/checkout');
+});
+
+app.get('/api/checkout/store-handoff', async (req, res) => {
+  if (String(req.hostname || '').toLowerCase() !== MARKETPLACE_HOSTNAME) {
+    return res.status(421).json({
+      success: false,
+      error: 'Secure checkout is only available on DigitalHood Marketplace.',
+    });
+  }
+
+  const checkoutCookie = decodeCheckoutCookie(
+    getCookieValue(req, SELLER_CHECKOUT_COOKIE)
+  );
+
+  res.setHeader('Cache-Control', 'no-store');
+
+  if (!checkoutCookie) {
+    clearCheckoutCookie(res);
+    return res.status(404).json({
+      success: false,
+      error: 'No seller store checkout is waiting.',
+      code: 'storefront_checkout_handoff_missing',
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const response = await fetch(
+      `${PAYMENTS_API_URL.replace(/\/+$/, '')}/api/public/storefront-checkout-handoffs/${encodeURIComponent(checkoutCookie.handoffId)}/consume`,
+      {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ hostname: checkoutCookie.hostname }),
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if ([404, 409, 410].includes(response.status)) clearCheckoutCookie(res);
+      return res.status(response.status).json(payload);
+    }
+
+    clearCheckoutCookie(res);
+    return res.json(payload);
+  } catch {
+    return res.status(503).json({
+      success: false,
+      error: 'Secure checkout is taking longer than expected. Please try again.',
+      code: 'storefront_checkout_handoff_unavailable',
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 
 /**
@@ -191,7 +345,7 @@ app.use(async (req, res) => {
   try {
     const sellerDomain = getSellerDomainRequest(req);
 
-    if (sellerDomain && req.path === '/') {
+    if (sellerDomain && isSellerCommercePath(req.path)) {
       const resolution = await resolveSellerDomainHostname(
         sellerDomain.hostname,
         {
@@ -202,20 +356,34 @@ app.use(async (req, res) => {
 
       if (resolution?.redirect && resolution?.domain?.canonicalUrl) {
         const destination = new URL(resolution.domain.canonicalUrl);
-        destination.search = req.url.includes('?')
-          ? req.url.slice(req.url.indexOf('?'))
-          : '';
+        destination.pathname = req.path;
+        destination.search = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
         return res.redirect(308, destination.toString());
       }
 
+      const canonicalOrigin = resolution?.domain?.canonicalUrl
+        ? new URL(resolution.domain.canonicalUrl).origin
+        : `https://${sellerDomain.hostname}`;
       const seo = resolution?.seller?.key
-        ? await buildServerSeo(
-            `/seller/${encodeURIComponent(resolution.seller.key)}`,
-            {
-              canonicalUrl: resolution.domain.canonicalUrl,
-              canonicalPath: '/',
-            }
-          )
+        ? req.path === '/'
+          ? await buildServerSeo(
+              `/seller/${encodeURIComponent(resolution.seller.key)}`,
+              {
+                canonicalUrl: `${canonicalOrigin}/`,
+                canonicalPath: '/',
+              }
+            )
+          : /^\/product\/[^/]+\/?$/.test(req.path)
+            ? await buildServerSeo(req.path, {
+                canonicalUrl: `${canonicalOrigin}${req.path}`,
+                sellerKey: resolution.seller.key,
+                sellerCanonicalUrl: `${canonicalOrigin}/`,
+              })
+            : {
+                ...(await buildServerSeo(req.path)),
+                canonicalUrl: `${canonicalOrigin}${req.path}`,
+                noindex: true,
+              }
         : {
             ...(await buildServerSeo('/')),
             title: 'Store unavailable',

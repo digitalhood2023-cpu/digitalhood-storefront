@@ -18,6 +18,11 @@ import { Button } from '@/components/ui/button'
 
 import { useCartStore } from '@/store/cartStore'
 import { getShippingDetails } from '@/lib/shipping'
+import { createSellerCheckoutHandoff, submitSellerCheckoutHandoff } from '@/api/sellerCheckout'
+import {
+  SellerDomainCommerceFooter,
+  SellerDomainCommerceHeader,
+} from '@/components/seller/SellerDomainCommerceChrome'
 
 type CartPageItem = {
   id: number
@@ -158,8 +163,13 @@ function groupCartItemsByStore(items: CartPageItem[]) {
 }
 
 
-export default function CartPage() {
+export default function CartPage({
+  sellerDomainHostname = '',
+}: {
+  sellerDomainHostname?: string
+}) {
   const navigate = useNavigate()
+  const isSellerDomain = Boolean(sellerDomainHostname)
 
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -177,6 +187,7 @@ export default function CartPage() {
   const [excludedItemIds, setExcludedItemIds] = useState<Set<number>>(
     () => new Set()
   )
+  const [isOpeningSecureCheckout, setIsOpeningSecureCheckout] = useState(false)
 
   const selectedItems = useMemo(
     () =>
@@ -225,8 +236,8 @@ export default function CartPage() {
     })
   }
 
-  const handleCheckout = (requestedItemIds?: number[]) => {
-    const requestedItems = (items as CartPageItem[]).filter((item) =>
+  const handleCheckout = async (requestedItemIds?: number[]) => {
+    const requestedItems = items.filter((item) =>
       requestedItemIds
         ? requestedItemIds.includes(Number(item.id))
         : !excludedItemIds.has(Number(item.id))
@@ -242,19 +253,45 @@ export default function CartPage() {
       return
     }
 
-    navigate(
-      `/checkout?items=${requestedItems.map((item) => Number(item.id)).join(',')}`
-    )
+    if (isSellerDomain) {
+      setIsOpeningSecureCheckout(true)
+
+      try {
+        const handoff = await createSellerCheckoutHandoff(requestedItems)
+        submitSellerCheckoutHandoff(handoff.handoffId)
+      } catch (error) {
+        setIsOpeningSecureCheckout(false)
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : 'Secure checkout could not be opened.'
+        )
+      }
+
+      return
+    }
+
+    navigate(`/checkout?items=${requestedItems.map((item) => Number(item.id)).join(',')}`)
   }
+
+  const sellerStoreName = storeGroups[0]?.storeName || 'Marketplace store'
+  const sellerAvatarUrl = storeGroups[0]?.avatarUrl || ''
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-dh-gray">
-      <Header />
+      {isSellerDomain ? (
+        <SellerDomainCommerceHeader
+          storeName={sellerStoreName}
+          profilePhotoUrl={sellerAvatarUrl}
+        />
+      ) : (
+        <Header />
+      )}
 
       <main className="py-4 lg:py-6">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <Link
-            to="/shop"
+            to={isSellerDomain ? '/' : '/shop'}
             className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -427,6 +464,7 @@ export default function CartPage() {
                           onClick={() =>
                             handleCheckout(group.items.map((item) => Number(item.id)))
                           }
+                          disabled={isOpeningSecureCheckout}
                           className="rounded-full bg-dh-primary px-3 py-1.5 text-xs font-black text-white transition hover:bg-dh-secondary"
                         >
                           Checkout this store
@@ -472,7 +510,7 @@ export default function CartPage() {
 
                       <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-0 sm:grid-cols-[88px_minmax(0,1fr)_132px] xl:grid-cols-[92px_minmax(0,1fr)_140px]">
                         <Link
-                          to={item.slug ? `/product/${item.slug}` : '/shop'}
+                          to={item.slug ? `/product/${item.slug}` : isSellerDomain ? '/' : '/shop'}
                           className="block h-full min-h-[92px] overflow-hidden bg-dh-gray sm:min-h-[104px]"
                         >
                           <img
@@ -497,7 +535,7 @@ export default function CartPage() {
                             )}
                           </div>
 
-                          <Link to={item.slug ? `/product/${item.slug}` : '/shop'}>
+                          <Link to={item.slug ? `/product/${item.slug}` : isSellerDomain ? '/' : '/shop'}>
                             <h2 className="line-clamp-2 max-w-[42rem] font-display text-sm font-black leading-tight text-dh-primary hover:text-dh-secondary">
                               {item.name}
                             </h2>
@@ -637,21 +675,23 @@ export default function CartPage() {
 
                   <Button
                     onClick={() => handleCheckout()}
-                    disabled={hasUnavailableItems || selectedItems.length === 0}
+                    disabled={isOpeningSecureCheckout || hasUnavailableItems || selectedItems.length === 0}
                     className={`mt-5 h-11 w-full rounded-full font-semibold ${
                       hasUnavailableItems || selectedItems.length === 0
                         ? 'cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200'
                         : 'bg-dh-primary text-white hover:bg-dh-secondary'
                     }`}
                   >
-                    {hasUnavailableItems
+                    {isOpeningSecureCheckout
+                      ? 'Opening secure checkout…'
+                      : hasUnavailableItems
                       ? 'Checkout unavailable'
                       : selectedItems.length === 0
                         ? 'Select items to checkout'
                         : `Checkout ${selectedQuantity} selected`}
                   </Button>
 
-                  <Link to="/shop">
+                  <Link to={isSellerDomain ? '/' : '/shop'}>
                     <Button
                       variant="outline"
                       className="mt-3 h-11 w-full rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
@@ -674,7 +714,11 @@ export default function CartPage() {
         </div>
       </main>
 
-      <Footer />
+      {isSellerDomain ? (
+        <SellerDomainCommerceFooter storeName={sellerStoreName} />
+      ) : (
+        <Footer />
+      )}
     </div>
   )
 }

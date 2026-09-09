@@ -1195,6 +1195,23 @@ export async function fetchWooProductBySlug(
   return mapWooProductDetailResponse(detailData);
 }
 
+export async function fetchSellerWooProductBySlug(
+  sellerKey: string,
+  slug: string
+): Promise<WooProduct | null> {
+  const normalizedSellerKey = String(sellerKey || '').trim();
+  const normalizedSlug = String(slug || '').trim();
+
+  if (!normalizedSellerKey || !normalizedSlug) return null;
+
+  const detailData = await fetchProductDetailDocument(
+    `seller:${normalizedSellerKey}:${normalizedSlug}`,
+    `${PAYMENTS_API_URL}/api/public/sellers/${encodeURIComponent(normalizedSellerKey)}/products/${encodeURIComponent(normalizedSlug)}`
+  );
+
+  return mapWooProductDetailResponse(detailData);
+}
+
 export async function fetchWooProductReviews(
   productId: number,
   limit = 20
