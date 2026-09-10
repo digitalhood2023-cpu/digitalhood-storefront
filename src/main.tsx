@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast'
 
 import App from './App'
 import { AppProviders } from './providers/AppProviders'
+import { ThemeProvider } from './context/ThemeContext'
 import {
   applyNetworkPreferences,
   registerDigitalHoodServiceWorker,
@@ -17,12 +18,14 @@ registerDigitalHoodServiceWorker()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AppProviders>
-        <App />
-        <Toaster position="top-right" />
-      </AppProviders>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AppProviders>
+          <App />
+          <Toaster position="top-right" />
+        </AppProviders>
+      </BrowserRouter>
+    </ThemeProvider>
   </React.StrictMode>
 )
 

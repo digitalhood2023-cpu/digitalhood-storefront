@@ -36,6 +36,7 @@ import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss'
 import WishlistDrawer from '@/components/wishlist/WishlistDrawer'
 import NotificationDrawer from '@/components/notifications/NotificationDrawer'
 import SearchAutocomplete from '@/components/search/SearchAutocomplete'
+import ThemeToggle from '@/components/ThemeToggle'
 import { useNotifications } from '@/context/NotificationsContext'
 import {
   DropdownMenu,
@@ -519,6 +520,8 @@ export default function Header() {
                 Track Order
               </Link>
 
+              <ThemeToggle />
+
               <Button
                 type="button"
                 variant="ghost"
@@ -698,6 +701,7 @@ export default function Header() {
             </div>
 
             <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden">
+              <ThemeToggle />
               <button
                 type="button"
                 onClick={handleNotifications}
