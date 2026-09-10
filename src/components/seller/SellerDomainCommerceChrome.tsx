@@ -3,6 +3,7 @@ import { CircleUserRound, ExternalLink, ShieldCheck, ShoppingCart, Store } from 
 
 import { getMarketplaceUrl } from '@/lib/sellerDomains'
 import { useCartStore } from '@/store/cartStore'
+import ThemeToggle from '@/components/ThemeToggle'
 
 type SellerChromeProps = {
   storeName?: string
@@ -41,6 +42,7 @@ export function SellerDomainCommerceHeader({
         </Link>
 
         <nav className="flex shrink-0 items-center gap-1.5">
+          <ThemeToggle />
           <a
             href={getMarketplaceUrl('/account')}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-black text-slate-600 hover:bg-slate-100 sm:w-auto sm:px-3"

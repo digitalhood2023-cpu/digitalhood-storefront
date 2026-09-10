@@ -19,6 +19,10 @@ const paymentRetryPage = read('src/pages/OrderPaymentRetryPage.tsx')
 const product = read('src/pages/ProductPage.tsx')
 const productDetails = read('src/lib/productDetails.ts')
 const productGallery = read('src/lib/productGallery.ts')
+const pointZoom = read('src/hooks/usePointZoom.ts')
+const chatLightbox = read('src/components/chat/ChatImageLightbox.tsx')
+const themeContext = read('src/context/ThemeContext.tsx')
+const globalStyles = read('src/index.css')
 const woocommerce = read('src/lib/woocommerce.ts')
 const shop = read('src/pages/ShopPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
@@ -48,6 +52,19 @@ assert(
     !checkout.includes('Manage account') &&
     !checkout.includes('Your account email is attached automatically'),
   'the obsolete signed-in checkout card must stay removed'
+)
+assert(
+  chatLightbox.includes('usePointZoom') &&
+    pointZoom.includes("mode: 'pinch'") &&
+    pointZoom.includes("mode: 'single'"),
+  'chat images must preserve focal pinch zoom and bounded panning'
+)
+assert(
+  themeContext.includes("ThemePreference = 'system' | 'light' | 'dark'") &&
+    themeContext.includes("matchMedia('(prefers-color-scheme: dark)')") &&
+    html.includes('digitalhood-theme-preference-v1') &&
+    globalStyles.includes("html[data-theme='dark']"),
+  'system-aware light/dark appearance and the manual override must remain available'
 )
 
 const summaryIndex = checkout.indexOf('Order Summary')
@@ -164,10 +181,12 @@ assert(
 assert(
   product.includes('openGallery(selectedImage)') &&
     product.includes('productTouchGestureRef') &&
-    product.includes('getPinchOriginPercent') &&
-    product.includes('transformOrigin:') &&
+    product.includes('usePointZoom') &&
+    product.includes('touch-none') &&
+    pointZoom.includes('worldX: (focalX - current.x) / current.scale') &&
+    pointZoom.includes('x: focalX - worldX * nextScale') &&
     productGallery.includes('deduplicateProductImages'),
-  'product galleries must support one-tap iOS opening, focal pinch zoom, and duplicate-image removal'
+  'product galleries must support one-tap iOS opening, point-centred pinch/pan zoom, and duplicate-image removal'
 )
 assert(
   product.includes('Item specifications') &&

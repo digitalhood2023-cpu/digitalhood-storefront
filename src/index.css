@@ -47,6 +47,23 @@
     --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-liquid: cubic-bezier(0.23, 1, 0.32, 1);
   }
+
+  :root[data-theme='dark'] {
+    --background: 222 38% 7%;
+    --foreground: 210 40% 96%;
+    --card: 222 30% 11%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 30% 11%;
+    --popover-foreground: 210 40% 96%;
+    --muted: 217 24% 16%;
+    --muted-foreground: 215 20% 70%;
+    --border: 217 20% 22%;
+    --input: 217 20% 22%;
+    --dh-white: #111827;
+    --dh-gray: #151c29;
+    --dh-light-gray: #263143;
+    --dh-dark-gray: #b8c2d3;
+  }
 }
 
 @layer base {
@@ -95,6 +112,104 @@
   :where(a, button, input, select, textarea, summary, [role='button'], [tabindex]):focus-visible {
     outline: 3px solid #ffb54a;
     outline-offset: 3px;
+  }
+}
+
+.dh-theme-toggle {
+  display: inline-grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  place-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  color: #26248c;
+  background: #ffffff;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.dh-theme-toggle:hover {
+  border-color: #ffb54a;
+  background: #fff7e8;
+}
+
+.dh-theme-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+html[data-theme='dark'],
+html[data-theme='dark'] body,
+html[data-theme='dark'] #root {
+  background: #090d16;
+  color: #eef2f8;
+}
+
+html[data-theme='dark'] .dh-theme-toggle {
+  border-color: #354156;
+  color: #ffbf61;
+  background: #151c29;
+}
+
+html[data-theme='dark'] :is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-white\/80, .bg-white\/70, .bg-gray-50, .bg-slate-50, .bg-slate-50\/80, .bg-slate-50\/70, .bg-\[\#fbfbff\], .bg-\[\#fbfbfc\], .bg-\[\#fafbfc\], .bg-\[\#f6f7fb\], .bg-\[\#f3f4f8\]) {
+  background-color: #111827 !important;
+}
+
+html[data-theme='dark'] :is(.bg-gray-100, .bg-gray-200, .bg-gray-300, .bg-slate-100, .bg-slate-200, .bg-slate-200\/80, .bg-dh-gray, .bg-\[\#f0efff\], .bg-\[\#f7f6ff\], .bg-\[\#f7f8ff\], .bg-\[\#fff7ec\], .bg-\[\#fff7e8\], .bg-\[\#fff8ec\]) {
+  background-color: #182130 !important;
+}
+
+html[data-theme='dark'] :is(.text-gray-950, .text-gray-900, .text-slate-950, .text-slate-900, .text-dh-primary) {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] :is(.text-\[\#26248c\], .text-\[\#28256d\], .text-\[\#191744\], .text-\[\#16143f\], .text-\[\#07111f\]):not(.bg-\[\#ffb54a\]) {
+  color: #f3f6fb !important;
+}
+
+html[data-theme='dark'] :is(.bg-white, .bg-gray-50, .bg-slate-50).text-black,
+html[data-theme='dark'] :is(.bg-white, .bg-gray-50, .bg-slate-50) .text-black {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] :is(.text-gray-800, .text-gray-700, .text-slate-800, .text-slate-700) {
+  color: #e2e8f0 !important;
+}
+
+html[data-theme='dark'] :is(.text-gray-600, .text-gray-500, .text-slate-600, .text-slate-500, .text-dh-dark-gray) {
+  color: #aeb9ca !important;
+}
+
+html[data-theme='dark'] :is(.border-gray-50, .border-gray-100, .border-gray-200, .border-slate-100, .border-slate-200, .border-slate-200\/80) {
+  border-color: #293548 !important;
+}
+
+html[data-theme='dark'] :is(input, textarea, select):not([type='checkbox']):not([type='radio']) {
+  border-color: #344155;
+  color: #f8fafc;
+  background-color: #111827;
+}
+
+html[data-theme='dark'] :is(input, textarea)::placeholder {
+  color: #7f8ba0;
+}
+
+html[data-theme='dark'] [role='menu'],
+html[data-theme='dark'] [role='dialog']:not(.bg-black\/95) {
+  border-color: #2b374a;
+}
+
+html[data-theme='dark'] .glass-effect {
+  background: rgba(17, 24, 39, 0.95);
+}
+
+html[data-theme='dark'] .shadow-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dh-theme-toggle {
+    transition: none;
   }
 }
 

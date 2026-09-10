@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { ZoomIn, ZoomOut, X } from 'lucide-react'
 
 import type { ChatAttachment } from '@/api/chat'
+import { usePointZoom } from '@/hooks/usePointZoom'
 
 export default function ChatImageLightbox({
   attachment,
@@ -10,8 +11,18 @@ export default function ChatImageLightbox({
   attachment: ChatAttachment | null
   onClose: () => void
 }) {
-  const [scale, setScale] = useState(1)
-  const pinchDistanceRef = useRef<number | null>(null)
+  const {
+    viewportRef,
+    imageRef,
+    viewportProps,
+    imageStyle,
+    reset,
+    zoomIn,
+    zoomOut,
+  } = usePointZoom({
+    maxScale: 5,
+    resetKey: attachment?.url || '',
+  })
 
   useEffect(() => {
     if (!attachment) return
@@ -20,16 +31,16 @@ export default function ChatImageLightbox({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setScale(1)
+        reset()
         onClose()
       }
       if (event.key === '+' || event.key === '=') {
-        setScale((current) => Math.min(4, current + 0.5))
+        zoomIn()
       }
       if (event.key === '-') {
-        setScale((current) => Math.max(1, current - 0.5))
+        zoomOut()
       }
-      if (event.key === '0') setScale(1)
+      if (event.key === '0') reset()
     }
 
     document.addEventListener('keydown', handleKeyDown)
@@ -37,21 +48,13 @@ export default function ChatImageLightbox({
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [attachment, onClose])
+  }, [attachment, onClose, reset, zoomIn, zoomOut])
 
   if (!attachment?.url) return null
 
   const closeLightbox = () => {
-    setScale(1)
+    reset()
     onClose()
-  }
-
-  const touchDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return null
-    return Math.hypot(
-      touches[0].clientX - touches[1].clientX,
-      touches[0].clientY - touches[1].clientY
-    )
   }
 
   return (
@@ -61,30 +64,14 @@ export default function ChatImageLightbox({
       aria-modal="true"
       aria-label={attachment.fileName || 'Shared photo'}
       onClick={closeLightbox}
-      onTouchStart={(event) => {
-        pinchDistanceRef.current = touchDistance(event.touches)
-      }}
-      onTouchMove={(event) => {
-        const distance = touchDistance(event.touches)
-        if (!distance || !pinchDistanceRef.current) return
-        event.preventDefault()
-        const delta = distance - pinchDistanceRef.current
-        if (Math.abs(delta) > 5) {
-          setScale((current) => Math.min(4, Math.max(1, current + delta / 180)))
-          pinchDistanceRef.current = distance
-        }
-      }}
-      onTouchEnd={() => {
-        pinchDistanceRef.current = null
-      }}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <p className="min-w-0 truncate text-sm font-bold">{attachment.fileName || 'Shared photo'}</p>
         <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => setScale((current) => Math.max(1, current - 0.5))} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom out">
+          <button type="button" onClick={zoomOut} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom out">
             <ZoomOut className="h-5 w-5" />
           </button>
-          <button type="button" onClick={() => setScale((current) => Math.min(4, current + 0.5))} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom in">
+          <button type="button" onClick={zoomIn} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom in">
             <ZoomIn className="h-5 w-5" />
           </button>
           <button type="button" onClick={closeLightbox} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black hover:bg-dh-secondary" aria-label="Close photo">
@@ -93,15 +80,19 @@ export default function ChatImageLightbox({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-3 sm:p-6">
+      <div
+        ref={viewportRef}
+        className="flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-3 sm:p-6"
+        {...viewportProps}
+        onClick={(event) => event.stopPropagation()}
+      >
         <img
+          ref={imageRef}
           src={attachment.url}
           alt={attachment.fileName || 'Shared photo'}
-          className="max-h-full max-w-full select-none object-contain transition-transform duration-150"
-          style={{ transform: `scale(${scale})` }}
+          className="max-h-full max-w-full select-none object-contain"
+          style={imageStyle}
           draggable={false}
-          onClick={(event) => event.stopPropagation()}
-          onDoubleClick={() => setScale((current) => current > 1 ? 1 : 2)}
         />
       </div>
     </div>

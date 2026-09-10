@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -66,10 +66,8 @@ import {
 import gsap from 'gsap'
 import { getFastProductImage } from '@/lib/productImages'
 import { acquireBodyScrollLock } from '@/lib/bodyScrollLock'
-import {
-  deduplicateProductImages,
-  getPinchOriginPercent,
-} from '@/lib/productGallery'
+import { deduplicateProductImages } from '@/lib/productGallery'
+import { usePointZoom } from '@/hooks/usePointZoom'
 import {
   extractDescriptionSpecificationRows,
   mergeProductSpecificationRows,
@@ -297,11 +295,6 @@ export default function ProductPage({
   const [reviewsError, setReviewsError] = useState('')
   const [selectedImage, setSelectedImage] = useState(0)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
-  const [galleryScale, setGalleryScale] = useState(1)
-  const [galleryZoomOrigin, setGalleryZoomOrigin] = useState({ x: 50, y: 50 })
-  const [galleryTouchStartX, setGalleryTouchStartX] = useState<number | null>(null)
-  const [galleryTouchStartY, setGalleryTouchStartY] = useState<number | null>(null)
-  const [galleryPinchDistance, setGalleryPinchDistance] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [activeTab, setActiveTab] = useState('description')
@@ -322,9 +315,6 @@ export default function ProductPage({
   const { isAuthenticated } = useAccount()
 
   const pageRef = useRef<HTMLDivElement>(null)
-  const galleryViewportRef = useRef<HTMLDivElement>(null)
-  const galleryImageRef = useRef<HTMLImageElement>(null)
-  const galleryPinchBoundsRef = useRef<DOMRect | null>(null)
   const galleryHistoryStateRef = useRef(false)
   const suppressGalleryTapRef = useRef(false)
   const productTouchGestureRef = useRef<{
@@ -376,12 +366,6 @@ export default function ProductPage({
     setLoadError('')
     setSelectedImage(0)
     setIsGalleryOpen(false)
-    setGalleryScale(1)
-    setGalleryZoomOrigin({ x: 50, y: 50 })
-    setGalleryTouchStartX(null)
-    setGalleryTouchStartY(null)
-    setGalleryPinchDistance(null)
-    galleryPinchBoundsRef.current = null
     setSelectedAttributes({})
     setActiveTab('description')
     setQuantity(1)
@@ -814,27 +798,64 @@ export default function ProductPage({
     ? { ...baseSellerDisplay, sellerUrl: '/' }
     : baseSellerDisplay
 
+  const descriptionHtml = product ? getProductDescriptionHtml(product) : ''
+  const hasLongDescription = descriptionHtml.length > 1400
+  const visibleDescriptionHtml = getVisibleDescriptionHtml(
+    descriptionHtml,
+    showFullDescription
+  )
+
+  const productImages =
+    product?.images && product.images.length > 0
+      ? product.images
+      : product?.image
+        ? [product.image]
+        : ['/logo.jpg']
+
+  const displayImages = deduplicateProductImages([
+    activeImage,
+    ...productImages,
+  ])
+  if (displayImages.length === 0) displayImages.push('/logo.jpg')
+
+  const {
+    viewportRef: galleryViewportRef,
+    imageRef: galleryImageRef,
+    viewportProps: galleryViewportProps,
+    imageStyle: galleryImageStyle,
+    reset: resetGalleryZoom,
+    zoomIn: zoomGalleryIn,
+    zoomOut: zoomGalleryOut,
+  } = usePointZoom({
+    maxScale: 5,
+    resetKey: `${isGalleryOpen}:${selectedImage}:${displayImages[selectedImage] || ''}`,
+    onSwipeLeft: () => {
+      if (displayImages.length > 1) {
+        setSelectedImage((current) => current >= displayImages.length - 1 ? 0 : current + 1)
+      }
+    },
+    onSwipeRight: () => {
+      if (displayImages.length > 1) {
+        setSelectedImage((current) => current === 0 ? displayImages.length - 1 : current - 1)
+      }
+    },
+  })
+
   const openGallery = (index = selectedImage) => {
     setSelectedImage(index)
-    setGalleryScale(1)
-    setGalleryZoomOrigin({ x: 50, y: 50 })
+    resetGalleryZoom()
     setIsGalleryOpen(true)
   }
 
-  const closeGallery = (options: { skipHistoryBack?: boolean } = {}) => {
+  const closeGallery = useCallback((options: { skipHistoryBack?: boolean } = {}) => {
     setIsGalleryOpen(false)
-    setGalleryScale(1)
-    setGalleryZoomOrigin({ x: 50, y: 50 })
-    setGalleryTouchStartX(null)
-    setGalleryTouchStartY(null)
-    setGalleryPinchDistance(null)
-    galleryPinchBoundsRef.current = null
+    resetGalleryZoom()
 
     if (!options.skipHistoryBack && galleryHistoryStateRef.current) {
       galleryHistoryStateRef.current = false
       window.history.back()
     }
-  }
+  }, [resetGalleryZoom])
 
   useEffect(() => {
     if (!isGalleryOpen) return
@@ -860,142 +881,7 @@ export default function ProductPage({
     return () => {
       window.removeEventListener('popstate', handlePopState)
     }
-  }, [isGalleryOpen])
-
-  const zoomGalleryIn = () => {
-    setGalleryZoomOrigin({ x: 50, y: 50 })
-    setGalleryScale((current) => Math.min(3, Number((current + 0.5).toFixed(1))))
-  }
-
-  const zoomGalleryOut = () => {
-    const nextScale = Math.max(1, Number((galleryScale - 0.5).toFixed(1)))
-    setGalleryScale(nextScale)
-    if (nextScale === 1) setGalleryZoomOrigin({ x: 50, y: 50 })
-  }
-
-  const getTouchDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return null
-
-    const first = touches[0]
-    const second = touches[1]
-    const deltaX = first.clientX - second.clientX
-    const deltaY = first.clientY - second.clientY
-
-    return Math.hypot(deltaX, deltaY)
-  }
-
-  const handleGalleryTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length >= 2) {
-      setGalleryPinchDistance(getTouchDistance(event.touches))
-      setGalleryTouchStartX(null)
-      setGalleryTouchStartY(null)
-      const zoomSurface = galleryImageRef.current || galleryViewportRef.current
-      if (zoomSurface) {
-        const bounds = zoomSurface.getBoundingClientRect()
-        galleryPinchBoundsRef.current = bounds
-        setGalleryZoomOrigin(
-          getPinchOriginPercent(
-            event.touches[0],
-            event.touches[1],
-            bounds
-          )
-        )
-      }
-      return
-    }
-
-    setGalleryTouchStartX(event.touches[0]?.clientX ?? null)
-    setGalleryTouchStartY(event.touches[0]?.clientY ?? null)
-    setGalleryPinchDistance(null)
-    galleryPinchBoundsRef.current = null
-  }
-
-  const handleGalleryTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length < 2) return
-
-    const currentDistance = getTouchDistance(event.touches)
-
-    if (!currentDistance || !galleryPinchDistance) {
-      setGalleryPinchDistance(currentDistance)
-      return
-    }
-
-    event.preventDefault()
-
-    const bounds = galleryPinchBoundsRef.current
-    if (bounds) {
-      setGalleryZoomOrigin(
-        getPinchOriginPercent(
-          event.touches[0],
-          event.touches[1],
-          bounds
-        )
-      )
-    }
-
-    const distanceDelta = currentDistance - galleryPinchDistance
-
-    if (Math.abs(distanceDelta) < 8) return
-
-    setGalleryScale((current) =>
-      Math.min(3, Math.max(1, Number((current + distanceDelta / 180).toFixed(2))))
-    )
-    setGalleryPinchDistance(currentDistance)
-  }
-
-  const handleGalleryTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (galleryPinchDistance !== null || event.changedTouches.length > 1) {
-      setGalleryPinchDistance(null)
-      galleryPinchBoundsRef.current = null
-      setGalleryTouchStartX(null)
-      setGalleryTouchStartY(null)
-      return
-    }
-
-    if (galleryTouchStartX === null || galleryTouchStartY === null) return
-
-    const endX = event.changedTouches[0]?.clientX ?? galleryTouchStartX
-    const endY = event.changedTouches[0]?.clientY ?? galleryTouchStartY
-    const deltaX = galleryTouchStartX - endX
-    const deltaY = galleryTouchStartY - endY
-
-    setGalleryTouchStartX(null)
-    setGalleryTouchStartY(null)
-
-    if (
-      galleryScale > 1 ||
-      Math.abs(deltaX) < 70 ||
-      Math.abs(deltaX) < Math.abs(deltaY) * 1.5
-    ) {
-      return
-    }
-
-    if (deltaX > 0) {
-      goToNextImage()
-    } else {
-      goToPreviousImage()
-    }
-  }
-
-  const descriptionHtml = product ? getProductDescriptionHtml(product) : ''
-  const hasLongDescription = descriptionHtml.length > 1400
-  const visibleDescriptionHtml = getVisibleDescriptionHtml(
-    descriptionHtml,
-    showFullDescription
-  )
-
-  const productImages =
-    product?.images && product.images.length > 0
-      ? product.images
-      : product?.image
-        ? [product.image]
-        : ['/logo.jpg']
-
-  const displayImages = deduplicateProductImages([
-    activeImage,
-    ...productImages,
-  ])
-  if (displayImages.length === 0) displayImages.push('/logo.jpg')
+  }, [closeGallery, isGalleryOpen])
 
   const shipping = getShippingDetails({
     subtotal: activePrice,
@@ -1025,8 +911,7 @@ export default function ProductPage({
   const goToPreviousImage = () => {
     if (displayImages.length <= 1) return
 
-    setGalleryScale(1)
-    setGalleryZoomOrigin({ x: 50, y: 50 })
+    resetGalleryZoom()
     setSelectedImage((current) =>
       current === 0 ? displayImages.length - 1 : current - 1
     )
@@ -1035,8 +920,7 @@ export default function ProductPage({
   const goToNextImage = () => {
     if (displayImages.length <= 1) return
 
-    setGalleryScale(1)
-    setGalleryZoomOrigin({ x: 50, y: 50 })
+    resetGalleryZoom()
     setSelectedImage((current) =>
       current >= displayImages.length - 1 ? 0 : current + 1
     )
@@ -1056,8 +940,7 @@ export default function ProductPage({
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        setGalleryScale(1)
-        setGalleryZoomOrigin({ x: 50, y: 50 })
+        resetGalleryZoom()
         setSelectedImage((current) =>
           current === 0 ? displayImages.length - 1 : current - 1
         )
@@ -1066,8 +949,7 @@ export default function ProductPage({
 
       if (event.key === 'ArrowRight') {
         event.preventDefault()
-        setGalleryScale(1)
-        setGalleryZoomOrigin({ x: 50, y: 50 })
+        resetGalleryZoom()
         setSelectedImage((current) =>
           current >= displayImages.length - 1 ? 0 : current + 1
         )
@@ -1076,28 +958,26 @@ export default function ProductPage({
 
       if (event.key === 'Home') {
         event.preventDefault()
-        setGalleryScale(1)
-        setGalleryZoomOrigin({ x: 50, y: 50 })
+        resetGalleryZoom()
         setSelectedImage(0)
         return
       }
 
       if (event.key === 'End') {
         event.preventDefault()
-        setGalleryScale(1)
-        setGalleryZoomOrigin({ x: 50, y: 50 })
+        resetGalleryZoom()
         setSelectedImage(Math.max(0, displayImages.length - 1))
         return
       }
 
       if (event.key === '+' || event.key === '=') {
         event.preventDefault()
-        setGalleryScale((current) => Math.min(3, Number((current + 0.5).toFixed(1))))
+        zoomGalleryIn()
       }
 
       if (event.key === '-') {
         event.preventDefault()
-        setGalleryScale((current) => Math.max(1, Number((current - 0.5).toFixed(1))))
+        zoomGalleryOut()
       }
     }
 
@@ -1107,7 +987,7 @@ export default function ProductPage({
       document.removeEventListener('keydown', handleGalleryKeyDown)
       releaseScrollLock()
     }
-  }, [displayImages.length, isGalleryOpen])
+  }, [closeGallery, displayImages.length, isGalleryOpen, resetGalleryZoom, zoomGalleryIn, zoomGalleryOut])
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     suppressGalleryTapRef.current = false
@@ -2411,9 +2291,6 @@ export default function ProductPage({
           role="dialog"
           aria-modal="true"
           aria-label={`${product.name} image gallery`}
-          onTouchStart={handleGalleryTouchStart}
-          onTouchMove={handleGalleryTouchMove}
-          onTouchEnd={handleGalleryTouchEnd}
         >
           <div
             className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
@@ -2476,7 +2353,8 @@ export default function ProductPage({
 
           <div
             ref={galleryViewportRef}
-            className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-3 py-4"
+            className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden px-3 py-4"
+            {...galleryViewportProps}
           >
             {displayImages.length > 1 && (
               <button
@@ -2493,11 +2371,8 @@ export default function ProductPage({
               ref={galleryImageRef}
               src={displayImages[selectedImage]}
               alt={product.name}
-              className="max-h-full max-w-full select-none object-contain transition-transform duration-200"
-              style={{
-                transform: `scale(${galleryScale})`,
-                transformOrigin: `${galleryZoomOrigin.x}% ${galleryZoomOrigin.y}%`,
-              }}
+              className="max-h-full max-w-full select-none object-contain"
+              style={galleryImageStyle}
               draggable={false}
             />
 
@@ -2520,8 +2395,7 @@ export default function ProductPage({
                 type="button"
                 onClick={() => {
                   setSelectedImage(index)
-                  setGalleryScale(1)
-                  setGalleryZoomOrigin({ x: 50, y: 50 })
+                  resetGalleryZoom()
                 }}
                 className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition ${
                   selectedImage === index
