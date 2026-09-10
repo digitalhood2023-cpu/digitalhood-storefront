@@ -1,6 +1,6 @@
 # Theme and point-zoom upgrade
 
-Status: implementation and validation complete on 2026-09-10; repository release pending.
+Status: implementation, validation, and multi-repository release completed on 2026-09-10.
 
 ## Delivered
 
@@ -28,3 +28,10 @@ Status: implementation and validation complete on 2026-09-10; repository release
 - Seller portal TypeScript, production build, theme/zoom contract, and performance budget passed.
 - Admin portal TypeScript, production build, focused ESLint, and release contract passed.
 - Payments server syntax, dark-email unit tests, and the complete 440-test backend suite passed.
+
+## Release
+
+- Storefront merged to `main` at `025565f`.
+- Seller portal merged to `main` at `a624206`.
+- Admin portal merged to `main` at `80b4a9f`.
+- Payments service merged to `main` at `78cebed`.
