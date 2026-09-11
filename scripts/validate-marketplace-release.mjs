@@ -31,6 +31,8 @@ const favicon = read('public/favicon.svg')
 const woocommerce = read('src/lib/woocommerce.ts')
 const shop = read('src/pages/ShopPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
+const notificationDrawer = read('src/components/notifications/NotificationDrawer.tsx')
+const notificationPage = read('src/pages/AccountNotificationsPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
 const accountApi = read('src/api/account.ts')
 const cartDrawer = read('src/features/cart/CartDrawer.tsx')
@@ -194,6 +196,28 @@ assert(
     buyerChat.includes('<video') &&
     buyerChat.includes('playsInline'),
   'chat images must use the in-app lightbox while videos remain inline'
+)
+assert(
+    buyerChat.includes('dh-chat-shell') &&
+    buyerChat.includes('dh-chat-canvas') &&
+    buyerChat.includes('dh-chat-bubble-incoming') &&
+    buyerChat.includes('dh-chat-bubble-outgoing') &&
+    buyerChat.includes('dh-chat-composer') &&
+    globalStyles.includes('--dh-chat-canvas: #08111e') &&
+    globalStyles.includes("html[data-theme='dark'] .dh-chat-canvas") &&
+    globalStyles.includes('.dh-chat-bubble-incoming'),
+  'conversations must retain a dark canvas and explicit readable surfaces, bubbles, and composer'
+)
+assert(
+  notificationDrawer.includes('dh-notification-panel') &&
+    notificationDrawer.includes('dh-notification-title') &&
+    notificationDrawer.includes('dark:bg-indigo-950/70') &&
+    notificationPage.includes('dh-notifications-page') &&
+    notificationPage.includes('dh-notification-surface') &&
+    notificationPage.includes('dh-notification-filter') &&
+    globalStyles.includes('--dh-ui-text: #f8fafc') &&
+    globalStyles.includes('.dh-notification-item-unread'),
+  'notification drawer and feed must retain shared high-contrast light and dark tokens'
 )
 assert(
     optimisticTextSend.includes('mergeChatMessages(current, [optimisticMessage])') &&
