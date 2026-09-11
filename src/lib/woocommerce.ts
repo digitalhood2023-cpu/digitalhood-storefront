@@ -1393,7 +1393,7 @@ export async function fetchSearchSuggestions(
 export async function searchProductsByImage(
   imageFile: File,
   hint = ''
-): Promise<SearchSuggestionsResponse & { imageSearchMode?: string; message?: string }> {
+): Promise<SearchSuggestionsResponse & { imageSearchMode?: string; message?: string; isFallback?: boolean }> {
   const formData = new FormData();
 
   formData.append('image', imageFile);
@@ -1416,5 +1416,6 @@ export async function searchProductsByImage(
     suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
     imageSearchMode: data.imageSearchMode || '',
     message: data.message || '',
+    isFallback: Boolean(data.isFallback),
   };
 }

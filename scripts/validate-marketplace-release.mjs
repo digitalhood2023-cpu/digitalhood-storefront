@@ -30,6 +30,8 @@ const recentlyViewedPage = read('src/pages/RecentlyViewedPage.tsx')
 const favicon = read('public/favicon.svg')
 const woocommerce = read('src/lib/woocommerce.ts')
 const shop = read('src/pages/ShopPage.tsx')
+const searchAutocomplete = read('src/components/search/SearchAutocomplete.tsx')
+const imageSearch = read('src/lib/imageSearch.ts')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const notificationDrawer = read('src/components/notifications/NotificationDrawer.tsx')
 const notificationPage = read('src/pages/AccountNotificationsPage.tsx')
@@ -261,6 +263,21 @@ assert(
     product.includes('getPublicFeedback(\'sellers\', sellerKey)') &&
     product.includes('% positive feedback'),
   'product ratings and seller reputation must come from their independent verified-feedback summaries'
+)
+assert(
+  searchAutocomplete.includes('cameraInputRef') &&
+    searchAutocomplete.includes('galleryInputRef') &&
+    searchAutocomplete.includes('capture="environment"') &&
+    searchAutocomplete.includes('Take photo') &&
+    searchAutocomplete.includes('Gallery') &&
+    searchAutocomplete.includes('prepareImageSearchFile') &&
+    searchAutocomplete.includes('Finding similar products') &&
+    searchAutocomplete.includes('suggestionContextMessage') &&
+    imageSearch.includes('MAX_IMAGE_EDGE = 1600') &&
+    imageSearch.includes("canvas.toBlob") &&
+    imageSearch.includes("'image/jpeg'") &&
+    woocommerce.includes('isFallback: Boolean(data.isFallback)'),
+  'image search must retain separate mobile camera/gallery actions, client compression, and useful result context'
 )
 assert(
   product.includes('lg:items-start') &&
