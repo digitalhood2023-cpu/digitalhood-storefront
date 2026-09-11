@@ -25,6 +25,10 @@ const themeContext = read('src/context/ThemeContext.tsx')
 const globalStyles = read('src/index.css')
 const brandMark = read('src/components/DigitalHoodMark.tsx')
 const homeHero = read('src/sections/Hero.tsx')
+const home = read('src/pages/Home.tsx')
+const homeDiscovery = read('src/lib/homeDiscovery.ts')
+const productShowcase = read('src/sections/ProductShowcase.tsx')
+const flashSale = read('src/sections/FlashSale.tsx')
 const recentlyViewed = read('src/sections/RecentlyViewed.tsx')
 const recentlyViewedPage = read('src/pages/RecentlyViewedPage.tsx')
 const favicon = read('public/favicon.svg')
@@ -103,6 +107,21 @@ assert(
     recentlyViewedPage.includes('Clear history') &&
     shop.includes('<RecentlyViewed />'),
   'recently viewed must retain one compact reusable rail and a compact history manager'
+)
+assert(
+  home.includes('fetchHomeDiscovery(interests, 12)') &&
+    home.includes('deriveHomeDiscoveryInterests') &&
+    home.includes('title="Picked for You"') &&
+    home.includes('analyticsStrategy="best-selling"') &&
+    home.includes('products={discovery.shelves.flashSales}') &&
+    !home.includes('fetchWooProducts(36, 1)') &&
+    !flashSale.includes('fetchWooProducts') &&
+    woocommerce.includes('/api/discovery/home') &&
+    homeDiscovery.includes('if (interests.length >= 5) break') &&
+    productShowcase.includes("eventKey: 'recommendation_impression'") &&
+    productShowcase.includes("eventKey: 'recommendation_click'") &&
+    flashSale.includes("strategy: 'flash-sale'"),
+  'homepage shelves must come from one personalized discovery response with consent-aware recommendation measurements'
 )
 
 const summaryIndex = checkout.indexOf('Order Summary')

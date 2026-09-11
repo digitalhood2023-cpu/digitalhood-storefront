@@ -17,6 +17,8 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useCartStore } from '@/store/cartStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { emitMarketplaceEvent } from '@/lib/marketplaceAnalytics'
+import type { Product } from '@/types'
 
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -63,6 +65,7 @@ interface ProductShowcaseProps {
   products: ShowcaseProduct[]
   viewAllLink: string
   bgColor?: 'white' | 'gray'
+  analyticsStrategy?: string
 }
 
 function safeNumber(value: unknown, fallback = 0) {
@@ -173,6 +176,7 @@ export default function ProductShowcase({
   products,
   viewAllLink,
   bgColor = 'white',
+  analyticsStrategy = '',
 }: ProductShowcaseProps) {
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
@@ -217,6 +221,36 @@ export default function ProductShowcase({
 
     return () => ctx.revert()
   }, [products.length])
+
+  useEffect(() => {
+    if (!analyticsStrategy || products.length === 0) return
+
+    void emitMarketplaceEvent({
+      eventKey: 'recommendation_impression',
+      properties: {
+        surface: 'homepage',
+        strategy: analyticsStrategy,
+        item_count: products.length,
+      },
+    })
+  }, [analyticsStrategy, products.length])
+
+  const recordRecommendationClick = (
+    productId: string,
+    position: number
+  ) => {
+    if (!analyticsStrategy) return
+
+    void emitMarketplaceEvent({
+      eventKey: 'recommendation_click',
+      properties: {
+        surface: 'homepage',
+        strategy: analyticsStrategy,
+        product_id: productId,
+        position,
+      },
+    })
+  }
 
   const handleAddToCart = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -302,7 +336,7 @@ export default function ProductShowcase({
         </div>
 
         <div className="showcase-grid grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {products.map((product) => {
+          {products.map((product, index) => {
             const productUrl = getProductUrl(product)
             const stock = getStockInfo(product)
             const productImage = getFastProductImage(product, 'card')
@@ -316,7 +350,10 @@ export default function ProductShowcase({
                 className="showcase-card group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-                  <Link to={productUrl}>
+                  <Link
+                    to={productUrl}
+                    onClick={() => recordRecommendationClick(product.id, index + 1)}
+                  >
                     <img
                       src={productImage}
                       srcSet={productSrcSet}
@@ -342,7 +379,7 @@ export default function ProductShowcase({
 
                   <div className="absolute right-2 top-2 flex flex-col gap-1 opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100">
                     <button
-                      onClick={() => toggleWishlist(product as any)}
+                      onClick={() => toggleWishlist(product as unknown as Product)}
                       className={`flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-110 ${
                         isInWishlist(product.id)
                           ? 'bg-red-500 text-white'
@@ -411,7 +448,10 @@ export default function ProductShowcase({
                     </span>
                   </div>
 
-                  <Link to={productUrl}>
+                  <Link
+                    to={productUrl}
+                    onClick={() => recordRecommendationClick(product.id, index + 1)}
+                  >
                     <h3 className="mb-2 line-clamp-2 min-h-[2.5rem] text-sm font-medium text-black transition-colors hover:text-[#ffb54a]">
                       {product.name}
                     </h3>

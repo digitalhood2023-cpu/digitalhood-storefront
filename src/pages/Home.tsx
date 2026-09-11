@@ -13,9 +13,16 @@ import RecentlyViewed from '@/sections/RecentlyViewed'
 import Footer from '@/sections/Footer'
 
 import {
-  fetchWooProducts,
+  fetchHomeDiscovery,
+  type HomeDiscoveryResponse,
   type WooProduct,
 } from '@/lib/woocommerce'
+import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
+import {
+  readMarketplaceSearchHistory,
+  SEARCH_HISTORY_CHANGED_EVENT,
+} from '@/lib/marketplaceBrowserState'
+import { deriveHomeDiscoveryInterests } from '@/lib/homeDiscovery'
 
 type HomeProduct = {
   id: string
@@ -45,6 +52,10 @@ type HomeProduct = {
 }
 
 function getOriginalPriceFromHtml(product: WooProduct) {
+  if (Number(product.regularPrice || 0) > Number(product.price || 0)) {
+    return Number(product.regularPrice)
+  }
+
   const priceHtml = String(product.priceHtml || '')
   const delMatch = priceHtml.match(/<del[^>]*>[\s\S]*?([0-9][0-9,.\s]*)[\s\S]*?<\/del>/i)
 
@@ -70,7 +81,7 @@ function toHomeProduct(product: WooProduct, badge?: string): HomeProduct {
     images: product.images || [],
     rating: Number(product.averageRating || 0),
     reviews: Number(product.reviewCount || product.ratingCount || 0),
-    badge,
+    badge: badge || product.discoveryBadge,
     category,
     type: product.type,
     hasOptions: product.hasOptions,
@@ -88,27 +99,23 @@ function toHomeProduct(product: WooProduct, badge?: string): HomeProduct {
   }
 }
 
-function hasDiscount(product: WooProduct) {
-  const html = String(product.priceHtml || '').toLowerCase()
-
-  return (
-    html.includes('del') ||
-    html.includes('sale') ||
-    html.includes('del') ||
-    product.stockLabel?.toLowerCase().includes('sale') ||
-    product.stockLabel?.toLowerCase().includes('deal')
-  )
-}
-
-function uniqueProducts(products: WooProduct[]) {
-  const map = new Map<number, WooProduct>()
-
-  for (const product of products) {
-    if (!product?.id) continue
-    map.set(Number(product.id), product)
-  }
-
-  return Array.from(map.values())
+const EMPTY_HOME_DISCOVERY: HomeDiscoveryResponse = {
+  shelves: {
+    hero: [],
+    newArrivals: [],
+    personalized: [],
+    deals: [],
+    bestSellers: [],
+    trending: [],
+    flashSales: [],
+  },
+  personalization: {
+    active: false,
+    interestCount: 0,
+  },
+  strategyVersion: 'home-discovery-v1',
+  rotationKey: '',
+  uniqueProductCount: 0,
 }
 
 function MarketplaceHomeSkeleton() {
@@ -136,9 +143,42 @@ function MarketplaceHomeSkeleton() {
 }
 
 export default function Home() {
-  const [products, setProducts] = useState<WooProduct[]>([])
+  const { items: recentlyViewedItems } = useRecentlyViewed()
+  const [discovery, setDiscovery] = useState<HomeDiscoveryResponse>(
+    EMPTY_HOME_DISCOVERY
+  )
+  const [searchHistory, setSearchHistory] = useState<string[]>(() =>
+    readMarketplaceSearchHistory()
+  )
   const [isLoadingProducts, setIsLoadingProducts] = useState(true)
   const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    const refreshSearchHistory = () => {
+      setSearchHistory(readMarketplaceSearchHistory())
+    }
+
+    window.addEventListener(
+      SEARCH_HISTORY_CHANGED_EVENT,
+      refreshSearchHistory
+    )
+
+    return () => {
+      window.removeEventListener(
+        SEARCH_HISTORY_CHANGED_EVENT,
+        refreshSearchHistory
+      )
+    }
+  }, [])
+
+  const interests = useMemo(
+    () =>
+      deriveHomeDiscoveryInterests({
+        searches: searchHistory,
+        recentlyViewed: recentlyViewedItems,
+      }),
+    [recentlyViewedItems, searchHistory]
+  )
 
   useEffect(() => {
     let mounted = true
@@ -146,13 +186,14 @@ export default function Home() {
     async function loadHomeProducts() {
       setIsLoadingProducts(true)
       setLoadError('')
+      setDiscovery(EMPTY_HOME_DISCOVERY)
 
       try {
-        const response = await fetchWooProducts(36, 1)
+        const response = await fetchHomeDiscovery(interests, 12)
 
         if (!mounted) return
 
-        setProducts(uniqueProducts(response.products || []))
+        setDiscovery(response)
       } catch (error) {
         console.error(error)
 
@@ -175,81 +216,32 @@ export default function Home() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [interests])
 
   const homeSections = useMemo(() => {
-    const availableProducts = products.filter((product) => product.price > 0)
-
-    const newArrivals = [...availableProducts]
-      .sort((a, b) => Number(b.id) - Number(a.id))
-      .slice(0, 12)
-      .map((product) => toHomeProduct(product, 'New'))
-
-    const bestSellers = [...availableProducts]
-      .sort((a, b) => Number(b.totalSales || 0) - Number(a.totalSales || 0))
-      .slice(0, 12)
-      .map((product) =>
-        toHomeProduct(
-          product,
-          Number(product.totalSales || 0) > 0 ? 'Best Seller' : 'Popular'
-        )
-      )
-
-    const deals = availableProducts
-      .filter(hasDiscount)
-      .slice(0, 8)
-      .map((product) => toHomeProduct(product, 'Deal'))
-
-    const trending = [...availableProducts]
-      .sort((a, b) => {
-        const scoreA =
-          Number(a.totalSales || 0) * 2 +
-          Number(a.averageRating || 0) * 10 +
-          Number(a.ratingCount || 0)
-
-        const scoreB =
-          Number(b.totalSales || 0) * 2 +
-          Number(b.averageRating || 0) * 10 +
-          Number(b.ratingCount || 0)
-
-        return scoreB - scoreA
-      })
-      .slice(0, 12)
-      .map((product) => toHomeProduct(product, 'Trending'))
-
-    const fallbackDeals =
-      deals.length > 0
-        ? deals
-        : availableProducts
-            .slice(0, 8)
-            .map((product) => toHomeProduct(product, 'Explore'))
-
     return {
-      newArrivals,
-      bestSellers:
-        bestSellers.length > 0
-          ? bestSellers
-          : newArrivals.map((product) => ({
-              ...product,
-              badge: 'Popular',
-            })),
-      deals: fallbackDeals,
-      trending:
-        trending.length > 0
-          ? trending
-          : newArrivals.map((product) => ({
-              ...product,
-              badge: 'Trending',
-            })),
+      newArrivals: discovery.shelves.newArrivals.map((product) =>
+        toHomeProduct(product)
+      ),
+      personalized: discovery.shelves.personalized.map((product) =>
+        toHomeProduct(product)
+      ),
+      deals: discovery.shelves.deals.map((product) => toHomeProduct(product)),
+      bestSellers: discovery.shelves.bestSellers.map((product) =>
+        toHomeProduct(product)
+      ),
+      trending: discovery.shelves.trending.map((product) =>
+        toHomeProduct(product)
+      ),
     }
-  }, [products])
+  }, [discovery])
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-white">
       <Header />
 
       <main>
-        <Hero products={products} />
+        <Hero products={discovery.shelves.hero} />
 
         <RecentlyViewed />
 
@@ -272,14 +264,27 @@ export default function Home() {
               products={homeSections.newArrivals}
               viewAllLink="/collections/new-arrivals"
               bgColor="white"
+              analyticsStrategy="newest"
             />
+
+            {discovery.personalization.active && (
+              <ProductShowcase
+                title="Picked for You"
+                subtitle="Based on products and searches you have explored"
+                products={homeSections.personalized}
+                viewAllLink="/shop"
+                bgColor="gray"
+                analyticsStrategy="interest-personalized"
+              />
+            )}
 
             <ProductShowcase
               title="Explore Deals"
-              subtitle="Good value products and offers from the marketplace"
+              subtitle="Active offers and competitive value across marketplace stores"
               products={homeSections.deals}
               viewAllLink="/collections/deals"
-              bgColor="gray"
+              bgColor={discovery.personalization.active ? 'white' : 'gray'}
+              analyticsStrategy="deals"
             />
 
             <ProductShowcase
@@ -288,6 +293,7 @@ export default function Home() {
               products={homeSections.bestSellers}
               viewAllLink="/collections/best-sellers"
               bgColor="white"
+              analyticsStrategy="best-selling"
             />
 
             <ProductShowcase
@@ -296,11 +302,16 @@ export default function Home() {
               products={homeSections.trending}
               viewAllLink="/collections/trending"
               bgColor="gray"
+              analyticsStrategy="trending"
             />
           </>
         )}
 
-        <FlashSale />
+        <FlashSale
+          products={discovery.shelves.flashSales}
+          isLoading={isLoadingProducts}
+          loadError={loadError}
+        />
 
         <Categories />
 
