@@ -407,7 +407,9 @@ function ConversationAvatar({
         <img
           src={avatarUrl}
           alt={`${name} avatar`}
-          className="absolute inset-0 h-full w-full rounded-full object-cover"
+          className={`absolute inset-0 h-full w-full rounded-full object-cover ${
+            isDigitalHoodProfile(name) ? 'dh-brand-avatar' : ''
+          }`}
           onError={event => {
             if (
               isDigitalHoodProfile(name) &&
@@ -464,7 +466,9 @@ function MessageAvatar({
         <img
           src={avatarUrl}
           alt={`${displayName} profile`}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={`absolute inset-0 h-full w-full object-cover ${
+            isDigitalHoodProfile(displayName) ? 'dh-brand-avatar' : ''
+          }`}
           loading="lazy"
           decoding="async"
           onError={(event) => {

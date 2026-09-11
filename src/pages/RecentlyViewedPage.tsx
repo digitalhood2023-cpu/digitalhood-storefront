@@ -1,26 +1,28 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
-  Eye,
+  ArrowRight,
+  Check,
+  Clock3,
   Grid3X3,
   List,
   ShoppingBag,
+  Star,
   Trash2,
   X,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-import Header from '@/sections/Header'
-import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
-import { Button } from '@/components/ui/button'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
 import {
+  advanceProductImageFallback,
   getFastProductImage,
   getFastProductSrcSet,
   getProductImageSizes,
-  advanceProductImageFallback,
 } from '@/lib/productImages'
+import Footer from '@/sections/Footer'
+import Header from '@/sections/Header'
 
 function formatPrice(price: number) {
   return `K${Number(price || 0).toLocaleString('en-ZM', {
@@ -41,35 +43,21 @@ export default function RecentlyViewedPage() {
     removeSelectedRecentlyViewed,
     clearRecentlyViewed,
   } = useRecentlyViewed()
-
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  const selectedCount = selectedIds.length
-
-  const allSelected = useMemo(() => {
-    return items.length > 0 && selectedIds.length === items.length
-  }, [items.length, selectedIds.length])
+  const allSelected = useMemo(
+    () => items.length > 0 && selectedIds.length === items.length,
+    [items.length, selectedIds.length]
+  )
 
   const toggleSelected = (productId: string | number) => {
     const id = String(productId)
-
     setSelectedIds((current) =>
       current.includes(id)
         ? current.filter((item) => item !== id)
         : [...current, id]
     )
-  }
-
-  const toggleSelectAll = () => {
-    setSelectedIds(allSelected ? [] : items.map((item) => String(item.id)))
-  }
-
-  const deleteSelected = () => {
-    if (selectedIds.length === 0) return
-
-    removeSelectedRecentlyViewed(selectedIds)
-    setSelectedIds([])
   }
 
   const removeOne = (productId: string | number) => {
@@ -79,158 +67,140 @@ export default function RecentlyViewedPage() {
     )
   }
 
+  const deleteSelected = () => {
+    if (selectedIds.length === 0) return
+    removeSelectedRecentlyViewed(selectedIds)
+    setSelectedIds([])
+  }
+
   return (
-    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
+    <div className="flex min-h-[100svh] flex-col bg-gray-50">
       <SEO
         title="Recently Viewed | DigitalHood Marketplace"
         description="Review products you recently viewed on DigitalHood Marketplace."
         path="/recently-viewed"
       />
-
       <Header />
 
-      <main className="py-4 lg:py-6">
-        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
-          <Link
-            to="/"
-            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-dh-primary hover:text-dh-secondary"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to home
-          </Link>
-
-          <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
-                  <Eye className="h-4 w-4" />
-                  Recently viewed
-                </p>
-
-                <h1 className="font-display text-2xl font-black leading-tight text-dh-primary sm:text-3xl">
-                  Pick up where you left off
-                </h1>
-
-                <p className="mt-2 max-w-2xl text-sm text-dh-dark-gray">
-                  Your last {items.length} viewed product{items.length === 1 ? '' : 's'}.
-                  Logged-in customers can keep this history across devices.
-                </p>
+      <main className="py-3 sm:py-4">
+        <div className="mx-auto w-full max-w-[1500px] px-3 sm:px-6 lg:px-8 xl:px-12">
+          <section className="mb-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Link
+                  to="/"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gray-200 bg-white text-black transition hover:border-[#ffb54a] hover:bg-[#fff7e8]"
+                  aria-label="Back to home"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#ffb54a]/20 text-[#9a5a00]">
+                  <Clock3 className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="font-display text-lg font-black leading-tight text-black sm:text-xl">
+                    Recently viewed
+                  </h1>
+                  <p className="text-xs font-semibold text-gray-500">
+                    {items.length} product{items.length === 1 ? '' : 's'} in your history
+                  </p>
+                </div>
               </div>
 
               {hasItems && (
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex overflow-hidden rounded-full border border-dh-light-gray">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  <div className="flex h-9 overflow-hidden rounded-full border border-gray-200 bg-white">
                     <button
                       type="button"
                       onClick={() => setViewMode('grid')}
-                      className={`flex h-10 w-11 items-center justify-center transition-colors ${
+                      className={`grid w-9 place-items-center transition ${
                         viewMode === 'grid'
-                          ? 'bg-dh-primary text-white'
-                          : 'bg-white text-dh-primary hover:bg-dh-gray'
+                          ? 'bg-black text-white'
+                          : 'text-gray-500 hover:bg-gray-100 hover:text-black'
                       }`}
                       aria-label="Grid view"
+                      aria-pressed={viewMode === 'grid'}
                     >
-                      <Grid3X3 className="h-4 w-4" />
+                      <Grid3X3 className="h-3.5 w-3.5" />
                     </button>
-
                     <button
                       type="button"
                       onClick={() => setViewMode('list')}
-                      className={`flex h-10 w-11 items-center justify-center transition-colors ${
+                      className={`grid w-9 place-items-center transition ${
                         viewMode === 'list'
-                          ? 'bg-dh-primary text-white'
-                          : 'bg-white text-dh-primary hover:bg-dh-gray'
+                          ? 'bg-black text-white'
+                          : 'text-gray-500 hover:bg-gray-100 hover:text-black'
                       }`}
                       aria-label="List view"
+                      aria-pressed={viewMode === 'list'}
                     >
-                      <List className="h-4 w-4" />
+                      <List className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    onClick={toggleSelectAll}
-                    className="rounded-full border-dh-primary text-dh-primary hover:bg-dh-primary hover:text-white"
+                    onClick={() => setSelectedIds(allSelected ? [] : items.map((item) => String(item.id)))}
+                    className="h-9 rounded-full border border-gray-200 bg-white px-3 text-xs font-black text-black transition hover:border-[#ffb54a]"
                   >
                     {allSelected ? 'Unselect all' : 'Select all'}
-                  </Button>
+                  </button>
 
-                  {selectedCount > 0 && (
-                    <Button
+                  {selectedIds.length > 0 ? (
+                    <button
                       type="button"
                       onClick={deleteSelected}
-                      className="rounded-full bg-red-600 text-white hover:bg-red-700"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3 text-xs font-black text-white hover:bg-red-700"
                     >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete selected ({selectedCount})
-                    </Button>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove {selectedIds.length}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={clearRecentlyViewed}
+                      className="h-9 rounded-full px-3 text-xs font-black text-red-600 transition hover:bg-red-50"
+                    >
+                      Clear history
+                    </button>
                   )}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={clearRecentlyViewed}
-                    className="rounded-full border-red-200 text-red-600 hover:bg-red-50"
-                  >
-                    Clear all
-                  </Button>
                 </div>
               )}
             </div>
           </section>
 
-          {selectedCount > 0 && (
-            <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-semibold text-dh-primary">
-                  {selectedCount} product{selectedCount === 1 ? '' : 's'} selected
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds([])}
-                  className="inline-flex items-center text-sm font-semibold text-dh-dark-gray hover:text-dh-primary"
-                >
-                  Clear selection
-                  <X className="ml-2 h-4 w-4" />
-                </button>
-              </div>
-            </section>
-          )}
-
           {!hasItems ? (
-            <section className="rounded-2xl bg-white p-8 text-center shadow-sm sm:p-10">
-              <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-dh-primary" />
-
-              <h2 className="font-display text-2xl font-bold text-dh-primary">
-                No recently viewed products yet
+            <section className="rounded-2xl border border-gray-100 bg-white px-5 py-10 text-center shadow-sm">
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#ffb54a]/20 text-[#9a5a00]">
+                <ShoppingBag className="h-5 w-5" />
+              </span>
+              <h2 className="mt-3 font-display text-xl font-black text-black">
+                Nothing viewed yet
               </h2>
-
-              <p className="mx-auto mt-2 max-w-md text-sm text-dh-dark-gray">
-                Browse the marketplace and products you open will appear here.
+              <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">
+                Products you open will appear here for quick access.
               </p>
-
-              <Link to="/shop">
-                <Button className="mt-6 rounded-full bg-dh-primary text-white hover:bg-dh-secondary">
-                  Start shopping
-                </Button>
+              <Link
+                to="/shop"
+                className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-black px-5 text-sm font-black text-white transition hover:bg-[#ffb54a] hover:text-black"
+              >
+                Explore marketplace
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </section>
           ) : viewMode === 'grid' ? (
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
               {items.map((product) => {
                 const selected = selectedIds.includes(String(product.id))
-
                 return (
                   <article
                     key={product.id}
-                    className={`group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all hover:-translate-y-1 hover:shadow-lg ${
-                      selected ? 'ring-dh-secondary' : 'ring-transparent'
+                    className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md ${
+                      selected ? 'border-[#ffb54a] ring-2 ring-[#ffb54a]/25' : 'border-gray-100'
                     }`}
                   >
-                    <div className="relative aspect-[4/3] bg-dh-gray">
-                      <Link to={getProductUrl(product)}>
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                      <Link to={getProductUrl(product)} className="block h-full">
                         <img
                           src={getFastProductImage(product, 'card')}
                           srcSet={getFastProductSrcSet(product)}
@@ -245,46 +215,56 @@ export default function RecentlyViewedPage() {
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                       </Link>
-
                       <button
                         type="button"
                         onClick={() => toggleSelected(product.id)}
-                        className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold shadow-sm ${
+                        className={`absolute left-1.5 top-1.5 grid h-7 min-w-7 place-items-center rounded-full border px-1.5 text-[10px] font-black backdrop-blur ${
                           selected
-                            ? 'bg-dh-secondary text-dh-primary'
-                            : 'bg-white text-dh-primary'
+                            ? 'border-[#ffb54a] bg-[#ffb54a] text-black'
+                            : 'border-white/60 bg-black/65 text-white'
                         }`}
+                        aria-label={`${selected ? 'Unselect' : 'Select'} ${product.name}`}
+                        aria-pressed={selected}
                       >
-                        {selected ? 'Selected' : 'Select'}
+                        {selected ? <Check className="h-3.5 w-3.5" /> : 'Select'}
                       </button>
-
                       <button
                         type="button"
                         onClick={() => removeOne(product.id)}
-                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-dh-primary shadow-sm hover:bg-red-500 hover:text-white"
+                        className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full border border-white/60 bg-black/65 text-white backdrop-blur transition hover:bg-red-600"
                         aria-label={`Remove ${product.name}`}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
-                    <div className="p-3 sm:p-4">
+                    <div className="p-2.5 sm:p-3">
+                      <div className="mb-1.5 flex items-center gap-1 text-[10px] font-bold text-gray-500">
+                        {Number(product.rating || 0) > 0 ? (
+                          <>
+                            <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
+                            <span>{Number(product.rating).toFixed(1)}</span>
+                            <span className="text-gray-400">({Number(product.reviews || 0)})</span>
+                          </>
+                        ) : (
+                          <span className="truncate">{product.category || 'Marketplace'}</span>
+                        )}
+                      </div>
                       <Link to={getProductUrl(product)}>
-                        <h3 className="line-clamp-2 min-h-[2.75rem] font-semibold text-dh-primary hover:text-dh-secondary">
+                        <h3 className="line-clamp-2 min-h-[2.25rem] text-xs font-semibold leading-[1.15rem] text-black transition hover:text-[#9a5a00] sm:text-[13px]">
                           {product.name}
                         </h3>
                       </Link>
-
-                      <div className="mt-3 flex items-center justify-between gap-3">
-                        <p className="font-display text-lg font-black text-dh-primary">
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <p className="truncate font-display text-sm font-black text-black sm:text-base">
                           {formatPrice(product.price)}
                         </p>
-
                         <Link
                           to={getProductUrl(product)}
-                          className="rounded-full bg-dh-primary px-3 py-2 text-xs font-bold text-white hover:bg-dh-secondary"
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black text-white transition hover:bg-[#ffb54a] hover:text-black"
+                          aria-label={`View ${product.name}`}
                         >
-                          View
+                          <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       </div>
                     </div>
@@ -293,88 +273,61 @@ export default function RecentlyViewedPage() {
               })}
             </section>
           ) : (
-            <section className="grid gap-4">
+            <section className="grid gap-2">
               {items.map((product) => {
                 const selected = selectedIds.includes(String(product.id))
-
                 return (
                   <article
                     key={product.id}
-                    className={`group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all hover:shadow-lg ${
-                      selected ? 'ring-dh-secondary' : 'ring-transparent'
+                    className={`grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border bg-white p-2 shadow-sm sm:grid-cols-[92px_minmax(0,1fr)_auto] ${
+                      selected ? 'border-[#ffb54a] ring-2 ring-[#ffb54a]/25' : 'border-gray-100'
                     }`}
                   >
-                    <div className="grid gap-0 sm:grid-cols-[160px_minmax(0,1fr)_210px] xl:grid-cols-[170px_minmax(0,1fr)_220px]">
-                      <Link
-                        to={getProductUrl(product)}
-                        className="block aspect-[4/3] overflow-hidden bg-dh-gray sm:aspect-auto"
-                      >
-                        <img
-                          src={getFastProductImage(product, 'card')}
-                          srcSet={getFastProductSrcSet(product)}
-                          sizes={getProductImageSizes('card')}
-                          alt={product.name}
-                          loading="lazy"
-                          decoding="async"
-                          fetchPriority="low"
-                          onError={(event) => {
-                            advanceProductImageFallback(event.currentTarget, product, 'card')
-                          }}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
+                    <Link to={getProductUrl(product)} className="aspect-square overflow-hidden rounded-xl bg-gray-100">
+                      <img
+                        src={getFastProductImage(product, 'card')}
+                        srcSet={getFastProductSrcSet(product)}
+                        sizes="92px"
+                        alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(event) => {
+                          advanceProductImageFallback(event.currentTarget, product, 'card')
+                        }}
+                        className="h-full w-full object-cover"
+                      />
+                    </Link>
+                    <div className="min-w-0">
+                      <Link to={getProductUrl(product)}>
+                        <h3 className="line-clamp-2 text-xs font-bold text-black hover:text-[#9a5a00] sm:text-sm">
+                          {product.name}
+                        </h3>
                       </Link>
-
-                      <div className="min-w-0 p-4 sm:p-5">
-                        <div className="mb-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleSelected(product.id)}
-                            className={`rounded-full px-3 py-1 text-xs font-bold ${
-                              selected
-                                ? 'bg-dh-secondary text-dh-primary'
-                                : 'bg-dh-gray text-dh-primary'
-                            }`}
-                          >
-                            {selected ? 'Selected' : 'Select'}
-                          </button>
-
-                          <span className="rounded-full bg-dh-secondary/15 px-3 py-1 text-xs font-bold text-dh-primary">
-                            Recently viewed
-                          </span>
-                        </div>
-
-                        <Link to={getProductUrl(product)}>
-                          <h3 className="line-clamp-2 font-display text-lg font-black leading-snug text-dh-primary hover:text-dh-secondary">
-                            {product.name}
-                          </h3>
-                        </Link>
-
-                        <p className="mt-2 text-sm text-dh-dark-gray">
-                          Saved in your recent browsing history.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col justify-center gap-3 bg-dh-gray p-4 sm:p-5">
-                        <p className="font-display text-xl font-black text-dh-primary">
-                          {formatPrice(product.price)}
-                        </p>
-
-                        <Link
-                          to={getProductUrl(product)}
-                          className="inline-flex items-center justify-center rounded-full bg-dh-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-dh-secondary"
-                        >
-                          View product
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={() => removeOne(product.id)}
-                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Remove
-                        </button>
-                      </div>
+                      <p className="mt-1 font-display text-sm font-black text-black sm:text-base">
+                        {formatPrice(product.price)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelected(product.id)}
+                        className={`grid h-8 w-8 place-items-center rounded-full border ${
+                          selected
+                            ? 'border-[#ffb54a] bg-[#ffb54a] text-black'
+                            : 'border-gray-200 text-gray-500 hover:text-black'
+                        }`}
+                        aria-label={`${selected ? 'Unselect' : 'Select'} ${product.name}`}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeOne(product.id)}
+                        className="grid h-8 w-8 place-items-center rounded-full text-red-600 transition hover:bg-red-50"
+                        aria-label={`Remove ${product.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </article>
                 )

@@ -37,6 +37,7 @@ import WishlistDrawer from '@/components/wishlist/WishlistDrawer'
 import NotificationDrawer from '@/components/notifications/NotificationDrawer'
 import SearchAutocomplete from '@/components/search/SearchAutocomplete'
 import ThemeToggle from '@/components/ThemeToggle'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 import { useNotifications } from '@/context/NotificationsContext'
 import {
   DropdownMenu,
@@ -415,13 +416,7 @@ export default function Header() {
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex min-w-0 items-center justify-between gap-2 xl:gap-4">
             <Link to="/" className="group flex shrink-0 items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center sm:h-11 sm:w-11">
-                <img
-                  src="/logo.jpg"
-                  alt="DigitalHood"
-                  className="h-full w-full object-contain"
-                />
-              </div>
+              <DigitalHoodMark className="h-10 w-10 sm:h-11 sm:w-11" />
 
               <div className="hidden sm:block">
                 <div className="font-display text-xl font-bold leading-tight text-black">

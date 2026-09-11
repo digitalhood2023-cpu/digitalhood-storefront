@@ -4,6 +4,7 @@ import { ChevronRight, Award, Users, Truck, Shield, Phone, MapPin, Mail } from '
 import Header from '@/sections/Header';
 import Footer from '@/sections/Footer';
 import gsap from 'gsap';
+import DigitalHoodMark from '@/components/DigitalHoodMark';
 
 export default function AboutUsPage() {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -34,7 +35,7 @@ export default function AboutUsPage() {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
             <div className="max-w-3xl mx-auto text-center">
               <div className="flex justify-center mb-6">
-                <img src="/logo.jpg" alt="DigitalHood" className="w-24 h-24 object-contain" />
+                <DigitalHoodMark className="h-24 w-24" />
               </div>
               <h1 className="font-display font-bold text-3xl sm:text-4xl lg:text-5xl text-black mb-4">
                 About DigitalHood Zambia

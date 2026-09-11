@@ -4,6 +4,7 @@ import { CircleUserRound, ExternalLink, ShieldCheck, ShoppingCart, Store } from 
 import { getMarketplaceUrl } from '@/lib/sellerDomains'
 import { useCartStore } from '@/store/cartStore'
 import ThemeToggle from '@/components/ThemeToggle'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 
 type SellerChromeProps = {
   storeName?: string
@@ -22,15 +23,17 @@ export function SellerDomainCommerceHeader({
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1500px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-2">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
-            {marketplaceBrand ? (
-              <img src="/logo.jpg" alt="DigitalHood" className="h-full w-full object-contain" />
-            ) : profilePhotoUrl ? (
+          {marketplaceBrand ? (
+            <DigitalHoodMark className="h-9 w-9 shrink-0" />
+          ) : (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200">
+              {profilePhotoUrl ? (
               <img src={profilePhotoUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <Store className="h-4 w-4 text-[#26248c]" />
-            )}
-          </span>
+              ) : (
+                <Store className="h-4 w-4 text-[#26248c]" />
+              )}
+            </span>
+          )}
           <span className="min-w-0">
             <span className="block truncate text-sm font-black text-[#26248c]">
               {marketplaceBrand ? 'DigitalHood Marketplace' : storeName}

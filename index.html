@@ -52,7 +52,8 @@
     <meta name="twitter:image" content="https://store.digitalhood.info/logo.jpg" />
     <!-- DIGITALHOOD_SEO_END -->
 
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://js.stripe.com" crossorigin />
@@ -61,7 +62,7 @@
 
   <body>
     <div id="app-loader">
-      <img src="/logo.jpg" alt="DigitalHood loading" />
+      <img class="dh-loader-logo" src="/logo.jpg" alt="DigitalHood loading" />
     </div>
 
     <style>
@@ -79,11 +80,23 @@
         background: #090d16;
       }
 
-      #app-loader img {
+      #app-loader .dh-loader-logo {
         width: 120px;
         height: 120px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        border-radius: 50%;
+        background: #ffffff;
         object-fit: contain;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
         animation: logoPulse 1.2s ease-in-out infinite;
+      }
+
+      html[data-theme='dark'] #app-loader .dh-loader-logo {
+        border-color: #354156;
+        background: #060a11;
+        filter: invert(1) contrast(1.08);
+        box-shadow: 0 18px 52px rgba(0, 0, 0, 0.38);
       }
 
       @keyframes logoPulse {

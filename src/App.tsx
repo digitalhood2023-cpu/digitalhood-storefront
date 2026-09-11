@@ -12,6 +12,7 @@ import AccessibilityFoundation from '@/components/AccessibilityFoundation'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import { getCurrentSellerDomainContext } from '@/lib/sellerDomains'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 
 const Home = lazy(() => import('@/pages/Home'))
 const ShopPage = lazy(() => import('@/pages/ShopPage'))
@@ -58,11 +59,7 @@ function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="text-center">
-        <img
-          src="/logo.jpg"
-          alt="DigitalHood"
-          className="mx-auto h-16 w-16 object-contain mb-4"
-        />
+        <DigitalHoodMark className="mx-auto mb-4 h-16 w-16" />
         <p className="text-sm font-medium text-gray-600">
           Loading DigitalHood...
         </p>
