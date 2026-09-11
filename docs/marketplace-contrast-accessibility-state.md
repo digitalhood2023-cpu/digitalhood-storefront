@@ -1,6 +1,6 @@
 # Marketplace contrast accessibility state
 
-Status: implementation and validation complete; release in progress.
+Status: complete and released to `main`.
 
 ## Objective
 
@@ -37,7 +37,7 @@ Make notification and conversation content clearly readable in light and dark ap
 - [x] Shared marketplace brand and amber foreground mappings cover the previously omitted values.
 - [x] Full production build and release validation completed.
 - [x] Responsive light/dark visual inspection completed.
-- [ ] Feature branch committed, pushed and merged into `main`.
+- [x] Feature branch committed, pushed and merged into `main`.
 
 ## Validation record
 
@@ -49,3 +49,8 @@ Make notification and conversation content clearly readable in light and dark ap
 - Light notification and chat surfaces: visually verified.
 - Desktop dark notification and chat surfaces: visually verified.
 - Mobile dark notification and chat surfaces: visually verified at 390 × 844.
+
+## Release record
+
+- Feature commit: `0845321`
+- Merge commit: `3cb36a5`
