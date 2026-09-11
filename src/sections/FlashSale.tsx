@@ -1,29 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ShoppingCart, Clock, Flame, Check, ArrowRight, Loader2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ShoppingCart, Clock, Flame, Check, ArrowRight } from 'lucide-react'
 
 import { useCartStore } from '@/store/cartStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 
-import {
-  fetchWooProducts,
-  type WooProduct,
-} from '@/lib/woocommerce'
+import { type WooProduct } from '@/lib/woocommerce'
+import { emitMarketplaceEvent } from '@/lib/marketplaceAnalytics'
 
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 
 gsap.registerPlugin(ScrollTrigger)
-
-interface TimeLeft {
-  days: number
-  hours: number
-  minutes: number
-  seconds: number
-}
 
 function safeNumber(value: unknown, fallback = 0) {
   const numberValue = Number(value)
@@ -36,16 +27,20 @@ function productHasDeal(product: WooProduct) {
   const stockLabel = String(product.stockLabel || '').toLowerCase()
 
   return (
+    product.onSale === true ||
     priceHtml.includes('del') ||
     priceHtml.includes('ins') ||
     priceHtml.includes('sale') ||
     stockLabel.includes('sale') ||
-    stockLabel.includes('deal') ||
-    stockLabel.includes('left')
+    stockLabel.includes('deal')
   )
 }
 
 function getOriginalPrice(product: WooProduct) {
+  if (safeNumber(product.regularPrice) > safeNumber(product.price)) {
+    return safeNumber(product.regularPrice)
+  }
+
   const priceHtml = String(product.priceHtml || '')
   const delMatch = priceHtml.match(/<del[^>]*>[\s\S]*?([0-9][0-9,.\s]*)[\s\S]*?<\/del>/i)
 
@@ -77,105 +72,20 @@ function getStockProgress(product: WooProduct) {
   return 55
 }
 
-export default function FlashSale() {
+export default function FlashSale({
+  products,
+  isLoading = false,
+  loadError = '',
+}: {
+  products: WooProduct[]
+  isLoading?: boolean
+  loadError?: string
+}) {
   const sectionRef = useRef<HTMLDivElement>(null)
-
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>({
-    days: 2,
-    hours: 14,
-    minutes: 35,
-    seconds: 42,
-  })
-
-  const [products, setProducts] = useState<WooProduct[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
   const [addedToCart, setAddedToCart] = useState<string | null>(null)
 
   const addItem = useCartStore((state) => state.addItem)
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        let { days, hours, minutes, seconds } = prev
-
-        if (seconds > 0) {
-          seconds--
-        } else {
-          seconds = 59
-
-          if (minutes > 0) {
-            minutes--
-          } else {
-            minutes = 59
-
-            if (hours > 0) {
-              hours--
-            } else {
-              hours = 23
-
-              if (days > 0) {
-                days--
-              }
-            }
-          }
-        }
-
-        return { days, hours, minutes, seconds }
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [])
-
-  useEffect(() => {
-    let mounted = true
-
-    async function loadFlashProducts() {
-      setIsLoading(true)
-      setLoadError('')
-
-      try {
-        const response = await fetchWooProducts(36, 1)
-        const availableProducts = (response.products || []).filter(
-          (product) => product.price > 0
-        )
-
-        const dealProducts = availableProducts.filter(productHasDeal)
-
-        const selectedProducts =
-          dealProducts.length > 0
-            ? dealProducts.slice(0, 12)
-            : availableProducts
-                .sort((a, b) => safeNumber(b.totalSales) - safeNumber(a.totalSales))
-                .slice(0, 12)
-
-        if (mounted) {
-          setProducts(selectedProducts)
-        }
-      } catch (error) {
-        console.error(error)
-
-        if (mounted) {
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : 'We could not load flash sale products right now.'
-          )
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    loadFlashProducts()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const navigate = useNavigate()
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -190,23 +100,6 @@ export default function FlashSale() {
           scrollTrigger: {
             trigger: sectionRef.current,
             start: 'top 80%',
-            toggleActions: 'play none none none',
-          },
-        }
-      )
-
-      gsap.fromTo(
-        '.countdown-box',
-        { rotateX: -90, opacity: 0 },
-        {
-          rotateX: 0,
-          opacity: 1,
-          duration: 0.5,
-          stagger: 0.1,
-          ease: 'expo.out',
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: 'top 75%',
             toggleActions: 'play none none none',
           },
         }
@@ -235,9 +128,22 @@ export default function FlashSale() {
 
   const displayProducts = useMemo(() => products.slice(0, 12), [products])
 
+  useEffect(() => {
+    if (displayProducts.length === 0) return
+
+    void emitMarketplaceEvent({
+      eventKey: 'recommendation_impression',
+      properties: {
+        surface: 'homepage',
+        strategy: 'flash-sale',
+        item_count: displayProducts.length,
+      },
+    })
+  }, [displayProducts.length])
+
   const handleAddToCart = (product: WooProduct) => {
     if (product.hasOptions || product.type === 'variable') {
-      window.location.href = getProductUrl(product)
+      navigate(getProductUrl(product))
       return
     }
 
@@ -271,7 +177,7 @@ export default function FlashSale() {
       maximumFractionDigits: 2,
     })}`
 
-  const formatTime = (value: number) => value.toString().padStart(2, '0')
+  if (isLoading || loadError || displayProducts.length === 0) return null
 
   return (
     <section
@@ -302,23 +208,9 @@ export default function FlashSale() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {[
-                { value: timeLeft.days, label: 'Days' },
-                { value: timeLeft.hours, label: 'Hours' },
-                { value: timeLeft.minutes, label: 'Mins' },
-                { value: timeLeft.seconds, label: 'Secs' },
-              ].map((item, index) => (
-                <div key={index} className="countdown-box text-center">
-                  <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-white sm:h-12 sm:w-12">
-                    <span className="font-display text-lg font-black text-red-500 sm:text-xl">
-                      {formatTime(item.value)}
-                    </span>
-                  </div>
-
-                  <span className="text-xs text-white/80">{item.label}</span>
-                </div>
-              ))}
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white backdrop-blur-sm">
+              <Clock className="h-4 w-4" />
+              Limited-time prices · while stock lasts
             </div>
 
             <Link to="/collections/deals">
@@ -333,31 +225,31 @@ export default function FlashSale() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="rounded-2xl bg-dh-gray p-8 text-center">
-            <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-dh-primary" />
-            <p className="font-semibold text-dh-primary">
-              Loading live deals...
-            </p>
-          </div>
-        ) : loadError ? (
-          <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
-            <p className="font-semibold">Flash sale products could not load.</p>
-            <p className="mt-1 text-sm">{loadError}</p>
-          </div>
-        ) : displayProducts.length > 0 ? (
-          <div className="flash-products grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {displayProducts.map((product) => {
-              const originalPrice = getOriginalPrice(product)
-              const productUrl = getProductUrl(product)
+        <div className="flash-products grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          {displayProducts.map((product, index) => {
+            const originalPrice = getOriginalPrice(product)
+            const productUrl = getProductUrl(product)
 
-              return (
+            return (
                 <div
                   key={product.id}
                   className="flash-product group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#ffb54a] hover:shadow-lg"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-                    <Link to={productUrl}>
+                    <Link
+                      to={productUrl}
+                      onClick={() => {
+                        void emitMarketplaceEvent({
+                          eventKey: 'recommendation_click',
+                          properties: {
+                            surface: 'homepage',
+                            strategy: 'flash-sale',
+                            product_id: String(product.id),
+                            position: index + 1,
+                          },
+                        })
+                      }}
+                    >
                       <img
                         src={getFastProductImage(product, 'card')}
                         srcSet={getFastProductSrcSet(product)}
@@ -374,7 +266,7 @@ export default function FlashSale() {
                     </Link>
 
                     <Badge className="absolute top-3 left-3 bg-red-500 text-white font-bold">
-                      {productHasDeal(product) ? 'Deal' : 'Hot'}
+                      {product.discoveryBadge || (productHasDeal(product) ? 'Deal' : 'Hot')}
                     </Badge>
 
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
@@ -395,7 +287,20 @@ export default function FlashSale() {
                   </div>
 
                   <div className="p-3 sm:p-3.5">
-                    <Link to={productUrl}>
+                    <Link
+                      to={productUrl}
+                      onClick={() => {
+                        void emitMarketplaceEvent({
+                          eventKey: 'recommendation_click',
+                          properties: {
+                            surface: 'homepage',
+                            strategy: 'flash-sale',
+                            product_id: String(product.id),
+                            position: index + 1,
+                          },
+                        })
+                      }}
+                    >
                       <h3 className="mb-2 line-clamp-2 min-h-[2.5rem] text-sm font-black leading-5 text-black transition-colors hover:text-[#ffb54a]">
                         {product.name}
                       </h3>
@@ -441,19 +346,9 @@ export default function FlashSale() {
                     </Button>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="rounded-2xl bg-dh-gray p-8 text-center">
-            <h3 className="font-display text-xl font-bold text-dh-primary">
-              Deals are being prepared
-            </h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-dh-dark-gray">
-              Live marketplace offers will appear here once available.
-            </p>
-          </div>
-        )}
+            )
+          })}
+        </div>
       </div>
     </section>
   )

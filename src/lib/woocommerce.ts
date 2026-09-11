@@ -13,6 +13,7 @@ const STORE_PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
 
 const MARKETPLACE_PRODUCTS_API = `${PAYMENTS_API_URL}/api/products`;
 const MARKETPLACE_SEARCH_API = `${PAYMENTS_API_URL}/api/search/products`;
+const HOME_DISCOVERY_API = `${PAYMENTS_API_URL}/api/discovery/home`;
 
 const PRODUCT_DETAIL_FRESH_MS = 30_000;
 const PRODUCT_DETAIL_STALE_MS = 90_000;
@@ -42,6 +43,9 @@ export type WooProductVariation = {
   parentId: number;
   name: string;
   price: number;
+  regularPrice?: number;
+  salePrice?: number;
+  onSale?: boolean;
   priceHtml: string;
   image: string;
   inStock: boolean;
@@ -78,6 +82,9 @@ export type WooProduct = {
   type: string;
   permalink: string;
   price: number;
+  regularPrice?: number;
+  salePrice?: number;
+  onSale?: boolean;
   priceHtml: string;
   image: string;
   imageThumb?: string;
@@ -111,6 +118,10 @@ export type WooProduct = {
   brand?: string;
   condition?: string;
   specifications: WooProductSpecification[];
+  dateCreated?: string;
+  discoveryBadge?: string;
+  discoveryReason?: string;
+  discoveryStrategy?: string;
 
   seller?: {
     id?: string;
@@ -251,6 +262,27 @@ export type MarketplaceSearchResponse = WooProductsResponse & {
   facets: MarketplaceSearchFacets;
   searchProvider: string;
   searchTimeMs: number | null;
+};
+
+export type HomeDiscoveryShelves = {
+  hero: WooProduct[];
+  newArrivals: WooProduct[];
+  personalized: WooProduct[];
+  deals: WooProduct[];
+  bestSellers: WooProduct[];
+  trending: WooProduct[];
+  flashSales: WooProduct[];
+};
+
+export type HomeDiscoveryResponse = {
+  shelves: HomeDiscoveryShelves;
+  personalization: {
+    active: boolean;
+    interestCount: number;
+  };
+  strategyVersion: string;
+  rotationKey: string;
+  uniqueProductCount: number;
 };
 
 function stripHtml(html = '') {
@@ -837,6 +869,9 @@ export function mapWooProduct(product: any): WooProduct {
     type,
     permalink: product.permalink || '',
     price: getPrice(product),
+    regularPrice: Number(product.regularPrice || product.regular_price || product.price || 0),
+    salePrice: Number(product.salePrice || product.sale_price || 0),
+    onSale: Boolean(product.onSale || product.on_sale),
     priceHtml: product.price_html || product.priceHtml || '',
     image: primaryImage,
     imageThumb: product.imageThumb,
@@ -874,6 +909,10 @@ shortDescriptionHtml:
     brand: String(product.brand || getAttributeValue('Brand') || ''),
     condition: String(product.condition || getAttributeValue('Condition') || ''),
     specifications,
+    dateCreated: product.dateCreated || product.date_created || '',
+    discoveryBadge: String(product.discoveryBadge || ''),
+    discoveryReason: String(product.discoveryReason || ''),
+    discoveryStrategy: String(product.discoveryStrategy || ''),
 
     categoryIds: categories.map((category: any) => category.id),
     categories,
@@ -905,6 +944,51 @@ shortDescriptionHtml:
       sellerBranding.profilePhotoUrl,
     sellerCoverPhotoUrl:
       sellerBranding.coverPhotoUrl,
+  };
+}
+
+function mapHomeDiscoveryShelf(value: unknown) {
+  return Array.isArray(value)
+    ? value.map(mapWooProduct).filter(isMarketplaceProductAvailable)
+    : [];
+}
+
+export async function fetchHomeDiscovery(
+  interests: string[] = [],
+  limit = 12
+): Promise<HomeDiscoveryResponse> {
+  const params = new URLSearchParams({
+    limit: String(Math.max(4, Math.min(12, Math.trunc(Number(limit) || 12)))),
+  });
+
+  for (const interest of interests.slice(0, 5)) {
+    const value = String(interest || '').trim().slice(0, 60);
+    if (value) params.append('interest', value);
+  }
+
+  const response = await fetch(`${HOME_DISCOVERY_API}?${params.toString()}`, {
+    cache: 'no-store',
+  });
+  const data = await parseJsonResponse(response);
+  const shelves = data.shelves || {};
+
+  return {
+    shelves: {
+      hero: mapHomeDiscoveryShelf(shelves.hero),
+      newArrivals: mapHomeDiscoveryShelf(shelves.newArrivals),
+      personalized: mapHomeDiscoveryShelf(shelves.personalized),
+      deals: mapHomeDiscoveryShelf(shelves.deals),
+      bestSellers: mapHomeDiscoveryShelf(shelves.bestSellers),
+      trending: mapHomeDiscoveryShelf(shelves.trending),
+      flashSales: mapHomeDiscoveryShelf(shelves.flashSales),
+    },
+    personalization: {
+      active: Boolean(data.personalization?.active),
+      interestCount: Number(data.personalization?.interestCount || 0),
+    },
+    strategyVersion: String(data.strategyVersion || 'home-discovery-v1'),
+    rotationKey: String(data.rotationKey || ''),
+    uniqueProductCount: Number(data.uniqueProductCount || 0),
   };
 }
 
