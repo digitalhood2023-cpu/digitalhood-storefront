@@ -1,6 +1,6 @@
 # Recently viewed and adaptive brand upgrade
 
-Status: implementation and validation completed on 2026-09-11; repository release pending.
+Status: implementation, validation and multi-repository release completed on 2026-09-11.
 
 ## Goals
 
@@ -29,3 +29,9 @@ Production build, release contracts, TypeScript and focused lint must pass befor
 - Admin portal production build and release contract passed.
 - Focused lint passed for the new and directly edited component surfaces.
 - Light and dark visual checks passed for the loader, header, history page and footer branding.
+
+## Release
+
+- Storefront merged to `main` at `6d9ccb2`.
+- Seller portal merged to `main` at `900cfb2`.
+- Admin portal merged to `main` at `ce24ff7`.
