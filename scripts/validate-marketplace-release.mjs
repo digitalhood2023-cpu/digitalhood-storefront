@@ -24,6 +24,7 @@ const chatLightbox = read('src/components/chat/ChatImageLightbox.tsx')
 const themeContext = read('src/context/ThemeContext.tsx')
 const globalStyles = read('src/index.css')
 const brandMark = read('src/components/DigitalHoodMark.tsx')
+const homeHero = read('src/sections/Hero.tsx')
 const recentlyViewed = read('src/sections/RecentlyViewed.tsx')
 const recentlyViewedPage = read('src/pages/RecentlyViewedPage.tsx')
 const favicon = read('public/favicon.svg')
@@ -76,6 +77,20 @@ assert(
     html.includes('href="/favicon.svg"') &&
     favicon.includes('prefers-color-scheme: dark'),
   'the DigitalHood mark and browser icon must remain circular and appearance-aware'
+)
+assert(
+  homeHero.includes('dh-home-hero') &&
+    homeHero.includes('lg:text-[3.35rem]') &&
+    !homeHero.includes('lg:text-[4.7rem]') &&
+    !homeHero.includes('Secure marketplace checkout') &&
+    !homeHero.includes('Protected payment flow') &&
+    !homeHero.includes('Pay your way') &&
+    !homeHero.includes('Cards and mobile money') &&
+    !homeHero.includes('Delivery across Zambia') &&
+    !homeHero.includes('Clear delivery details') &&
+    globalStyles.includes('.dh-home-hero {') &&
+    globalStyles.includes("html[data-theme='dark'] .dh-home-hero"),
+  'the homepage hero must remain compact, theme-aware, and free of the obsolete feature strip'
 )
 assert(
   recentlyViewed.includes('dh-recently-viewed') &&

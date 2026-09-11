@@ -3,13 +3,9 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   BadgeCheck,
-  CreditCard,
-  MapPin,
   Search,
-  ShieldCheck,
   Sparkles,
   Store,
-  Truck,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -63,7 +59,6 @@ function productScore(product: WooProduct) {
 }
 
 export default function Hero({ products = [] }: { products?: WooProduct[] }) {
-
   const marketplacePicks = useMemo(() => {
     return products
       .filter((product) => product.id && safeNumber(product.price) > 0)
@@ -76,67 +71,67 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
   const supportingProducts = marketplacePicks.slice(1)
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#07111f] text-white">
+    <section className="dh-home-hero relative isolate overflow-hidden border-y">
       <div
-        className="pointer-events-none absolute inset-0 -z-20 opacity-30"
+        className="dh-home-hero-grid pointer-events-none absolute inset-0 -z-20"
         aria-hidden="true"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)',
-          backgroundSize: '52px 52px',
+            'linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
           maskImage: 'linear-gradient(to bottom, black, transparent 88%)',
         }}
       />
       <div
-        className="pointer-events-none absolute -right-24 -top-32 -z-10 h-[34rem] w-[34rem] rounded-full bg-[#ffb54a]/20 blur-3xl"
+        className="dh-home-hero-glow pointer-events-none absolute -right-24 -top-32 -z-10 h-[28rem] w-[28rem] rounded-full blur-3xl"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -bottom-44 left-1/4 -z-10 h-[28rem] w-[28rem] rounded-full bg-blue-500/10 blur-3xl"
+        className="dh-home-hero-glow-secondary pointer-events-none absolute -bottom-44 left-1/4 -z-10 h-[24rem] w-[24rem] rounded-full blur-3xl"
         aria-hidden="true"
       />
 
-      <div className="mx-auto w-full max-w-[1500px] px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-14 xl:px-12">
-        <div className="grid items-center gap-9 lg:grid-cols-[minmax(0,0.9fr)_minmax(500px,1.1fr)] lg:gap-14">
-          <div className="max-w-2xl">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#ffd18e] backdrop-blur">
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 xl:px-12">
+        <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,0.88fr)_minmax(500px,1.12fr)] lg:gap-9">
+          <div className="max-w-[38rem]">
+            <div className="dh-home-hero-eyebrow mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" />
               Zambia&apos;s tech marketplace
             </div>
 
-            <h1 className="font-display text-[2.7rem] font-black leading-[0.98] tracking-[-0.045em] text-white sm:text-6xl lg:text-[4.7rem]">
+            <h1 className="dh-home-hero-title font-display text-[2.3rem] font-black leading-[0.98] tracking-[-0.04em] sm:text-[2.9rem] lg:text-[3.35rem]">
               Better tech.
-              <span className="mt-1 block text-[#ffb54a]">More choice.</span>
+              <span className="dh-home-hero-title-accent mt-0.5 block">More choice.</span>
               <span className="mt-1 block">One marketplace.</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base font-medium leading-7 text-slate-300 sm:text-lg">
+            <p className="dh-home-hero-copy mt-4 max-w-xl text-sm font-medium leading-6 sm:text-base sm:leading-7">
               Discover products from trusted Zambian stores, compare your
               options, pay securely and arrange delivery without leaving the
               marketplace.
             </p>
 
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link to="/shop">
-                <Button className="group h-12 w-full rounded-full bg-[#ffb54a] px-6 text-base font-black text-[#07111f] shadow-[0_16px_40px_rgba(255,181,74,.24)] hover:bg-[#ffd18e] sm:w-auto">
+            <div className="mt-5 grid grid-cols-2 gap-2.5 sm:flex">
+              <Link to="/shop" className="min-w-0">
+                <Button className="group h-10 w-full rounded-full bg-[#ffb54a] px-4 text-sm font-black text-[#07111f] shadow-[0_12px_30px_rgba(255,181,74,.2)] hover:bg-[#ffd18e] sm:w-auto sm:px-5">
                   Explore marketplace
-                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
 
-              <Link to="/shops">
+              <Link to="/shops" className="min-w-0">
                 <Button
                   variant="outline"
-                  className="h-12 w-full rounded-full border-white/25 bg-white/5 px-6 text-base font-black text-white hover:border-white/50 hover:bg-white/10 hover:text-white sm:w-auto"
+                  className="dh-home-hero-secondary h-10 w-full rounded-full border px-4 text-sm font-black sm:w-auto sm:px-5"
                 >
-                  <Store className="mr-2 h-5 w-5" />
+                  <Store className="mr-1 h-4 w-4" />
                   Browse stores
                 </Button>
               </Link>
             </div>
 
-            <nav aria-label="Popular product searches" className="mt-7">
-              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+            <nav aria-label="Popular product searches" className="mt-5">
+              <div className="dh-home-hero-muted mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
                 <Search className="h-3.5 w-3.5" />
                 Popular right now
               </div>
@@ -145,7 +140,7 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
                   <Link
                     key={item.label}
                     to={item.to}
-                    className="rounded-full border border-white/15 bg-white/[0.07] px-3.5 py-2 text-sm font-bold text-slate-200 transition hover:border-[#ffb54a]/60 hover:bg-[#ffb54a]/10 hover:text-[#ffd18e]"
+                    className="dh-home-hero-chip rounded-full border px-3 py-1.5 text-xs font-bold transition"
                   >
                     {item.label}
                   </Link>
@@ -155,20 +150,20 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
           </div>
 
           <div className="relative mx-auto w-full max-w-2xl lg:mx-0">
-            <div className="rounded-[2rem] border border-white/15 bg-white/[0.08] p-3 shadow-[0_32px_90px_rgba(0,0,0,.35)] backdrop-blur-xl sm:p-4">
-              <div className="mb-3 flex items-center justify-between px-1 sm:px-2">
+            <div className="dh-home-hero-showcase rounded-[1.6rem] border p-2.5 backdrop-blur-xl sm:p-3">
+              <div className="mb-2.5 flex items-center justify-between px-1 sm:px-1.5">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ffd18e]">
+                  <p className="dh-home-hero-eyebrow-text text-[10px] font-black uppercase tracking-[0.16em]">
                     Curated today
                   </p>
-                  <h2 className="mt-1 font-display text-lg font-black text-white sm:text-xl">
+                  <h2 className="dh-home-hero-title mt-0.5 font-display text-base font-black sm:text-lg">
                     Marketplace picks
                   </h2>
                 </div>
 
                 <Link
                   to="/collections/trending"
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-300 transition hover:text-[#ffd18e] sm:text-sm"
+                  className="dh-home-hero-link inline-flex items-center gap-1 text-xs font-bold transition"
                 >
                   See trending
                   <ArrowRight className="h-4 w-4" />
@@ -176,10 +171,10 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
               </div>
 
               {featuredProduct ? (
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1.35fr)_minmax(190px,0.65fr)]">
+                <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.6fr)]">
                   <Link
                     to={getProductUrl(featuredProduct)}
-                    className="group relative min-h-[330px] overflow-hidden rounded-[1.55rem] bg-white text-[#07111f] sm:min-h-[440px]"
+                    className="group relative min-h-[260px] overflow-hidden rounded-[1.25rem] bg-white text-[#07111f] sm:min-h-[315px]"
                   >
                     <img
                       src={getFastProductImage(featuredProduct, 'large')}
@@ -199,37 +194,37 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#07111f] via-[#07111f]/10 to-transparent" />
 
-                    <div className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-[#07111f] shadow-lg">
+                    <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#07111f] shadow-lg">
                       <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
                       Featured find
                     </div>
 
-                    <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-                      <p className="mb-2 text-xs font-bold text-[#ffd18e]">
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                      <p className="mb-1.5 text-[11px] font-bold text-[#ffd18e]">
                         {getSellerName(featuredProduct)}
                       </p>
-                      <h3 className="line-clamp-2 font-display text-xl font-black leading-tight text-white sm:text-2xl">
+                      <h3 className="line-clamp-2 font-display text-lg font-black leading-tight text-white sm:text-xl">
                         {featuredProduct.name}
                       </h3>
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <span className="font-display text-xl font-black text-white sm:text-2xl">
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <span className="font-display text-lg font-black text-white sm:text-xl">
                           {formatPrice(featuredProduct.price)}
                         </span>
-                        <span className="inline-flex h-10 items-center rounded-full bg-[#ffb54a] px-4 text-sm font-black text-[#07111f]">
+                        <span className="inline-flex h-8 items-center rounded-full bg-[#ffb54a] px-3 text-xs font-black text-[#07111f]">
                           View product
                         </span>
                       </div>
                     </div>
                   </Link>
 
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-1">
                     {supportingProducts.map((product) => (
                       <Link
                         key={product.id}
                         to={getProductUrl(product)}
-                        className="group overflow-hidden rounded-[1.4rem] bg-white p-2.5 text-[#07111f] transition hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transform-none"
+                        className="group min-w-0 overflow-hidden rounded-[1.15rem] bg-white p-2 text-[#07111f] transition hover:-translate-y-0.5 hover:shadow-xl motion-reduce:transform-none"
                       >
-                        <div className="aspect-[4/3] overflow-hidden rounded-[1rem] bg-slate-100">
+                        <div className="h-20 overflow-hidden rounded-[0.85rem] bg-slate-100 sm:h-[88px]">
                           <img
                             src={getFastProductImage(product, 'card')}
                             srcSet={getFastProductSrcSet(product)}
@@ -247,11 +242,11 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
                             className="h-full w-full object-cover transition duration-500 group-hover:scale-105 motion-reduce:transition-none"
                           />
                         </div>
-                        <div className="px-1 pb-1 pt-2.5">
-                          <p className="line-clamp-2 min-h-9 text-xs font-black leading-[1.15rem] sm:text-sm">
+                        <div className="px-0.5 pb-0.5 pt-2">
+                          <p className="line-clamp-2 min-h-8 text-[11px] font-black leading-4 sm:text-xs">
                             {product.name}
                           </p>
-                          <p className="mt-2 text-sm font-black text-[#9a5b00] sm:text-base">
+                          <p className="mt-1.5 text-xs font-black text-[#9a5b00] sm:text-sm">
                             {formatPrice(product.price)}
                           </p>
                         </div>
@@ -260,19 +255,19 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
                   </div>
                 </div>
               ) : (
-                <div className="flex min-h-[360px] items-center justify-center rounded-[1.55rem] border border-dashed border-white/20 bg-white/[0.05] p-8 text-center sm:min-h-[440px]">
+                <div className="dh-home-hero-empty flex min-h-[280px] items-center justify-center rounded-[1.25rem] border border-dashed p-6 text-center sm:min-h-[315px]">
                   <div className="max-w-sm">
-                    <Store className="mx-auto h-12 w-12 text-[#ffb54a]" />
-                    <h3 className="mt-4 font-display text-2xl font-black">
+                    <Store className="mx-auto h-10 w-10 text-[#d68100]" />
+                    <h3 className="dh-home-hero-title mt-3 font-display text-xl font-black">
                       Find your next everyday upgrade
                     </h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                    <p className="dh-home-hero-copy mt-2 text-sm leading-6">
                       Browse phones, computers, accessories and useful tech from
                       marketplace stores across Zambia.
                     </p>
                     <Link
                       to="/shop"
-                      className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-black text-[#07111f]"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#ffb54a] px-4 py-2 text-sm font-black text-[#07111f]"
                     >
                       Start exploring
                       <ArrowRight className="h-4 w-4" />
@@ -282,50 +277,6 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
               )}
             </div>
           </div>
-        </div>
-
-        <div className="mt-9 grid overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] sm:grid-cols-3">
-          {[
-            {
-              icon: ShieldCheck,
-              title: 'Secure marketplace checkout',
-              text: 'Protected payment flow',
-            },
-            {
-              icon: CreditCard,
-              title: 'Pay your way',
-              text: 'Cards and mobile money',
-            },
-            {
-              icon: Truck,
-              title: 'Delivery across Zambia',
-              text: 'Clear delivery details',
-            },
-          ].map((item, index) => {
-            const Icon = item.icon
-
-            return (
-              <div
-                key={item.title}
-                className={`flex items-center gap-3 px-4 py-4 sm:px-5 ${
-                  index > 0 ? 'border-t border-white/10 sm:border-l sm:border-t-0' : ''
-                }`}
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffb54a]/15 text-[#ffd18e]">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span>
-                  <span className="block text-sm font-black text-white">
-                    {item.title}
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-400">
-                    {index === 2 && <MapPin className="h-3 w-3" />}
-                    {item.text}
-                  </span>
-                </span>
-              </div>
-            )
-          })}
         </div>
       </div>
     </section>
