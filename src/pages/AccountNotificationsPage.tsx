@@ -58,14 +58,14 @@ const categoryStyles: Record<
   AccountNotificationCategory,
   { icon: ComponentType<{ className?: string }>; tone: string; label: string }
 > = {
-  orders: { icon: ShoppingBag, tone: 'bg-indigo-50 text-indigo-700', label: 'Order' },
-  payments: { icon: CreditCard, tone: 'bg-amber-50 text-amber-800', label: 'Payment' },
-  delivery: { icon: Truck, tone: 'bg-emerald-50 text-emerald-700', label: 'Delivery' },
-  messages: { icon: MessageCircle, tone: 'bg-violet-50 text-violet-700', label: 'Message' },
-  support: { icon: Headphones, tone: 'bg-rose-50 text-rose-700', label: 'Support' },
-  account: { icon: UserRound, tone: 'bg-slate-100 text-slate-700', label: 'Account' },
-  offers: { icon: Sparkles, tone: 'bg-orange-50 text-orange-700', label: 'Offer' },
-  marketplace: { icon: Bell, tone: 'bg-blue-50 text-blue-700', label: 'Marketplace' },
+  orders: { icon: ShoppingBag, tone: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-200', label: 'Order' },
+  payments: { icon: CreditCard, tone: 'bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200', label: 'Payment' },
+  delivery: { icon: Truck, tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-200', label: 'Delivery' },
+  messages: { icon: MessageCircle, tone: 'bg-violet-50 text-violet-700 dark:bg-violet-950/70 dark:text-violet-200', label: 'Message' },
+  support: { icon: Headphones, tone: 'bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-200', label: 'Support' },
+  account: { icon: UserRound, tone: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200', label: 'Account' },
+  offers: { icon: Sparkles, tone: 'bg-orange-50 text-orange-700 dark:bg-orange-950/70 dark:text-orange-200', label: 'Offer' },
+  marketplace: { icon: Bell, tone: 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-200', label: 'Marketplace' },
 }
 
 function formatNotificationDate(value?: string | null) {
@@ -103,8 +103,8 @@ function NotificationItem({
 
   return (
     <article
-      className={`group relative flex gap-3 border-b border-slate-100 px-3 py-3.5 transition last:border-b-0 sm:px-4 ${
-        notification.readAt ? 'bg-white' : 'bg-[#fbfbff]'
+      className={`dh-notification-item group relative flex gap-3 border-b px-3 py-3.5 transition last:border-b-0 sm:px-4 ${
+        notification.readAt ? 'dh-notification-item-read' : 'dh-notification-item-unread'
       }`}
     >
       {notification.imageUrl ? (
@@ -123,7 +123,7 @@ function NotificationItem({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">
+        <div className="dh-notification-meta flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em]">
           {!notification.readAt && (
             <span className="h-2 w-2 rounded-full bg-[#ffad32]" aria-label="Unread" />
           )}
@@ -137,10 +137,10 @@ function NotificationItem({
           )}
         </div>
 
-        <h2 className="mt-1 text-sm font-black leading-5 text-[#17155f]">
+        <h2 className="dh-notification-title mt-1 text-sm font-black leading-5">
           {notification.title}
         </h2>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
+        <p className="dh-notification-body mt-1 text-xs leading-5">
           {notification.body}
         </p>
 
@@ -160,7 +160,7 @@ function NotificationItem({
             <button
               type="button"
               onClick={onRead}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[11px] font-black text-slate-600 hover:bg-slate-50"
+              className="dh-notification-secondary-action inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-black"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark read
@@ -170,7 +170,7 @@ function NotificationItem({
           <button
             type="button"
             onClick={onArchive}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-black text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="dh-notification-subtle inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-black hover:bg-slate-100 hover:text-slate-700"
           >
             <Archive className="h-3.5 w-3.5" />
             Archive
@@ -195,8 +195,8 @@ function PreferenceRow({
   return (
     <label className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 last:border-b-0">
       <span className="min-w-0">
-        <span className="block text-xs font-black text-[#17155f]">{title}</span>
-        <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">
+        <span className="dh-notification-title block text-xs font-black">{title}</span>
+        <span className="dh-notification-body mt-0.5 block text-[11px] leading-4">
           {description}
         </span>
       </span>
@@ -357,7 +357,7 @@ export default function AccountNotificationsPage() {
   }
 
   return (
-    <div className="flex min-h-[100svh] flex-col bg-[#f6f7fb]">
+    <div className="dh-notifications-page flex min-h-[100svh] flex-col">
       <SEO
         title="Notifications | DigitalHood Marketplace"
         description="Review your DigitalHood order, payment, delivery, message, support and marketplace updates."
@@ -374,7 +374,7 @@ export default function AccountNotificationsPage() {
                 My DigitalHood
               </p>
               <div className="mt-0.5 flex items-center gap-2">
-                <h1 className="font-display text-xl font-black text-[#17155f] sm:text-2xl">
+                <h1 className="dh-notification-title font-display text-xl font-black sm:text-2xl">
                   Notifications
                 </h1>
                 {summary.unread > 0 && (
@@ -417,11 +417,11 @@ export default function AccountNotificationsPage() {
           </div>
 
           {showSettings && preferences && (
-            <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <section className="dh-notification-surface mt-4 rounded-2xl border p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
-                  <h2 className="text-sm font-black text-[#17155f]">Choose useful updates</h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
+                  <h2 className="dh-notification-title text-sm font-black">Choose useful updates</h2>
+                  <p className="dh-notification-body mt-0.5 text-[11px]">
                     Important payment, account-security and active-order updates remain available in your protected feed.
                   </p>
                 </div>
@@ -477,7 +477,7 @@ export default function AccountNotificationsPage() {
                   className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[11px] font-black transition ${
                     active
                       ? 'border-[#17155f] bg-[#17155f] text-white'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#28256d]/30'
+                      : 'dh-notification-filter'
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -496,14 +496,14 @@ export default function AccountNotificationsPage() {
             })}
           </nav>
 
-          <section className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <section className="dh-notification-surface mt-3 overflow-hidden rounded-2xl border shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5 sm:px-4">
-              <p className="text-xs font-black text-[#17155f]">{activeFilterLabel} updates</p>
+              <p className="dh-notification-title text-xs font-black">{activeFilterLabel} updates</p>
               <button
                 type="button"
                 onClick={() => void loadNotifications()}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-black text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                className="dh-notification-body inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-black hover:bg-slate-50 disabled:opacity-50"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
@@ -521,8 +521,8 @@ export default function AccountNotificationsPage() {
             ) : error ? (
               <div className="p-8 text-center">
                 <CircleAlert className="mx-auto h-7 w-7 text-amber-600" />
-                <p className="mt-3 text-sm font-black text-[#17155f]">Updates are reconnecting</p>
-                <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">{error}</p>
+                <p className="dh-notification-title mt-3 text-sm font-black">Updates are reconnecting</p>
+                <p className="dh-notification-body mx-auto mt-1 max-w-md text-xs leading-5">{error}</p>
                 <Button onClick={() => void loadNotifications()} className="mt-4 rounded-xl bg-[#17155f] text-xs font-black">
                   Try again
                 </Button>
@@ -539,8 +539,8 @@ export default function AccountNotificationsPage() {
             ) : (
               <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
                 <PackageCheck className="h-8 w-8 text-[#28256d]" />
-                <p className="mt-3 font-display text-lg font-black text-[#17155f]">Nothing here right now</p>
-                <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+                <p className="dh-notification-title mt-3 font-display text-lg font-black">Nothing here right now</p>
+                <p className="dh-notification-body mt-1 max-w-sm text-xs leading-5">
                   You are caught up in this category. New marketplace activity will appear automatically.
                 </p>
               </div>
@@ -548,7 +548,7 @@ export default function AccountNotificationsPage() {
           </section>
 
           {totalPages > 1 && (
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-2">
+            <div className="dh-notification-surface mt-3 flex items-center justify-between rounded-xl border p-2">
               <Button
                 type="button"
                 variant="ghost"

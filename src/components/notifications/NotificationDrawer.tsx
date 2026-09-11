@@ -37,42 +37,42 @@ const categoryPresentation: Record<
   orders: {
     label: 'Order',
     icon: ShoppingBag,
-    tone: 'bg-indigo-50 text-indigo-700',
+    tone: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-200',
   },
   payments: {
     label: 'Payment',
     icon: CreditCard,
-    tone: 'bg-amber-50 text-amber-800',
+    tone: 'bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200',
   },
   delivery: {
     label: 'Delivery',
     icon: Truck,
-    tone: 'bg-emerald-50 text-emerald-700',
+    tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-200',
   },
   messages: {
     label: 'Message',
     icon: MessageCircle,
-    tone: 'bg-violet-50 text-violet-700',
+    tone: 'bg-violet-50 text-violet-700 dark:bg-violet-950/70 dark:text-violet-200',
   },
   support: {
     label: 'Support',
     icon: Headphones,
-    tone: 'bg-rose-50 text-rose-700',
+    tone: 'bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-200',
   },
   account: {
     label: 'Account',
     icon: UserRound,
-    tone: 'bg-slate-100 text-slate-700',
+    tone: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
   },
   offers: {
     label: 'Offer',
     icon: Sparkles,
-    tone: 'bg-orange-50 text-orange-700',
+    tone: 'bg-orange-50 text-orange-700 dark:bg-orange-950/70 dark:text-orange-200',
   },
   marketplace: {
     label: 'Marketplace',
     icon: Bell,
-    tone: 'bg-blue-50 text-blue-700',
+    tone: 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-200',
   },
 }
 
@@ -124,12 +124,12 @@ function NotificationRow({
         )}
 
         {!notification.readAt && (
-          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#ffad32] ring-2 ring-white" />
+          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#ffad32] ring-2 ring-white dark:ring-slate-950" />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.11em] text-slate-400">
+        <div className="dh-notification-meta flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.11em]">
           <span>{presentation.label}</span>
           <span aria-hidden="true">·</span>
           <time>{relativeTime(notification.createdAt)}</time>
@@ -140,24 +140,24 @@ function NotificationRow({
           )}
         </div>
 
-        <p className="mt-1 line-clamp-2 text-[13px] font-black leading-4.5 text-[#17155f]">
+        <p className="dh-notification-title mt-1 line-clamp-2 text-[13px] font-black leading-4.5">
           {notification.title}
         </p>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
+        <p className="dh-notification-body mt-1 line-clamp-2 text-[11px] leading-4">
           {notification.body}
         </p>
       </div>
 
       {notification.actionUrl && (
-        <ChevronRight className="mt-4 h-4 w-4 shrink-0 text-slate-300" />
+        <ChevronRight className="dh-notification-subtle mt-4 h-4 w-4 shrink-0" />
       )}
     </>
   )
 
   return (
     <article
-      className={`group relative border-b border-slate-100 px-3 py-3 transition ${
-        notification.readAt ? 'bg-white' : 'bg-[#fbfbff]'
+      className={`dh-notification-item group relative border-b px-3 py-3 transition ${
+        notification.readAt ? 'dh-notification-item-read' : 'dh-notification-item-unread'
       }`}
     >
       {notification.actionUrl ? (
@@ -181,7 +181,7 @@ function NotificationRow({
       <button
         type="button"
         onClick={onArchive}
-        className="absolute bottom-2.5 right-2.5 rounded-lg p-1.5 text-slate-300 opacity-100 transition hover:bg-slate-100 hover:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+        className="dh-notification-subtle absolute bottom-2.5 right-2.5 rounded-lg p-1.5 opacity-100 transition hover:bg-slate-100 hover:text-slate-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
         aria-label={`Archive ${notification.title}`}
       >
         <Archive className="h-3.5 w-3.5" />
@@ -216,20 +216,20 @@ export default function NotificationDrawer({
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && closeNotifications()}>
       <SheetContent
-        className="w-full gap-0 overflow-hidden border-l-slate-200 p-0 sm:max-w-[430px]"
+        className="dh-notification-panel w-full gap-0 overflow-hidden p-0 sm:max-w-[430px]"
         style={{
           top: `${Math.max(0, headerOffset)}px`,
           bottom: 'auto',
           height: `calc(100dvh - ${Math.max(0, headerOffset)}px)`,
         }}
       >
-        <SheetHeader className="border-b border-slate-100 px-4 py-3 pr-12 text-left">
+        <SheetHeader className="dh-notification-divider border-b px-4 py-3 pr-12 text-left">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <SheetTitle className="font-display text-lg font-black text-[#17155f]">
+              <SheetTitle className="dh-notification-title font-display text-lg font-black">
                 Notifications
               </SheetTitle>
-              <SheetDescription className="text-[11px]">
+              <SheetDescription className="dh-notification-body text-[11px]">
                 {unreadCount > 0
                   ? `${unreadCount} update${unreadCount === 1 ? '' : 's'} need your attention`
                   : 'You are caught up'}
@@ -290,17 +290,17 @@ export default function NotificationDrawer({
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f0efff] text-[#28256d]">
                 <PackageCheck className="h-6 w-6" />
               </span>
-              <p className="mt-4 font-display text-lg font-black text-[#17155f]">
+              <p className="dh-notification-title mt-4 font-display text-lg font-black">
                 Nothing needs attention
               </p>
-              <p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">
+              <p className="dh-notification-body mt-1 max-w-xs text-xs leading-5">
                 Order, payment, delivery, support and marketplace updates will appear here.
               </p>
             </div>
           )}
         </div>
 
-        <footer className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-white p-3">
+        <footer className="dh-notification-footer grid grid-cols-2 gap-2 border-t p-3">
           <Link
             to="/account/notifications"
             onClick={closeNotifications}
@@ -311,7 +311,7 @@ export default function NotificationDrawer({
           <Link
             to="/account/notifications?view=settings"
             onClick={closeNotifications}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-black text-[#28256d] hover:bg-slate-50"
+            className="dh-notification-secondary-action inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-black"
           >
             <Settings2 className="h-3.5 w-3.5" />
             Preferences

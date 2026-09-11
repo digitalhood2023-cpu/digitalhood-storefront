@@ -646,7 +646,7 @@ function ProductContextCard({
   )
 
   return (
-    <div className="mb-1 overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
+    <div className="dh-chat-context-card mb-1 overflow-hidden rounded-xl border text-left shadow-sm">
       {productReference ? (
         <Link to={`/product/${encodeURIComponent(productReference)}`} className="block transition hover:bg-slate-50" aria-label={`View ${name}`}>
           {card}
@@ -794,7 +794,7 @@ function OrderContextCard({
       )
 
   return (
-    <div className="mb-1 overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm">
+    <div className="dh-chat-context-card mb-1 overflow-hidden rounded-xl border text-left shadow-sm">
       <div className="border-b border-slate-100 p-2">
         <div className="flex items-start gap-2">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-dh-secondary/15 text-dh-primary">
@@ -3134,7 +3134,7 @@ export default function AccountMessagesPage() {
   }
 
   return (
-    <div className="flex min-h-[100svh] flex-col bg-dh-gray">
+    <div className="dh-chat-page flex min-h-[100svh] flex-col">
       <Header />
 
       <main className="py-1.5 lg:py-2">
@@ -3168,15 +3168,15 @@ export default function AccountMessagesPage() {
             </div>
           )}
 
-          <div className="grid h-[calc(100dvh-7.25rem)] min-h-[440px] max-h-[1100px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg md:h-[calc(100dvh-10.5rem)] md:grid-cols-[280px_minmax(0,1fr)] lg:h-[calc(100dvh-8rem)] xl:grid-cols-[310px_minmax(0,1fr)]">
+          <div className="dh-chat-shell grid h-[calc(100dvh-7.25rem)] min-h-[440px] max-h-[1100px] overflow-hidden rounded-xl border shadow-lg md:h-[calc(100dvh-10.5rem)] md:grid-cols-[280px_minmax(0,1fr)] lg:h-[calc(100dvh-8rem)] xl:grid-cols-[310px_minmax(0,1fr)]">
             <aside
-              className={`border-r border-slate-100 ${
+              className={`dh-chat-inbox border-r ${
                 conversationId
                   ? 'hidden md:flex'
                   : 'flex'
               } flex-col`}
             >
-              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
+              <div className="dh-chat-divider flex items-center justify-between border-b px-3 py-2.5">
                 <div>
                   <p className="font-display text-base font-black leading-tight text-dh-primary">
                     Conversations
@@ -3203,7 +3203,7 @@ export default function AccountMessagesPage() {
                 </button>
               </div>
 
-              <div className="border-b border-slate-100 px-2.5 py-2">
+              <div className="dh-chat-divider border-b px-2.5 py-2">
                 <label className="flex items-center gap-2 rounded-xl bg-dh-gray px-2.5 py-2">
                   <Search className="h-4 w-4 text-slate-400" />
 
@@ -3331,7 +3331,7 @@ export default function AccountMessagesPage() {
                 conversationId
                   ? 'flex'
                   : 'hidden md:flex'
-              } min-h-0 min-w-0 flex-col`}
+              } dh-chat-thread min-h-0 min-w-0 flex-col`}
             >
               {!conversationId ? (
                 <div className="flex flex-1 items-center justify-center p-8 text-center">
@@ -3349,7 +3349,7 @@ export default function AccountMessagesPage() {
                 </div>
               ) : (
                 <>
-                  <header className="flex items-center gap-2.5 border-b border-slate-100 px-3 py-2.5">
+                  <header className="dh-chat-header flex items-center gap-2.5 border-b px-3 py-2.5">
                     <button
                       type="button"
                       onClick={() =>
@@ -3443,7 +3443,7 @@ export default function AccountMessagesPage() {
                           void loadOlderMessages()
                         }
                       }}
-                      className="chat-wallpaper h-full overflow-y-auto p-2 sm:p-2.5"
+                      className="chat-wallpaper dh-chat-canvas h-full overflow-y-auto p-2 sm:p-2.5"
                     >
                     {isLoadingMessages ? (
                       <div className="flex h-full min-h-64 items-center justify-center">
@@ -3513,7 +3513,7 @@ export default function AccountMessagesPage() {
                             const dateSeparator =
                               showDateSeparator ? (
                                 <div className="flex items-center justify-center py-0.5">
-                                  <span className="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                                  <span className="dh-chat-date-separator rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide">
                                     {formatMessageDate(
                                       message.createdAt
                                     )}
@@ -3529,7 +3529,7 @@ export default function AccountMessagesPage() {
                                 >
                                   {dateSeparator}
 
-                                  <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-[11px] font-semibold leading-4 text-slate-500">
+                                  <div className="dh-chat-system-message mx-auto max-w-2xl rounded-xl border px-3 py-2 text-center text-[11px] font-semibold leading-4">
                                     {message.text}
                                   </div>
                                 </div>
@@ -3561,8 +3561,8 @@ export default function AccountMessagesPage() {
                                 <div
                                   className={`max-w-[84%] rounded-xl border px-2.5 py-1 shadow-sm sm:max-w-[68%] ${
                                     isBuyer
-                                      ? 'rounded-br-md border-indigo-950 bg-[#312e81] text-white'
-                                      : 'rounded-bl-md border-slate-200 bg-white text-slate-950'
+                                      ? 'dh-chat-bubble-outgoing rounded-br-md'
+                                      : 'dh-chat-bubble-incoming rounded-bl-md'
                                   }`}
                                 >
                                   {!message.deleted &&
@@ -3873,7 +3873,7 @@ export default function AccountMessagesPage() {
                     onSubmit={
                       handleSend
                     }
-                    className="border-t border-slate-100 bg-white p-1.5 sm:p-2"
+                    className="dh-chat-composer border-t p-1.5 sm:p-2"
                   >
                     {(replyingTo ||
                       editingMessage) && (
@@ -4238,7 +4238,7 @@ export default function AccountMessagesPage() {
                               : 'Write a message...'
                         }
                         rows={1}
-                        className="min-h-10 max-h-28 flex-1 resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 font-sans text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
+                        className="dh-chat-input min-h-10 max-h-28 flex-1 resize-y rounded-xl border px-3 py-2 font-sans text-sm font-medium outline-none transition focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
                       />
 
                       <button
