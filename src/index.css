@@ -197,6 +197,173 @@ html[data-theme='dark'] .dh-recently-viewed {
   background: #0d1420 !important;
 }
 
+.dh-home-hero {
+  border-color: #e6e8f0;
+  color: #171743;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(255, 181, 74, 0.23), transparent 32%),
+    linear-gradient(135deg, #fffdf8 0%, #f7f8ff 58%, #fff8ec 100%);
+}
+
+.dh-home-hero-grid {
+  color: rgba(38, 36, 140, 0.055);
+  opacity: 1;
+}
+
+.dh-home-hero-glow {
+  background: rgba(255, 181, 74, 0.22);
+}
+
+.dh-home-hero-glow-secondary {
+  background: rgba(68, 87, 221, 0.08);
+}
+
+.dh-home-hero-eyebrow {
+  border-color: rgba(154, 91, 0, 0.18);
+  color: #925700;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.dh-home-hero-title {
+  color: #171743;
+}
+
+.dh-home-hero-title-accent,
+.dh-home-hero-eyebrow-text {
+  color: #a56100;
+}
+
+.dh-home-hero-copy,
+.dh-home-hero-muted {
+  color: #5e687a;
+}
+
+.dh-home-hero-secondary {
+  border-color: rgba(38, 36, 140, 0.22);
+  color: #26248c;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.dh-home-hero-secondary:hover {
+  border-color: rgba(38, 36, 140, 0.42);
+  color: #1e1c72;
+  background: #ffffff;
+}
+
+.dh-home-hero-chip {
+  border-color: rgba(38, 36, 140, 0.16);
+  color: #3e4960;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.dh-home-hero-chip:hover {
+  border-color: rgba(154, 91, 0, 0.42);
+  color: #8a5200;
+  background: #fff6e7;
+}
+
+.dh-home-hero-showcase {
+  border-color: rgba(38, 36, 140, 0.13);
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 24px 60px rgba(36, 37, 78, 0.14);
+}
+
+.dh-home-hero-link {
+  color: #4f5870;
+}
+
+.dh-home-hero-link:hover {
+  color: #915600;
+}
+
+.dh-home-hero-empty {
+  border-color: rgba(38, 36, 140, 0.2);
+  background: rgba(255, 255, 255, 0.54);
+}
+
+html[data-theme='dark'] .dh-home-hero {
+  border-color: #202c3e;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(255, 181, 74, 0.2), transparent 34%),
+    linear-gradient(135deg, #07111f 0%, #0b1728 58%, #11172a 100%);
+}
+
+html[data-theme='dark'] .dh-home-hero-grid {
+  color: rgba(255, 255, 255, 0.055);
+}
+
+html[data-theme='dark'] .dh-home-hero-glow {
+  background: rgba(255, 181, 74, 0.18);
+}
+
+html[data-theme='dark'] .dh-home-hero-glow-secondary {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+html[data-theme='dark'] .dh-home-hero-eyebrow {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffd18e;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .dh-home-hero-title {
+  color: #ffffff !important;
+}
+
+html[data-theme='dark'] .dh-home-hero-title-accent,
+html[data-theme='dark'] .dh-home-hero-eyebrow-text {
+  color: #ffbd5b;
+}
+
+html[data-theme='dark'] .dh-home-hero-copy {
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .dh-home-hero-muted,
+html[data-theme='dark'] .dh-home-hero-link {
+  color: #9eacc0;
+}
+
+html[data-theme='dark'] .dh-home-hero-link:hover {
+  color: #ffd18e;
+}
+
+html[data-theme='dark'] .dh-home-hero-secondary {
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='dark'] .dh-home-hero-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+html[data-theme='dark'] .dh-home-hero-chip {
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #d7dfeb;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='dark'] .dh-home-hero-chip:hover {
+  border-color: rgba(255, 181, 74, 0.58);
+  color: #ffd18e;
+  background: rgba(255, 181, 74, 0.1);
+}
+
+html[data-theme='dark'] .dh-home-hero-showcase {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 24px 65px rgba(0, 0, 0, 0.32);
+}
+
+html[data-theme='dark'] .dh-home-hero-empty {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 html[data-theme='dark'] :is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-white\/80, .bg-white\/70, .bg-gray-50, .bg-slate-50, .bg-slate-50\/80, .bg-slate-50\/70, .bg-\[\#fbfbff\], .bg-\[\#fbfbfc\], .bg-\[\#fafbfc\], .bg-\[\#f6f7fb\], .bg-\[\#f3f4f8\]) {
   background-color: #111827 !important;
 }
