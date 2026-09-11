@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .disc { fill: #fff; stroke: #d9dee7; }
+    .mark { fill: none; stroke: #090b0f; }
+    @media (prefers-color-scheme: dark) {
+      .disc { fill: #090d16; stroke: #354156; }
+      .mark { stroke: #f8fafc; }
+    }
+  </style>
+  <circle class="disc" cx="32" cy="32" r="30.5" stroke-width="3"/>
+  <path class="mark" d="M11 45.5 29.5 13h6L54 45.5l-5.5 7H15.7l-4.7-7Z" stroke-width="4.4" stroke-linejoin="round"/>
+  <path class="mark" d="m21.5 43 11-20 13.3 25.5H13.2" stroke-width="4.4" stroke-linejoin="round"/>
+  <path class="mark" d="M27.5 39h11" stroke-width="4.4" stroke-linecap="round"/>
+</svg>

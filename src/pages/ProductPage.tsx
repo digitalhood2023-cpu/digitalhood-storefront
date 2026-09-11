@@ -26,6 +26,7 @@ import {
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 import RecentlyViewed from '@/sections/RecentlyViewed'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -150,6 +151,7 @@ function getProductSellerDisplay(
   return {
     storeName,
     sellerUrl,
+    isOfficialDigitalHood,
     verified: Boolean(product.sellerVerified || product.seller?.verified || isOfficialDigitalHood),
     avatarUrl: sellerAvatarUrl || (isOfficialDigitalHood ? '/logo.jpg' : ''),
     initials: getSellerInitials(storeName),
@@ -789,6 +791,7 @@ export default function ProductPage({
     : {
         storeName: '',
         sellerUrl: '',
+        isOfficialDigitalHood: false,
         verified: false,
         avatarUrl: '',
         initials: 'DH',
@@ -1408,7 +1411,7 @@ export default function ProductPage({
         <Header />
       )}
 
-      <main className="overflow-x-hidden pb-28 pt-4 lg:pb-16 lg:pt-6">
+      <main className="overflow-x-hidden pb-4 pt-4 lg:pb-6 lg:pt-6">
 
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           {isLoading ? (
@@ -1542,7 +1545,9 @@ export default function ProductPage({
                         className="flex min-w-0 items-center gap-2.5"
                       >
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-black text-dh-primary shadow-sm">
-                          {sellerDisplay.avatarUrl ? (
+                          {sellerDisplay.isOfficialDigitalHood ? (
+                            <DigitalHoodMark className="h-full w-full border-0 shadow-none" />
+                          ) : sellerDisplay.avatarUrl ? (
                             <img
                               src={sellerDisplay.avatarUrl}
                               alt={sellerDisplay.storeName}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 
 import SEO from '@/components/SEO'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 import SellerStoreSearchAutocomplete from '@/components/search/SellerStoreSearchAutocomplete'
 import {
   SellerDomainCommerceFooter,
@@ -516,8 +517,10 @@ export default function SellerDomainStorefrontPage({ hostname }: { hostname: str
         >
           <div className="flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/25 bg-white/10 sm:h-14 sm:w-14">
-                {seller.profilePhotoUrl ? (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/10 sm:h-14 sm:w-14">
+                {String(seller.key || '').toLowerCase() === 'digitalhood' ? (
+                  <DigitalHoodMark className="h-full w-full border-0 shadow-none" />
+                ) : seller.profilePhotoUrl ? (
                   <img src={seller.profilePhotoUrl} alt={seller.storeName} className="h-full w-full object-cover" />
                 ) : (
                   <Store className="h-6 w-6 text-[#ffb54a]" />

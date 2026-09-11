@@ -12,6 +12,7 @@ import {
   Twitter,
   Youtube,
 } from 'lucide-react'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 
 const shopLinks = [
   { name: 'Shop', href: '/shop' },
@@ -121,7 +122,7 @@ export default function Footer() {
           <div className="grid gap-5 sm:grid-cols-[1.25fr_0.65fr_0.8fr_1fr] sm:gap-7">
             <div>
               <Link to="/" className="inline-flex items-center gap-2.5">
-                <img src="/logo.jpg" alt="DigitalHood" className="h-10 w-10 rounded-xl bg-white object-contain p-1" />
+                <DigitalHoodMark className="h-10 w-10" />
                 <div>
                   <p className="font-display text-xl font-black leading-none">Digital<span className="text-[#ffb54a]">Hood</span></p>
                   <p className="mt-1 text-[10px] font-bold text-[#ffb54a]">Marketplace Zambia</p>

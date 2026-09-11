@@ -23,6 +23,10 @@ const pointZoom = read('src/hooks/usePointZoom.ts')
 const chatLightbox = read('src/components/chat/ChatImageLightbox.tsx')
 const themeContext = read('src/context/ThemeContext.tsx')
 const globalStyles = read('src/index.css')
+const brandMark = read('src/components/DigitalHoodMark.tsx')
+const recentlyViewed = read('src/sections/RecentlyViewed.tsx')
+const recentlyViewedPage = read('src/pages/RecentlyViewedPage.tsx')
+const favicon = read('public/favicon.svg')
 const woocommerce = read('src/lib/woocommerce.ts')
 const shop = read('src/pages/ShopPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
@@ -65,6 +69,21 @@ assert(
     html.includes('digitalhood-theme-preference-v1') &&
     globalStyles.includes("html[data-theme='dark']"),
   'system-aware light/dark appearance and the manual override must remain available'
+)
+assert(
+  brandMark.includes('dh-brand-mark') &&
+    globalStyles.includes("html[data-theme='dark'] .dh-brand-mark-image") &&
+    html.includes('href="/favicon.svg"') &&
+    favicon.includes('prefers-color-scheme: dark'),
+  'the DigitalHood mark and browser icon must remain circular and appearance-aware'
+)
+assert(
+  recentlyViewed.includes('dh-recently-viewed') &&
+    recentlyViewed.includes('snap-mandatory') &&
+    recentlyViewedPage.includes("viewMode === 'grid'") &&
+    recentlyViewedPage.includes('Clear history') &&
+    shop.includes('<RecentlyViewed />'),
+  'recently viewed must retain one compact reusable rail and a compact history manager'
 )
 
 const summaryIndex = checkout.indexOf('Order Summary')

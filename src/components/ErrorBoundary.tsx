@@ -1,5 +1,6 @@
 import React from 'react';
 import { SITE } from '@/lib/site';
+import DigitalHoodMark from '@/components/DigitalHoodMark';
 
 type State = { hasError: boolean; error?: Error };
 
@@ -20,7 +21,7 @@ export default class ErrorBoundary extends React.Component<React.PropsWithChildr
     return (
       <main className="min-h-screen bg-white flex items-center justify-center px-6 py-16">
         <div className="max-w-lg text-center">
-          <img src="/logo.jpg" alt="DigitalHood" className="mx-auto h-16 w-16 object-contain mb-6" />
+          <DigitalHoodMark className="mx-auto mb-6 h-16 w-16" />
           <h1 className="text-3xl font-bold text-black mb-3">Something went wrong</h1>
           <p className="text-gray-600 mb-6">
             The storefront failed to load correctly. Please refresh the page, or contact DigitalHood support if it continues.

@@ -23,6 +23,7 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
 import SellerStoreSearchAutocomplete from '@/components/search/SellerStoreSearchAutocomplete'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -714,8 +715,10 @@ export default function SellerStorePage() {
                     </a>
                   )}
                   <div className="absolute inset-x-0 bottom-0 flex min-w-0 items-end gap-2.5 p-2.5 sm:gap-3 sm:p-3">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/90 bg-dh-primary shadow-md sm:h-16 sm:w-16">
-                        {seller.profilePhotoUrl ? (
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/90 bg-dh-primary shadow-md sm:h-16 sm:w-16">
+                        {String(seller.key || sellerKey || '').toLowerCase() === 'digitalhood' ? (
+                          <DigitalHoodMark className="h-full w-full border-0 shadow-none" />
+                        ) : seller.profilePhotoUrl ? (
                           <img
                             src={seller.profilePhotoUrl}
                             alt={seller.storeName}

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import Header from '@/sections/Header';
+import RecentlyViewed from '@/sections/RecentlyViewed';
 import { useBackButtonDismiss } from '@/hooks/useBackButtonDismiss';
 import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import {
@@ -32,7 +33,6 @@ import StockBadge from '@/components/StockBadge';
 import SearchAutocomplete from '@/components/search/SearchAutocomplete';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cartStore';
-import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import { useWishlist } from '@/context/WishlistContext';
 import {
   fetchWooCategories,
@@ -410,7 +410,6 @@ export default function ShopPage() {
 
   const addItem = useCartStore((state) => state.addItem);
   const { toggleWishlist, isInWishlist } = useWishlist();
-  const { items: recentlyViewedItems, hasItems: hasRecentlyViewedItems } = useRecentlyViewed();
   const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
   const hasCompletedInitialPageSyncRef = useRef(false);
@@ -2318,67 +2317,9 @@ export default function ShopPage() {
                   </div>
                 </div>
 
-                {hasRecentlyViewedItems && (
-                  <section className="mt-8 max-w-full overflow-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-5 md:p-6">
-                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                          Continue shopping
-                        </p>
-                        <h2 className="font-display text-2xl font-bold text-dh-primary">
-                          Recently viewed
-                        </h2>
-                        <p className="mt-1 text-sm text-dh-dark-gray">
-                          Pick up from products you checked earlier.
-                        </p>
-                      </div>
-
-                      <Link
-                        to="/recently-viewed"
-                        className="inline-flex items-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                      >
-                        View all
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </div>
-
-                    <div className="-mx-1 flex max-w-full snap-x gap-3 overflow-x-auto overscroll-x-contain px-1 pb-3 [scrollbar-width:thin] sm:gap-4">
-                      {recentlyViewedItems.slice(0, 10).map((item) => (
-                        <Link
-                          key={item.id}
-                          to={`/product/${item.slug || item.id}`}
-                          className="group w-[38vw] min-w-[132px] max-w-[158px] shrink-0 snap-start rounded-3xl border border-dh-light-gray bg-white p-2.5 transition-all hover:-translate-y-1 hover:border-dh-primary/20 hover:shadow-lg sm:w-44 sm:min-w-[176px] sm:max-w-[176px] sm:p-3"
-                        >
-                          <div className="aspect-square overflow-hidden rounded-2xl bg-dh-gray">
-                            <img
-                              src={getFastProductImage(item, 'card')}
-                              srcSet={getFastProductSrcSet(item)}
-                              sizes="(min-width: 1024px) 240px, 50vw"
-                              alt={item.name}
-                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              loading="lazy"
-                              onError={(event) => {
-                                advanceProductImageFallback(
-                                  event.currentTarget,
-                                  item,
-                                  'card'
-                                );
-                              }}
-                            />
-                          </div>
-
-                          <h3 className="mt-3 line-clamp-2 break-words text-xs font-semibold leading-snug text-dh-primary sm:text-sm">
-                            {item.name}
-                          </h3>
-
-                          <p className="mt-2 font-display text-base font-bold text-dh-primary">
-                            {formatPrice(Number(item.price || 0))}
-                          </p>
-                        </Link>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                <div className="mt-4 -mx-3 overflow-hidden rounded-2xl sm:mx-0">
+                  <RecentlyViewed />
+                </div>
               </>
             )}
           </div>
