@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   Camera,
   ImageUp,
+  Images,
   Loader2,
   Search,
   Sparkles,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/woocommerce'
 import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 import { saveMarketplaceSearch } from '@/lib/marketplaceBrowserState'
+import { prepareImageSearchFile } from '@/lib/imageSearch'
 
 type SearchAutocompleteProps = {
   compact?: boolean
@@ -50,7 +52,8 @@ export default function SearchAutocomplete({
 }: SearchAutocompleteProps) {
   const navigate = useNavigate()
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
 
   const [query, setQuery] = useState(initialValue)
   const [suggestions, setSuggestions] = useState<SearchSuggestionProduct[]>([])
@@ -63,6 +66,8 @@ export default function SearchAutocomplete({
   const [imagePreview, setImagePreview] = useState('')
   const [imageHint, setImageHint] = useState('')
   const [imageMessage, setImageMessage] = useState('')
+  const [suggestionContextMessage, setSuggestionContextMessage] = useState('')
+  const [isPreparingImage, setIsPreparingImage] = useState(false)
   const [isImageSearching, setIsImageSearching] = useState(false)
 
   const trimmedQuery = query.trim()
@@ -106,6 +111,11 @@ export default function SearchAutocomplete({
   }, [imageFile])
 
   useEffect(() => {
+    if (suggestionContextMessage) {
+      setIsLoading(false)
+      return
+    }
+
     if (trimmedQuery.length < 2) {
       setSuggestions([])
       setDidYouMean('')
@@ -141,10 +151,13 @@ export default function SearchAutocomplete({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [trimmedQuery])
+  }, [suggestionContextMessage, trimmedQuery])
 
   const submitSearch = (value = query) => {
     const cleaned = value.trim()
+
+    setIsOpen(false)
+    setSuggestionContextMessage('')
 
     if (!cleaned) {
       navigate('/shop')
@@ -152,7 +165,6 @@ export default function SearchAutocomplete({
     }
 
     saveSearchHistory(cleaned)
-    setIsOpen(false)
 
     if (onSearch) {
       onSearch(cleaned)
@@ -167,9 +179,33 @@ export default function SearchAutocomplete({
     submitSearch()
   }
 
+  const handleImageSelection = async (file: File | null) => {
+    if (!file) return
+
+    setIsPreparingImage(true)
+    setImageMessage('Optimising your photo for a quick search...')
+
+    try {
+      const preparedFile = await prepareImageSearchFile(file)
+      setImageFile(preparedFile)
+      setImageMessage(
+        `Photo ready · ${Math.max(1, Math.round(preparedFile.size / 1024))}KB`
+      )
+    } catch (error) {
+      setImageFile(null)
+      setImageMessage(
+        error instanceof Error
+          ? error.message
+          : 'That photo could not be prepared. Try another image.'
+      )
+    } finally {
+      setIsPreparingImage(false)
+    }
+  }
+
   const handleImageSearch = async () => {
     if (!imageFile) {
-      fileInputRef.current?.click()
+      cameraInputRef.current?.click()
       return
     }
 
@@ -184,6 +220,10 @@ export default function SearchAutocomplete({
       setImageMessage(
         response.message ||
           'Image search completed. Showing the closest marketplace matches.'
+      )
+      setSuggestionContextMessage(
+        response.message ||
+          'Showing the closest marketplace matches from your photo.'
       )
       setQuery(response.correctedQuery || response.query || imageHint)
       setIsOpen(true)
@@ -209,6 +249,7 @@ export default function SearchAutocomplete({
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
+            setSuggestionContextMessage('')
             setIsOpen(true)
           }}
           onFocus={() => {
@@ -243,21 +284,21 @@ export default function SearchAutocomplete({
       </form>
 
       {isImageSearchOpen && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[120] max-h-[min(38rem,calc(100vh-8rem))] overflow-y-auto overscroll-contain rounded-3xl border border-dh-light-gray bg-white shadow-2xl">
-          <div className="flex items-center justify-between border-b border-dh-light-gray p-4">
+        <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-[120] max-h-[min(38rem,calc(100dvh-7rem))] overflow-y-auto overscroll-contain rounded-3xl border border-dh-light-gray bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+          <div className="flex items-center justify-between border-b border-dh-light-gray p-4 dark:border-slate-700">
             <div>
-              <p className="font-display text-lg font-bold text-dh-primary">
+              <p className="font-display text-lg font-bold text-dh-primary dark:text-white">
                 Search by image
               </p>
-              <p className="text-xs text-dh-dark-gray">
-                Upload a product photo. Add a hint for stronger results.
+              <p className="text-xs text-dh-dark-gray dark:text-slate-300">
+                Take a clear photo or choose one from your gallery.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setIsImageSearchOpen(false)}
-              className="rounded-full p-2 hover:bg-dh-gray"
+              className="rounded-full p-2 text-dh-primary hover:bg-dh-gray dark:text-white dark:hover:bg-slate-800"
               aria-label="Close image search"
             >
               <X className="h-4 w-4" />
@@ -266,23 +307,60 @@ export default function SearchAutocomplete({
 
           <div className="p-4">
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept="image/*"
+              capture="environment"
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0] || null
-                setImageFile(file)
-                setImageMessage('')
+                event.currentTarget.value = ''
+                void handleImageSelection(file)
               }}
             />
 
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null
+                event.currentTarget.value = ''
+                void handleImageSelection(file)
+              }}
+            />
+
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={isPreparingImage || isImageSearching}
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-dh-primary px-3 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary disabled:opacity-50"
+              >
+                <Camera className="h-4 w-4" />
+                Take photo
+              </button>
+              <button
+                type="button"
+                disabled={isPreparingImage || isImageSearching}
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-dh-light-gray bg-white px-3 py-2.5 text-sm font-bold text-dh-primary transition-colors hover:bg-dh-gray disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+              >
+                <Images className="h-4 w-4" />
+                Gallery
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-dh-light-gray bg-dh-gray/50 p-5 text-center transition-colors hover:border-dh-primary"
+              disabled={isPreparingImage || isImageSearching}
+              onClick={() => galleryInputRef.current?.click()}
+              className="flex w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-dh-light-gray bg-dh-gray/50 p-5 text-center transition-colors hover:border-dh-primary disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900"
             >
-              {imagePreview ? (
+              {isPreparingImage ? (
+                <Loader2 className="mb-3 h-10 w-10 animate-spin text-dh-primary dark:text-[#ffb54a]" />
+              ) : imagePreview ? (
                 <img
                   src={imagePreview}
                   alt="Selected search preview"
@@ -292,11 +370,15 @@ export default function SearchAutocomplete({
                 <ImageUp className="mb-3 h-10 w-10 text-dh-primary" />
               )}
 
-              <span className="font-bold text-dh-primary">
-                {imageFile ? imageFile.name : 'Choose product image'}
+              <span className="font-bold text-dh-primary dark:text-white">
+                {isPreparingImage
+                  ? 'Preparing photo...'
+                  : imageFile
+                    ? 'Photo selected'
+                    : 'Choose a product photo'}
               </span>
-              <span className="mt-1 text-xs text-dh-dark-gray">
-                JPG, PNG, WEBP or GIF. Max 8MB.
+              <span className="mt-1 text-xs text-dh-dark-gray dark:text-slate-300">
+                Large phone photos are compressed before upload.
               </span>
             </button>
 
@@ -305,30 +387,30 @@ export default function SearchAutocomplete({
               value={imageHint}
               onChange={(event) => setImageHint(event.target.value)}
               placeholder="Optional hint e.g. iPhone case, Samsung charger..."
-              className="mt-3 h-11 w-full rounded-full border border-dh-light-gray px-4 text-sm outline-none focus:border-dh-primary"
+              className="mt-3 h-11 w-full rounded-full border border-dh-light-gray bg-white px-4 text-sm text-dh-primary outline-none placeholder:text-gray-400 focus:border-dh-primary dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
             />
 
             {imageMessage && (
-              <p className="mt-3 rounded-2xl bg-[#fff7e8] p-3 text-xs font-semibold text-dh-primary">
+              <p aria-live="polite" className="mt-3 rounded-2xl bg-[#fff7e8] p-3 text-xs font-semibold text-dh-primary dark:bg-amber-950/50 dark:text-amber-100">
                 {imageMessage}
               </p>
             )}
 
             <button
               type="button"
-              disabled={isImageSearching}
+              disabled={isImageSearching || isPreparingImage}
               onClick={handleImageSearch}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-dh-primary px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary disabled:cursor-not-allowed disabled:bg-gray-300"
             >
               {isImageSearching ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Searching image...
+                  Finding similar products...
                 </>
               ) : (
                 <>
                   <Camera className="h-4 w-4" />
-                  Search with image
+                  Find similar products
                 </>
               )}
             </button>
@@ -337,7 +419,7 @@ export default function SearchAutocomplete({
       )}
 
       {isOpen && !isImageSearchOpen && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[110] max-h-[min(38rem,calc(100vh-8rem))] overflow-hidden rounded-3xl border border-dh-light-gray bg-white shadow-2xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[110] max-h-[min(38rem,calc(100vh-8rem))] overflow-hidden rounded-3xl border border-dh-light-gray bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
           {trimmedQuery.length < 2 && suggestions.length === 0 ? (
             <div className="p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
@@ -366,6 +448,13 @@ export default function SearchAutocomplete({
             </div>
           ) : (
             <>
+              {suggestionContextMessage && (
+                <div aria-live="polite" className="flex items-start gap-2 border-b border-dh-light-gray bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900 dark:border-slate-700 dark:bg-emerald-950/50 dark:text-emerald-100">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{suggestionContextMessage}</span>
+                </div>
+              )}
+
               {didYouMean && (
                 <button
                   type="button"
@@ -373,7 +462,7 @@ export default function SearchAutocomplete({
                     setQuery(didYouMean)
                     submitSearch(didYouMean)
                   }}
-                  className="flex w-full items-center gap-2 border-b border-dh-light-gray bg-[#fff7e8] px-4 py-3 text-left text-sm font-semibold text-dh-primary"
+                  className="flex w-full items-center gap-2 border-b border-dh-light-gray bg-[#fff7e8] px-4 py-3 text-left text-sm font-semibold text-dh-primary dark:border-slate-700 dark:bg-amber-950/50 dark:text-amber-100"
                 >
                   <Sparkles className="h-4 w-4 text-[#ffb54a]" />
                   Did you mean <span className="font-black">{didYouMean}</span>?
@@ -389,10 +478,11 @@ export default function SearchAutocomplete({
                       onClick={() => {
                         saveSearchHistory(trimmedQuery)
                         setIsOpen(false)
+                        setSuggestionContextMessage('')
                       }}
-                      className="flex gap-3 rounded-2xl p-2 transition-colors hover:bg-dh-gray"
+                      className="flex gap-3 rounded-2xl p-2 transition-colors hover:bg-dh-gray dark:hover:bg-slate-800"
                     >
-                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-dh-gray">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-dh-gray dark:bg-slate-800">
                         <img
                           src={getFastProductImage(product, 'thumb')}
                           srcSet={getFastProductSrcSet(product)}
@@ -409,20 +499,20 @@ export default function SearchAutocomplete({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-sm font-bold leading-snug text-dh-primary">
+                        <p className="line-clamp-2 text-sm font-bold leading-snug text-dh-primary dark:text-white">
                           {product.name}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className="font-display text-sm font-bold text-dh-primary">
+                          <span className="font-display text-sm font-bold text-dh-primary dark:text-white">
                             {formatPrice(product.price)}
                           </span>
                           {product.category?.name && (
-                            <span className="rounded-full bg-dh-gray px-2 py-0.5 text-[11px] font-semibold text-dh-dark-gray">
+                            <span className="rounded-full bg-dh-gray px-2 py-0.5 text-[11px] font-semibold text-dh-dark-gray dark:bg-slate-800 dark:text-slate-200">
                               {product.category.name}
                             </span>
                           )}
                           {product.stock_label && (
-                            <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                            <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:bg-emerald-950/60 dark:text-emerald-200">
                               {product.stock_label}
                             </span>
                           )}
@@ -433,22 +523,22 @@ export default function SearchAutocomplete({
                 </div>
               ) : (
                 <div className="p-4">
-                  <p className="font-semibold text-dh-primary">
+                  <p className="font-semibold text-dh-primary dark:text-white">
                     No quick suggestions found
                   </p>
-                  <p className="mt-1 text-sm text-dh-dark-gray">
+                  <p className="mt-1 text-sm text-dh-dark-gray dark:text-slate-300">
                     Press Search to check the full marketplace.
                   </p>
                 </div>
               )}
 
-              <div className="border-t border-dh-light-gray p-2">
+              <div className="border-t border-dh-light-gray p-2 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => submitSearch()}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-dh-primary px-4 py-3 text-sm font-bold text-white"
                 >
-                  Search all products
+                  {suggestionContextMessage ? 'See all similar products' : 'Search all products'}
                   <Search className="h-4 w-4" />
                 </button>
               </div>
