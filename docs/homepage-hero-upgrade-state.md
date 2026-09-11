@@ -1,6 +1,6 @@
 # Homepage hero upgrade state
 
-Status: implementation and validation complete; release in progress.
+Status: complete and released to `main`.
 
 ## Objective
 
@@ -23,7 +23,7 @@ Replace the permanently dark, oversized homepage hero with a compact DigitalHood
 - [x] Redundant feature strip is removed.
 - [x] Marketplace and store actions remain available.
 - [x] Popular-search and curated-product discovery remain available.
-- [ ] Production branch push completed.
+- [x] Production branch push completed.
 
 ## Validation record
 
@@ -33,3 +33,8 @@ Replace the permanently dark, oversized homepage hero with a compact DigitalHood
 - Desktop light appearance: visually verified.
 - Mobile light appearance: visually verified at 390 × 844.
 - Mobile dark appearance: visually verified at 390 × 844.
+
+## Release record
+
+- Feature commit: `fe691e5`
+- Merge commit: `382b5f8`
