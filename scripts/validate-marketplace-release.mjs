@@ -37,6 +37,8 @@ const woocommerce = read('src/lib/woocommerce.ts')
 const shop = read('src/pages/ShopPage.tsx')
 const searchAutocomplete = read('src/components/search/SearchAutocomplete.tsx')
 const imageSearch = read('src/lib/imageSearch.ts')
+const visualSearchResults = read('src/lib/visualSearchResults.ts')
+const visualSearchResultsPage = read('src/pages/VisualSearchResultsPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
 const notificationDrawer = read('src/components/notifications/NotificationDrawer.tsx')
 const notificationPage = read('src/pages/AccountNotificationsPage.tsx')
@@ -303,6 +305,20 @@ assert(
     woocommerce.includes('visual_matched_gallery_index') &&
     woocommerce.includes('isFallback: Boolean(data.isFallback)'),
   'image search must retain mobile camera/gallery actions, modern image formats, matched-gallery evidence, client compression, and useful result context'
+)
+assert(
+  searchAutocomplete.includes('saveVisualSearchResult(response)') &&
+    searchAutocomplete.includes('See all visual matches') &&
+    searchAutocomplete.includes("navigate(`/visual-search/${encodeURIComponent(visualSearchResult.id)}`") &&
+    !searchAutocomplete.includes('Choose a product photo') &&
+    appRouter.includes('path="/visual-search/:searchId"') &&
+    visualSearchResults.includes('window.sessionStorage') &&
+    visualSearchResults.includes('RESULT_TTL_MS = 30 * 60 * 1000') &&
+    visualSearchResults.includes('Boolean(product.visual_match_tier)') &&
+    visualSearchResults.includes('const resultFloor = bestScore >= 0.96') &&
+    visualSearchResultsPage.includes('Ranked by image similarity') &&
+    visualSearchResultsPage.includes('DigitalHood will only show products that actually passed visual matching here.'),
+  'image search must preserve bounded visual-only results on a dedicated page without falling through to text search'
 )
 assert(
   !shop.includes("import SearchAutocomplete") &&

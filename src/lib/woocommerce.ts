@@ -1458,6 +1458,21 @@ export type SearchSuggestionsResponse = {
   suggestions: SearchSuggestionProduct[];
 };
 
+export type ImageSearchResponse = SearchSuggestionsResponse & {
+  imageSearchMode?: string;
+  message?: string;
+  isFallback?: boolean;
+  visualMatchCount?: number;
+  visualMatchConfidence?: number;
+  visualComparedProducts?: number;
+  visualComparedImages?: number;
+  visualIndexedProducts?: number;
+  visualIndexedImages?: number;
+  visualIndexWarming?: boolean;
+  visualEmbeddingUsed?: boolean;
+  recommendations?: SearchSuggestionProduct[];
+};
+
 export async function fetchSearchSuggestions(
   query: string,
   limit = 8
@@ -1482,20 +1497,7 @@ export async function fetchSearchSuggestions(
 export async function searchProductsByImage(
   imageFile: File,
   hint = ''
-): Promise<SearchSuggestionsResponse & {
-  imageSearchMode?: string
-  message?: string
-  isFallback?: boolean
-  visualMatchCount?: number
-  visualMatchConfidence?: number
-  visualComparedProducts?: number
-  visualComparedImages?: number
-  visualIndexedProducts?: number
-  visualIndexedImages?: number
-  visualIndexWarming?: boolean
-  visualEmbeddingUsed?: boolean
-  recommendations?: SearchSuggestionProduct[]
-}> {
+): Promise<ImageSearchResponse> {
   const formData = new FormData();
 
   formData.append('image', imageFile);

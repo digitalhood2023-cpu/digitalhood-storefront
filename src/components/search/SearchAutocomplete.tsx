@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Camera,
-  ImageUp,
   Images,
   Loader2,
   Search,
@@ -19,6 +18,10 @@ import {
 import { getFastProductImage, getFastProductSrcSet, getProductImageSizes } from '@/lib/productImages'
 import { saveMarketplaceSearch } from '@/lib/marketplaceBrowserState'
 import { prepareImageSearchFile } from '@/lib/imageSearch'
+import {
+  saveVisualSearchResult,
+  type VisualSearchResult,
+} from '@/lib/visualSearchResults'
 
 type SearchAutocompleteProps = {
   compact?: boolean
@@ -70,6 +73,8 @@ export default function SearchAutocomplete({
   const [imageHint, setImageHint] = useState('')
   const [imageMessage, setImageMessage] = useState('')
   const [suggestionContextMessage, setSuggestionContextMessage] = useState('')
+  const [visualSearchResult, setVisualSearchResult] =
+    useState<VisualSearchResult | null>(null)
   const [isPreparingImage, setIsPreparingImage] = useState(false)
   const [isImageSearching, setIsImageSearching] = useState(false)
 
@@ -174,6 +179,7 @@ export default function SearchAutocomplete({
     setIsOpen(false)
     setIsTextFocused(false)
     setSuggestionContextMessage('')
+    setVisualSearchResult(null)
     setSuggestions([])
     setDidYouMean('')
     textInputRef.current?.blur()
@@ -233,8 +239,9 @@ export default function SearchAutocomplete({
 
     try {
       const response = await searchProductsByImage(imageFile, imageHint)
+      const visualResult = saveVisualSearchResult(response)
 
-      setSuggestions(response.suggestions || [])
+      setSuggestions(visualResult.products)
       setDidYouMean(response.didYouMean || '')
       setImageMessage(
         response.message ||
@@ -244,6 +251,7 @@ export default function SearchAutocomplete({
         response.message ||
           'Showing the closest marketplace matches from your photo.'
       )
+      setVisualSearchResult(visualResult)
       setQuery(response.correctedQuery || response.query || imageHint)
       suggestionRequestIdRef.current += 1
       setIsTextFocused(false)
@@ -260,6 +268,18 @@ export default function SearchAutocomplete({
     }
   }
 
+  const openVisualSearchResults = () => {
+    if (!visualSearchResult) return
+
+    suggestionRequestIdRef.current += 1
+    setIsOpen(false)
+    setIsTextFocused(false)
+    textInputRef.current?.blur()
+    navigate(`/visual-search/${encodeURIComponent(visualSearchResult.id)}`, {
+      state: { visualSearchResult },
+    })
+  }
+
   return (
     <div ref={wrapperRef} className={`relative w-full min-w-0 ${className}`}>
       <form onSubmit={handleSubmit} className={`flex w-full min-w-0 items-center gap-1 rounded-full border-2 border-gray-200 bg-white p-1 shadow-sm transition-colors focus-within:border-dh-primary ${compact ? "h-11" : "h-12"}`}>
@@ -272,6 +292,7 @@ export default function SearchAutocomplete({
           onChange={(event) => {
             setQuery(event.target.value)
             setSuggestionContextMessage('')
+            setVisualSearchResult(null)
             setIsTextFocused(true)
             setIsOpen(true)
           }}
@@ -376,35 +397,30 @@ export default function SearchAutocomplete({
               </button>
             </div>
 
-            <button
-              type="button"
-              disabled={isPreparingImage || isImageSearching}
-              onClick={() => galleryInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-dh-light-gray bg-dh-gray/50 p-5 text-center transition-colors hover:border-dh-primary disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900"
-            >
-              {isPreparingImage ? (
-                <Loader2 className="mb-3 h-10 w-10 animate-spin text-dh-primary dark:text-[#ffb54a]" />
-              ) : imagePreview ? (
-                <img
-                  src={imagePreview}
-                  alt="Selected search preview"
-                  className="mb-3 h-32 w-32 rounded-2xl object-cover"
-                />
-              ) : (
-                <ImageUp className="mb-3 h-10 w-10 text-dh-primary" />
-              )}
+            {(isPreparingImage || imagePreview) && (
+              <div className="flex items-center gap-3 rounded-2xl border border-dh-light-gray bg-dh-gray/50 p-3 dark:border-slate-700 dark:bg-slate-900">
+                {isPreparingImage ? (
+                  <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-white dark:bg-slate-800">
+                    <Loader2 className="h-6 w-6 animate-spin text-dh-primary dark:text-[#ffb54a]" />
+                  </span>
+                ) : (
+                  <img
+                    src={imagePreview}
+                    alt="Selected search preview"
+                    className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                  />
+                )}
 
-              <span className="font-bold text-dh-primary dark:text-white">
-                {isPreparingImage
-                  ? 'Preparing photo...'
-                  : imageFile
-                    ? 'Photo selected'
-                    : 'Choose a product photo'}
-              </span>
-              <span className="mt-1 text-xs text-dh-dark-gray dark:text-slate-300">
-                Large phone photos are compressed before upload.
-              </span>
-            </button>
+                <div className="min-w-0">
+                  <p className="font-bold text-dh-primary dark:text-white">
+                    {isPreparingImage ? 'Preparing photo...' : 'Photo ready'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-dh-dark-gray dark:text-slate-300">
+                    {imageMessage || 'Large phone photos are compressed before upload.'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <input
               type="text"
@@ -414,7 +430,7 @@ export default function SearchAutocomplete({
               className="mt-3 h-11 w-full rounded-full border border-dh-light-gray bg-white px-4 text-[16px] text-dh-primary outline-none placeholder:text-gray-400 focus:border-dh-primary dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
             />
 
-            {imageMessage && (
+            {imageMessage && !imagePreview && !isPreparingImage && (
               <p aria-live="polite" className="mt-3 rounded-2xl bg-[#fff7e8] p-3 text-xs font-semibold text-dh-primary dark:bg-amber-950/50 dark:text-amber-100">
                 {imageMessage}
               </p>
@@ -422,7 +438,7 @@ export default function SearchAutocomplete({
 
             <button
               type="button"
-              disabled={isImageSearching || isPreparingImage}
+              disabled={isImageSearching || isPreparingImage || !imageFile}
               onClick={handleImageSearch}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-dh-primary px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#ffb54a] hover:text-dh-primary disabled:cursor-not-allowed disabled:bg-gray-300"
             >
@@ -584,10 +600,16 @@ export default function SearchAutocomplete({
               <div className="border-t border-dh-light-gray p-2 dark:border-slate-700">
                 <button
                   type="button"
-                  onClick={() => submitSearch()}
+                  onClick={
+                    suggestionContextMessage && visualSearchResult
+                      ? openVisualSearchResults
+                      : () => submitSearch()
+                  }
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-dh-primary px-4 py-3 text-sm font-bold text-white"
                 >
-                  {suggestionContextMessage ? 'See all similar products' : 'Search all products'}
+                  {suggestionContextMessage && visualSearchResult
+                    ? 'See all visual matches'
+                    : 'Search all products'}
                   <Search className="h-4 w-4" />
                 </button>
               </div>
