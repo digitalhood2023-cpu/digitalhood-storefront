@@ -30,7 +30,6 @@ import {
 import Footer from '@/sections/Footer';
 import SEO from '@/components/SEO';
 import StockBadge from '@/components/StockBadge';
-import SearchAutocomplete from '@/components/search/SearchAutocomplete';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlist } from '@/context/WishlistContext';
@@ -40,7 +39,6 @@ import {
   type WooCategory,
   type WooProduct,
 } from '@/lib/woocommerce';
-import { saveMarketplaceSearch } from '@/lib/marketplaceBrowserState';
 import { acquireBodyScrollLock } from '@/lib/bodyScrollLock';
 import {
   getCategoryInsightLabel,
@@ -971,84 +969,6 @@ export default function ShopPage() {
     setSearchParams(params);
   };
 
-  const saveSearchHistory = (value: string) => {
-    saveMarketplaceSearch(value);
-  };
-
-  const submitShopSearch = (value = searchQuery) => {
-    const cleanedValue =
-      value.trim();
-
-    setSearchQuery(
-      cleanedValue
-    );
-
-    setSubmittedSearchQuery(
-      cleanedValue
-    );
-
-    setPage(1);
-
-    if (!cleanedValue) {
-      navigate('/shop');
-      return;
-    }
-
-    const params =
-      new URLSearchParams(
-        searchParams
-      );
-
-    params.set(
-      'q',
-      cleanedValue
-    );
-
-    params.delete('search');
-    params.delete('page');
-
-    const categorySlug =
-      selectedCategorySlug ||
-      categorySlugFromUrl;
-
-    if (categorySlug) {
-      params.set(
-        'category',
-        categorySlug
-      );
-    } else {
-      params.delete(
-        'category'
-      );
-    }
-
-    if (
-      sortBy !== 'featured'
-    ) {
-      params.set(
-        'sort',
-        sortBy
-      );
-    } else {
-      params.delete('sort');
-    }
-
-    if (onSaleFromUrl) {
-      params.set(
-        'on_sale',
-        'true'
-      );
-    }
-
-    navigate(
-      `/search?${params.toString()}`
-    );
-
-    saveSearchHistory(
-      cleanedValue
-    );
-  };
-
   const handleAllProductsClick = () => {
     setSelectedCategoryId(null);
     setPage(1);
@@ -1513,7 +1433,7 @@ export default function ShopPage() {
                     }}
                     placeholder="0"
                     aria-label="Minimum product price in kwacha"
-                    className="min-w-0 flex-1 bg-transparent text-sm font-bold text-dh-primary outline-none placeholder:text-dh-dark-gray/60"
+                    className="min-w-0 flex-1 bg-transparent text-base font-bold text-dh-primary outline-none placeholder:text-dh-dark-gray/60"
                   />
                 </span>
               </label>
@@ -1536,7 +1456,7 @@ export default function ShopPage() {
                     }}
                     placeholder="Any"
                     aria-label="Maximum product price in kwacha"
-                    className="min-w-0 flex-1 bg-transparent text-sm font-bold text-dh-primary outline-none placeholder:text-dh-dark-gray/60"
+                    className="min-w-0 flex-1 bg-transparent text-base font-bold text-dh-primary outline-none placeholder:text-dh-dark-gray/60"
                   />
                 </span>
               </label>
@@ -1632,7 +1552,7 @@ export default function ShopPage() {
 
       <Header />
 
-      <main className="overflow-x-hidden py-4 lg:py-6">
+      <main className="overflow-x-hidden py-2.5 sm:py-3 lg:py-4">
         <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <h1 className="sr-only">
             {selectedCategory
@@ -1642,19 +1562,15 @@ export default function ShopPage() {
                 : 'Shop products'}
           </h1>
 
-          <section className="mb-4 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
-            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-              <SearchAutocomplete
-                initialValue={searchQuery}
-                placeholder="Search products, brands, parts, accessories..."
-                onSearch={(value) => submitShopSearch(value)}
-              />
-
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:max-w-xl">
+          <nav
+            aria-label="Marketplace categories"
+            className="dh-shop-category-rail mb-2 overflow-hidden rounded-2xl border border-dh-light-gray bg-white px-2 py-2 shadow-sm"
+          >
+              <div className="flex snap-x snap-mandatory items-center gap-1.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   type="button"
                   onClick={handleAllProductsClick}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                  className={`h-8 shrink-0 snap-start rounded-full px-3 text-xs font-bold transition-all ${
                     selectedCategoryId === null
                       ? 'bg-dh-primary text-white shadow-sm'
                       : 'border border-dh-light-gray bg-white text-dh-primary hover:border-dh-primary'
@@ -1665,9 +1581,9 @@ export default function ShopPage() {
 
                 {categoriesLoading ? (
                   <>
-                    <div className="h-10 w-24 shrink-0 animate-pulse rounded-full bg-dh-gray" />
-                    <div className="h-10 w-28 shrink-0 animate-pulse rounded-full bg-dh-gray" />
-                    <div className="h-10 w-20 shrink-0 animate-pulse rounded-full bg-dh-gray" />
+                    <div className="h-8 w-24 shrink-0 animate-pulse rounded-full bg-dh-gray" />
+                    <div className="h-8 w-28 shrink-0 animate-pulse rounded-full bg-dh-gray" />
+                    <div className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-dh-gray" />
                   </>
                 ) : (
                   popularCategories.map((category, index) => (
@@ -1676,7 +1592,7 @@ export default function ShopPage() {
                       type="button"
                       onClick={() => handleCategoryClick(category)}
                       title={getCategoryInsightLabel(category, index)}
-                      className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                      className={`h-8 shrink-0 snap-start rounded-full px-3 text-xs font-bold transition-all ${
                         selectedCategoryId === category.id
                           ? 'bg-dh-primary text-white shadow-sm'
                           : 'border border-dh-light-gray bg-white text-dh-primary hover:border-dh-primary'
@@ -1692,33 +1608,14 @@ export default function ShopPage() {
 
                 <Link
                   to="/categories"
-                  className="shrink-0 rounded-full border border-dh-light-gray bg-dh-gray px-4 py-2 text-sm font-semibold text-dh-primary hover:border-dh-primary"
+                  className="inline-flex h-8 shrink-0 snap-start items-center rounded-full border border-dh-light-gray bg-dh-gray px-3 text-xs font-bold text-dh-primary hover:border-dh-primary"
                 >
                   More
                 </Link>
               </div>
-            </div>
-          </section>
+          </nav>
 
-          <section className="mb-4 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setShowMobileFilters(true)}
-              className="flex w-full items-center justify-between rounded-3xl bg-white p-4 font-semibold text-dh-primary shadow-sm"
-            >
-              <span className="inline-flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5" />
-                Filters
-                {activeSidebarFilterCount > 0 && (
-                  <span className="rounded-full bg-dh-secondary px-2 py-0.5 text-xs text-dh-primary">
-                    {activeSidebarFilterCount}
-                  </span>
-                )}
-              </span>
-
-              <span className="text-sm">Open</span>
-            </button>
-
+          <div className="lg:hidden">
             {showMobileFilters && (
               <div className="fixed inset-0 z-50 lg:hidden">
                 <button
@@ -1775,9 +1672,9 @@ export default function ShopPage() {
                 </aside>
               </div>
             )}
-          </section>
+          </div>
 
-          <div id="shop-results" className="shop-content grid max-w-full gap-5 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
+          <div id="shop-results" className="shop-content grid max-w-full gap-3 overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2 [scrollbar-width:thin]">
                 {FilterPanel}
@@ -1785,116 +1682,111 @@ export default function ShopPage() {
             </aside>
 
             <div className="min-w-0">
-            {activeFilterChips.length > 0 && (
-              <div className="mb-4 rounded-3xl bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-dh-dark-gray">
-                      Active filters
-                    </p>
+              <section className="dh-shop-control-bar mb-2 rounded-2xl border border-dh-light-gray bg-white p-2 shadow-sm">
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileFilters(true)}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-dh-light-gray px-2.5 text-xs font-bold text-dh-primary transition-colors hover:border-dh-primary lg:hidden"
+                    aria-label={`Open product filters${activeSidebarFilterCount ? `, ${activeSidebarFilterCount} active` : ''}`}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span>Filters</span>
+                    {activeSidebarFilterCount > 0 && (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-dh-secondary px-1 text-[10px] font-black text-dh-primary">
+                        {activeSidebarFilterCount}
+                      </span>
+                    )}
+                  </button>
 
-                    <div className="mt-2 flex flex-wrap gap-2">
+                  <p
+                    className="min-w-0 flex-1 truncate px-1 text-xs text-dh-dark-gray sm:text-sm"
+                    aria-label={`Showing ${sortedProducts.length} of ${totalProducts} ${selectedCategory ? selectedCategory.name : 'products'}`}
+                  >
+                    <span className="font-black text-dh-primary">{sortedProducts.length}</span>
+                    {' of '}
+                    <span className="font-black text-dh-primary">{totalProducts}</span>
+                    <span className="hidden md:inline">
+                      {' '}{selectedCategory ? selectedCategory.name : 'products'}
+                    </span>
+                  </p>
+
+                  <label className="min-w-0 shrink-0">
+                    <span className="sr-only">Sort products</span>
+                    <select
+                      value={sortBy}
+                      onChange={(event) => setSortBy(event.target.value as SortOption)}
+                      className="h-9 w-[7.25rem] rounded-full border border-dh-light-gray bg-white px-2 text-base font-semibold text-dh-primary focus:border-dh-primary focus:outline-none sm:w-auto sm:px-3"
+                      aria-label="Sort products"
+                    >
+                      <option value="featured">Featured</option>
+                      <option value="best-selling">Best Selling</option>
+                      <option value="rating">Highest Rated</option>
+                      <option value="price-low">Price: Low to High</option>
+                      <option value="price-high">Price: High to Low</option>
+                      <option value="newest">Newest Arrivals</option>
+                      <option value="trending">Trending</option>
+                    </select>
+                  </label>
+
+                  <div className="flex h-9 shrink-0 items-center overflow-hidden rounded-full border border-dh-light-gray">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={`flex h-full w-8 items-center justify-center transition-colors ${
+                        viewMode === 'grid'
+                          ? 'bg-dh-primary text-white'
+                          : 'text-dh-dark-gray hover:bg-dh-gray'
+                      }`}
+                      aria-label="Grid view"
+                    >
+                      <Grid3X3 className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={`flex h-full w-8 items-center justify-center transition-colors ${
+                        viewMode === 'list'
+                          ? 'bg-dh-primary text-white'
+                          : 'text-dh-dark-gray hover:bg-dh-gray'
+                      }`}
+                      aria-label="List view"
+                    >
+                      <List className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {activeFilterChips.length > 0 && (
+                  <div className="mt-2 flex min-w-0 items-center gap-1.5 border-t border-dh-light-gray pt-2">
+                    <div
+                      className="flex min-w-0 flex-1 snap-x items-center gap-1.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      aria-label="Active filters"
+                    >
                       {activeFilterChips.map((chip) => (
                         <button
                           key={chip.key}
                           type="button"
                           onClick={() => removeFilterChip(chip.key)}
-                          className="inline-flex items-center rounded-full bg-dh-gray px-3 py-2 text-xs font-bold text-dh-primary transition-colors hover:bg-dh-secondary/25"
+                          className="inline-flex h-7 shrink-0 snap-start items-center rounded-full bg-dh-gray px-2.5 text-[11px] font-bold text-dh-primary transition-colors hover:bg-dh-secondary/25"
                         >
                           {chip.label}
-                          <X className="ml-2 h-3.5 w-3.5" />
+                          <X className="ml-1 h-3 w-3" />
                         </button>
                       ))}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="h-7 shrink-0 rounded-full px-2 text-[11px] font-black text-dh-primary transition-colors hover:bg-dh-gray"
+                    >
+                      Clear all
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="inline-flex items-center justify-center rounded-full border border-dh-primary px-4 py-2 text-sm font-semibold text-dh-primary transition-colors hover:bg-dh-primary hover:text-white"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-4 shadow-sm">
-              <div>
-                <p className="text-sm text-dh-dark-gray">
-                  Showing{' '}
-                  <span className="font-semibold text-dh-primary">
-                    {sortedProducts.length}
-                  </span>{' '}
-                  of{' '}
-                  <span className="font-semibold text-dh-primary">
-                    {totalProducts}
-                  </span>{' '}
-                  {selectedCategory ? selectedCategory.name : 'products'}
-                </p>
-
-                {activeSidebarFilterCount > 0 && (
-                  <p className="mt-1 text-xs text-dh-dark-gray">
-                    Filters and sorting are applied across the full marketplace catalogue.
-                  </p>
                 )}
-
-                {hasActiveFilters && activeSidebarFilterCount === 0 && (
-                  <p className="mt-1 text-xs text-dh-dark-gray">
-                    Filters are active. Clear them anytime to return to the full marketplace.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 hidden sm:inline">
-                    Sort by:
-                  </span>
-                  <select
-                    value={sortBy}
-                    onChange={(event) => setSortBy(event.target.value as SortOption)}
-                    className="rounded-full border border-dh-light-gray bg-white px-3 py-2 text-sm focus:border-dh-primary focus:outline-none"
-                  >
-                    <option value="featured">Featured</option>
-                    <option value="best-selling">Best Selling</option>
-                    <option value="rating">Highest Rated</option>
-                    <option value="price-low">Price: Low to High</option>
-                    <option value="price-high">Price: High to Low</option>
-                    <option value="newest">Newest Arrivals</option>
-                      <option value="trending">Trending</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center overflow-hidden rounded-full border border-dh-light-gray">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 transition-colors ${
-                      viewMode === 'grid'
-                        ? 'bg-dh-primary text-white'
-                        : 'text-dh-dark-gray hover:bg-dh-gray'
-                    }`}
-                    aria-label="Grid view"
-                  >
-                    <Grid3X3 className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 transition-colors ${
-                      viewMode === 'list'
-                        ? 'bg-dh-primary text-white'
-                        : 'text-dh-dark-gray hover:bg-dh-gray'
-                    }`}
-                    aria-label="List view"
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
+              </section>
 
             {isLoading ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4 xl:grid-cols-4 2xl:grid-cols-5">

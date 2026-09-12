@@ -52,6 +52,8 @@ export default function SearchAutocomplete({
 }: SearchAutocompleteProps) {
   const navigate = useNavigate()
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const textInputRef = useRef<HTMLInputElement>(null)
+  const suggestionRequestIdRef = useRef(0)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
@@ -60,6 +62,7 @@ export default function SearchAutocomplete({
   const [didYouMean, setDidYouMean] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isTextFocused, setIsTextFocused] = useState(false)
 
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -85,7 +88,9 @@ export default function SearchAutocomplete({
     function handleOutsideClick(event: MouseEvent) {
       if (!wrapperRef.current) return
       if (!wrapperRef.current.contains(event.target as Node)) {
+        suggestionRequestIdRef.current += 1
         setIsOpen(false)
+        setIsTextFocused(false)
       }
     }
 
@@ -111,7 +116,14 @@ export default function SearchAutocomplete({
   }, [imageFile])
 
   useEffect(() => {
+    const requestId = ++suggestionRequestIdRef.current
+
     if (suggestionContextMessage) {
+      setIsLoading(false)
+      return
+    }
+
+    if (!isTextFocused) {
       setIsLoading(false)
       return
     }
@@ -130,20 +142,22 @@ export default function SearchAutocomplete({
     const timer = window.setTimeout(() => {
       fetchSearchSuggestions(trimmedQuery, 8)
         .then((response) => {
-          if (cancelled) return
+          if (cancelled || requestId !== suggestionRequestIdRef.current) return
 
           setSuggestions(response.suggestions || [])
           setDidYouMean(response.didYouMean || '')
           setIsOpen(true)
         })
         .catch(() => {
-          if (cancelled) return
+          if (cancelled || requestId !== suggestionRequestIdRef.current) return
 
           setSuggestions([])
           setDidYouMean('')
         })
         .finally(() => {
-          if (!cancelled) setIsLoading(false)
+          if (!cancelled && requestId === suggestionRequestIdRef.current) {
+            setIsLoading(false)
+          }
         })
     }, 220)
 
@@ -151,13 +165,18 @@ export default function SearchAutocomplete({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [suggestionContextMessage, trimmedQuery])
+  }, [isTextFocused, suggestionContextMessage, trimmedQuery])
 
   const submitSearch = (value = query) => {
     const cleaned = value.trim()
 
+    suggestionRequestIdRef.current += 1
     setIsOpen(false)
+    setIsTextFocused(false)
     setSuggestionContextMessage('')
+    setSuggestions([])
+    setDidYouMean('')
+    textInputRef.current?.blur()
 
     if (!cleaned) {
       navigate('/shop')
@@ -226,6 +245,8 @@ export default function SearchAutocomplete({
           'Showing the closest marketplace matches from your photo.'
       )
       setQuery(response.correctedQuery || response.query || imageHint)
+      suggestionRequestIdRef.current += 1
+      setIsTextFocused(false)
       setIsOpen(true)
       setIsImageSearchOpen(false)
     } catch (error) {
@@ -245,20 +266,23 @@ export default function SearchAutocomplete({
         <Search className="ml-2.5 h-5 w-5 shrink-0 text-dh-dark-gray sm:ml-3" />
 
         <input
+          ref={textInputRef}
           type="text"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
             setSuggestionContextMessage('')
+            setIsTextFocused(true)
             setIsOpen(true)
           }}
           onFocus={() => {
+            setIsTextFocused(true)
             if (trimmedQuery.length >= 2 || suggestions.length > 0) {
               setIsOpen(true)
             }
           }}
           placeholder={placeholder}
-          className="h-full min-w-0 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-gray-400 sm:px-2"
+          className="h-full min-w-0 flex-1 bg-transparent px-1 text-base outline-none placeholder:text-gray-400 sm:px-2"
         />
 
         <button
@@ -387,7 +411,7 @@ export default function SearchAutocomplete({
               value={imageHint}
               onChange={(event) => setImageHint(event.target.value)}
               placeholder="Optional hint e.g. iPhone case, Samsung charger..."
-              className="mt-3 h-11 w-full rounded-full border border-dh-light-gray bg-white px-4 text-sm text-dh-primary outline-none placeholder:text-gray-400 focus:border-dh-primary dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
+              className="mt-3 h-11 w-full rounded-full border border-dh-light-gray bg-white px-4 text-base text-dh-primary outline-none placeholder:text-gray-400 focus:border-dh-primary dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
             />
 
             {imageMessage && (
@@ -478,7 +502,9 @@ export default function SearchAutocomplete({
                       onClick={() => {
                         saveSearchHistory(trimmedQuery)
                         setIsOpen(false)
+                        setIsTextFocused(false)
                         setSuggestionContextMessage('')
+                        textInputRef.current?.blur()
                       }}
                       className="flex gap-3 rounded-2xl p-2 transition-colors hover:bg-dh-gray dark:hover:bg-slate-800"
                     >
