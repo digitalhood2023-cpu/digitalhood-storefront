@@ -115,7 +115,15 @@ export async function prepareImageSearchFile(file: File): Promise<File> {
   } catch (error) {
     if (
       file.size <= 8 * 1024 * 1024 &&
-      ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+      [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'image/avif',
+        'image/heic',
+        'image/heif',
+      ].includes(file.type)
     ) {
       return file
     }
