@@ -104,6 +104,8 @@
   html {
     scroll-behavior: smooth;
     font-size: 15px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     min-height: 100%;
     width: 100%;
     overflow-x: hidden;
@@ -142,6 +144,18 @@
   :where(a, button, input, select, textarea, summary, [role='button'], [tabindex]):focus-visible {
     outline: 3px solid #ffb54a;
     outline-offset: 3px;
+  }
+}
+
+/*
+ * iOS Safari enlarges the whole page when a focused form control renders below
+ * 16px. DigitalHood intentionally uses a 15px root type scale, so rem-based
+ * `text-base` is not enough here. Keep the browser's normal pinch zoom enabled
+ * and apply only the focus-safe font floor on phone-sized viewports.
+ */
+@media (max-width: 767px) {
+  :is(input, select, textarea) {
+    font-size: 16px !important;
   }
 }
 
@@ -447,6 +461,79 @@ html[data-theme='dark'] :is(input, textarea, select):not([type='checkbox']):not(
 
 html[data-theme='dark'] :is(input, textarea)::placeholder {
   color: #7f8ba0;
+}
+
+.dh-home-categories {
+  color: #171743;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 181, 74, 0.11), transparent 31%),
+    linear-gradient(180deg, #ffffff 0%, #fffaf2 52%, #ffffff 100%);
+}
+
+.dh-home-category-card {
+  border: 1px solid rgba(220, 226, 234, 0.88);
+  background: #ffffff;
+}
+
+.dh-home-category-all {
+  border-color: rgba(38, 36, 140, 0.34);
+  color: #26248c;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.dh-home-category-all:hover {
+  border-color: #26248c;
+  color: #ffffff;
+  background: #26248c;
+}
+
+.dh-home-category-count {
+  color: #171743 !important;
+}
+
+html[data-theme='dark'] .dh-home-categories {
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 181, 74, 0.1), transparent 32%),
+    linear-gradient(180deg, #090d16 0%, #0d1522 52%, #090d16 100%);
+}
+
+html[data-theme='dark'] .dh-home-category-card {
+  border-color: #2d3a4e;
+  background: #111827 !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+}
+
+html[data-theme='dark'] .dh-home-category-all {
+  border-color: #526176;
+  color: #f8fafc !important;
+  background: #151f2e;
+}
+
+html[data-theme='dark'] .dh-home-category-all:hover {
+  border-color: #ffb54a;
+  color: #171743 !important;
+  background: #ffb54a;
+}
+
+html[data-theme='dark'] .dh-home-category-kicker {
+  color: #ffd18e !important;
+  background: rgba(255, 181, 74, 0.11) !important;
+}
+
+html[data-theme='dark'] .dh-home-category-copy {
+  color: #b8c4d4 !important;
+}
+
+html[data-theme='dark'] .dh-home-category-error {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fde68a;
+  background: rgba(120, 53, 15, 0.32) !important;
+}
+
+html[data-theme='dark'] .dh-home-category-empty {
+  border: 1px solid #2d3a4e;
+  background: #111827 !important;
 }
 
 html[data-theme='dark'] [role='menu'],
