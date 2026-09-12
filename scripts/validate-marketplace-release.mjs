@@ -299,6 +299,21 @@ assert(
   'image search must retain separate mobile camera/gallery actions, client compression, and useful result context'
 )
 assert(
+  !shop.includes("import SearchAutocomplete") &&
+    !shop.includes('Search products, brands, parts, accessories...') &&
+    shop.includes('dh-shop-category-rail') &&
+    shop.includes('dh-shop-control-bar') &&
+    shop.includes('aria-label="Active filters"') &&
+    !shop.includes('Filters and sorting are applied across the full marketplace catalogue.') &&
+    !shop.includes('Filters are active. Clear them anytime to return to the full marketplace.') &&
+    searchAutocomplete.includes('suggestionRequestIdRef') &&
+    searchAutocomplete.includes('setIsTextFocused(false)') &&
+    searchAutocomplete.includes('textInputRef.current?.blur()') &&
+    searchAutocomplete.includes('setSuggestions([])') &&
+    searchAutocomplete.includes('flex-1 bg-transparent px-1 text-base'),
+  'shop and search pages must keep one iOS-safe search, dismiss submitted suggestions, and use one compact catalogue control surface'
+)
+assert(
   product.includes('lg:items-start') &&
     product.includes('product-info min-w-0 rounded-3xl') &&
     !product.includes('lg:sticky lg:top-24 lg:self-start'),
