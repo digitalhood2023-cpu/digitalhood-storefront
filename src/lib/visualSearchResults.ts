@@ -3,14 +3,27 @@ import type {
   SearchSuggestionProduct,
 } from '@/lib/woocommerce'
 
-const RESULT_KEY_PREFIX = 'digitalhood-visual-search-result-v1:'
-const RESULT_INDEX_KEY = 'digitalhood-visual-search-result-index-v1'
+const RESULT_KEY_PREFIX = 'digitalhood-visual-search-result-v2:'
+const RESULT_INDEX_KEY = 'digitalhood-visual-search-result-index-v2'
 const RESULT_TTL_MS = 30 * 60 * 1000
 const MAX_SAVED_RESULTS = 4
 const MAX_VISUAL_PRODUCTS = 24
+const MAX_RECOMMENDED_PRODUCTS = 12
+
+type VisualRecognition = {
+  query: string
+  object: string
+  category: string
+  brand: string
+  model: string
+  colour: string
+  confidence: number
+  source: string
+  family: string
+}
 
 export type VisualSearchResult = {
-  version: 1
+  version: 2
   id: string
   createdAt: number
   query: string
@@ -20,6 +33,50 @@ export type VisualSearchResult = {
   visualComparedImages: number
   visualIndexedImages: number
   products: SearchSuggestionProduct[]
+  recommendations: SearchSuggestionProduct[]
+  recognition: VisualRecognition
+}
+
+function getRecommendedProducts(
+  response: ImageSearchResponse,
+  visualProducts: SearchSuggestionProduct[]
+) {
+  const visualIds = new Set(visualProducts.map((product) => Number(product.id)))
+  const seen = new Set<number>()
+
+  return (Array.isArray(response.recommendations) ? response.recommendations : [])
+    .filter((product) => {
+      const productId = Number(product?.id)
+      if (
+        !Number.isSafeInteger(productId) ||
+        productId <= 0 ||
+        visualIds.has(productId) ||
+        seen.has(productId)
+      ) {
+        return false
+      }
+      seen.add(productId)
+      return product.stock_status === 'instock' && product.can_add_to_cart !== false
+    })
+    .slice(0, MAX_RECOMMENDED_PRODUCTS)
+}
+
+function normalizeRecognition(response: ImageSearchResponse): VisualRecognition {
+  const recognition = response.recognition || {}
+  const clean = (value: unknown, maximum = 120) =>
+    String(value || '').replace(/\s+/g, ' ').trim().slice(0, maximum)
+
+  return {
+    query: clean(recognition.query || response.correctedQuery || response.query, 160),
+    object: clean(recognition.object),
+    category: clean(recognition.category),
+    brand: clean(recognition.brand, 60),
+    model: clean(recognition.model, 80),
+    colour: clean(recognition.colour, 40),
+    confidence: Math.min(1, clampMetric(recognition.confidence)),
+    source: clean(recognition.source, 40),
+    family: clean(recognition.family, 60),
+  }
 }
 
 function createResultId() {
@@ -103,8 +160,9 @@ export function createVisualSearchResult(
   response: ImageSearchResponse,
   id = createResultId()
 ): VisualSearchResult {
+  const products = getVisualProducts(response)
   return {
-    version: 1,
+    version: 2,
     id,
     createdAt: Date.now(),
     query: String(response.correctedQuery || response.query || '').trim().slice(0, 160),
@@ -113,7 +171,9 @@ export function createVisualSearchResult(
     visualMatchConfidence: Math.min(1, clampMetric(response.visualMatchConfidence)),
     visualComparedImages: Math.trunc(clampMetric(response.visualComparedImages)),
     visualIndexedImages: Math.trunc(clampMetric(response.visualIndexedImages)),
-    products: getVisualProducts(response),
+    products,
+    recommendations: getRecommendedProducts(response, products),
+    recognition: normalizeRecognition(response),
   }
 }
 
@@ -145,7 +205,7 @@ export function isUsableVisualSearchResult(value: unknown): value is VisualSearc
   const candidate = value as Partial<VisualSearchResult>
 
   return (
-    candidate.version === 1 &&
+    candidate.version === 2 &&
     typeof candidate.id === 'string' &&
     isValidResultId(candidate.id) &&
     Number.isFinite(Number(candidate.createdAt)) &&
@@ -158,7 +218,17 @@ export function isUsableVisualSearchResult(value: unknown): value is VisualSearc
         Number(product.id) > 0 &&
         Boolean(product.visual_match_tier) &&
         Number(product.visual_similarity) > 0
-    )
+    ) &&
+    Array.isArray(candidate.recommendations) &&
+    candidate.recommendations.length <= MAX_RECOMMENDED_PRODUCTS &&
+    candidate.recommendations.every(
+      (product) =>
+        Number.isSafeInteger(Number(product?.id)) &&
+        Number(product.id) > 0 &&
+        !product.visual_match_tier
+    ) &&
+    Boolean(candidate.recognition) &&
+    typeof candidate.recognition === 'object'
   )
 }
 
