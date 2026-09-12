@@ -308,17 +308,20 @@ assert(
 )
 assert(
   searchAutocomplete.includes('saveVisualSearchResult(response)') &&
-    searchAutocomplete.includes('See all visual matches') &&
+    searchAutocomplete.includes('See full image results') &&
     searchAutocomplete.includes("navigate(`/visual-search/${encodeURIComponent(visualSearchResult.id)}`") &&
     !searchAutocomplete.includes('Choose a product photo') &&
     appRouter.includes('path="/visual-search/:searchId"') &&
     visualSearchResults.includes('window.sessionStorage') &&
     visualSearchResults.includes('RESULT_TTL_MS = 30 * 60 * 1000') &&
     visualSearchResults.includes('Boolean(product.visual_match_tier)') &&
+    visualSearchResults.includes('getRecommendedProducts(response, products)') &&
+    visualSearchResults.includes("version: 2") &&
     visualSearchResults.includes('const resultFloor = bestScore >= 0.96') &&
     visualSearchResultsPage.includes('Ranked by image similarity') &&
-    visualSearchResultsPage.includes('DigitalHood will only show products that actually passed visual matching here.'),
-  'image search must preserve bounded visual-only results on a dedicated page without falling through to text search'
+    visualSearchResultsPage.includes('Recognized-product recommendations') &&
+    visualSearchResultsPage.includes('DigitalHood will not fill image results with unrelated products.'),
+  'image search must preserve bounded visual and recognized-product results on a dedicated page without falling through to text search'
 )
 assert(
   !shop.includes("import SearchAutocomplete") &&

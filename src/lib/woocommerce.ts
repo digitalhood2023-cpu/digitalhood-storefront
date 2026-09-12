@@ -1446,8 +1446,11 @@ export type SearchSuggestionProduct = {
   visual_similarity?: number;
   visual_match_tier?: 'exact' | 'strong' | 'similar';
   visual_match_method?: 'local-visual' | 'learned-embedding';
+  visual_match_reason?: string;
   visual_matched_image?: string;
   visual_matched_gallery_index?: number;
+  recommendation_method?: 'recognized-catalogue';
+  recommendation_reason?: string;
 };
 
 export type SearchSuggestionsResponse = {
@@ -1470,6 +1473,17 @@ export type ImageSearchResponse = SearchSuggestionsResponse & {
   visualIndexedImages?: number;
   visualIndexWarming?: boolean;
   visualEmbeddingUsed?: boolean;
+  recognition?: {
+    query?: string;
+    object?: string;
+    category?: string;
+    brand?: string;
+    model?: string;
+    colour?: string;
+    confidence?: number;
+    source?: string;
+    family?: string;
+  };
   recommendations?: SearchSuggestionProduct[];
 };
 
@@ -1529,6 +1543,19 @@ export async function searchProductsByImage(
     visualIndexedImages: Number(data.visualIndexedImages || 0),
     visualIndexWarming: Boolean(data.visualIndexWarming),
     visualEmbeddingUsed: Boolean(data.visualEmbeddingUsed),
+    recognition: data.recognition && typeof data.recognition === 'object'
+      ? {
+          query: String(data.recognition.query || ''),
+          object: String(data.recognition.object || ''),
+          category: String(data.recognition.category || ''),
+          brand: String(data.recognition.brand || ''),
+          model: String(data.recognition.model || ''),
+          colour: String(data.recognition.colour || ''),
+          confidence: Number(data.recognition.confidence || 0),
+          source: String(data.recognition.source || ''),
+          family: String(data.recognition.family || ''),
+        }
+      : undefined,
     recommendations: Array.isArray(data.recommendations)
       ? data.recommendations
       : [],

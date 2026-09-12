@@ -241,7 +241,11 @@ export default function SearchAutocomplete({
       const response = await searchProductsByImage(imageFile, imageHint)
       const visualResult = saveVisualSearchResult(response)
 
-      setSuggestions(visualResult.products)
+      setSuggestions(
+        visualResult.products.length > 0
+          ? visualResult.products
+          : visualResult.recommendations
+      )
       setDidYouMean(response.didYouMean || '')
       setImageMessage(
         response.message ||
@@ -608,7 +612,7 @@ export default function SearchAutocomplete({
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-dh-primary px-4 py-3 text-sm font-bold text-white"
                 >
                   {suggestionContextMessage && visualSearchResult
-                    ? 'See all visual matches'
+                    ? 'See full image results'
                     : 'Search all products'}
                   <Search className="h-4 w-4" />
                 </button>
