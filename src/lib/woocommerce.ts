@@ -1477,7 +1477,15 @@ export async function fetchSearchSuggestions(
 export async function searchProductsByImage(
   imageFile: File,
   hint = ''
-): Promise<SearchSuggestionsResponse & { imageSearchMode?: string; message?: string; isFallback?: boolean }> {
+): Promise<SearchSuggestionsResponse & {
+  imageSearchMode?: string
+  message?: string
+  isFallback?: boolean
+  visualMatchCount?: number
+  visualMatchConfidence?: number
+  visualComparedProducts?: number
+  visualIndexWarming?: boolean
+}> {
   const formData = new FormData();
 
   formData.append('image', imageFile);
@@ -1501,5 +1509,9 @@ export async function searchProductsByImage(
     imageSearchMode: data.imageSearchMode || '',
     message: data.message || '',
     isFallback: Boolean(data.isFallback),
+    visualMatchCount: Number(data.visualMatchCount || 0),
+    visualMatchConfidence: Number(data.visualMatchConfidence || 0),
+    visualComparedProducts: Number(data.visualComparedProducts || 0),
+    visualIndexWarming: Boolean(data.visualIndexWarming),
   };
 }

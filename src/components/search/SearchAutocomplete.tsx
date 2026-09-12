@@ -282,7 +282,7 @@ export default function SearchAutocomplete({
             }
           }}
           placeholder={placeholder}
-          className="h-full min-w-0 flex-1 bg-transparent px-1 text-base outline-none placeholder:text-gray-400 sm:px-2"
+          className="h-full min-w-0 flex-1 bg-transparent px-1 text-[16px] outline-none placeholder:text-gray-400 sm:px-2"
         />
 
         <button
@@ -411,7 +411,7 @@ export default function SearchAutocomplete({
               value={imageHint}
               onChange={(event) => setImageHint(event.target.value)}
               placeholder="Optional hint e.g. iPhone case, Samsung charger..."
-              className="mt-3 h-11 w-full rounded-full border border-dh-light-gray bg-white px-4 text-base text-dh-primary outline-none placeholder:text-gray-400 focus:border-dh-primary dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
+              className="mt-3 h-11 w-full rounded-full border border-dh-light-gray bg-white px-4 text-[16px] text-dh-primary outline-none placeholder:text-gray-400 focus:border-dh-primary dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
             />
 
             {imageMessage && (

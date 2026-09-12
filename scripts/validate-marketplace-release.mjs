@@ -25,6 +25,7 @@ const themeContext = read('src/context/ThemeContext.tsx')
 const globalStyles = read('src/index.css')
 const brandMark = read('src/components/DigitalHoodMark.tsx')
 const homeHero = read('src/sections/Hero.tsx')
+const homeCategories = read('src/sections/Categories.tsx')
 const home = read('src/pages/Home.tsx')
 const homeDiscovery = read('src/lib/homeDiscovery.ts')
 const productShowcase = read('src/sections/ProductShowcase.tsx')
@@ -310,8 +311,20 @@ assert(
     searchAutocomplete.includes('setIsTextFocused(false)') &&
     searchAutocomplete.includes('textInputRef.current?.blur()') &&
     searchAutocomplete.includes('setSuggestions([])') &&
-    searchAutocomplete.includes('flex-1 bg-transparent px-1 text-base'),
+    searchAutocomplete.includes('flex-1 bg-transparent px-1 text-[16px]') &&
+    globalStyles.includes(':is(input, select, textarea)') &&
+    globalStyles.includes('font-size: 16px !important') &&
+    globalStyles.includes('-webkit-text-size-adjust: 100%'),
   'shop and search pages must keep one iOS-safe search, dismiss submitted suggestions, and use one compact catalogue control surface'
+)
+assert(
+  homeCategories.includes('dh-home-categories') &&
+    homeCategories.includes('dh-home-category-card') &&
+    homeCategories.includes('dh-home-category-count') &&
+    globalStyles.includes("html[data-theme='dark'] .dh-home-categories") &&
+    globalStyles.includes("html[data-theme='dark'] .dh-home-category-card") &&
+    globalStyles.includes("html[data-theme='dark'] .dh-home-category-error"),
+  'homepage categories must retain explicit readable light and dark surfaces'
 )
 assert(
   product.includes('lg:items-start') &&
