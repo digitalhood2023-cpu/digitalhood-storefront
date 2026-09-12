@@ -510,8 +510,15 @@ export default function SearchAutocomplete({
                     >
                       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-dh-gray dark:bg-slate-800">
                         <img
-                          src={getFastProductImage(product, 'thumb')}
-                          srcSet={getFastProductSrcSet(product)}
+                          src={
+                            product.visual_matched_image ||
+                            getFastProductImage(product, 'thumb')
+                          }
+                          srcSet={
+                            product.visual_matched_image
+                              ? undefined
+                              : getFastProductSrcSet(product)
+                          }
                           sizes={getProductImageSizes('search')}
                           alt={product.name}
                           className="h-full w-full object-cover"
@@ -525,6 +532,22 @@ export default function SearchAutocomplete({
                       </div>
 
                       <div className="min-w-0 flex-1">
+                        {product.visual_match_tier && (
+                          <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-100">
+                              {product.visual_match_tier === 'exact'
+                                ? 'Exact image match'
+                                : product.visual_match_tier === 'strong'
+                                  ? 'Strong visual match'
+                                  : 'Similar product'}
+                            </span>
+                            {Number(product.visual_similarity || 0) > 0 && (
+                              <span className="text-[10px] font-bold text-dh-dark-gray dark:text-slate-300">
+                                {Math.round(Number(product.visual_similarity) * 100)}%
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="line-clamp-2 text-sm font-bold leading-snug text-dh-primary dark:text-white">
                           {product.name}
                         </p>

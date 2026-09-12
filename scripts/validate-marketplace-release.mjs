@@ -293,11 +293,16 @@ assert(
     searchAutocomplete.includes('prepareImageSearchFile') &&
     searchAutocomplete.includes('Finding similar products') &&
     searchAutocomplete.includes('suggestionContextMessage') &&
+    searchAutocomplete.includes('visual_matched_image') &&
+    searchAutocomplete.includes('visual_match_tier') &&
     imageSearch.includes('MAX_IMAGE_EDGE = 1600') &&
+    imageSearch.includes("'image/avif'") &&
+    imageSearch.includes("'image/heic'") &&
     imageSearch.includes("canvas.toBlob") &&
     imageSearch.includes("'image/jpeg'") &&
+    woocommerce.includes('visual_matched_gallery_index') &&
     woocommerce.includes('isFallback: Boolean(data.isFallback)'),
-  'image search must retain separate mobile camera/gallery actions, client compression, and useful result context'
+  'image search must retain mobile camera/gallery actions, modern image formats, matched-gallery evidence, client compression, and useful result context'
 )
 assert(
   !shop.includes("import SearchAutocomplete") &&

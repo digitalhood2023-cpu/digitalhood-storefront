@@ -1443,6 +1443,11 @@ export type SearchSuggestionProduct = {
     name: string;
     slug: string;
   } | null;
+  visual_similarity?: number;
+  visual_match_tier?: 'exact' | 'strong' | 'similar';
+  visual_match_method?: 'local-visual' | 'learned-embedding';
+  visual_matched_image?: string;
+  visual_matched_gallery_index?: number;
 };
 
 export type SearchSuggestionsResponse = {
@@ -1484,7 +1489,12 @@ export async function searchProductsByImage(
   visualMatchCount?: number
   visualMatchConfidence?: number
   visualComparedProducts?: number
+  visualComparedImages?: number
+  visualIndexedProducts?: number
+  visualIndexedImages?: number
   visualIndexWarming?: boolean
+  visualEmbeddingUsed?: boolean
+  recommendations?: SearchSuggestionProduct[]
 }> {
   const formData = new FormData();
 
@@ -1512,6 +1522,13 @@ export async function searchProductsByImage(
     visualMatchCount: Number(data.visualMatchCount || 0),
     visualMatchConfidence: Number(data.visualMatchConfidence || 0),
     visualComparedProducts: Number(data.visualComparedProducts || 0),
+    visualComparedImages: Number(data.visualComparedImages || 0),
+    visualIndexedProducts: Number(data.visualIndexedProducts || 0),
+    visualIndexedImages: Number(data.visualIndexedImages || 0),
     visualIndexWarming: Boolean(data.visualIndexWarming),
+    visualEmbeddingUsed: Boolean(data.visualEmbeddingUsed),
+    recommendations: Array.isArray(data.recommendations)
+      ? data.recommendations
+      : [],
   };
 }
