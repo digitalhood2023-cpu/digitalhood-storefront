@@ -16,6 +16,7 @@ import DigitalHoodMark from '@/components/DigitalHoodMark'
 
 const Home = lazy(() => import('@/pages/Home'))
 const ShopPage = lazy(() => import('@/pages/ShopPage'))
+const VisualSearchResultsPage = lazy(() => import('@/pages/VisualSearchResultsPage'))
 const CategoriesPage = lazy(() => import('@/pages/CategoriesPage'))
 const ProductPage = lazy(() => import('@/pages/ProductPage'))
 const SellerStorePage = lazy(() => import('@/pages/SellerStorePage'))
@@ -192,6 +193,7 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<ShopPage />} />
                 <Route path="/search" element={<ShopPage />} />
+                <Route path="/visual-search/:searchId" element={<VisualSearchResultsPage />} />
                 <Route path="/category/:categorySlug" element={<ShopPage />} />
                 <Route path="/collections/:collectionSlug" element={<ShopPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
