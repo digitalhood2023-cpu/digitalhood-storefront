@@ -45,10 +45,10 @@ function DeliveryAddress({ order }: { order: TrackableOrder }) {
   return (
     <div className="flex items-start gap-3">
       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#f5a623]" />
-      <div className="text-sm leading-6 text-slate-600">
+      <div className="dh-order-card-copy text-sm leading-6">
         {lines.length ? lines.map((line) => <p key={line}>{line}</p>) : <p>Delivery address unavailable</p>}
         {address?.mapUrl && (
-          <a href={address.mapUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block font-bold text-[#28256d] underline">Open directions</a>
+          <a href={address.mapUrl} target="_blank" rel="noreferrer" className="dh-order-card-link mt-1 inline-block font-bold underline">Open directions</a>
         )}
       </div>
     </div>
@@ -75,61 +75,61 @@ function OrderSummary({
   const couponLines = order.couponLines || []
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="font-black text-[#16143f]">Order summary</h2>
+    <section className="dh-order-card rounded-2xl p-4 shadow-sm">
+      <h2 className="dh-order-card-title font-black">Order summary</h2>
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex justify-between gap-3">
-          <dt className="text-slate-500">Products subtotal</dt>
-          <dd className="font-bold text-slate-700">{formatOrderMoney(order.subtotal, currency)}</dd>
+          <dt className="dh-order-card-copy">Products subtotal</dt>
+          <dd className="dh-order-card-value font-bold">{formatOrderMoney(order.subtotal, currency)}</dd>
         </div>
 
         {couponLines.map((coupon) => (
-          <div key={`${coupon.id || coupon.code}`} className="flex justify-between gap-3 text-emerald-700">
+          <div key={`${coupon.id || coupon.code}`} className="dh-order-positive flex justify-between gap-3">
             <dt>Coupon {coupon.code ? coupon.code.toUpperCase() : ''}</dt>
             <dd className="font-bold">−{formatOrderMoney(coupon.discount, currency)}</dd>
           </div>
         ))}
 
         {couponLines.length === 0 && discountTotal > 0 && (
-          <div className="flex justify-between gap-3 text-emerald-700">
+          <div className="dh-order-positive flex justify-between gap-3">
             <dt>Discount</dt>
             <dd className="font-bold">−{formatOrderMoney(discountTotal, currency)}</dd>
           </div>
         )}
 
         <div className="flex justify-between gap-3">
-          <dt className="text-slate-500">Shipping</dt>
-          <dd className={`font-bold ${shippingTotal === 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
+          <dt className="dh-order-card-copy">Shipping</dt>
+          <dd className={`font-bold ${shippingTotal === 0 ? 'dh-order-positive' : 'dh-order-card-value'}`}>
             {shippingTotal === 0 ? 'Free' : formatOrderMoney(shippingTotal, currency)}
           </dd>
         </div>
 
         {feeLines.map((fee) => (
           <div key={`${fee.id || fee.name}`} className="flex justify-between gap-3">
-            <dt className="text-slate-500">{fee.name || 'Order fee'}</dt>
-            <dd className="font-bold text-slate-700">{formatOrderMoney(fee.total, currency)}</dd>
+            <dt className="dh-order-card-copy">{fee.name || 'Order fee'}</dt>
+            <dd className="dh-order-card-value font-bold">{formatOrderMoney(fee.total, currency)}</dd>
           </div>
         ))}
 
         {taxTotal > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-slate-500">Tax</dt>
-            <dd className="font-bold text-slate-700">{formatOrderMoney(taxTotal, currency)}</dd>
+            <dt className="dh-order-card-copy">Tax</dt>
+            <dd className="dh-order-card-value font-bold">{formatOrderMoney(taxTotal, currency)}</dd>
           </div>
         )}
 
-        <div className="mt-3 flex justify-between gap-3 border-t border-slate-200 pt-3">
-          <dt className="font-black text-slate-900">Total</dt>
-          <dd className="text-base font-black text-slate-900">{formatOrderMoney(order.total, currency)}</dd>
+        <div className="dh-order-card-divider mt-3 flex justify-between gap-3 border-t pt-3">
+          <dt className="dh-order-card-title font-black">Total</dt>
+          <dd className="dh-order-card-title text-base font-black">{formatOrderMoney(order.total, currency)}</dd>
         </div>
 
-        <div className="flex justify-between gap-3 border-t border-slate-100 pt-3">
-          <dt className="text-slate-500">Payment</dt>
-          <dd className="text-right font-bold text-slate-700">{order.paymentMethodTitle || 'Not available'}</dd>
+        <div className="dh-order-card-divider flex justify-between gap-3 border-t pt-3">
+          <dt className="dh-order-card-copy">Payment</dt>
+          <dd className="dh-order-card-value text-right font-bold">{order.paymentMethodTitle || 'Not available'}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-slate-500">Payment status</dt>
-          <dd className="text-right font-bold text-slate-700">
+          <dt className="dh-order-card-copy">Payment status</dt>
+          <dd className="dh-order-card-value text-right font-bold">
             {order.datePaid
               ? `Paid ${formatOrderDate(order.datePaid)}`
               : isCashOnDelivery
@@ -267,14 +267,14 @@ export default function OrderTrackingDetailsPage() {
     : '/track-order'
 
   return (
-    <div className="flex min-h-[100svh] flex-col bg-[#f6f7fb]">
+    <div className="dh-order-tracking-page flex min-h-[100svh] flex-col">
       <Header />
       <main className="mx-auto w-full max-w-6xl flex-1 px-3 py-5 sm:px-5 sm:py-7">
-        <Link to="/track-order" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#28256d]"><ArrowLeft className="h-4 w-4" /> All orders</Link>
+        <Link to="/track-order" className="dh-order-back-link inline-flex items-center gap-1.5 text-sm font-bold"><ArrowLeft className="h-4 w-4" /> All orders</Link>
 
-        {displayLoading && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Loading order journey…</div>}
+        {displayLoading && <div className="dh-order-card dh-order-card-copy mt-4 rounded-2xl p-10 text-center text-sm">Loading order journey…</div>}
         {!displayLoading && displayError && (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center"><ShieldAlert className="mx-auto h-7 w-7 text-amber-600" /><p className="mt-2 font-bold text-amber-950">Tracking details are protected</p><p className="mx-auto mt-1 max-w-md text-sm text-amber-800">{displayError}</p><Button asChild className="mt-4 bg-[#28256d] text-white"><Link to="/track-order">Return to tracking</Link></Button></div>
+          <div className="dh-order-alert dh-order-alert--warning mt-4 rounded-2xl p-6 text-center"><ShieldAlert className="mx-auto h-7 w-7" /><p className="mt-2 font-bold">Tracking details are protected</p><p className="mx-auto mt-1 max-w-md text-sm">{displayError}</p><Button asChild className="mt-4 bg-[#28256d] text-white"><Link to="/track-order">Return to tracking</Link></Button></div>
         )}
 
         {!displayLoading && !displayError && order && state && (
@@ -300,70 +300,73 @@ export default function OrderTrackingDetailsPage() {
               )}
             </section>
 
-            {state.trackable && deliveryTracking && <section className={`mt-4 rounded-2xl border p-4 shadow-sm sm:p-5 ${deliveryTracking.delayed ? 'border-amber-200 bg-amber-50' : deliveryTracking.key === 'delivered' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${deliveryTracking?.delayed ? 'bg-amber-100 text-amber-700' : deliveryTracking?.key === 'delivered' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-[#28256d]'}`}>
-                    {deliveryTracking?.key === 'delivered' ? <PackageCheck className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
-                  </span>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Delivery</p>
-                    <h2 className="mt-0.5 text-base font-black text-slate-900">{deliveryTracking?.label || state.label}</h2>
-                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-                      {deliveryTracking?.message || (order.deliveryEstimate?.label ? `Expected delivery ${order.deliveryEstimate.label}.` : 'Delivery updates will appear here as the order moves.')}
-                    </p>
-                  </div>
-                </div>
-                {deliveryTracking?.live && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                    <Radio className="h-3 w-3" /> Live updates
-                  </span>
-                )}
-              </div>
-              <div className="mt-4 grid gap-2 border-t border-black/5 pt-3 sm:grid-cols-3">
-                <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Expected</p><p className="mt-1 text-sm font-black text-slate-800">{deliveryTracking?.expectedLabel || order.deliveryEstimate?.label || 'Update pending'}</p></div>
-                <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Delivered</p><p className="mt-1 text-sm font-black text-slate-800">{deliveryTracking?.deliveredAt ? formatOrderDate(deliveryTracking.deliveredAt, true) : 'Not delivered yet'}</p></div>
-                <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Last update</p><p className="mt-1 inline-flex items-center gap-1.5 text-sm font-black text-slate-800"><RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> {deliveryTracking?.lastUpdatedAt ? formatOrderDate(deliveryTracking.lastUpdatedAt, true) : refreshing ? 'Refreshing…' : 'Live'}</p></div>
-              </div>
-              {refreshNotice && <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-amber-800">{refreshNotice}</p>}
-            </section>}
-
             <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)] lg:items-start lg:gap-4">
-              <section className="self-start rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                <div className="flex items-center justify-between"><h2 className="font-black text-[#16143f]">Items and sellers</h2><span className="text-xs font-bold text-slate-400">{order.items?.length || 0} item{order.items?.length === 1 ? '' : 's'}</span></div>
-                <div className="mt-2.5 space-y-3">
-                  {groups.map((group) => (
-                    <div key={group.key} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
-                      <Link to={group.sellerUrl} className="flex items-center gap-1.5 text-xs font-black text-[#28256d] hover:underline"><Store className="h-3.5 w-3.5" /> {group.storeName}</Link>
-                      <div className="mt-1.5 divide-y divide-slate-200">
-                        {group.items.map((item) => (
-                          <Link key={item.id} to={`/product/${item.productId || item.id}`} className="flex items-center gap-2.5 py-2 hover:text-[#28256d]">
-                            {item.image ? <img src={item.image} alt="" className="h-10 w-10 rounded-lg bg-white object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white"><ShoppingBag className="h-4 w-4 text-slate-300" /></span>}
-                            <span className="min-w-0 flex-1"><span className="block line-clamp-2 text-sm font-bold text-slate-800">{item.name}</span><span className="mt-0.5 block text-xs text-slate-500">Qty {item.quantity}</span>{feedbackProgress.reviewedOrderItemIds.has(Number(item.id)) && <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-black text-emerald-700"><CheckCircle2 className="h-3 w-3" /> Reviewed</span>}</span>
-                            <span className="text-xs font-black text-slate-700">{formatOrderMoney(item.total, order.currency)}</span>
-                          </Link>
-                        ))}
+              <div className="grid content-start gap-3">
+                <section className="dh-order-card self-start rounded-2xl p-3 shadow-sm sm:p-4">
+                  <div className="flex items-center justify-between"><h2 className="dh-order-card-title font-black">Items and sellers</h2><span className="dh-order-card-subtle text-xs font-bold">{order.items?.length || 0} item{order.items?.length === 1 ? '' : 's'}</span></div>
+                  <div className="mt-2.5 space-y-3">
+                    {groups.map((group) => (
+                      <div key={group.key} className="dh-order-item-group rounded-xl px-3 py-2.5">
+                        <Link to={group.sellerUrl} className="dh-order-card-link flex items-center gap-1.5 text-xs font-black hover:underline"><Store className="h-3.5 w-3.5" /> {group.storeName}</Link>
+                        <div className="dh-order-item-list mt-1.5 divide-y">
+                          {group.items.map((item) => (
+                            <Link key={item.id} to={`/product/${item.productId || item.id}`} className="dh-order-item-row flex items-center gap-2.5 py-2">
+                              {item.image ? <img src={item.image} alt="" className="dh-order-item-image h-10 w-10 rounded-lg object-cover" /> : <span className="dh-order-item-image dh-order-card-subtle flex h-10 w-10 items-center justify-center rounded-lg"><ShoppingBag className="h-4 w-4" /></span>}
+                              <span className="min-w-0 flex-1"><span className="dh-order-card-value block line-clamp-2 text-sm font-bold">{item.name}</span><span className="dh-order-card-copy mt-0.5 block text-xs">Qty {item.quantity}</span>{feedbackProgress.reviewedOrderItemIds.has(Number(item.id)) && <span className="dh-order-positive mt-1 inline-flex items-center gap-1 text-[10px] font-black"><CheckCircle2 className="h-3 w-3" /> Reviewed</span>}</span>
+                              <span className="dh-order-card-value text-xs font-black">{formatOrderMoney(item.total, order.currency)}</span>
+                            </Link>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <div className="grid content-start gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    ))}
+                  </div>
+                </section>
                 <OrderSummary order={order} isCashOnDelivery={isCashOnDelivery} isClosed={state.closed} />
-                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h2 className="mb-3 flex items-center gap-2 font-black text-[#16143f]"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
+              </div>
+
+              <div className="grid content-start gap-3">
+                {state.trackable && deliveryTracking && (
+                  <section className={`dh-order-delivery-card rounded-2xl p-4 shadow-sm ${deliveryTracking.delayed ? 'dh-order-delivery-card--delayed' : deliveryTracking.key === 'delivered' ? 'dh-order-delivery-card--delivered' : 'dh-order-delivery-card--active'}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="dh-order-delivery-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                          {deliveryTracking.key === 'delivered' ? <PackageCheck className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="dh-order-delivery-kicker text-[10px] font-black uppercase tracking-[0.16em]">Delivery</p>
+                          <h2 className="dh-order-delivery-title mt-0.5 text-base font-black">{deliveryTracking.label || state.label}</h2>
+                          <p className="dh-order-delivery-copy mt-1 text-sm leading-6">
+                            {deliveryTracking.message || (order.deliveryEstimate?.label ? `Expected delivery ${order.deliveryEstimate.label}.` : 'Delivery updates will appear here as the order moves.')}
+                          </p>
+                        </div>
+                      </div>
+                      {deliveryTracking.live && (
+                        <span className="dh-order-live-badge inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide">
+                          <Radio className="h-3 w-3" /> Live updates
+                        </span>
+                      )}
+                    </div>
+                    <div className="dh-order-delivery-metrics mt-4 grid gap-2 border-t pt-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                      <div><p className="dh-order-delivery-kicker text-[10px] font-bold uppercase tracking-wide">Expected</p><p className="dh-order-delivery-value mt-1 text-sm font-black">{deliveryTracking.expectedLabel || order.deliveryEstimate?.label || 'Update pending'}</p></div>
+                      <div><p className="dh-order-delivery-kicker text-[10px] font-bold uppercase tracking-wide">Delivered</p><p className="dh-order-delivery-value mt-1 text-sm font-black">{deliveryTracking.deliveredAt ? formatOrderDate(deliveryTracking.deliveredAt, true) : 'Not delivered yet'}</p></div>
+                      <div><p className="dh-order-delivery-kicker text-[10px] font-bold uppercase tracking-wide">Last update</p><p className="dh-order-delivery-value mt-1 inline-flex items-center gap-1.5 text-sm font-black"><RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> {deliveryTracking.lastUpdatedAt ? formatOrderDate(deliveryTracking.lastUpdatedAt, true) : refreshing ? 'Refreshing…' : 'Live'}</p></div>
+                    </div>
+                    {refreshNotice && <p className="dh-order-refresh-notice mt-3 rounded-xl px-3 py-2 text-xs font-semibold">{refreshNotice}</p>}
+                  </section>
+                )}
+                <section className="dh-order-card rounded-2xl p-4 shadow-sm"><h2 className="dh-order-card-title mb-3 flex items-center gap-2 font-black"><CalendarDays className="h-4 w-4 text-[#f5a623]" /> Delivery address</h2><DeliveryAddress order={order} /></section>
                 {isAuthenticated && ['delivered', 'completed'].includes(normalizeTrackingStatus(order.status)) && feedbackReady && feedbackProgress.pending > 0 && (
-                  <section className="rounded-2xl border border-[#f5a623]/30 bg-[#fff8ec] p-3 shadow-sm">
-                    <div className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 fill-[#f5a623] text-[#f5a623]" /><div><p className="text-sm font-black text-slate-800">{feedbackProgress.submitted > 0 ? 'Finish your feedback' : 'How was your purchase?'}</p><p className="mt-0.5 text-xs leading-5 text-slate-500">{feedbackProgress.pending} verified review{feedbackProgress.pending === 1 ? '' : 's'} still available for this order.</p></div></div>
+                  <section className="dh-order-alert dh-order-alert--warning rounded-2xl p-3 shadow-sm">
+                    <div className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 fill-[#f5a623] text-[#f5a623]" /><div><p className="text-sm font-black">{feedbackProgress.submitted > 0 ? 'Finish your feedback' : 'How was your purchase?'}</p><p className="mt-0.5 text-xs leading-5 opacity-80">{feedbackProgress.pending} verified review{feedbackProgress.pending === 1 ? '' : 's'} still available for this order.</p></div></div>
                     <Button asChild className="mt-3 h-9 w-full bg-[#28256d] text-xs font-bold text-white"><Link to={`/account/feedback?order=${encodeURIComponent(String(order.id))}`}>{feedbackProgress.submitted > 0 ? 'Continue feedback' : 'Leave verified feedback'}</Link></Button>
                   </section>
                 )}
                 {isAuthenticated && ['delivered', 'completed'].includes(normalizeTrackingStatus(order.status)) && feedbackReady && feedbackProgress.pending === 0 && feedbackProgress.submitted > 0 && (
-                  <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
-                    <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><div><p className="text-sm font-black text-emerald-900">Feedback complete</p><p className="mt-0.5 text-xs leading-5 text-emerald-700">You already reviewed this purchase. Thank you for helping the marketplace.</p></div></div>
+                  <section className="dh-order-alert dh-order-alert--success rounded-2xl p-3 shadow-sm">
+                    <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-black">Feedback complete</p><p className="mt-0.5 text-xs leading-5 opacity-80">You already reviewed this purchase. Thank you for helping the marketplace.</p></div></div>
                   </section>
                 )}
-                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="text-sm font-black text-slate-800">Need help with this order?</p><p className="mt-0.5 text-xs leading-5 text-slate-500">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={isAuthenticated ? buildAccountOrderSupportUrl(order) : buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
+                <section className="dh-order-card rounded-2xl p-3 shadow-sm"><div className="flex gap-2"><CircleDot className="mt-1 h-4 w-4 shrink-0 text-emerald-500" /><div><p className="dh-order-card-value text-sm font-black">Need help with this order?</p><p className="dh-order-card-copy mt-0.5 text-xs leading-5">DigitalHood Support can review payment, seller or delivery issues.</p></div></div>{!state.closed && <Button asChild variant="outline" className="mt-3 h-9 w-full text-xs font-bold"><Link to={isAuthenticated ? buildAccountOrderSupportUrl(order) : buildOrderSupportUrl(order)}>Report an issue</Link></Button>}</section>
               </div>
             </div>
           </>

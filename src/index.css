@@ -907,6 +907,313 @@ html[data-theme='dark'] .dh-chat-input:focus {
   color: var(--dh-black);
 }
 
+/* Adaptive order tracking surfaces. These use semantic classes so warning and
+   delivery cards never inherit light-only utility colours in dark mode. */
+.dh-order-tracking-page {
+  background: var(--dh-ui-page);
+  color: var(--dh-ui-text);
+}
+
+.dh-order-card {
+  border: 1px solid var(--dh-ui-border);
+  background: var(--dh-ui-surface);
+  color: var(--dh-ui-text);
+}
+
+.dh-order-card-title,
+.dh-order-card-value {
+  color: var(--dh-ui-text);
+}
+
+.dh-order-card-copy {
+  color: var(--dh-ui-text-muted);
+}
+
+.dh-order-card-subtle {
+  color: var(--dh-ui-text-subtle);
+}
+
+.dh-order-positive {
+  color: #047857;
+}
+
+.dh-order-card-link,
+.dh-order-back-link {
+  color: #28256d;
+}
+
+.dh-order-card-link:hover,
+.dh-order-back-link:hover,
+.dh-order-item-row:hover {
+  color: #1d1b55;
+}
+
+.dh-order-card-divider,
+.dh-order-item-list > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--dh-ui-border);
+}
+
+.dh-order-item-group {
+  border: 1px solid var(--dh-ui-border);
+  background: var(--dh-ui-surface-muted);
+}
+
+.dh-order-item-image {
+  border: 1px solid var(--dh-ui-border);
+  background: var(--dh-ui-surface);
+}
+
+.dh-order-filter {
+  border-color: var(--dh-ui-border);
+  background: var(--dh-ui-surface-muted);
+  color: var(--dh-ui-text-muted);
+}
+
+.dh-order-filter:hover {
+  border-color: #94a3b8;
+  color: var(--dh-ui-text);
+}
+
+.dh-order-filter--active {
+  border-color: #28256d;
+  background: #28256d;
+  color: #ffffff;
+}
+
+.dh-order-action-link {
+  color: var(--dh-ui-text-muted);
+}
+
+.dh-order-action-link:hover {
+  background: var(--dh-ui-surface-muted);
+  color: var(--dh-ui-text);
+}
+
+.dh-order-thumbnail {
+  background: var(--dh-ui-surface-muted);
+  color: #28256d;
+}
+
+.dh-order-status--closed {
+  background: #eef2f7;
+  color: #475569;
+}
+
+.dh-order-status--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dh-order-status--success {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.dh-order-status--active {
+  background: #eef2ff;
+  color: #28256d;
+}
+
+.dh-order-delivery-card {
+  border: 1px solid var(--dh-ui-border);
+  background: var(--dh-ui-surface);
+  color: var(--dh-ui-text);
+}
+
+.dh-order-delivery-card--delayed {
+  border-color: #e6b94d;
+  background: #fffbeb;
+}
+
+.dh-order-delivery-card--delivered {
+  border-color: #86d7b2;
+  background: #ecfdf5;
+}
+
+.dh-order-delivery-title,
+.dh-order-delivery-value {
+  color: var(--dh-ui-text);
+}
+
+.dh-order-delivery-copy {
+  color: var(--dh-ui-text-muted);
+}
+
+.dh-order-delivery-kicker {
+  color: var(--dh-ui-text-subtle);
+}
+
+.dh-order-delivery-icon {
+  background: #eef2ff;
+  color: #28256d;
+}
+
+.dh-order-delivery-card--delayed .dh-order-delivery-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.dh-order-delivery-card--delivered .dh-order-delivery-icon {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.dh-order-live-badge {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.dh-order-delivery-metrics {
+  border-color: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.dh-order-refresh-notice {
+  background: rgba(255, 255, 255, 0.72);
+  color: #92400e;
+}
+
+.dh-order-alert {
+  border: 1px solid var(--dh-ui-border);
+}
+
+.dh-order-alert--warning {
+  border-color: #e6b94d;
+  background: #fffbeb;
+  color: #78350f;
+}
+
+.dh-order-alert--success {
+  border-color: #86d7b2;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.dh-order-alert--danger {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+html[data-theme='dark'] .dh-order-card-link,
+html[data-theme='dark'] .dh-order-back-link {
+  color: #a9b5ff;
+}
+
+html[data-theme='dark'] .dh-order-card-link:hover,
+html[data-theme='dark'] .dh-order-back-link:hover,
+html[data-theme='dark'] .dh-order-item-row:hover {
+  color: #d6dcff;
+}
+
+html[data-theme='dark'] .dh-order-thumbnail {
+  color: #b8c3ff;
+}
+
+html[data-theme='dark'] .dh-order-positive {
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .dh-order-filter--active {
+  border-color: #6366f1;
+  background: #3730a3;
+  color: #ffffff;
+}
+
+html[data-theme='dark'] .dh-order-status--closed {
+  background: #263143;
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .dh-order-status--warning {
+  background: #49330c;
+  color: #ffd68a;
+}
+
+html[data-theme='dark'] .dh-order-status--success,
+html[data-theme='dark'] .dh-order-live-badge {
+  background: #123d31;
+  color: #8df0c5;
+}
+
+html[data-theme='dark'] .dh-order-status--active {
+  background: #29275c;
+  color: #c7d2fe;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delayed {
+  border-color: #76511a;
+  background: #2b2111;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delayed .dh-order-delivery-title,
+html[data-theme='dark'] .dh-order-delivery-card--delayed .dh-order-delivery-value {
+  color: #fff0bd;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delayed .dh-order-delivery-copy {
+  color: #e7d4a8;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delayed .dh-order-delivery-kicker {
+  color: #f8c969;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delayed .dh-order-delivery-icon {
+  background: #49330c;
+  color: #ffc76f;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delivered {
+  border-color: #276c58;
+  background: #102a24;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delivered .dh-order-delivery-title,
+html[data-theme='dark'] .dh-order-delivery-card--delivered .dh-order-delivery-value {
+  color: #d1fae5;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delivered .dh-order-delivery-copy {
+  color: #a7e7cf;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delivered .dh-order-delivery-kicker {
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .dh-order-delivery-card--delivered .dh-order-delivery-icon {
+  background: #123d31;
+  color: #8df0c5;
+}
+
+html[data-theme='dark'] .dh-order-delivery-icon {
+  background: #29275c;
+  color: #c7d2fe;
+}
+
+html[data-theme='dark'] .dh-order-refresh-notice {
+  background: rgba(9, 13, 22, 0.52);
+  color: #ffe1a3;
+}
+
+html[data-theme='dark'] .dh-order-alert--warning {
+  border-color: #76511a;
+  background: #2b2111;
+  color: #ffe1a3;
+}
+
+html[data-theme='dark'] .dh-order-alert--success {
+  border-color: #276c58;
+  background: #102a24;
+  color: #b7f7de;
+}
+
+html[data-theme='dark'] .dh-order-alert--danger {
+  border-color: #7f1d1d;
+  background: #351719;
+  color: #fecaca;
+}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   html {

@@ -55,6 +55,7 @@ const appRouter = read('src/App.tsx')
 const sellerDomains = read('src/lib/sellerDomains.ts')
 const storefrontServer = read('server.js')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
+const trackOrder = read('src/pages/TrackOrderPage.tsx')
 const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
 const supportLinks = read('src/lib/supportLinks.ts')
 const html = read('index.html')
@@ -502,10 +503,23 @@ assert(
   'full order detail must retain its transparent cost breakdown'
 )
 assert(
-  tracking.includes('lg:items-start') &&
-    tracking.includes('self-start rounded-2xl') &&
+  tracking.includes('lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)]') &&
+    tracking.indexOf('Items and sellers') < tracking.indexOf('<OrderSummary') &&
+    tracking.indexOf('<OrderSummary') < tracking.indexOf('dh-order-delivery-card') &&
+    tracking.indexOf('dh-order-delivery-card') < tracking.lastIndexOf('Delivery address') &&
     !tracking.includes('Stock reservation'),
-  'order cards must avoid stretched blank space and never expose stock-reservation internals'
+  'order details must use the compact items/summary left column and delivery/address right column without exposing stock-reservation internals'
+)
+assert(
+  tracking.includes('dh-order-delivery-card--delayed') &&
+    tracking.includes('dh-order-delivery-copy') &&
+    tracking.includes('dh-order-card-copy') &&
+    trackOrder.includes('dh-order-tracking-page') &&
+    trackOrder.includes('dh-order-filter--active') &&
+    globalStyles.includes("html[data-theme='dark'] .dh-order-delivery-card--delayed") &&
+    globalStyles.includes("html[data-theme='dark'] .dh-order-alert--warning") &&
+    globalStyles.includes("html[data-theme='dark'] .dh-order-filter--active"),
+  'tracking lists, delivery states, alerts, and filters must retain explicit readable light and dark surfaces'
 )
 
 assert(
