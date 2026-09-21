@@ -35,6 +35,7 @@ const AccountPage = lazy(() => import('@/pages/AccountPage'))
 const AccountDetailsPage = lazy(() => import('@/pages/AccountDetailsPage'))
 const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPage'))
 const AccountOrderIssuePage = lazy(() => import('@/pages/AccountOrderIssuePage'))
+const AccountResolutionsPage = lazy(() => import('@/pages/AccountResolutionsPage'))
 const AccountMessagesPage = lazy(() => import('@/pages/AccountMessagesPage'))
 const AccountNotificationsPage = lazy(() => import('@/pages/AccountNotificationsPage'))
 const AccountFeedbackPage = lazy(() => import('@/pages/AccountFeedbackPage'))
@@ -213,6 +214,9 @@ function App() {
                 <Route path="/account/details" element={<AccountDetailsPage />} />
                 <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
                 <Route path="/account/orders/:orderId/report" element={<AccountOrderIssuePage />} />
+                <Route path="/account/orders/:orderId/resolutions" element={<AccountResolutionsPage />} />
+                <Route path="/account/resolutions" element={<AccountResolutionsPage />} />
+                <Route path="/account/resolutions/:resolutionId" element={<AccountResolutionsPage />} />
                 <Route path="/account/messages" element={<AccountMessagesPage />} />
                 <Route path="/account/messages/:conversationId" element={<AccountMessagesPage />} />
                 <Route path="/account/notifications" element={<AccountNotificationsPage />} />
