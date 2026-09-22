@@ -35,6 +35,7 @@ const AccountPage = lazy(() => import('@/pages/AccountPage'))
 const AccountDetailsPage = lazy(() => import('@/pages/AccountDetailsPage'))
 const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPage'))
 const AccountOrderIssuePage = lazy(() => import('@/pages/AccountOrderIssuePage'))
+const AccountResolutionsPage = lazy(() => import('@/pages/AccountResolutionsPage'))
 const AccountMessagesPage = lazy(() => import('@/pages/AccountMessagesPage'))
 const AccountNotificationsPage = lazy(() => import('@/pages/AccountNotificationsPage'))
 const AccountFeedbackPage = lazy(() => import('@/pages/AccountFeedbackPage'))
@@ -80,6 +81,17 @@ function SellerFeedbackRedirect() {
     window.location.replace(destination.toString())
   }, [location.search])
 
+  return <PageLoader />
+}
+
+function SellerResolutionRedirect() {
+  const location = useLocation()
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('case') || ''
+    const destination = new URL('/resolutions', 'https://seller.digitalhood.info')
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id)) destination.searchParams.set('case', id)
+    window.location.replace(destination.toString())
+  }, [location.search])
   return <PageLoader />
 }
 
@@ -213,11 +225,15 @@ function App() {
                 <Route path="/account/details" element={<AccountDetailsPage />} />
                 <Route path="/account/support-cases" element={<AccountSupportCasesPage />} />
                 <Route path="/account/orders/:orderId/report" element={<AccountOrderIssuePage />} />
+                <Route path="/account/orders/:orderId/resolutions" element={<AccountResolutionsPage />} />
+                <Route path="/account/resolutions" element={<AccountResolutionsPage />} />
+                <Route path="/account/resolutions/:resolutionId" element={<AccountResolutionsPage />} />
                 <Route path="/account/messages" element={<AccountMessagesPage />} />
                 <Route path="/account/messages/:conversationId" element={<AccountMessagesPage />} />
                 <Route path="/account/notifications" element={<AccountNotificationsPage />} />
                 <Route path="/account/feedback" element={<AccountFeedbackPage />} />
                 <Route path="/seller-feedback" element={<SellerFeedbackRedirect />} />
+                <Route path="/seller-resolutions" element={<SellerResolutionRedirect />} />
                 <Route path="/member/:memberKey" element={<MemberFeedbackPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />

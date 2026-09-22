@@ -555,7 +555,7 @@ export function isAccountUnauthorizedError(error: unknown) {
   return error instanceof AccountRequestError && error.status === 401
 }
 
-async function accountFetch<T>(
+export async function accountFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {

@@ -107,5 +107,9 @@ export function buildAccountOrderSupportUrl(order: OrderLike = {}) {
 
   if (!orderId) return '/orders'
 
+  if (import.meta.env.VITE_RESOLUTION_INTAKE_ENABLED === 'true') {
+    return `/account/orders/${encodeURIComponent(orderId)}/resolutions`
+  }
+
   return `/account/orders/${encodeURIComponent(orderId)}/report`
 }
