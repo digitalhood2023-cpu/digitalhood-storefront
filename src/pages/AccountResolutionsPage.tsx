@@ -10,7 +10,7 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
 const panel = 'rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900'
-const input = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base font-normal text-slate-950 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100'
+const input = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] font-normal text-slate-950 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100'
 const reasons = [['ordered_by_mistake', 'Ordered by mistake'], ['changed_mind', 'Changed my mind'], ['not_received', 'Not received'], ['damaged', 'Damaged or faulty'], ['not_as_described', 'Not as described'], ['wrong_item', 'Wrong item'], ['missing_items', 'Missing items'], ['counterfeit', 'Suspected counterfeit'], ['other', 'Other']]
 
 function RequestForm({ order, onCreated }: { order: AccountOrder; onCreated: (id: string) => void }) {
