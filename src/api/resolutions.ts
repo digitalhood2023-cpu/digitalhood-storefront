@@ -26,6 +26,9 @@ export function createResolution(orderId: string, payload: ResolutionRequest, ke
 export function sendResolutionMessage(id: string, message: string, key: string) {
   return accountFetch<{ version: number }>(`/api/account/resolutions/${encodeURIComponent(id)}/messages`, { method: 'POST', headers: { 'X-Idempotency-Key': key }, body: JSON.stringify({ message }), signal: AbortSignal.timeout(20000) })
 }
+export function actOnResolution(id: string, version: number, status: 'withdrawn' | 'appealed', note: string) {
+  return accountFetch<{ resolution: OrderResolution }>(`/api/account/resolutions/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({version, status, note}), signal: AbortSignal.timeout(20000) })
+}
 export function resolutionLabel(value: string) {
   const labels: Record<string, string> = { requested: 'Request received', under_review: 'In review', awaiting_buyer: 'Your reply needed', awaiting_seller: 'Waiting for seller', approved: 'Approved', submitting: 'Confirming refund', unknown: 'Confirming refund', manual_review: 'Refund under review', reserved: 'Refund approved', processing: 'Refund processing', succeeded: 'Refund confirmed', failed: 'Refund needs attention', cancelled: 'Refund cancelled', declined: 'Request declined', appealed: 'Appeal received', withdrawn: 'Request withdrawn', resolved: 'Resolved' }
   return labels[value] || value.replaceAll('_', ' ')

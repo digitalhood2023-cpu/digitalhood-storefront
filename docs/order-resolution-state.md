@@ -1,6 +1,6 @@
 # Order resolution workspace
 
-Updated 2026-09-21. In progress, not a production-complete cancellation/refund release.
+Updated 2026-09-22. In progress, not a production-complete cancellation/refund release.
 
 Added lazy routes:
 
@@ -12,6 +12,8 @@ Order support links only switch to this workspace when `VITE_RESOLUTION_INTAKE_E
 
 Design: compact rows, two-column case detail on larger screens, explicit light/dark colours, 16px inputs, idempotency keys preserved for retries, no account case data persisted to browser storage. A request is never presented as a confirmed cancellation/refund.
 
-Verification: TypeScript and the full storefront production build (SEO/release/network/accessibility/performance checks) passed. Visual browser/device acceptance is pending.
+Verification: targeted lint, TypeScript and the full storefront production build (SEO/release/network/accessibility/performance checks) passed. Visual browser/device acceptance is pending; isolated browser CI uses synthetic fixtures and blocks external requests. Local Chrome launch was blocked by macOS sandboxing.
 
-Still required: evidence uploads/private access, withdrawal/appeal controls, context-aware policy eligibility, seller/admin counterpart UIs, full money/fulfilment workflow and operational notifications. Follow the workspace master `STATE_CANCELLATIONS_RETURNS_REFUNDS.md`; do not enable as a complete release yet.
+Added eligibility-bound withdrawal and appeal controls with explicit confirmation/reason, fixed item-selection labels, and keyed the workspace by account identity/route to prevent stale case display after account changes. Replies cannot wipe text entered while sending.
+
+Still required: evidence uploads/private access, context-aware policy eligibility, full money/fulfilment workflow and operational notifications. Seller/admin counterpart UIs are now implemented on their feature branches. Follow the workspace master `STATE_CANCELLATIONS_RETURNS_REFUNDS.md`; do not enable as a complete release yet.
