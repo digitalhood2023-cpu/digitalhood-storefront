@@ -84,6 +84,17 @@ function SellerFeedbackRedirect() {
   return <PageLoader />
 }
 
+function SellerResolutionRedirect() {
+  const location = useLocation()
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('case') || ''
+    const destination = new URL('/resolutions', 'https://seller.digitalhood.info')
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id)) destination.searchParams.set('case', id)
+    window.location.replace(destination.toString())
+  }, [location.search])
+  return <PageLoader />
+}
+
 function NavigationScrollManager() {
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -222,6 +233,7 @@ function App() {
                 <Route path="/account/notifications" element={<AccountNotificationsPage />} />
                 <Route path="/account/feedback" element={<AccountFeedbackPage />} />
                 <Route path="/seller-feedback" element={<SellerFeedbackRedirect />} />
+                <Route path="/seller-resolutions" element={<SellerResolutionRedirect />} />
                 <Route path="/member/:memberKey" element={<MemberFeedbackPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
