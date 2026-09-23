@@ -12,6 +12,7 @@ import {
   parseSellerDomainHostname,
   resolveSellerDomainHostname,
 } from './server/sellerDomains.js';
+import { createGoogleMerchantFeedService } from './server/googleMerchantFeed.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,18 @@ const MARKETPLACE_ORIGIN = String(
 const MARKETPLACE_HOSTNAME = new URL(MARKETPLACE_ORIGIN).hostname.toLowerCase();
 const PAYMENTS_API_URL =
   process.env.PAYMENTS_API_URL || 'https://payments.digitalhood.info';
+const googleMerchantFeed = createGoogleMerchantFeedService({
+  sourceUrl:
+    process.env.GOOGLE_MERCHANT_FEED_SOURCE_URL ||
+    'https://digitalhood.info/wp-json/wc/store/v1/products',
+  marketplaceOrigin: MARKETPLACE_ORIGIN,
+  cacheTtlMs: Number(
+    process.env.GOOGLE_MERCHANT_FEED_CACHE_TTL_MS || 15 * 60 * 1000
+  ),
+  staleTtlMs: Number(
+    process.env.GOOGLE_MERCHANT_FEED_STALE_TTL_MS || 48 * 60 * 60 * 1000
+  ),
+});
 
 const STOREFRONT_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -284,6 +297,38 @@ app.get('/sitemap.xml', async (_req, res) => {
   res.type('application/xml');
   res.setHeader('Cache-Control', 'public, max-age=900, stale-while-revalidate=3600');
   return res.send(await getSitemapXml());
+});
+
+app.get('/google-merchant-feed.xml', async (req, res) => {
+  try {
+    const feed = await googleMerchantFeed.getFeed();
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=900, stale-while-revalidate=3600');
+    res.setHeader('ETag', feed.etag);
+    res.setHeader('Last-Modified', feed.generatedAt.toUTCString());
+    res.setHeader('X-DigitalHood-Feed-Cache', feed.cacheStatus);
+    res.setHeader('X-DigitalHood-Feed-Products', String(feed.productCount));
+    res.setHeader('X-DigitalHood-Feed-Excluded', String(feed.excludedCount));
+
+    if (feed.cacheStatus === 'STALE') {
+      res.setHeader('Warning', '110 - "Response is stale"');
+    }
+
+    if (String(req.headers['if-none-match'] || '') === feed.etag) {
+      return res.status(304).end();
+    }
+
+    return res.send(feed.xml);
+  } catch (error) {
+    console.error('Google Merchant feed generation failed:', error?.message || error);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Retry-After', '300');
+    return res
+      .status(503)
+      .type('text/plain')
+      .send('The DigitalHood product feed is temporarily unavailable.');
+  }
 });
 
 const distDir = path.join(__dirname, 'dist');
