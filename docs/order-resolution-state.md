@@ -1,6 +1,8 @@
 # Order resolution workspace
 
-Updated 2026-09-22. In progress, not a production-complete cancellation/refund release.
+Updated 2026-09-23. In progress, not a production-complete cancellation/refund release.
+
+Current continuation: buyers can review exact seller offers, explicitly accept or request support adjudication, and see that agreement is separate from payment confirmation. Server cancellation eligibility disables cancellation after preparation/shipping without hiding return/refund review. An agreed/disputed offer prevents misleading request-withdrawal controls. Full local production checks passed before this final control refinement; new four-variant browser acceptance and final build run in CI. Money movement remains disabled.
 
 Added lazy routes:
 

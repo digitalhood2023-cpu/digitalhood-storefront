@@ -27,6 +27,9 @@ async function main() {
       // Opposite OS mode validates the saved explicit theme, not just media queries.
       const context = await browser.newContext({viewport: {width: mobile ? 390 : 1440, height: mobile ? 844 : 1000}, colorScheme: theme === 'dark' ? 'light' : 'dark', serviceWorkers: 'block'});
       const posts = [], errors = [];
+      const offer = {offer_id: '22222222-2222-4222-8222-222222222222', seller_id: '8', amount_minor: '17550', currency: 'ZMW', note: 'A partial refund for the affected charger.', status: role === 'admin' ? 'disputed' : 'proposed', version: 1, decision_note: null, created_at: now};
+      const fixture = structuredClone({admin, seller, buyer}[role]);
+      fixture.offers = role === 'seller' ? [] : [offer];
       await context.routeWebSocket('**/*', socket => socket.close());
       await context.addInitScript(({theme}) => {
         localStorage.setItem('digitalhood-theme-preference-v1', theme);
@@ -42,9 +45,11 @@ async function main() {
           if (p === '/api/auth/me') body = {success: true, customer: {id: 7, email: 'fixture@example.invalid', firstName: 'Test', lastName: 'Buyer', billing: {}, shipping: {}}};
           else if (p === '/api/seller/profile') body = {success: true, hasSellerProfile: true, seller: {id: 8, customerId: 8, status: 'approved', storeName: 'Fixture store'}};
           else if (p.includes('/resolutions')) {
-            if (p.endsWith('/messages')) body = {success: true, version: 5};
+            if (p.endsWith('/refund-offers')) {fixture.offers = [offer]; body = {success: true, offerId: offer.offer_id, moneyMoved: false};}
+            else if (p.endsWith('/decision')) {fixture.offers[0].status = req.postDataJSON().status; fixture.offers[0].version++; body = {success: true, moneyMoved: false};}
+            else if (p.endsWith('/messages')) body = {success: true, version: 5};
             else if (p.endsWith('/actions')) body = {success: true, resolution: {...buyer, status: req.postDataJSON().status, version: 5}};
-            else if (p.endsWith(id)) body = {success: true, resolution: {admin, seller, buyer}[role]};
+            else if (p.endsWith(id)) body = {success: true, resolution: fixture};
             else body = {success: true, items: [base], nextCursor: null};
           } else if (p === '/api/account/orders/123') body = {success: true, order};
           return route.fulfill({status: 200, contentType: 'application/json', headers: {'access-control-allow-origin': req.headers().origin || origin, 'access-control-allow-credentials': 'true', 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'content-type,authorization,x-idempotency-key,x-digitalhood-admin-token,x-digitalhood-seller-email'}, body: JSON.stringify(body)});
@@ -77,10 +82,33 @@ async function main() {
       const sent = posts.find(p => p.path.endsWith('/messages')); assert.ok(sent.key);
       if (role === 'admin') assert.equal(sent.body.audienceSellerId, '8');
       else assert.equal(sent.body.audienceSellerId, undefined);
+      await page.getByText(lines[0].name, {exact: true}).waitFor();
+      if (role === 'seller') {
+        await page.getByLabel('Offer amount (ZMW)', {exact: true}).fill('175.50');
+        await page.getByLabel('Explain the offer to the buyer', {exact: true}).fill('A partial refund for the affected charger.');
+        await page.getByRole('button', {name: 'Propose refund', exact: true}).click();
+        await page.getByText('Awaiting buyer decision', {exact: false}).waitFor();
+        const command = posts.find(p => p.path.endsWith('/refund-offers'));
+        assert.ok(command.key); assert.equal(command.body.amountMinor, 17550);
+        assert.equal(command.body.sellerId, undefined); assert.equal(command.body.provider, undefined);
+      } else if (role === 'buyer') {
+        await page.getByRole('button', {name: 'Accept offer', exact: true}).click();
+        await page.getByRole('button', {name: 'Confirm decision', exact: true}).click();
+        await page.getByText('Terms accepted · payment not yet confirmed', {exact: true}).waitFor();
+        const command = posts.find(p => p.path.endsWith('/decision'));
+        assert.equal(command.body.status, 'accepted'); assert.ok(command.key);
+      } else {
+        await page.getByRole('button', {name: 'Approve disputed terms', exact: true}).click();
+        await page.getByLabel('Decision reason (buyer and store visible)', {exact: true}).fill('Reviewed the original evidence and approved these terms.');
+        await page.getByRole('button', {name: 'Confirm review decision', exact: true}).click();
+        await page.getByText('Support approved terms · payment not confirmed', {exact: true}).waitFor();
+        const command = posts.find(p => p.path.endsWith('/decision'));
+        assert.equal(command.body.status, 'admin_approved'); assert.ok(command.key);
+      }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${role}: horizontal overflow`);
       const label = `${role}-${theme}-${mobile ? 'mobile' : 'desktop'}`;
       await page.screenshot({path: path.join(output, `${label}.png`), fullPage: true});
-      const colors = await page.locator('textarea').evaluate(el => ({text: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor, fontSize: getComputedStyle(el).fontSize}));
+      const colors = await page.locator('textarea').first().evaluate(el => ({text: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor, fontSize: getComputedStyle(el).fontSize}));
       assert.ok(parseFloat(colors.fontSize) >= 16, `${label}: mobile input zoom risk`);
       assert.deepEqual(errors, [], `${label}: runtime errors`);
       results.push({label, ...colors, sent: true});
