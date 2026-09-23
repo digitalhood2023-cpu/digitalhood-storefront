@@ -53,8 +53,8 @@ const STOREFRONT_CONTENT_SECURITY_POLICY = [
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "connect-src 'self' https://digitalhood.info https://*.digitalhood.info wss://*.digitalhood.info https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://cloudflareinsights.com https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com",
-  "frame-src https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com",
+  "connect-src 'self' https://digitalhood.info https://*.digitalhood.info wss://*.digitalhood.info https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://cloudflareinsights.com https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.google.com",
+  "frame-src https://*.stripe.com https://accounts.google.com https://challenges.cloudflare.com https://www.googletagmanager.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
 ].join('; ');
