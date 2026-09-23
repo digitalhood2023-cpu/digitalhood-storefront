@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-network-scenarios.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build && node scripts/validate-performance-budgets.mjs",
+    "build": "node --test server/googleMerchantFeed.test.js && node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-network-scenarios.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build && node scripts/validate-performance-budgets.mjs",
+    "test:merchant-feed": "node --test server/googleMerchantFeed.test.js",
     "validate:seo": "node scripts/validate-seo-foundation.mjs",
     "validate:release": "node scripts/validate-marketplace-release.mjs",
     "validate:network": "node scripts/validate-network-resilience.mjs",
