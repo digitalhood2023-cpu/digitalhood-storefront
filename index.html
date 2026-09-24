@@ -10,6 +10,20 @@
 
       gtag('config', 'G-XG41R92KG2');
     </script>
+    <!-- Google Merchant Store Widget -->
+    <script
+      id="merchantWidgetScript"
+      src="https://www.gstatic.com/shopping/merchant/merchantwidget.js"
+      defer
+    ></script>
+    <script>
+      merchantWidgetScript.addEventListener('load', function () {
+        merchantwidget.start({
+          merchant_id: 5857752325,
+          position: 'RIGHT_BOTTOM'
+        });
+      });
+    </script>
     <meta name="google-site-verification" content="-zADrHYgCqjgzucFzdZdQNyfHPwcCJ7MsdfcQoSDEXg" />
     <meta name="google-site-verification" content="FxG3Rm5KEN3qEb04s_eIw8L2vmCvrnGp5-NtSiQM11I" />
     <meta charset="UTF-8" />
