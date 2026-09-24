@@ -11,7 +11,11 @@ export type OrderResolution = ResolutionSummary & {
   events: Array<{ version: number; event_type: string; created_at: string; data: { note?: string; message?: string; role?: string } }>
   refund: null | { amount_minor: string; currency: string; status: string; completed_at: string | null }
 }
-export type RefundOffer = {offer_id: string; seller_id: string; amount_minor: string; currency: string; note: string; status: string; version: number; decision_note: string | null; created_at: string}
+export type RefundOffer = {offer_id: string; seller_id: string; amount_minor: string; currency: string; note: string; status: string; version: number; decision_note: string | null; created_at: string} & {manual_report?: ManualRefundReport | null}
+export type ManualRefundReport = {report_id: string; payment_reference: string; note: string; status: 'reported' | 'buyer_confirmed' | 'disputed'; version: number; decision_note: string | null; created_at: string}
+export function acknowledgeManualRefund(id: string, offer: RefundOffer, status: 'buyer_confirmed' | 'disputed', note: string, key: string) {
+  return accountFetch<{moneyMoved: false; providerVerified: false}>(`/api/account/resolutions/${encodeURIComponent(id)}/refund-offers/${encodeURIComponent(offer.offer_id)}/manual-receipt`, {method: 'POST', headers: {'X-Idempotency-Key': key}, body: JSON.stringify({version: offer.manual_report?.version, status, note}), signal: AbortSignal.timeout(20000)})
+}
 export function decideRefundOffer(id: string, offer: RefundOffer, status: 'accepted' | 'disputed', note: string, key: string) {
   return accountFetch<{moneyMoved: false}>(`/api/account/resolutions/${encodeURIComponent(id)}/refund-offers/${encodeURIComponent(offer.offer_id)}/decision`, {method: 'POST', headers: {'X-Idempotency-Key': key}, body: JSON.stringify({version: offer.version, status, note}), signal: AbortSignal.timeout(20000)})
 }

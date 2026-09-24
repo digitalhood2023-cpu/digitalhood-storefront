@@ -47,6 +47,8 @@ async function main() {
           else if (p.includes('/resolutions')) {
             if (p.endsWith('/refund-offers')) {fixture.offers = [offer]; body = {success: true, offerId: offer.offer_id, moneyMoved: false};}
             else if (p.endsWith('/decision')) {fixture.offers[0].status = req.postDataJSON().status; fixture.offers[0].version++; body = {success: true, moneyMoved: false};}
+            else if (p.endsWith('/manual-report')) {fixture.offers[0].manual_report = {report_id: id, payment_reference: req.postDataJSON().reference, note: req.postDataJSON().note, status: 'reported', version: 1}; body = {success: true, moneyMoved: false, providerVerified: false};}
+            else if (p.endsWith('/manual-receipt')) {Object.assign(fixture.offers[0].manual_report, {status: req.postDataJSON().status, decision_note: req.postDataJSON().note, version: 2}); body = {success: true, moneyMoved: false, providerVerified: false};}
             else if (p.endsWith('/messages')) body = {success: true, version: 5};
             else if (p.endsWith('/actions')) body = {success: true, resolution: {...buyer, status: req.postDataJSON().status, version: 5}};
             else if (p.endsWith(id)) body = {success: true, resolution: fixture};
@@ -104,6 +106,32 @@ async function main() {
         await page.getByText('Support approved terms · payment not confirmed', {exact: true}).waitFor();
         const command = posts.find(p => p.path.endsWith('/decision'));
         assert.equal(command.body.status, 'admin_approved'); assert.ok(command.key);
+      }
+      if (role === 'buyer') {
+        fixture.offers[0].manual_report = {report_id: id, payment_reference: 'MANUAL-FIXTURE-123', note: 'Refund reported through the original payment channel.', status: 'reported', version: 1};
+        await page.reload();
+        await page.getByText('Refund reported as sent', {exact: true}).waitFor();
+        await page.getByRole('button', {name: mobile ? 'Report a refund problem' : 'I received the refund', exact: true}).click();
+        await page.getByLabel(mobile ? 'Describe the refund problem' : 'Confirm you checked and received the agreed amount', {exact: true}).fill(mobile ? 'I checked my payment account and the funds are not there.' : 'I checked my account and received the agreed amount.');
+        await page.getByRole('button', {name: 'Save receipt response', exact: true}).click();
+        await page.getByText(mobile ? 'Refund problem reported to support' : 'You confirmed receiving this refund', {exact: true}).waitFor();
+        const command = posts.find(p => p.path.endsWith('/manual-receipt'));
+        assert.ok(command.key); assert.equal(command.body.status, mobile ? 'disputed' : 'buyer_confirmed');
+        assert.equal(command.body.amountMinor, undefined);
+      } else {
+        // Simulate the buyer's independent acceptance before a seller records a
+        // report. The fixture never calls a provider or transfers any money.
+        fixture.offers[0].status = 'accepted';
+        await page.reload();
+        await page.getByRole('button', {name: 'Record already-sent refund', exact: true}).click();
+        await page.getByLabel('Transaction reference', {exact: true}).fill('MANUAL-FIXTURE-123');
+        await page.getByLabel('Refund report note', {exact: true}).fill('Refund sent through the approved original payment channel.');
+        await page.getByLabel('I have already sent the agreed amount and checked the recipient.', {exact: true}).check();
+        await page.getByRole('button', {name: 'Save manual refund report', exact: true}).click();
+        await page.getByText('Reported sent · awaiting buyer confirmation', {exact: true}).waitFor();
+        const command = posts.find(p => p.path.endsWith('/manual-report'));
+        assert.ok(command.key); assert.equal(command.body.reference, 'MANUAL-FIXTURE-123');
+        assert.equal(command.body.amountMinor, undefined); assert.equal(command.body.status, undefined);
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${role}: horizontal overflow`);
       const label = `${role}-${theme}-${mobile ? 'mobile' : 'desktop'}`;
