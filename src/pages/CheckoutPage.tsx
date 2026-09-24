@@ -42,6 +42,7 @@ import { useCartStore } from '@/store/cartStore'
 
 import StockBadge from '@/components/StockBadge'
 import CheckoutProgressOverlay, { type CheckoutProgressStage } from '@/components/checkout/CheckoutProgressOverlay'
+import GoogleCustomerReviewsOptIn from '@/components/GoogleCustomerReviewsOptIn'
 import StripeCheckoutForm, {
   type PreparedStripePayment,
 } from '@/components/payments/StripeCheckoutForm'
@@ -64,6 +65,30 @@ import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 
 const DEFAULT_POSTCODE = '10101'
+
+function getGoogleCustomerReviewsDeliveryDate({
+  isLusaka,
+  isBeforeSameDayCutoff,
+}: {
+  isLusaka: boolean
+  isBeforeSameDayCutoff: boolean
+}) {
+  const deliveryDate = new Date()
+
+  const daysToAdd = isLusaka
+    ? isBeforeSameDayCutoff
+      ? 0
+      : 1
+    : 2
+
+  deliveryDate.setDate(deliveryDate.getDate() + daysToAdd)
+
+  const year = deliveryDate.getFullYear()
+  const month = String(deliveryDate.getMonth() + 1).padStart(2, '0')
+  const day = String(deliveryDate.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
 
 function createPaymentAttemptId() {
   return typeof crypto.randomUUID === 'function'
@@ -2336,6 +2361,21 @@ export default function CheckoutPage() {
           </div>
         </div>
       </main>
+
+      {orderComplete &&
+        successState.confirmed &&
+        createdOrderId &&
+        getCheckoutEmail() && (
+          <GoogleCustomerReviewsOptIn
+            orderId={orderNumber || String(createdOrderId)}
+            email={getCheckoutEmail()}
+            deliveryCountry="ZM"
+            estimatedDeliveryDate={getGoogleCustomerReviewsDeliveryDate({
+              isLusaka: shipping.isLusaka,
+              isBeforeSameDayCutoff: shipping.isBeforeSameDayCutoff,
+            })}
+          />
+        )}
 
       <CheckoutProgressOverlay
         stage={checkoutProgressStage}
