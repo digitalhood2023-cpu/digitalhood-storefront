@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Loader2, MessageSquare, RefreshCw, ShieldCheck } from 'lucide-react'
 import { getCustomerOrder, type AccountOrder } from '@/api/account'
-import { actOnResolution, createResolution, getResolution, listResolutions, resolutionLabel, sendResolutionMessage, type OrderResolution, type ResolutionRequest, type ResolutionSummary } from '@/api/resolutions'
+import { actOnResolution, createResolution, decideRefundOffer, getResolution, listResolutions, resolutionLabel, sendResolutionMessage, type RefundOffer, type OrderResolution, type ResolutionRequest, type ResolutionSummary } from '@/api/resolutions'
 import { useAccount } from '@/context/AccountContext'
 import { Button } from '@/components/ui/button'
+import ManualRefundReceipt from '@/components/ManualRefundReceipt'
 import { formatOrderDate, formatOrderMoney } from '@/lib/orderTracking'
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
@@ -13,7 +14,7 @@ const panel = 'rounded-xl border border-slate-200 bg-white p-3 dark:border-slate
 const input = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[16px] font-normal text-slate-950 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100'
 const reasons = [['ordered_by_mistake', 'Ordered by mistake'], ['changed_mind', 'Changed my mind'], ['not_received', 'Not received'], ['damaged', 'Damaged or faulty'], ['not_as_described', 'Not as described'], ['wrong_item', 'Wrong item'], ['missing_items', 'Missing items'], ['counterfeit', 'Suspected counterfeit'], ['other', 'Other']]
 
-function RequestForm({ order, onCreated }: { order: AccountOrder; onCreated: (id: string) => void }) {
+function RequestForm({ order, cancellation, onCreated }: { order: AccountOrder; cancellation?: {allowed: boolean; message: string}; onCreated: (id: string) => void }) {
   const [kind, setKind] = useState('refund'), [reason, setReason] = useState('damaged'), [description, setDescription] = useState('')
   const [selected, setSelected] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false), [error, setError] = useState('')
@@ -39,14 +40,36 @@ function RequestForm({ order, onCreated }: { order: AccountOrder; onCreated: (id
       {!!selected[item.id] && <input aria-label={`Quantity for ${item.name}`} type="number" min={1} max={item.quantity} step={1} required value={selected[item.id]} disabled={busy} onChange={event => setSelected({...selected, [item.id]: Math.max(1, Math.min(item.quantity, Math.floor(Number(event.target.value) || 1)))})} className={`${input} !w-16 !px-2`} />}
     </div>)}</div>
     <div className="grid gap-3 sm:grid-cols-2">
-      <label className="text-xs font-semibold">Request<select value={kind} onChange={event => setKind(event.target.value)} disabled={busy} className={`${input} mt-1`}><option value="cancellation">Cancel selected items</option><option value="return">Return selected items</option><option value="refund">Request a refund</option><option value="replacement">Request a replacement</option></select></label>
+      <label className="text-xs font-semibold">Request<select value={kind} onChange={event => setKind(event.target.value)} disabled={busy} className={`${input} mt-1`}><option value="cancellation" disabled={!cancellation?.allowed}>Cancel selected items</option><option value="return">Return selected items</option><option value="refund">Request a refund</option><option value="replacement">Request a replacement</option></select></label>
       <label className="text-xs font-semibold">Reason<select value={reason} onChange={event => setReason(event.target.value)} disabled={busy} className={`${input} mt-1`}>{reasons.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
     </div>
+    {cancellation && !cancellation.allowed && <p className="text-xs text-slate-600 dark:text-slate-300">{cancellation.message}</p>}
     <label className="block text-xs font-semibold">Tell us what happened<textarea required minLength={10} maxLength={4000} rows={3} value={description} onChange={event => setDescription(event.target.value)} disabled={busy} className={`${input} mt-1`} placeholder="Describe the issue and the outcome you need. Never include card details or payment PINs." /></label>
     <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">Submitting sends a request for review. It does not yet cancel dispatch or confirm a refund. We’ll show the decision and any payment progress here.</p>
     {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
     <Button type="submit" disabled={busy} className="h-9">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}Submit request</Button>
   </form>
+}
+
+function RefundOfferCard({id, offer, refresh}: {id: string; offer: RefundOffer; refresh: () => Promise<void>}) {
+  const [action, setAction] = useState<'accepted' | 'disputed' | null>(null), [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false), [error, setError] = useState('')
+  const pending = useRef<{signature: string; key: string} | null>(null)
+  const names: Record<string, string> = {proposed: 'Review refund offer', accepted: 'Terms accepted · payment not yet confirmed', disputed: 'Support review requested', admin_approved: 'Support approved terms · payment not yet confirmed', rejected: 'Offer not approved', withdrawn: 'Offer withdrawn'}
+  async function submit(event: FormEvent) {
+    event.preventDefault(); if (busy || !action || note.trim().length < 10) return
+    const signature = JSON.stringify([offer.offer_id, offer.version, action, note.trim()])
+    if (pending.current?.signature !== signature) pending.current = {signature, key: crypto.randomUUID()}
+    setBusy(true); setError('')
+    try {await decideRefundOffer(id, offer, action, note.trim(), pending.current.key); setAction(null); setNote(''); pending.current = null; await refresh()}
+    catch (cause) {setError(cause instanceof Error ? cause.message : 'Unable to confirm your decision. Retry safely.')}
+    finally {setBusy(false)}
+  }
+  return <section className={panel} aria-label="Refund offer"><h3 className="text-sm font-bold">{offer.manual_report ? 'Agreed refund terms' : names[offer.status] || resolutionLabel(offer.status)}</h3><p className="mt-1 text-lg font-bold">{formatOrderMoney(String(Number(offer.amount_minor) / 100), offer.currency)}</p><p className="text-xs text-slate-500 dark:text-slate-400">Seller account {offer.seller_id} · Selected items</p><p className="mt-2 whitespace-pre-wrap break-words text-sm">{offer.note}</p>{offer.decision_note && <p className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-600 dark:text-slate-300">Decision: {offer.decision_note}</p>}
+    <ManualRefundReceipt key={offer.manual_report?.version || 0} id={id} offer={offer} refresh={refresh} />
+    {offer.status === 'proposed' && <><p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">Agree to these terms or ask DigitalHood to review them. This does not cancel delivery or confirm that money has been sent.</p>{!action ? <div className="mt-2 flex flex-wrap gap-2"><Button className="h-9" onClick={() => {setAction('accepted'); setNote('I accept the refund amount and terms shown above.')}}>Accept offer</Button><Button className="h-9" variant="outline" onClick={() => {setAction('disputed'); setNote('')}}>Ask support to review</Button></div> : <form onSubmit={submit} className="mt-2 space-y-2"><label className="block text-xs font-semibold">{action === 'accepted' ? 'Confirm your agreement' : 'What should support review?'}<textarea required minLength={10} maxLength={2000} rows={2} value={note} disabled={busy} onChange={event => setNote(event.target.value)} className={`${input} mt-1`} /></label><div className="flex gap-2"><Button className="h-9" type="submit" disabled={busy || note.trim().length < 10}>{busy ? 'Saving…' : 'Confirm decision'}</Button><Button className="h-9" type="button" variant="outline" disabled={busy} onClick={() => setAction(null)}>Back</Button></div></form>}</>}
+    {error && <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">{error}</p>}
+  </section>
 }
 
 function CaseDetail({ item, refresh }: { item: OrderResolution; refresh: () => Promise<void> }) {
@@ -85,8 +108,9 @@ function CaseDetail({ item, refresh }: { item: OrderResolution; refresh: () => P
     </section>
     <aside className="space-y-3"><section className={panel}><h2 className="text-sm font-bold">Selected items</h2><div className="mt-2 divide-y divide-slate-200 dark:divide-slate-700">{item.lines.map(line => <div key={line.line_id} className="flex justify-between gap-3 py-2 text-sm"><div className="min-w-0"><span className="break-words">{line.name}</span><small className="block text-slate-500 dark:text-slate-400">Quantity {line.unit_numbers.length}</small></div><span className="shrink-0 font-semibold">{formatOrderMoney(String(Number(line.amount_minor) / 100), item.currency)}</span></div>)}</div><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Amounts paid for selected items; any shipping adjustment is reviewed separately.</p></section>
       {item.refund && <section className={panel}><h2 className="text-sm font-bold">{resolutionLabel(item.refund.status)}</h2><p className="mt-1 text-lg font-bold">{formatOrderMoney(String(Number(item.refund.amount_minor) / 100), item.refund.currency)}</p><p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">Refunds return through the original payment where supported. Bank and provider processing times can vary.</p></section>}
+      {(item.offers || []).map(offer => <RefundOfferCard key={`${offer.offer_id}:${offer.version}`} id={item.resolution_id} offer={offer} refresh={refresh} />)}
       <Link to={`/track-order/${item.order_id}`} className="inline-flex items-center gap-2 text-sm font-semibold">View order #{item.order_id}<ArrowRight className="h-4 w-4" /></Link>
-      {(['requested', 'awaiting_buyer', 'declined'].includes(item.status)) && <section className={panel}>
+      {(['requested', 'awaiting_buyer', 'declined'].includes(item.status)) && !(item.offers || []).some(offer => ['accepted', 'disputed', 'admin_approved'].includes(offer.status)) && <section className={panel}>
         {!action ? <button type="button" disabled={busy} onClick={() => setAction(item.status === 'declined' ? 'appealed' : 'withdrawn')} className="text-sm font-semibold underline">{item.status === 'declined' ? 'Ask for a decision review' : 'Withdraw this request'}</button> : <form onSubmit={confirmAction} className="space-y-2"><h3 className="text-sm font-bold">{action === 'appealed' ? 'Request a review' : 'Withdraw this request?'}</h3><p className="text-xs leading-5 text-slate-600 dark:text-slate-300">{action === 'appealed' ? 'Explain what was missed or what new information should be considered.' : 'This closes the support request, not the order. It does not cancel delivery or move money.'}</p><label className="block text-xs font-semibold">Reason<textarea value={note} onChange={event => setNote(event.target.value)} minLength={10} maxLength={2000} rows={2} required disabled={busy} className={`${input} mt-1`} /></label><div className="flex gap-2"><Button type="submit" className="h-9" disabled={busy || note.trim().length < 10}>Confirm</Button><Button type="button" variant="outline" className="h-9" disabled={busy} onClick={() => setAction(null)}>Back</Button></div></form>}
       </section>}
     </aside>
@@ -96,6 +120,7 @@ function CaseDetail({ item, refresh }: { item: OrderResolution; refresh: () => P
 function AccountResolutionWorkspace({orderId, resolutionId, customerId}: {orderId?: string; resolutionId?: string; customerId: number | string}) {
   const navigate = useNavigate()
   const [order, setOrder] = useState<AccountOrder | null>(null), [detail, setDetail] = useState<OrderResolution | null>(null)
+  const [cancellation, setCancellation] = useState<{allowed: boolean; message: string} | undefined>()
   const [items, setItems] = useState<ResolutionSummary[]>([]), [cursor, setCursor] = useState<string | null>(null)
   const [busy, setBusy] = useState(true), [error, setError] = useState('')
   const generation = useRef(Symbol())
@@ -104,7 +129,7 @@ function AccountResolutionWorkspace({orderId, resolutionId, customerId}: {orderI
     const task = resolutionId
       ? getResolution(resolutionId).then(response => {if (run === generation.current) setDetail(response.resolution)})
       : Promise.all([listResolutions(orderId, more ? before : undefined), orderId && !more ? getCustomerOrder(orderId) : Promise.resolve(null)]).then(([result, orderResult]) => {
-        if (run === generation.current) {setItems(previous => more ? [...previous, ...result.items] : result.items); setCursor(result.nextCursor); if (orderResult) setOrder(orderResult.order)}
+        if (run === generation.current) {setItems(previous => more ? [...previous, ...result.items] : result.items); setCursor(result.nextCursor); if (result.cancellation) setCancellation(result.cancellation); if (orderResult) setOrder(orderResult.order)}
       })
     return task.catch(cause => {if (run === generation.current) setError(cause instanceof Error ? cause.message : 'Unable to load resolutions.')}).finally(() => {if (run === generation.current) setBusy(false)})
   }, [orderId, resolutionId])
@@ -123,7 +148,7 @@ function AccountResolutionWorkspace({orderId, resolutionId, customerId}: {orderI
         {!!items.length && <section className={`${panel} !p-0`} aria-label="Your requests"><ul className="divide-y divide-slate-200 dark:divide-slate-700">{items.map(item => <li key={item.resolution_id}><Link to={`/account/resolutions/${item.resolution_id}`} className="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-100 dark:hover:bg-slate-800"><div className="min-w-0"><strong className="text-sm">Order #{item.order_id} · {resolutionLabel(item.kind)}</strong><p className="text-xs text-slate-500 dark:text-slate-400">{resolutionLabel(item.reason)} · {formatOrderDate(item.created_at)}</p></div><span className="text-right text-xs font-semibold">{resolutionLabel(item.status)}</span><ArrowRight className="h-4 w-4 shrink-0" /></Link></li>)}</ul></section>}
         {cursor && <Button variant="outline" disabled={busy} onClick={() => void refresh(true, cursor)}>Load more requests</Button>}
         {!busy && !error && !items.length && !orderId && <section className={panel}><p className="text-sm">No requests yet. Open an order to select the items you need help with.</p><Link to="/orders" className="mt-2 inline-block text-sm font-bold underline">View your orders</Link></section>}
-        {order && !error && <RequestForm key={`${customerId}:${order.id}`} order={order} onCreated={id => navigate(`/account/resolutions/${id}`)} />}
+        {order && !error && <RequestForm key={`${customerId}:${order.id}`} order={order} cancellation={cancellation} onCreated={id => navigate(`/account/resolutions/${id}`)} />}
       </>}
   </>
 }

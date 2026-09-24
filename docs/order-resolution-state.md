@@ -1,6 +1,10 @@
 # Order resolution workspace
 
-Updated 2026-09-22. In progress, not a production-complete cancellation/refund release.
+Updated 2026-09-24. In progress, not a production-complete cancellation/refund release.
+
+Added manual refund receipt/dispute actions: buyers must check their own payment account and explicitly describe receipt before acknowledging. A sender report is distinct from provider confirmation, and support remains available for a problem. Updated browser/build CI pending. Prior offer-only run `35890841808` passed four cases; upstream Google Merchant feed changes were preserved via merge commit `f080434`. The latest local full build hit ENOTEMPTY while cleaning generated dist output after type checks; do not count it as a build pass.
+
+Current continuation: buyers can review exact seller offers, explicitly accept or request support adjudication, and see that agreement is separate from payment confirmation. Server cancellation eligibility disables cancellation after preparation/shipping without hiding return/refund review. An agreed/disputed offer prevents misleading request-withdrawal controls. Full local production checks passed before this final control refinement; new four-variant browser acceptance and final build run in CI. Money movement remains disabled.
 
 Added lazy routes:
 
