@@ -1,51 +1,32 @@
 <!DOCTYPE html>
 <html lang="en-ZM">
   <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XG41R92KG2"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-XG41R92KG2');
-    </script>
-    <!-- Google Merchant Store Widget -->
-    <script
-      id="merchantWidgetScript"
-      src="https://www.gstatic.com/shopping/merchant/merchantwidget.js"
-      defer
-    ></script>
-    <script>
-      merchantWidgetScript.addEventListener('load', function () {
-        merchantwidget.start({
-          merchant_id: 5857752325,
-          position: 'RIGHT_BOTTOM'
-        });
-      });
-    </script>
+    <meta charset="UTF-8" />
     <meta name="google-site-verification" content="-zADrHYgCqjgzucFzdZdQNyfHPwcCJ7MsdfcQoSDEXg" />
     <meta name="google-site-verification" content="FxG3Rm5KEN3qEb04s_eIw8L2vmCvrnGp5-NtSiQM11I" />
-    <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#15125f" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover"
     />
-    <script>
-      (() => {
-        const key = 'digitalhood-theme-preference-v1';
-        const cookie = document.cookie.split('; ').find((entry) => entry.startsWith('digitalhood_theme='));
-        let preference = 'system';
-        try { preference = cookie?.split('=')[1] || localStorage.getItem(key) || 'system'; } catch { preference = cookie?.split('=')[1] || 'system'; }
-        if (!['system', 'light', 'dark'].includes(preference)) preference = 'system';
-        const resolved = preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : preference === 'dark' ? 'dark' : 'light';
-        document.documentElement.dataset.theme = resolved;
-        document.documentElement.dataset.themePreference = preference;
-        document.documentElement.classList.toggle('dark', resolved === 'dark');
-        document.documentElement.style.colorScheme = resolved;
-      })();
+    <script id="digitalhood-theme">
+(function () {
+  var preference = 'system';
+  try {
+    var match = document.cookie.match(/(?:^|;\s*)digitalhood_theme=([^;]*)/);
+    preference = match ? decodeURIComponent(match[1]) : (window.localStorage.getItem('digitalhood-theme-preference-v1') || 'system');
+  } catch (error) { /* Restricted storage must not prevent the page from starting. */ }
+  if (preference !== 'light' && preference !== 'dark' && preference !== 'system') preference = 'system';
+  var dark = preference === 'dark';
+  try { if (preference === 'system' && window.matchMedia) dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (error) {}
+  var root = document.documentElement;
+  root.setAttribute('data-theme', dark ? 'dark' : 'light');
+  root.setAttribute('data-theme-preference', preference);
+  root.className = root.className.replace(/(^|\s)dark(?=\s|$)/g, ' ').replace(/^\s+|\s+$/g, '');
+  if (dark) root.className += ' dark';
+  root.style.colorScheme = dark ? 'dark' : 'light';
+}());
     </script>
 
     <!-- DIGITALHOOD_SEO_START -->
@@ -80,71 +61,106 @@
     <link rel="alternate icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <link rel="preconnect" href="https://js.stripe.com" crossorigin />
-    <link rel="dns-prefetch" href="https://m.stripe.network" />
   </head>
 
   <body>
-    <div id="app-loader">
-      <img class="dh-loader-logo" src="/logo.jpg" alt="DigitalHood loading" />
+    <!-- DIGITALHOOD_STARTUP_RECOVERY_V1: real HTML, visible before JavaScript. -->
+    <style>
+      #dh-startup { background:#fff; color:#172033; font:16px/1.6 Arial,sans-serif; padding:24px 18px; min-height:240px; }
+      #dh-startup .dh-startup-inner { max-width:820px; margin:0 auto; }
+      #dh-startup h1 { font-size:28px; margin:0 0 12px; color:#15125f; }
+      #dh-startup a { color:#15125f; text-decoration:underline; }
+      #dh-startup input { box-sizing:border-box; max-width:100%; border:1px solid #777; background:#fff; color:#111; padding:10px; font:inherit; }
+      #dh-startup button { border:1px solid #15125f; background:#15125f; color:#fff; padding:10px 16px; font:inherit; cursor:pointer; }
+    </style>
+    <div id="dh-startup">
+      <div class="dh-startup-inner">
+        <h1>DigitalHood Marketplace</h1>
+        <p id="dh-startup-status" role="status" aria-live="polite">Opening the marketplace. On a slow connection, you can browse the low-data catalogue now.</p>
+        <p><a href="/lite">Browse the low-data catalogue</a></p>
+        <form action="/lite" method="get">
+          <label for="dh-startup-search">Search products</label><br />
+          <input id="dh-startup-search" name="q" type="search" maxlength="100" placeholder="Phones, laptops, accessories" />
+          <button type="submit">Search</button>
+        </form>
+        <noscript><p>JavaScript is disabled. The low-data catalogue still lets you browse and search products.</p></noscript>
+      </div>
     </div>
 
-    <style>
-      #app-loader {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: #ffffff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      html[data-theme='dark'] #app-loader {
-        background: #090d16;
-      }
-
-      #app-loader .dh-loader-logo {
-        width: 120px;
-        height: 120px;
-        overflow: hidden;
-        border: 1px solid #e5e7eb;
-        border-radius: 50%;
-        background: #ffffff;
-        object-fit: contain;
-        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
-        animation: logoPulse 1.2s ease-in-out infinite;
-      }
-
-      html[data-theme='dark'] #app-loader .dh-loader-logo {
-        border-color: #354156;
-        background: #060a11;
-        filter: invert(1) contrast(1.08);
-        box-shadow: 0 18px 52px rgba(0, 0, 0, 0.38);
-      }
-
-      @keyframes logoPulse {
-        0%,
-        100% {
-          transform: scale(1);
-          opacity: 0.85;
-        }
-
-        50% {
-          transform: scale(1.08);
-          opacity: 1;
-        }
-      }
-    </style>
-
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <!-- Cloudflare Web Analytics -->
-    <script
-      defer
-      src="https://static.cloudflareinsights.com/beacon.min.js"
-      data-cf-beacon='{"token":"b31098c2b8064d01b036bb0284c6eaa1"}'>
+    <script id="digitalhood-bootstrap">
+/* This recovery code deliberately uses ES5 syntax; it must run without the app bundle. */
+(function () {
+  var ready = false;
+  var timer;
+  function message(text) {
+    var element = document.getElementById('dh-startup-status');
+    if (element) {
+      while (element.firstChild) element.removeChild(element.firstChild);
+      element.appendChild(document.createTextNode(text));
+    }
+  }
+  function lowData() {
+    var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    try { if (window.localStorage.getItem('digitalhood_data_saver') === 'on') return true; } catch (error) {}
+    return !!(connection && (connection.saveData || /^(slow-2g|2g|3g)$/.test(connection.effectiveType || '')));
+  }
+  function addScript(src, onload, attributes) {
+    var script = document.createElement('script');
+    script.async = true;
+    script.src = src;
+    if (onload) script.onload = onload;
+    if (attributes) for (var key in attributes) if (Object.prototype.hasOwnProperty.call(attributes, key)) script.setAttribute(key, attributes[key]);
+    script.onerror = function () { /* Optional integrations never control app startup. */ };
+    document.head.appendChild(script);
+  }
+  function optionalIntegrations() {
+    if (lowData()) return;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', 'G-XG41R92KG2');
+    addScript('https://www.googletagmanager.com/gtag/js?id=G-XG41R92KG2');
+    addScript('https://www.gstatic.com/shopping/merchant/merchantwidget.js', function () {
+      try {
+        if (window.merchantwidget && window.merchantwidget.start) window.merchantwidget.start({ merchant_id: 5857752325, position: 'RIGHT_BOTTOM' });
+      } catch (error) {}
+    });
+    addScript('https://static.cloudflareinsights.com/beacon.min.js', null, { 'data-cf-beacon': '{"token":"b31098c2b8064d01b036bb0284c6eaa1"}' });
+  }
+  window.__digitalhoodBootReady = function () {
+    if (ready) return;
+    ready = true;
+    window.clearTimeout(timer);
+    var startup = document.getElementById('dh-startup');
+    if (startup && startup.parentNode) startup.parentNode.removeChild(startup);
+    // Give the route and initial product request a head start; skip optional downloads on low-data connections.
+    window.setTimeout(optionalIntegrations, 6000);
+  };
+  timer = window.setTimeout(function () {
+    if (!ready) message('The full marketplace is taking longer than usual. You can keep waiting or use the low-data catalogue above.');
+  }, 8000);
+  window.addEventListener('error', function (event) {
+    var target = event.target;
+    if (!ready && (target === window || (target && target.tagName === 'SCRIPT'))) {
+      message('The full marketplace could not start. Use the low-data catalogue above, or retry this page.');
+    }
+  }, true);
+  window.addEventListener('vite:preloadError', function () {
+    if (!ready) message('A marketplace file could not download. Use the low-data catalogue above, or retry this page.');
+    // Do not reload automatically or suppress the React error boundary.
+  });
+  if (!('noModule' in document.createElement('script')) || !window.Promise || !window.fetch || !window.AbortController) {
+    message('This browser needs the low-data catalogue. Use the link above to browse without the full app.');
+    // Only public browsing routes can be redirected. Never redirect a payment/account flow.
+    var pathname = window.location.pathname;
+    var destination = '';
+    if (pathname === '/' || pathname === '/shop' || pathname === '/search' || pathname === '/categories') destination = '/lite';
+    if (/^\/product\/[^/]+\/?$/.test(pathname)) destination = '/lite' + pathname;
+    if (destination) window.location.replace(destination);
+  }
+}());
     </script>
-    <!-- End Cloudflare Web Analytics -->
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

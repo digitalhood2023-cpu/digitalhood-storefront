@@ -36,29 +36,40 @@ async function isPublicResponseCacheable(response) {
 }
 
 async function cacheFirst(request) {
-  const cached = await caches.match(request)
-  if (cached) return cached
+  try {
+    const cached = await caches.match(request)
+    if (cached) return cached
+  } catch { /* Storage failure must not block an online asset. */ }
   const response = await fetch(request)
   if (response.ok) {
-    const cache = await caches.open(SHELL_CACHE)
-    await cache.put(request, response.clone())
-    await trimCache(SHELL_CACHE, POLICY.maxAssetEntries)
+    try {
+      const cache = await caches.open(SHELL_CACHE)
+      await cache.put(request, response.clone())
+      await trimCache(SHELL_CACHE, POLICY.maxAssetEntries)
+    } catch { /* Return the successful network response even when storage is full. */ }
   }
   return response
 }
 
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(PUBLIC_CACHE)
-  const cached = await cache.match(request)
+async function staleWhileRevalidate(request, event) {
   const network = fetch(request)
     .then(async (response) => {
-      if (await isPublicResponseCacheable(response)) {
-        await cache.put(request, response.clone())
-        await trimCache(PUBLIC_CACHE, POLICY.maxPublicEntries)
-      }
+      try {
+        if (await isPublicResponseCacheable(response)) {
+          const cache = await caches.open(PUBLIC_CACHE)
+          await cache.put(request, response.clone())
+          await trimCache(PUBLIC_CACHE, POLICY.maxPublicEntries)
+        }
+      } catch { /* Optional public caching must not discard a good response. */ }
       return response
     })
     .catch(() => null)
+  event.waitUntil(network.then(() => undefined))
+  let cached = null
+  try {
+    const cache = await caches.open(PUBLIC_CACHE)
+    cached = await cache.match(request)
+  } catch { /* Continue with the network. */ }
   return cached || (await network) || new Response(JSON.stringify({ offline: true }), {
     status: 503,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -84,6 +95,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin || request.method !== 'GET' || isProhibited(url)) return
 
+  // Lite is real server HTML. Never substitute an old React shell for this route.
+  if (url.pathname === '/lite' || url.pathname.startsWith('/lite/')) return
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(async () => {
@@ -100,6 +114,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isPublicRead(request, url)) {
-    event.respondWith(staleWhileRevalidate(request))
+    event.respondWith(staleWhileRevalidate(request, event))
   }
 })

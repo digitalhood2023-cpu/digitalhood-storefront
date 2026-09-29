@@ -14,6 +14,7 @@ export type OfflineAction = {
 const DATABASE_NAME = 'digitalhood-network-v1'
 const STORE_NAME = 'safe-actions'
 const DATA_SAVER_KEY = 'digitalhood_data_saver'
+let inMemoryDataSaverPreference = ''
 const ALLOWED_ACTIONS = new Set<OfflineActionType>([
   'notification_read',
   'notification_archive',
@@ -53,7 +54,8 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 
 export function isLowDataConnection() {
   const connection = getConnection()
-  const manual = localStorage.getItem(DATA_SAVER_KEY)
+  let manual = inMemoryDataSaverPreference
+  try { manual = localStorage.getItem(DATA_SAVER_KEY) || manual } catch { /* Storage is optional. */ }
   return (
     manual === 'on' ||
     connection?.saveData === true ||
@@ -62,7 +64,8 @@ export function isLowDataConnection() {
 }
 
 export function setDataSaverPreference(enabled: boolean) {
-  localStorage.setItem(DATA_SAVER_KEY, enabled ? 'on' : 'off')
+  inMemoryDataSaverPreference = enabled ? 'on' : 'off'
+  try { localStorage.setItem(DATA_SAVER_KEY, inMemoryDataSaverPreference) } catch { /* Keep the in-memory preference. */ }
   applyNetworkPreferences()
   window.dispatchEvent(new CustomEvent('digitalhood:data-saver-change', { detail: { enabled } }))
 }
@@ -85,9 +88,12 @@ export function applyNetworkPreferences() {
 
 export function registerDigitalHoodServiceWorker() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js', { scope: '/' })
-  })
+  const register = () => {
+    void navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
+      .catch((error) => console.warn('Offline support unavailable; continuing online.', error))
+  }
+  if (document.readyState === 'complete') register()
+  else window.addEventListener('load', register, { once: true })
 }
 
 export async function queueOfflineAction(input: Omit<OfflineAction, 'id' | 'createdAt' | 'attempts'>) {

@@ -1,4 +1,5 @@
 import express from 'express';
+import { installLiteStorefront } from './server/liteStorefront.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -331,6 +332,8 @@ app.get('/google-merchant-feed.xml', async (req, res) => {
   }
 });
 
+installLiteStorefront(app, { apiBase: PAYMENTS_API_URL });
+
 const distDir = path.join(__dirname, 'dist');
 
 app.use(
@@ -385,6 +388,12 @@ app.use(
     },
   })
 );
+
+// A missing JS/CSS chunk must be a real 404, never an HTML page labelled as success.
+app.use('/assets', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(404).type('text/plain').send('Asset not found. Please refresh the marketplace.');
+});
 
 app.use(async (req, res) => {
   try {
