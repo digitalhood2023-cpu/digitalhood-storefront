@@ -1,3 +1,4 @@
+import { isLowDataConnection } from '@/lib/networkResilience'
 import { useEffect, useMemo, useState } from 'react'
 
 import Header from '@/sections/Header'
@@ -152,6 +153,7 @@ export default function Home() {
   )
   const [isLoadingProducts, setIsLoadingProducts] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
     const refreshSearchHistory = () => {
@@ -189,7 +191,9 @@ export default function Home() {
       setDiscovery(EMPTY_HOME_DISCOVERY)
 
       try {
-        const response = await fetchHomeDiscovery(interests, 12)
+        const response = await (isLowDataConnection()
+          ? fetchHomeDiscovery([], 4)
+          : fetchHomeDiscovery(interests, 12))
 
         if (!mounted) return
 
@@ -216,7 +220,7 @@ export default function Home() {
     return () => {
       mounted = false
     }
-  }, [interests])
+  }, [interests, loadAttempt])
 
   const homeSections = useMemo(() => {
     return {
@@ -245,6 +249,12 @@ export default function Home() {
 
         <RecentlyViewed />
 
+        {isLoadingProducts && (
+          <p className="px-4 py-3 text-sm text-gray-700">
+            Products are loading. <a className="font-semibold underline" href="/lite">Browse the low-data catalogue</a>
+          </p>
+        )}
+
         {isLoadingProducts ? (
           <MarketplaceHomeSkeleton />
         ) : loadError ? (
@@ -253,6 +263,10 @@ export default function Home() {
               <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-yellow-800">
                 <p className="font-semibold">Marketplace products could not load.</p>
                 <p className="mt-1 text-sm">{loadError}</p>
+                <div className="mt-3 flex flex-wrap gap-4">
+                  <button type="button" className="font-semibold underline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Retry products</button>
+                  <a href="/lite" className="font-semibold underline">Browse the low-data catalogue</a>
+                </div>
               </div>
             </div>
           </section>

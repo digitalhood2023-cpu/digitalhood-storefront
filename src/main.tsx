@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
 import App from './App'
+import { StartupBoundary, StartupReady } from './components/StartupBoundary'
 import { AppProviders } from './providers/AppProviders'
 import { ThemeProvider } from './context/ThemeContext'
 import {
@@ -13,11 +14,13 @@ import {
 
 import './index.css'
 
-applyNetworkPreferences()
-registerDigitalHoodServiceWorker()
+try { applyNetworkPreferences() } catch (error) { console.warn("Network preferences unavailable", error) }
+try { registerDigitalHoodServiceWorker() } catch (error) { console.warn("Offline support unavailable", error) }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <StartupBoundary>
+      <StartupReady />
     <ThemeProvider>
       <BrowserRouter>
         <AppProviders>
@@ -26,20 +29,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </AppProviders>
       </BrowserRouter>
     </ThemeProvider>
+    </StartupBoundary>
   </React.StrictMode>
 )
-
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    const loader = document.getElementById('app-loader')
-
-    if (loader) {
-      loader.style.opacity = '0'
-      loader.style.transition = 'opacity 0.4s ease'
-
-      setTimeout(() => {
-        loader.remove()
-      }, 400)
-    }
-  }, 500)
-})

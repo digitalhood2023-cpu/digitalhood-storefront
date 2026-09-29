@@ -1,3 +1,4 @@
+import { requestCatalogueJson } from '@/lib/catalogueRequest';
 import {
   resolvePublicSellerAssetUrl,
 } from '@/api/publicSellers';
@@ -966,10 +967,9 @@ export async function fetchHomeDiscovery(
     if (value) params.append('interest', value);
   }
 
-  const response = await fetch(`${HOME_DISCOVERY_API}?${params.toString()}`, {
-    cache: 'no-store',
-  });
-  const data = await parseJsonResponse(response);
+  const data = await requestCatalogueJson(
+    `${HOME_DISCOVERY_API}?${params.toString()}`, parseJsonResponse, { cache: 'no-store' }
+  );
   const shelves = data.shelves || {};
 
   return {
@@ -1102,14 +1102,9 @@ export async function fetchMarketplaceProducts(
     params.set('on_sale', String(request.onSale));
   }
 
-  const response = await fetch(
-    `${MARKETPLACE_SEARCH_API}?${params.toString()}`,
-    {
-      cache: 'no-store',
-    }
+  const data = await requestCatalogueJson(
+    `${MARKETPLACE_SEARCH_API}?${params.toString()}`, parseJsonResponse, { cache: 'no-store' }
   );
-
-  const data = await parseJsonResponse(response);
   const rawProducts = Array.isArray(data.products)
     ? data.products
     : [];
@@ -1172,8 +1167,9 @@ export async function fetchWooProducts(
     params.set('category', String(categoryId));
   }
 
-  const response = await fetch(`${MARKETPLACE_PRODUCTS_API}?${params.toString()}`);
-  const data = await parseJsonResponse(response);
+  const data = await requestCatalogueJson(
+    `${MARKETPLACE_PRODUCTS_API}?${params.toString()}`, parseJsonResponse
+  );
 
   const rawProducts = Array.isArray(data.products) ? data.products : [];
   const availableProducts = rawProducts
@@ -1373,8 +1369,9 @@ export async function fetchWooProductReviews(
 }
 
 export async function fetchWooCategories(): Promise<WooCategory[]> {
-  const response = await fetch(`${PAYMENTS_API_URL}/api/categories`);
-  const data = await parseJsonResponse(response);
+  const data = await requestCatalogueJson(
+    `${PAYMENTS_API_URL}/api/categories`, parseJsonResponse
+  );
 
   const categories = Array.isArray(data?.categories)
     ? data.categories

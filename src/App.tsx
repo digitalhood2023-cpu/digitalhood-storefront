@@ -12,7 +12,7 @@ import AccessibilityFoundation from '@/components/AccessibilityFoundation'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import { getCurrentSellerDomainContext } from '@/lib/sellerDomains'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
-import DigitalHoodMark from '@/components/DigitalHoodMark'
+import { RouteLoading } from '@/components/StartupBoundary'
 
 const Home = lazy(() => import('@/pages/Home'))
 const ShopPage = lazy(() => import('@/pages/ShopPage'))
@@ -58,16 +58,7 @@ const AboutUsPage = lazy(() => import('@/pages/seo/AboutUsPage'))
 const SupportPage = lazy(() => import('@/pages/SupportPage'))
 
 function PageLoader() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="text-center">
-        <DigitalHoodMark className="mx-auto mb-4 h-16 w-16" />
-        <p className="text-sm font-medium text-gray-600">
-          Loading DigitalHood...
-        </p>
-      </div>
-    </div>
-  )
+  return <RouteLoading />
 }
 
 function SellerFeedbackRedirect() {
