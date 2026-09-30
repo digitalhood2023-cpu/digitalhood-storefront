@@ -230,8 +230,9 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
                             srcSet={getFastProductSrcSet(product)}
                             sizes={getProductImageSizes('card')}
                             alt={product.name}
-                            loading="lazy"
+                            loading="eager"
                             decoding="async"
+                            fetchPriority="auto"
                             onError={(event) =>
                               advanceProductImageFallback(
                                 event.currentTarget,

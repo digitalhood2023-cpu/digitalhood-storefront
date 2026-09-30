@@ -61,7 +61,7 @@ export default function RecentlyViewed({
 
         <div className="-mx-4 snap-x snap-mandatory overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-1 sm:px-1">
           <div className="flex gap-3">
-            {visibleItems.slice(0, 12).map((product) => (
+            {visibleItems.slice(0, 12).map((product, index) => (
               <article
                 key={product.id}
                 className="group relative w-[148px] shrink-0 snap-start overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#ffb54a]/60 hover:shadow-md sm:w-[178px]"
@@ -82,9 +82,9 @@ export default function RecentlyViewed({
                       srcSet={getFastProductSrcSet(product)}
                       sizes={getProductImageSizes('card')}
                       alt={product.name}
-                      loading="lazy"
+                      loading={index < 2 ? 'eager' : 'lazy'}
                       decoding="async"
-                      fetchPriority="low"
+                      fetchPriority={index < 2 ? 'auto' : 'low'}
                       onError={(event) => {
                         advanceProductImageFallback(event.currentTarget, product, 'card')
                       }}

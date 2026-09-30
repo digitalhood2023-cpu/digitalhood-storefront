@@ -152,6 +152,7 @@ export default function Home() {
     readMarketplaceSearchHistory()
   )
   const [isLoadingProducts, setIsLoadingProducts] = useState(true)
+  const [showSlowProductNotice, setShowSlowProductNotice] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
 
@@ -222,6 +223,15 @@ export default function Home() {
     }
   }, [interests, loadAttempt])
 
+  useEffect(() => {
+    if (!isLoadingProducts) {
+      setShowSlowProductNotice(false)
+      return
+    }
+    const timer = window.setTimeout(() => setShowSlowProductNotice(true), 8000)
+    return () => window.clearTimeout(timer)
+  }, [isLoadingProducts])
+
   const homeSections = useMemo(() => {
     return {
       newArrivals: discovery.shelves.newArrivals.map((product) =>
@@ -249,9 +259,9 @@ export default function Home() {
 
         <RecentlyViewed />
 
-        {isLoadingProducts && (
+        {showSlowProductNotice && (
           <p className="px-4 py-3 text-sm text-gray-700">
-            Products are loading. <a className="font-semibold underline" href="/lite">Browse the low-data catalogue</a>
+            Products are taking longer than usual. <a className="font-semibold underline" href="/lite">Browse the low-data catalogue</a>
           </p>
         )}
 
@@ -279,6 +289,7 @@ export default function Home() {
               viewAllLink="/collections/new-arrivals"
               bgColor="white"
               analyticsStrategy="newest"
+              priorityImageCount={4}
             />
 
             {discovery.personalization.active && (
