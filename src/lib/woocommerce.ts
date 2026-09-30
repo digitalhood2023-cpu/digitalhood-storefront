@@ -24,6 +24,7 @@ const PRODUCT_DETAIL_CACHE_INDEX = `${PRODUCT_DETAIL_CACHE_PREFIX}index`;
 const PRODUCT_DETAIL_CACHE_MAX = 12;
 const productDetailCache = new Map<string, { data: unknown; storedAt: number }>();
 const productDetailRequests = new Map<string, Promise<unknown>>();
+const homeDiscoveryRequests = new Map<string, Promise<HomeDiscoveryResponse>>();
 
 export type MarketplaceStockTone = 'success' | 'warning' | 'danger' | 'muted';
 
@@ -967,29 +968,45 @@ export async function fetchHomeDiscovery(
     if (value) params.append('interest', value);
   }
 
-  const data = await requestCatalogueJson(
-    `${HOME_DISCOVERY_API}?${params.toString()}`, parseJsonResponse, { cache: 'no-store' }
-  );
-  const shelves = data.shelves || {};
+  const requestUrl = `${HOME_DISCOVERY_API}?${params.toString()}`;
+  const existingRequest = homeDiscoveryRequests.get(requestUrl);
 
-  return {
-    shelves: {
-      hero: mapHomeDiscoveryShelf(shelves.hero),
-      newArrivals: mapHomeDiscoveryShelf(shelves.newArrivals),
-      personalized: mapHomeDiscoveryShelf(shelves.personalized),
-      deals: mapHomeDiscoveryShelf(shelves.deals),
-      bestSellers: mapHomeDiscoveryShelf(shelves.bestSellers),
-      trending: mapHomeDiscoveryShelf(shelves.trending),
-      flashSales: mapHomeDiscoveryShelf(shelves.flashSales),
-    },
-    personalization: {
-      active: Boolean(data.personalization?.active),
-      interestCount: Number(data.personalization?.interestCount || 0),
-    },
-    strategyVersion: String(data.strategyVersion || 'home-discovery-v1'),
-    rotationKey: String(data.rotationKey || ''),
-    uniqueProductCount: Number(data.uniqueProductCount || 0),
-  };
+  if (existingRequest) return existingRequest;
+
+  const request = requestCatalogueJson(
+    requestUrl, parseJsonResponse, { cache: 'no-store' }
+  ).then((data) => {
+    const shelves = data.shelves || {};
+
+    return {
+      shelves: {
+        hero: mapHomeDiscoveryShelf(shelves.hero),
+        newArrivals: mapHomeDiscoveryShelf(shelves.newArrivals),
+        personalized: mapHomeDiscoveryShelf(shelves.personalized),
+        deals: mapHomeDiscoveryShelf(shelves.deals),
+        bestSellers: mapHomeDiscoveryShelf(shelves.bestSellers),
+        trending: mapHomeDiscoveryShelf(shelves.trending),
+        flashSales: mapHomeDiscoveryShelf(shelves.flashSales),
+      },
+      personalization: {
+        active: Boolean(data.personalization?.active),
+        interestCount: Number(data.personalization?.interestCount || 0),
+      },
+      strategyVersion: String(data.strategyVersion || 'home-discovery-v1'),
+      rotationKey: String(data.rotationKey || ''),
+      uniqueProductCount: Number(data.uniqueProductCount || 0),
+    };
+  });
+
+  homeDiscoveryRequests.set(requestUrl, request);
+
+  try {
+    return await request;
+  } finally {
+    if (homeDiscoveryRequests.get(requestUrl) === request) {
+      homeDiscoveryRequests.delete(requestUrl);
+    }
+  }
 }
 
 export function isMarketplaceProductAvailable(product: WooProduct | null | undefined) {

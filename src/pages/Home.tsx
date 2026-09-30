@@ -1,5 +1,5 @@
 import { isLowDataConnection } from '@/lib/networkResilience'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import Header from '@/sections/Header'
 import Hero from '@/sections/Hero'
@@ -19,6 +19,7 @@ import {
   type WooProduct,
 } from '@/lib/woocommerce'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
+import { useMarketplaceStateReady } from '@/context/MarketplaceStateReadiness'
 import {
   readMarketplaceSearchHistory,
   SEARCH_HISTORY_CHANGED_EVENT,
@@ -144,7 +145,11 @@ function MarketplaceHomeSkeleton() {
 }
 
 export default function Home() {
-  const { items: recentlyViewedItems } = useRecentlyViewed()
+  const {
+    items: recentlyViewedItems,
+    isReady: isRecentlyViewedReady,
+  } = useRecentlyViewed()
+  const isMarketplaceStateReady = useMarketplaceStateReady()
   const [discovery, setDiscovery] = useState<HomeDiscoveryResponse>(
     EMPTY_HOME_DISCOVERY
   )
@@ -182,9 +187,16 @@ export default function Home() {
       }),
     [recentlyViewedItems, searchHistory]
   )
+  const interestsRef = useRef(interests)
+  interestsRef.current = interests
+  const personalizationReady =
+    isMarketplaceStateReady && isRecentlyViewedReady
 
   useEffect(() => {
+    if (!personalizationReady) return
+
     let mounted = true
+    const requestInterests = interestsRef.current
 
     async function loadHomeProducts() {
       setIsLoadingProducts(true)
@@ -194,7 +206,7 @@ export default function Home() {
       try {
         const response = await (isLowDataConnection()
           ? fetchHomeDiscovery([], 4)
-          : fetchHomeDiscovery(interests, 12))
+          : fetchHomeDiscovery(requestInterests, 12))
 
         if (!mounted) return
 
@@ -221,7 +233,7 @@ export default function Home() {
     return () => {
       mounted = false
     }
-  }, [interests, loadAttempt])
+  }, [personalizationReady, loadAttempt])
 
   useEffect(() => {
     if (!isLoadingProducts) {

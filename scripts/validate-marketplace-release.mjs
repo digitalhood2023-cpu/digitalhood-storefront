@@ -113,7 +113,9 @@ assert(
   'recently viewed must retain one compact reusable rail and a compact history manager'
 )
 assert(
-  home.includes('fetchHomeDiscovery(interests, 12)') &&
+  home.includes('fetchHomeDiscovery(requestInterests, 12)') &&
+    home.includes('const personalizationReady =') &&
+    home.includes('useMarketplaceStateReady()') &&
     home.includes('deriveHomeDiscoveryInterests') &&
     home.includes('title="Picked for You"') &&
     home.includes('analyticsStrategy="best-selling"') &&

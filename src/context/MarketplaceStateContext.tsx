@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   getCustomerMarketplaceState,
@@ -16,6 +16,7 @@ import {
   readGuestSearchState,
 } from '@/lib/marketplaceBrowserState'
 import { useCartStore, type CartItem } from '@/store/cartStore'
+import { MarketplaceStateReadyContext } from '@/context/MarketplaceStateReadiness'
 
 function dedupeSearches(values: string[], limit: number) {
   const seen = new Set<string>()
@@ -128,6 +129,7 @@ export function MarketplaceStateProvider({ children }: { children: React.ReactNo
   const previousCustomerIdRef = useRef('')
   const wasAuthenticatedRef = useRef(false)
   const cartSyncTimerRef = useRef<number | null>(null)
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
     if (isAccountLoading) return
@@ -143,7 +145,8 @@ export function MarketplaceStateProvider({ children }: { children: React.ReactNo
       previousCustomerIdRef.current = ''
       readyCustomerIdRef.current = ''
       clearAccountSearchState()
-      return
+      const readyTimer = window.setTimeout(() => setIsReady(true), 0)
+      return () => window.clearTimeout(readyTimer)
     }
 
     const switchingAccounts = Boolean(
@@ -187,6 +190,7 @@ export function MarketplaceStateProvider({ children }: { children: React.ReactNo
         replaceCartItems(mergedCart)
         configureAccountSearchState(customerId, mergedState)
         readyCustomerIdRef.current = customerId
+        setIsReady(true)
 
         if (
           guestCartItems.length > 0 ||
@@ -201,6 +205,7 @@ export function MarketplaceStateProvider({ children }: { children: React.ReactNo
         replaceCartItems(guestCartItems)
         configureAccountSearchState(customerId, guestSearchState)
         readyCustomerIdRef.current = customerId
+        setIsReady(true)
       }
     }
 
@@ -249,5 +254,9 @@ export function MarketplaceStateProvider({ children }: { children: React.ReactNo
     }
   }, [cartItems, customer?.id, isAuthenticated])
 
-  return children
+  return (
+    <MarketplaceStateReadyContext.Provider value={isReady}>
+      {children}
+    </MarketplaceStateReadyContext.Provider>
+  )
 }

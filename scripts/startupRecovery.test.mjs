@@ -214,3 +214,21 @@ test('visible homepage product rows opt into eager loading without making every 
   assert.match(showcase, /loading=\{index < priorityImageCount \? 'eager' : 'lazy'\}/);
   assert.match(recent, /loading=\{index < 2 \? 'eager' : 'lazy'\}/);
 });
+
+test('homepage discovery waits for personalization hydration and does not reload when interests change', () => {
+  const home = fs.readFileSync('src/pages/Home.tsx', 'utf8');
+  const marketplaceState = fs.readFileSync('src/context/MarketplaceStateContext.tsx', 'utf8');
+  const recentlyViewed = fs.readFileSync('src/context/RecentlyViewedContext.tsx', 'utf8');
+  const woocommerce = fs.readFileSync('src/lib/woocommerce.ts', 'utf8');
+
+  assert.match(home, /isReady: isRecentlyViewedReady/);
+  assert.match(home, /useMarketplaceStateReady\(\)/);
+  assert.match(home, /if \(!personalizationReady\) return/);
+  assert.match(home, /const requestInterests = interestsRef\.current/);
+  assert.match(home, /\}, \[personalizationReady, loadAttempt\]\)/);
+  assert.doesNotMatch(home, /\}, \[interests, loadAttempt\]\)/);
+  assert.match(marketplaceState, /MarketplaceStateReadyContext\.Provider value=\{isReady\}/);
+  assert.match(recentlyViewed, /isReady: boolean/);
+  assert.match(woocommerce, /homeDiscoveryRequests\.get\(requestUrl\)/);
+  assert.match(woocommerce, /homeDiscoveryRequests\.set\(requestUrl, request\)/);
+});

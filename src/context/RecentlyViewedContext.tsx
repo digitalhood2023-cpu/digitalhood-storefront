@@ -35,6 +35,7 @@ export type RecentlyViewedProduct = Product & {
 
 interface RecentlyViewedContextType {
   items: RecentlyViewedProduct[]
+  isReady: boolean
   addToRecentlyViewed: (product: RecentlyViewedProduct) => void
   removeRecentlyViewed: (productId: string | number) => void
   removeSelectedRecentlyViewed: (productIds: Array<string | number>) => void
@@ -128,6 +129,7 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
   const [items, setItems] = useState<RecentlyViewedProduct[]>(() =>
     getAccountToken() ? [] : readLocalItems()
   )
+  const [isReady, setIsReady] = useState(false)
   const previousCustomerIdRef = useRef('')
   const wasAuthenticatedRef = useRef(false)
 
@@ -144,7 +146,8 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
 
       wasAuthenticatedRef.current = false
       previousCustomerIdRef.current = ''
-      return
+      const readyTimer = window.setTimeout(() => setIsReady(true), 0)
+      return () => window.clearTimeout(readyTimer)
     }
 
     const isSwitchingAccounts = Boolean(
@@ -180,6 +183,8 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
         }
       } catch {
         // Keep the local copy available if account synchronization is offline.
+      } finally {
+        if (mounted) setIsReady(true)
       }
     }
 
@@ -268,6 +273,7 @@ export function RecentlyViewedProvider({ children }: { children: React.ReactNode
     <RecentlyViewedContext.Provider
       value={{
         items,
+        isReady,
         addToRecentlyViewed,
         removeRecentlyViewed,
         removeSelectedRecentlyViewed,
