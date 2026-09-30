@@ -58,7 +58,13 @@ function productScore(product: WooProduct) {
   )
 }
 
-export default function Hero({ products = [] }: { products?: WooProduct[] }) {
+export default function Hero({
+  products = [],
+  isLoading = false,
+}: {
+  products?: WooProduct[]
+  isLoading?: boolean
+}) {
   const marketplacePicks = useMemo(() => {
     return products
       .filter((product) => product.id && safeNumber(product.price) > 0)
@@ -253,6 +259,17 @@ export default function Hero({ products = [] }: { products?: WooProduct[] }) {
                         </div>
                       </Link>
                     ))}
+                  </div>
+                </div>
+              ) : isLoading ? (
+                <div
+                  className="grid gap-2.5 sm:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.6fr)]"
+                  aria-hidden="true"
+                >
+                  <div className="min-h-[260px] animate-pulse rounded-[1.25rem] bg-white/70 motion-reduce:animate-none sm:min-h-[315px]" />
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-1">
+                    <div className="min-h-[124px] animate-pulse rounded-[1.15rem] bg-white/70 motion-reduce:animate-none" />
+                    <div className="min-h-[124px] animate-pulse rounded-[1.15rem] bg-white/70 motion-reduce:animate-none" />
                   </div>
                 </div>
               ) : (

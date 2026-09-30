@@ -208,27 +208,33 @@ test('visible homepage product rows opt into eager loading without making every 
   const hero = fs.readFileSync('src/sections/Hero.tsx', 'utf8');
   const showcase = fs.readFileSync('src/sections/ProductShowcase.tsx', 'utf8');
   const recent = fs.readFileSync('src/sections/RecentlyViewed.tsx', 'utf8');
-  assert.match(home, /priorityImageCount=\{4\}/);
+  assert.match(home, /priorityImageCount=\{2\}/);
   assert.equal((home.match(/priorityImageCount=/g) || []).length, 1);
   assert.match(hero, /loading="eager"[\s\S]{0,100}fetchPriority="auto"/);
   assert.match(showcase, /loading=\{index < priorityImageCount \? 'eager' : 'lazy'\}/);
-  assert.match(recent, /loading=\{index < 2 \? 'eager' : 'lazy'\}/);
+  assert.match(recent, /loading="lazy"/);
+  assert.doesNotMatch(recent, /loading=\{index < 2/);
 });
 
-test('homepage discovery waits for personalization hydration and does not reload when interests change', () => {
+test('homepage discovery starts immediately and optional history cannot block it', () => {
   const home = fs.readFileSync('src/pages/Home.tsx', 'utf8');
-  const marketplaceState = fs.readFileSync('src/context/MarketplaceStateContext.tsx', 'utf8');
-  const recentlyViewed = fs.readFileSync('src/context/RecentlyViewedContext.tsx', 'utf8');
+  const hero = fs.readFileSync('src/sections/Hero.tsx', 'utf8');
   const woocommerce = fs.readFileSync('src/lib/woocommerce.ts', 'utf8');
+  const server = fs.readFileSync('server.js', 'utf8');
+  const policy = fs.readFileSync('public/network-cache-policy.js', 'utf8');
+  const vite = fs.readFileSync('vite.config.ts', 'utf8');
 
-  assert.match(home, /isReady: isRecentlyViewedReady/);
-  assert.match(home, /useMarketplaceStateReady\(\)/);
-  assert.match(home, /if \(!personalizationReady\) return/);
-  assert.match(home, /const requestInterests = interestsRef\.current/);
-  assert.match(home, /\}, \[personalizationReady, loadAttempt\]\)/);
-  assert.doesNotMatch(home, /\}, \[interests, loadAttempt\]\)/);
-  assert.match(marketplaceState, /MarketplaceStateReadyContext\.Provider value=\{isReady\}/);
-  assert.match(recentlyViewed, /isReady: boolean/);
+  assert.match(home, /fetchFastHomeDiscovery\([\s\S]{0,80}isLowDataConnection\(\) \? 4 : 6/);
+  assert.match(home, /isLoading=\{isLoadingProducts\}/);
+  assert.match(hero, /isLoading \? \(/);
+  assert.match(home, /\}, \[loadAttempt\]\)/);
+  assert.doesNotMatch(home, /useRecentlyViewed|useMarketplaceStateReady|personalizationReady/);
+  assert.ok(home.indexOf('<Categories />') < home.indexOf('<RecentlyViewed />'));
+  assert.match(woocommerce, /FAST_HOME_DISCOVERY_API = '\/api\/public\/home-discovery'/);
   assert.match(woocommerce, /homeDiscoveryRequests\.get\(requestUrl\)/);
   assert.match(woocommerce, /homeDiscoveryRequests\.set\(requestUrl, request\)/);
+  assert.match(server, /app\.get\('\/api\/public\/home-discovery'/);
+  assert.match(server, /injectHomePreload\(html\)/);
+  assert.match(policy, /'\/api\/public\/home-discovery'/);
+  assert.match(vite, /manifest: true/);
 });

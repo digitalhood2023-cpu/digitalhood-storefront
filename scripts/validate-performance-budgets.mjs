@@ -5,6 +5,8 @@ import zlib from 'node:zlib'
 const budgets = JSON.parse(fs.readFileSync('config/performance-budgets.json', 'utf8'))
 const assetDirectory = 'dist/assets'
 if (!fs.existsSync(assetDirectory)) throw new Error('Performance budget validation requires a completed production build.')
+const manifest = JSON.parse(fs.readFileSync('dist/.vite/manifest.json', 'utf8'))
+if (!manifest['src/pages/Home.tsx']?.file) throw new Error('The homepage chunk must remain available for server-side module preloading.')
 
 const files = fs.readdirSync(assetDirectory).map((name) => ({
   name,

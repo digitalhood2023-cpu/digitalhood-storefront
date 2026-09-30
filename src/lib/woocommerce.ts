@@ -15,6 +15,7 @@ const STORE_PRODUCTS_API = `${STORE_URL}/wp-json/wc/store/v1/products`;
 const MARKETPLACE_PRODUCTS_API = `${PAYMENTS_API_URL}/api/products`;
 const MARKETPLACE_SEARCH_API = `${PAYMENTS_API_URL}/api/search/products`;
 const HOME_DISCOVERY_API = `${PAYMENTS_API_URL}/api/discovery/home`;
+const FAST_HOME_DISCOVERY_API = '/api/public/home-discovery';
 
 const PRODUCT_DETAIL_FRESH_MS = 30_000;
 const PRODUCT_DETAIL_STALE_MS = 90_000;
@@ -285,6 +286,17 @@ export type HomeDiscoveryResponse = {
   strategyVersion: string;
   rotationKey: string;
   uniqueProductCount: number;
+};
+
+type RawHomeDiscoveryResponse = {
+  shelves?: Partial<Record<keyof HomeDiscoveryShelves, unknown>>;
+  personalization?: {
+    active?: unknown;
+    interestCount?: unknown;
+  };
+  strategyVersion?: unknown;
+  rotationKey?: unknown;
+  uniqueProductCount?: unknown;
 };
 
 function stripHtml(html = '') {
@@ -955,6 +967,60 @@ function mapHomeDiscoveryShelf(value: unknown) {
     : [];
 }
 
+function mapHomeDiscoveryResponse(data: RawHomeDiscoveryResponse): HomeDiscoveryResponse {
+  const shelves = data.shelves || {};
+
+  return {
+    shelves: {
+      hero: mapHomeDiscoveryShelf(shelves.hero),
+      newArrivals: mapHomeDiscoveryShelf(shelves.newArrivals),
+      personalized: mapHomeDiscoveryShelf(shelves.personalized),
+      deals: mapHomeDiscoveryShelf(shelves.deals),
+      bestSellers: mapHomeDiscoveryShelf(shelves.bestSellers),
+      trending: mapHomeDiscoveryShelf(shelves.trending),
+      flashSales: mapHomeDiscoveryShelf(shelves.flashSales),
+    },
+    personalization: {
+      active: Boolean(data.personalization?.active),
+      interestCount: Number(data.personalization?.interestCount || 0),
+    },
+    strategyVersion: String(data.strategyVersion || 'home-discovery-v1'),
+    rotationKey: String(data.rotationKey || ''),
+    uniqueProductCount: Number(data.uniqueProductCount || 0),
+  };
+}
+
+async function requestHomeDiscovery(
+  requestUrl: string,
+  cache: RequestCache
+): Promise<HomeDiscoveryResponse> {
+  const existingRequest = homeDiscoveryRequests.get(requestUrl);
+
+  if (existingRequest) return existingRequest;
+
+  const request = requestCatalogueJson<RawHomeDiscoveryResponse>(
+    requestUrl, parseJsonResponse, { cache }
+  ).then(mapHomeDiscoveryResponse);
+
+  homeDiscoveryRequests.set(requestUrl, request);
+
+  try {
+    return await request;
+  } finally {
+    if (homeDiscoveryRequests.get(requestUrl) === request) {
+      homeDiscoveryRequests.delete(requestUrl);
+    }
+  }
+}
+
+export function fetchFastHomeDiscovery(limit = 6): Promise<HomeDiscoveryResponse> {
+  const safeLimit = Math.max(4, Math.min(6, Math.trunc(Number(limit) || 6)));
+  return requestHomeDiscovery(
+    `${FAST_HOME_DISCOVERY_API}?limit=${safeLimit}`,
+    'default'
+  );
+}
+
 export async function fetchHomeDiscovery(
   interests: string[] = [],
   limit = 12
@@ -969,44 +1035,7 @@ export async function fetchHomeDiscovery(
   }
 
   const requestUrl = `${HOME_DISCOVERY_API}?${params.toString()}`;
-  const existingRequest = homeDiscoveryRequests.get(requestUrl);
-
-  if (existingRequest) return existingRequest;
-
-  const request = requestCatalogueJson(
-    requestUrl, parseJsonResponse, { cache: 'no-store' }
-  ).then((data) => {
-    const shelves = data.shelves || {};
-
-    return {
-      shelves: {
-        hero: mapHomeDiscoveryShelf(shelves.hero),
-        newArrivals: mapHomeDiscoveryShelf(shelves.newArrivals),
-        personalized: mapHomeDiscoveryShelf(shelves.personalized),
-        deals: mapHomeDiscoveryShelf(shelves.deals),
-        bestSellers: mapHomeDiscoveryShelf(shelves.bestSellers),
-        trending: mapHomeDiscoveryShelf(shelves.trending),
-        flashSales: mapHomeDiscoveryShelf(shelves.flashSales),
-      },
-      personalization: {
-        active: Boolean(data.personalization?.active),
-        interestCount: Number(data.personalization?.interestCount || 0),
-      },
-      strategyVersion: String(data.strategyVersion || 'home-discovery-v1'),
-      rotationKey: String(data.rotationKey || ''),
-      uniqueProductCount: Number(data.uniqueProductCount || 0),
-    };
-  });
-
-  homeDiscoveryRequests.set(requestUrl, request);
-
-  try {
-    return await request;
-  } finally {
-    if (homeDiscoveryRequests.get(requestUrl) === request) {
-      homeDiscoveryRequests.delete(requestUrl);
-    }
-  }
+  return requestHomeDiscovery(requestUrl, 'no-store');
 }
 
 export function isMarketplaceProductAvailable(product: WooProduct | null | undefined) {
