@@ -45,21 +45,45 @@ function RecoveryLinks() {
   )
 }
 
+function BrandedLoadingShell({ slow }: { slow: boolean }) {
+  return (
+    <div className="min-h-[100svh] bg-white text-slate-900 dark:bg-[#090d16] dark:text-white" aria-busy="true">
+      <span className="sr-only" role="status">Opening DigitalHood Marketplace</span>
+      <header className="border-b border-slate-100 dark:border-slate-800">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-8 xl:px-12">
+          <div className="flex items-center gap-2.5 font-display text-lg font-black text-dh-primary">
+            <img src="/logo.jpg" alt="" className="h-11 w-11 rounded-full object-contain" />
+            <span className="hidden sm:inline">DigitalHood</span>
+          </div>
+          <div className="h-11 w-[68vw] max-w-xl animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" />
+        </div>
+      </header>
+      <main className="mx-auto grid w-full max-w-[1500px] items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.82fr)] lg:gap-12 lg:px-8 lg:py-14 xl:px-12">
+        <div className="space-y-4">
+          <div className="h-14 w-[92%] max-w-2xl animate-pulse rounded-full bg-indigo-50 motion-reduce:animate-none dark:bg-slate-700" />
+          <div className="h-5 w-[78%] max-w-xl animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" />
+          <div className="h-5 w-[66%] max-w-lg animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" />
+          {slow && (
+            <div className="mt-6 max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
+              <p className="font-semibold">The marketplace is taking longer than usual.</p>
+              <p className="mt-1 text-sm">You can keep waiting; the low-data catalogue is also available.</p>
+              <RecoveryLinks />
+            </div>
+          )}
+        </div>
+        <div className="min-h-[260px] animate-pulse rounded-[1.75rem] bg-indigo-50 motion-reduce:animate-none dark:bg-slate-700 sm:min-h-[330px]" />
+      </main>
+    </div>
+  )
+}
+
 export function RouteLoading() {
   const [slow, setSlow] = useState(false)
   useEffect(() => {
     const timer = window.setTimeout(() => setSlow(true), 8000)
     return () => window.clearTimeout(timer)
   }, [])
-  return (
-    <main style={{ minHeight: '60vh', padding: '32px 20px', background: '#fff', color: '#172033', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700 }}>DigitalHood</h1>
-        <p role="status">{slow ? 'The full marketplace is taking longer than usual. You can keep waiting or use the low-data catalogue.' : 'Opening the marketplace...'}</p>
-        <RecoveryLinks />
-      </div>
-    </main>
-  )
+  return <BrandedLoadingShell slow={slow} />
 }
 
 export class StartupBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

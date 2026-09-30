@@ -11,20 +11,35 @@ const boot = index.match(/<script id="digitalhood-bootstrap">([\s\S]*?)<\/script
 const theme = index.match(/<script id="digitalhood-theme">([\s\S]*?)<\/script>/)?.[1];
 assert.ok(boot && theme, 'Both independently executable recovery scripts must exist');
 
-function browser({ legacy = false, storageBlocked = false, slow = false, pathname = '/' } = {}) {
+function browser({ legacy = false, storageBlocked = false, connectionType = '', pathname = '/' } = {}) {
   const scheduled = [];
   const listeners = {};
   const appended = [];
-  const state = { removed: false, message: '', redirect: '' };
+  const state = { startupRemoved: false, shellRemoved: false, shellHidden: false, recoveryVisible: false, message: '', redirect: '' };
   const status = { firstChild: null, appendChild(node) { state.message = node.text; } };
   const root = { className: '', style: {}, setAttribute() {} };
-  const startup = { parentNode: { removeChild() { state.removed = true; } } };
+  const startup = {
+    className: '',
+    parentNode: { removeChild() { state.startupRemoved = true; } },
+  };
+  const shell = {
+    style: {},
+    parentNode: { removeChild() { state.shellRemoved = true; } },
+  };
+  Object.defineProperty(startup, 'className', {
+    get() { return state.recoveryVisible ? ' dh-startup-visible' : ''; },
+    set(value) { state.recoveryVisible = /dh-startup-visible/.test(value); },
+  });
+  Object.defineProperty(shell.style, 'display', {
+    get() { return state.shellHidden ? 'none' : ''; },
+    set(value) { state.shellHidden = value === 'none'; },
+  });
   const document = {
     cookie: '', documentElement: root,
     head: { appendChild(node) { appended.push(node); } },
     createElement(tag) { return { tagName: tag.toUpperCase(), ...(legacy ? {} : { noModule: false }), setAttribute() {} }; },
     createTextNode(text) { return { text }; },
-    getElementById(id) { return id === 'dh-startup' ? startup : id === 'dh-startup-status' ? status : null; },
+    getElementById(id) { return id === 'dh-startup' ? startup : id === 'dh-app-shell' ? shell : id === 'dh-startup-status' ? status : null; },
   };
   const window = {
     document,
@@ -35,13 +50,16 @@ function browser({ legacy = false, storageBlocked = false, slow = false, pathnam
     addEventListener(type, fn) { listeners[type] = fn; },
     location: { pathname, replace(url) { state.redirect = url; } },
   };
-  const context = vm.createContext({ window, document, navigator: { connection: slow ? { effectiveType: '2g' } : undefined } });
+  const context = vm.createContext({ window, document, navigator: { connection: connectionType ? { effectiveType: connectionType } : undefined } });
   return { context, state, window, scheduled, listeners, appended };
 }
 
-test('static HTML contains usable search and low-data navigation without a fullscreen logo overlay', () => {
+test('normal startup paints a branded shell while recovery remains hidden', () => {
   assert.match(index, /action="\/lite"/);
+  assert.match(index, /id="dh-app-shell"/);
   assert.match(index, /id="dh-startup"/);
+  assert.match(index, /#dh-startup \{ display:none/);
+  assert.match(index, /<noscript>[\s\S]*#dh-startup \{ display:block; \}/);
   assert.doesNotMatch(index, /id="app-loader"/);
   assert.doesNotMatch(index, /<script[^>]+src="https:\/\/(?:www\.googletagmanager|www\.gstatic|static\.cloudflareinsights)/);
 });
@@ -58,25 +76,37 @@ test('a React-ready signal reveals the app without any window.load event', () =>
   vm.runInContext(boot, b.context);
   assert.equal(b.appended.length, 0);
   b.window.__digitalhoodBootReady();
-  assert.equal(b.state.removed, true);
+  assert.equal(b.state.startupRemoved, true);
+  assert.equal(b.state.shellRemoved, true);
   assert.equal(b.scheduled[0].cancelled, true);
   assert.equal(b.listeners.load, undefined);
 });
 
-test('the recovery timer changes text instead of deleting the only visible content', () => {
+test('the recovery UI appears only after the meaningful startup timeout', () => {
   const b = browser();
   vm.runInContext(boot, b.context);
+  assert.equal(b.state.recoveryVisible, false);
   b.scheduled.find((item) => item.ms === 8000).fn();
   assert.match(b.state.message, /taking longer/);
-  assert.equal(b.state.removed, false);
+  assert.equal(b.state.recoveryVisible, true);
+  assert.equal(b.state.shellHidden, true);
+  assert.equal(b.state.startupRemoved, false);
 });
 
 test('slow connections do not load optional tracking or the merchant widget', () => {
-  const b = browser({ slow: true });
+  const b = browser({ connectionType: '2g' });
   vm.runInContext(boot, b.context);
   b.window.__digitalhoodBootReady();
   b.scheduled.find((item) => item.ms === 6000).fn();
   assert.equal(b.appended.length, 0);
+});
+
+test('a normal 3g estimate does not force low-data mode', () => {
+  const b = browser({ connectionType: '3g' });
+  vm.runInContext(boot, b.context);
+  b.window.__digitalhoodBootReady();
+  b.scheduled.find((item) => item.ms === 6000).fn();
+  assert.equal(b.appended.length, 3);
 });
 
 test('healthy connections load optional integrations only after startup', () => {
@@ -92,6 +122,7 @@ test('a non-module browser is sent to real HTML for public browsing, never payme
   for (const pathname of ['/', '/product/test-phone', '/checkout', '/account', '/orders/123/pay']) {
     const b = browser({ legacy: true, pathname });
     vm.runInContext(boot, b.context);
+    assert.equal(b.state.recoveryVisible, true);
     assert.equal(b.state.redirect, pathname === '/' ? '/lite' : pathname.startsWith('/product/') ? '/lite/product/test-phone' : '');
   }
 });
@@ -101,6 +132,7 @@ test('script download failures produce recovery text without automatic refresh l
   vm.runInContext(boot, b.context);
   b.listeners.error({ target: { tagName: 'SCRIPT' } });
   assert.match(b.state.message, /could not start/);
+  assert.equal(b.state.recoveryVisible, true);
   b.listeners['vite:preloadError']();
   assert.match(b.state.message, /could not download/);
   assert.equal(b.state.redirect, '');
@@ -162,4 +194,23 @@ test('new TSX source is syntactically valid; complete project type-check is stil
   const input = fs.readFileSync('src/components/StartupBoundary.tsx', 'utf8');
   const result = ts.transpileModule(input, { reportDiagnostics: true, compilerOptions: { target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } });
   assert.deepEqual(result.diagnostics.filter((item) => item.category === ts.DiagnosticCategory.Error), []);
+});
+
+test('network policy does not classify 3g as Data Saver or rewrite all image loading', () => {
+  const network = fs.readFileSync('src/lib/networkResilience.ts', 'utf8');
+  assert.match(network, /\['slow-2g', '2g'\]/);
+  assert.doesNotMatch(network, /'3g'\]/);
+  assert.doesNotMatch(network, /querySelectorAll<HTMLImageElement>/);
+});
+
+test('visible homepage product rows opt into eager loading without making every shelf eager', () => {
+  const home = fs.readFileSync('src/pages/Home.tsx', 'utf8');
+  const hero = fs.readFileSync('src/sections/Hero.tsx', 'utf8');
+  const showcase = fs.readFileSync('src/sections/ProductShowcase.tsx', 'utf8');
+  const recent = fs.readFileSync('src/sections/RecentlyViewed.tsx', 'utf8');
+  assert.match(home, /priorityImageCount=\{4\}/);
+  assert.equal((home.match(/priorityImageCount=/g) || []).length, 1);
+  assert.match(hero, /loading="eager"[\s\S]{0,100}fetchPriority="auto"/);
+  assert.match(showcase, /loading=\{index < priorityImageCount \? 'eager' : 'lazy'\}/);
+  assert.match(recent, /loading=\{index < 2 \? 'eager' : 'lazy'\}/);
 });

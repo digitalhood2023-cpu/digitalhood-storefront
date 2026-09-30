@@ -66,6 +66,7 @@ interface ProductShowcaseProps {
   viewAllLink: string
   bgColor?: 'white' | 'gray'
   analyticsStrategy?: string
+  priorityImageCount?: number
 }
 
 function safeNumber(value: unknown, fallback = 0) {
@@ -177,6 +178,7 @@ export default function ProductShowcase({
   viewAllLink,
   bgColor = 'white',
   analyticsStrategy = '',
+  priorityImageCount = 0,
 }: ProductShowcaseProps) {
   const addItem = useCartStore((state) => state.addItem)
   const { toggleWishlist, isInWishlist } = useWishlist()
@@ -359,9 +361,9 @@ export default function ProductShowcase({
                       srcSet={productSrcSet}
                       sizes={getProductImageSizes('card')}
                       alt={product.name}
-                      loading="lazy"
+                      loading={index < priorityImageCount ? 'eager' : 'lazy'}
                       decoding="async"
-                      fetchPriority="low"
+                      fetchPriority={index < priorityImageCount ? 'auto' : 'low'}
                       onError={(event) => {
                         event.currentTarget.src = '/logo.jpg'
                       }}

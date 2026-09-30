@@ -59,7 +59,7 @@ export function isLowDataConnection() {
   return (
     manual === 'on' ||
     connection?.saveData === true ||
-    ['slow-2g', '2g', '3g'].includes(String(connection?.effectiveType || '').toLowerCase())
+    ['slow-2g', '2g'].includes(String(connection?.effectiveType || '').toLowerCase())
   )
 }
 
@@ -79,10 +79,8 @@ export function applyNetworkPreferences() {
       video.autoplay = false
       video.pause()
     })
-    document.querySelectorAll<HTMLImageElement>('img:not([fetchpriority="high"])').forEach((image) => {
-      image.loading = 'lazy'
-      image.decoding = 'async'
-    })
+    // Image priority belongs to each image's position in the page. Rewriting every
+    // non-high-priority image here delayed visible product cards on some devices.
   }
 }
 
