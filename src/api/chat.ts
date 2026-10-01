@@ -1293,7 +1293,8 @@ export function sendBuyerMedia(
   file: File,
   onProgress?: (percentage: number) => void,
   replyToMessageId?: string,
-  clientMessageId: string = window.crypto.randomUUID()
+  clientMessageId: string = window.crypto.randomUUID(),
+  caption?: string
 ): Promise<RawRecord> {
   const token = getAccountToken()
 
@@ -1311,6 +1312,8 @@ export function sendBuyerMedia(
     params.set('replyToMessageId', replyToMessageId)
   }
 
+  const normalizedCaption = caption?.trim().slice(0, 1000)
+
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
 
@@ -1320,6 +1323,12 @@ export function sendBuyerMedia(
     )
     request.setRequestHeader('Authorization', `Bearer ${token}`)
     request.setRequestHeader('Content-Type', file.type)
+    if (normalizedCaption) {
+      const captionBytes = new TextEncoder().encode(normalizedCaption)
+      let captionBinary = ''
+      captionBytes.forEach(byte => { captionBinary += String.fromCharCode(byte) })
+      request.setRequestHeader('X-DigitalHood-Media-Caption', window.btoa(captionBinary))
+    }
     request.timeout = 180_000
 
     request.upload.onprogress = event => {

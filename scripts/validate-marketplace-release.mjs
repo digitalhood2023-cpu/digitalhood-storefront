@@ -40,6 +40,9 @@ const imageSearch = read('src/lib/imageSearch.ts')
 const visualSearchResults = read('src/lib/visualSearchResults.ts')
 const visualSearchResultsPage = read('src/pages/VisualSearchResultsPage.tsx')
 const buyerChat = read('src/pages/AccountMessagesPage.tsx')
+const buyerChatApi = read('src/api/chat.ts')
+const chatMediaPreparation = read('src/lib/chatMediaPreparation.ts')
+const chatMediaEditor = read('src/components/chat/ChatMediaEditor.tsx')
 const notificationDrawer = read('src/components/notifications/NotificationDrawer.tsx')
 const notificationPage = read('src/pages/AccountNotificationsPage.tsx')
 const orders = read('src/pages/OrdersPage.tsx')
@@ -223,6 +226,32 @@ assert(
     buyerChat.includes('<video') &&
     buyerChat.includes('playsInline'),
   'chat images must use the in-app lightbox while videos remain inline'
+)
+assert(
+  buyerChat.includes('handleSendMedia(text)') &&
+    buyerChat.includes("caption: index === 0 && normalizedCaption") &&
+    buyerChat.includes("aria-label={pendingMediaItems.length > 0 ? 'Send media and caption' : 'Send message'}") &&
+    !buyerChat.includes('`Send ${pendingMediaItems.length}`') &&
+    buyerChatApi.includes("request.setRequestHeader('X-DigitalHood-Media-Caption'") &&
+    buyerChat.includes('getMediaCaption(message)'),
+  'media and its optional caption must be sent and rendered as one message through one send control'
+)
+assert(
+  buyerChat.includes('jumpToMessage(message.replyToMessageId') &&
+    buyerChat.includes("element.scrollIntoView({") &&
+    buyerChat.includes('getChatMessageElementId(messageId)') &&
+    buyerChat.includes('highlightedMessageId === messageId'),
+  'reply previews must locate, scroll to, and highlight the original message'
+)
+assert(
+  chatMediaPreparation.includes('image/heic') &&
+    chatMediaPreparation.includes("extensionOf(file) === 'webm'") &&
+    chatMediaPreparation.includes('cropChatVideoFile') &&
+    chatMediaEditor.includes('exportChatImageCanvas') &&
+    chatMediaEditor.includes('addEmoji') &&
+    chatMediaEditor.includes('startDrawing') &&
+    buyerChat.includes('<ChatMediaEditor'),
+  'chat media must accept common phone formats and retain photo markup and video crop editing'
 )
 assert(
     buyerChat.includes('dh-chat-shell') &&

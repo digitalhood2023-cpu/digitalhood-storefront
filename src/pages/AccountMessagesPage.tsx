@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -23,6 +25,7 @@ import {
   MessageCircle,
   Paperclip,
   PackageCheck,
+  Pencil,
   RefreshCw,
   Search,
   Send,
@@ -66,6 +69,8 @@ import {
   validateChatMediaInput,
 } from '@/lib/chatMediaPreparation'
 
+const ChatMediaEditor = lazy(() => import('@/components/chat/ChatMediaEditor'))
+
 type PendingProductIntent =
   ChatProductIntent & {
     conversationId: string
@@ -95,6 +100,7 @@ type OutgoingMediaItem = PendingMediaItem & {
   conversationId: string
   clientMessageId: string
   replyToMessageId?: string
+  caption?: string
 }
 
 function canMutateMessage(
@@ -294,17 +300,34 @@ function getReplyPreviewText(
   }
 
   if (messageKind === 'image') {
-    return 'Photo'
+    return message.text && message.text !== 'Photo'
+      ? message.text
+      : 'Photo'
   }
 
   if (messageKind === 'video') {
-    return 'Video'
+    return message.text && message.text !== 'Video'
+      ? message.text
+      : 'Video'
   }
 
   return (
     message.text ||
     'Message'
   )
+}
+
+function getMediaCaption(message: ChatMessage) {
+  const messageKind = message.messageType || message.type
+  const text = message.text.trim()
+
+  if (messageKind === 'image' && text === 'Photo') return ''
+  if (messageKind === 'video' && text === 'Video') return ''
+  return text
+}
+
+function getChatMessageElementId(messageId: string) {
+  return `chat-message-${messageId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
 }
 
 function getConversationTitle(
@@ -951,6 +974,9 @@ export default function AccountMessagesPage() {
   >([])
 
   const [selectedChatImage, setSelectedChatImage] = useState<ChatAttachment | null>(null)
+  const [editingMediaId, setEditingMediaId] = useState<string | null>(null)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+  const [isJumpingToMessage, setIsJumpingToMessage] = useState(false)
 
   const [
     query,
@@ -1291,10 +1317,16 @@ export default function AccountMessagesPage() {
       [messages]
     )
 
+  const editingMediaItem = editingMediaId
+    ? pendingMediaItems.find(item => item.id === editingMediaId) || null
+    : null
+
   useEffect(
     () => {
       setReplyingTo(null)
       setEditingMessage(null)
+      setEditingMediaId(null)
+      setHighlightedMessageId(null)
       setMutationMessageId(null)
       setDraft('')
       pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
@@ -1569,6 +1601,71 @@ export default function AccountMessagesPage() {
         messages
       ]
     )
+
+  const revealMessage = useCallback((messageId: string) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const element = document.getElementById(getChatMessageElementId(messageId))
+        if (!element) return
+
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+        setHighlightedMessageId(null)
+        window.requestAnimationFrame(() => setHighlightedMessageId(messageId))
+        window.setTimeout(() => {
+          setHighlightedMessageId(current => current === messageId ? null : current)
+        }, 1800)
+      })
+    })
+  }, [])
+
+  const jumpToMessage = useCallback(async (messageId: string) => {
+    if (!conversationId || !messageId || isJumpingToMessage) return
+
+    if (messagesById.has(messageId)) {
+      revealMessage(messageId)
+      return
+    }
+
+    setIsJumpingToMessage(true)
+    setError('')
+
+    try {
+      let combined = messages
+      let beforeSequence = combined[0]?.sequence
+      let more = hasOlderMessages
+      let found = false
+
+      for (let page = 0; page < 20 && more && beforeSequence; page += 1) {
+        const response = await getBuyerMessages(conversationId, {
+          limit: 50,
+          beforeSequence,
+        })
+
+        if (activeConversationRef.current !== conversationId) return
+        combined = mergeChatMessages(response.messages, combined)
+        found = combined.some(message => getChatMessageId(message) === messageId)
+        more = response.page.hasMore && (response.page.firstSequence || 0) > 1
+        beforeSequence = response.page.firstSequence || combined[0]?.sequence
+        if (found || response.messages.length === 0) break
+      }
+
+      setMessages(combined)
+      setHasOlderMessages(more)
+
+      if (found) {
+        revealMessage(messageId)
+      } else {
+        setError('That replied-to message is no longer available in this conversation.')
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to open the replied-to message.')
+    } finally {
+      setIsJumpingToMessage(false)
+    }
+  }, [conversationId, hasOlderMessages, isJumpingToMessage, messages, messagesById, revealMessage])
 
   const syncConversation =
     useCallback(
@@ -2658,7 +2755,7 @@ export default function AccountMessagesPage() {
 
     setError('')
     setEditingMessage(null)
-    setDraft('')
+    setDraft(current => current.slice(0, 1000))
     setIsPreparingMedia(true)
 
     if (joinedConversationRef.current === conversationId) {
@@ -2695,6 +2792,23 @@ export default function AccountMessagesPage() {
       if (item) URL.revokeObjectURL(item.previewUrl)
       return current.filter(candidate => candidate.id !== id)
     })
+    setEditingMediaId(current => current === id ? null : current)
+  }
+
+  function replacePendingMedia(id: string, file: File) {
+    setPendingMediaItems(current => current.map(item => {
+      if (item.id !== id) return item
+      URL.revokeObjectURL(item.previewUrl)
+      return {
+        ...item,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        progress: 0,
+        status: 'ready',
+        error: undefined,
+      }
+    }))
+    setEditingMediaId(null)
   }
 
   function removeOutgoingMedia(clientMessageId: string) {
@@ -2722,7 +2836,8 @@ export default function AccountMessagesPage() {
             : candidate
         )),
         item.replyToMessageId,
-        item.clientMessageId
+        item.clientMessageId,
+        item.caption
       )
 
       setOutgoingMediaItems((current) => current.map((candidate) =>
@@ -2741,7 +2856,7 @@ export default function AccountMessagesPage() {
     }
   }
 
-  function handleSendMedia() {
+  function handleSendMedia(caption = '') {
     if (
       !conversationId ||
       pendingMediaItems.length === 0 ||
@@ -2752,17 +2867,20 @@ export default function AccountMessagesPage() {
 
     setError('')
     const replyToMessageId = replyingTo ? getChatMessageId(replyingTo) || undefined : undefined
-    const batch: OutgoingMediaItem[] = pendingMediaItems.map((item) => ({
+    const normalizedCaption = caption.trim().slice(0, 1000)
+    const batch: OutgoingMediaItem[] = pendingMediaItems.map((item, index) => ({
       ...item,
       conversationId,
       clientMessageId: window.crypto.randomUUID(),
       replyToMessageId,
+      caption: index === 0 && normalizedCaption ? normalizedCaption : undefined,
       status: 'uploading',
       progress: 0,
     }))
 
     setPendingMediaItems([])
     setIsMediaBatchInConversation(false)
+    setDraft('')
     setReplyingTo(null)
     setOutgoingMediaItems((current) => [...current, ...batch])
     requestAnimationFrame(scrollToLatest)
@@ -2777,10 +2895,11 @@ export default function AccountMessagesPage() {
 
     const text =
       draft.trim()
+    const hasPendingMedia = pendingMediaItems.length > 0
 
     if (
       !conversationId ||
-      !text ||
+      (!text && !hasPendingMedia) ||
       mutationMessageId
     ) {
       return
@@ -2834,6 +2953,11 @@ export default function AccountMessagesPage() {
       } finally {
         setIsSending(false)
       }
+      return
+    }
+
+    if (hasPendingMedia && !editingMessage) {
+      handleSendMedia(text)
       return
     }
 
@@ -3539,7 +3663,9 @@ export default function AccountMessagesPage() {
                             return (
                               <div
                                 key={`${message.messageId}-${message.sequence}`}
+                                id={messageId ? getChatMessageElementId(messageId) : undefined}
                                 className="space-y-1"
+                                style={{ scrollMargin: '6rem' }}
                               >
                                 {dateSeparator}
 
@@ -3564,15 +3690,24 @@ export default function AccountMessagesPage() {
                                       ? 'dh-chat-bubble-outgoing rounded-br-md'
                                       : 'dh-chat-bubble-incoming rounded-bl-md'
                                   }`}
+                                  style={highlightedMessageId === messageId ? {
+                                    boxShadow: '0 0 0 4px rgba(255, 181, 74, 0.8)',
+                                    transform: 'scale(1.02)',
+                                    transition: 'box-shadow 300ms, transform 300ms',
+                                  } : undefined}
                                 >
                                   {!message.deleted &&
                                     message.replyToMessageId && (
-                                    <div
+                                    <button
+                                      type="button"
+                                      onClick={() => void jumpToMessage(message.replyToMessageId || '')}
+                                      disabled={isJumpingToMessage}
                                       className={`mb-1.5 rounded-lg border px-2.5 py-1.5 ${
                                         isBuyer
                                           ? 'border-white/15 bg-white/10'
                                           : 'border-slate-200 bg-slate-50'
-                                      }`}
+                                      } block w-full text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-dh-secondary`}
+                                      aria-label="Go to replied-to message"
                                     >
                                       <p
                                         className={`text-[9px] font-black uppercase tracking-wide ${
@@ -3595,7 +3730,7 @@ export default function AccountMessagesPage() {
                                           replyTarget
                                         )}
                                       </p>
-                                    </div>
+                                    </button>
                                   )}
 
                                   {message.deleted && (
@@ -3648,6 +3783,14 @@ export default function AccountMessagesPage() {
                                         <p className="mt-2 text-xs font-bold">Media unavailable</p>
                                       </div>
                                     ))}
+
+                                  {!message.deleted &&
+                                    (messageKind === 'image' || messageKind === 'video') &&
+                                    getMediaCaption(message) && (
+                                    <p className="mt-1.5 whitespace-pre-wrap break-words font-sans text-[12px] font-medium leading-[17px] tracking-[-0.01em] sm:text-[13px] sm:leading-[18px]">
+                                      {getMediaCaption(message)}
+                                    </p>
+                                  )}
 
                                   {!message.deleted &&
                                     message.text &&
@@ -3833,6 +3976,11 @@ export default function AccountMessagesPage() {
                                   </div>
                                 ))}
                               </div>
+                              {outgoingMediaItems.find((item) => item.conversationId === conversationId && item.caption)?.caption && (
+                                <p className="mt-2 whitespace-pre-wrap break-words px-1 text-xs font-medium leading-5 text-white">
+                                  {outgoingMediaItems.find((item) => item.conversationId === conversationId && item.caption)?.caption}
+                                </p>
+                              )}
                               <p className="mt-2 px-1 text-[10px] font-bold text-white/75">Uploads continue here while you keep messaging</p>
                             </div>
                           </div>
@@ -3932,14 +4080,9 @@ export default function AccountMessagesPage() {
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs font-black text-[#26248c]">{pendingMediaItems.length} attachment{pendingMediaItems.length === 1 ? '' : 's'} ready</p>
-                            <p className="text-[10px] font-semibold text-slate-500">Images are optimized before upload</p>
+                            <p className="text-[10px] font-semibold text-slate-500">Add a caption below, then use the single send button</p>
                           </div>
-                          <div className="flex gap-1.5">
-                            <button type="button" onClick={clearPendingMedia} disabled={isSendingMedia} className="rounded-full px-2.5 py-1.5 text-[10px] font-black text-slate-500 hover:bg-white disabled:opacity-50">Clear</button>
-                            <button type="button" onClick={() => void handleSendMedia()} disabled={isSendingMedia} className="rounded-full bg-[#26248c] px-3 py-1.5 text-[10px] font-black text-white hover:bg-[#ffb54a] hover:text-[#26248c] disabled:opacity-60">
-                              {isSendingMedia ? 'Uploading…' : `Send ${pendingMediaItems.length}`}
-                            </button>
-                          </div>
+                          <button type="button" onClick={clearPendingMedia} disabled={isSendingMedia} className="rounded-full px-2.5 py-1.5 text-[10px] font-black text-slate-500 hover:bg-white disabled:opacity-50">Clear</button>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -3959,6 +4102,11 @@ export default function AccountMessagesPage() {
                               )}
                               {item.status === 'sent' && <div className="absolute inset-0 flex items-center justify-center bg-emerald-600/50"><Check className="h-6 w-6 text-white" /></div>}
                               {item.status === 'error' && <div className="absolute inset-0 flex items-center justify-center bg-red-700/55 px-1 text-center text-[9px] font-black text-white">Retry</div>}
+                              {item.status === 'ready' && (
+                                <button type="button" onClick={() => setEditingMediaId(item.id)} className="absolute bottom-1 right-1 flex h-7 items-center gap-1 rounded-full bg-white/95 px-2 text-[9px] font-black text-dh-primary shadow" aria-label={`Edit ${item.file.name}`}>
+                                  <Pencil className="h-3 w-3" /> Edit
+                                </button>
+                              )}
                               {!isSendingMedia && (
                                 <button type="button" onClick={() => removePendingMedia(item.id)} className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white opacity-90" aria-label={`Remove ${item.file.name}`}><X className="h-3.5 w-3.5" /></button>
                               )}
@@ -4171,7 +4319,7 @@ export default function AccountMessagesPage() {
                           const nextDraft =
                             event.target.value.slice(
                               0,
-                              4000
+                              pendingMediaItems.length > 0 ? 1000 : 4000
                             )
 
                           setDraft(
@@ -4233,10 +4381,13 @@ export default function AccountMessagesPage() {
                         placeholder={
                           editingMessage
                             ? 'Edit your message...'
+                            : pendingMediaItems.length > 0
+                              ? 'Add a caption (optional)...'
                             : replyingTo
                               ? 'Write a reply...'
                               : 'Write a message...'
                         }
+                        maxLength={pendingMediaItems.length > 0 ? 1000 : 4000}
                         rows={1}
                         className="dh-chat-input min-h-10 max-h-28 flex-1 resize-y rounded-xl border px-3 py-2 font-sans text-sm font-medium outline-none transition focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
                       />
@@ -4248,8 +4399,9 @@ export default function AccountMessagesPage() {
                           Boolean(
                             mutationMessageId
                           ) ||
-                          !draft.trim()
+                          (!draft.trim() && pendingMediaItems.length === 0)
                         }
+                        aria-label={pendingMediaItems.length > 0 ? 'Send media and caption' : 'Send message'}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#312e81] text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isSending ? (
@@ -4266,7 +4418,7 @@ export default function AccountMessagesPage() {
                       </p>
 
                       <p className="text-[10px] font-bold text-slate-400">
-                        {draft.length}/4000
+                        {draft.length}/{pendingMediaItems.length > 0 ? 1000 : 4000}
                       </p>
                     </div>
                   </form>
@@ -4278,6 +4430,16 @@ export default function AccountMessagesPage() {
       </main>
 
       <ChatImageLightbox attachment={selectedChatImage} onClose={() => setSelectedChatImage(null)} />
+      {editingMediaItem && (
+        <Suspense fallback={null}>
+          <ChatMediaEditor
+            file={editingMediaItem.file}
+            previewUrl={editingMediaItem.previewUrl}
+            onCancel={() => setEditingMediaId(null)}
+            onApply={file => replacePendingMedia(editingMediaItem.id, file)}
+          />
+        </Suspense>
+      )}
       <Footer />
     </div>
   )
