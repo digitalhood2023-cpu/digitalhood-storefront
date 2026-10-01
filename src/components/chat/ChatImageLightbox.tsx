@@ -4,6 +4,8 @@ import { ZoomIn, ZoomOut, X } from 'lucide-react'
 import type { ChatAttachment } from '@/api/chat'
 import { usePointZoom } from '@/hooks/usePointZoom'
 
+const CHAT_MEDIA_HISTORY_KEY = 'digitalhoodChatMediaOpen'
+
 export default function ChatImageLightbox({
   attachment,
   onClose,
@@ -24,17 +26,40 @@ export default function ChatImageLightbox({
     resetKey: attachment?.url || '',
   })
 
-  const historyEntryRef = useRef(false)
+  const onCloseRef = useRef(onClose)
+  const closeFallbackRef = useRef<number | null>(null)
 
-  const closeLightbox = useCallback(() => {
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  const finishClose = useCallback(() => {
     reset()
-    onClose()
+    onCloseRef.current()
+  }, [reset])
 
-    if (historyEntryRef.current) {
-      historyEntryRef.current = false
-      window.history.back()
+  const requestClose = useCallback(() => {
+    const state = window.history.state
+    const hasMediaHistory =
+      Boolean(state && typeof state === 'object' && state[CHAT_MEDIA_HISTORY_KEY]) ||
+      window.location.hash.startsWith('#dh-chat-media=')
+
+    if (!hasMediaHistory) {
+      finishClose()
+      return
     }
-  }, [onClose, reset])
+
+    window.history.back()
+
+    if (closeFallbackRef.current !== null) {
+      window.clearTimeout(closeFallbackRef.current)
+    }
+
+    closeFallbackRef.current = window.setTimeout(() => {
+      closeFallbackRef.current = null
+      finishClose()
+    }, 450)
+  }, [finishClose])
 
   useEffect(() => {
     if (!attachment?.url) return
@@ -42,37 +67,41 @@ export default function ChatImageLightbox({
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
-    if (!historyEntryRef.current) {
-      const currentState = window.history.state
-      const preservedState =
-        currentState && typeof currentState === 'object'
-          ? currentState
-          : {}
+    const currentState = window.history.state
+    const preservedState =
+      currentState && typeof currentState === 'object'
+        ? currentState
+        : {}
 
-      window.history.pushState(
-        {
-          ...preservedState,
-          digitalhoodChatImageOpen: true,
-        },
-        '',
-        window.location.href
-      )
-      historyEntryRef.current = true
-    }
+    const historyUrl = new URL(window.location.href)
+    historyUrl.hash = `dh-chat-media=${encodeURIComponent(
+      attachment.id || attachment.fileName || 'open'
+    )}`
+
+    window.history.pushState(
+      {
+        ...preservedState,
+        [CHAT_MEDIA_HISTORY_KEY]: true,
+      },
+      '',
+      historyUrl.toString()
+    )
 
     const handlePopState = () => {
-      if (!historyEntryRef.current) return
-
-      historyEntryRef.current = false
-      reset()
-      onClose()
+      if (closeFallbackRef.current !== null) {
+        window.clearTimeout(closeFallbackRef.current)
+        closeFallbackRef.current = null
+      }
+      finishClose()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        closeLightbox()
+        event.preventDefault()
+        requestClose()
         return
       }
+      if (attachment.kind !== 'image') return
       if (event.key === '+' || event.key === '=') {
         zoomIn()
       }
@@ -89,49 +118,81 @@ export default function ChatImageLightbox({
       document.body.style.overflow = previousOverflow
       window.removeEventListener('popstate', handlePopState)
       document.removeEventListener('keydown', handleKeyDown)
+      if (closeFallbackRef.current !== null) {
+        window.clearTimeout(closeFallbackRef.current)
+        closeFallbackRef.current = null
+      }
     }
-  }, [attachment?.url, closeLightbox, onClose, reset, zoomIn, zoomOut])
+  }, [attachment?.fileName, attachment?.id, attachment?.kind, attachment?.url, finishClose, requestClose, reset, zoomIn, zoomOut])
 
   if (!attachment?.url) return null
+
+  const isImage = attachment.kind === 'image'
+  const mediaLabel =
+    attachment.fileName ||
+    (isImage ? 'Shared photo' : 'Shared video')
 
   return (
     <div
       className="fixed inset-0 z-[140] flex touch-none flex-col bg-black/95 text-white"
       role="dialog"
       aria-modal="true"
-      aria-label={attachment.fileName || 'Shared photo'}
-      onClick={closeLightbox}
+      aria-label={mediaLabel}
+      onClick={requestClose}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <p className="min-w-0 truncate text-sm font-bold">{attachment.fileName || 'Shared photo'}</p>
+        <p className="min-w-0 truncate text-sm font-bold">{mediaLabel}</p>
         <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
-          <button type="button" onClick={zoomOut} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom out">
-            <ZoomOut className="h-5 w-5" />
-          </button>
-          <button type="button" onClick={zoomIn} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom in">
-            <ZoomIn className="h-5 w-5" />
-          </button>
-          <button type="button" onClick={closeLightbox} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black hover:bg-dh-secondary" aria-label="Close photo">
+          {isImage && (
+            <>
+              <button type="button" onClick={zoomOut} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom out">
+                <ZoomOut className="h-5 w-5" />
+              </button>
+              <button type="button" onClick={zoomIn} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Zoom in">
+                <ZoomIn className="h-5 w-5" />
+              </button>
+            </>
+          )}
+          <button type="button" onClick={requestClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black hover:bg-dh-secondary" aria-label={isImage ? 'Close photo' : 'Close video'}>
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      <div
-        ref={viewportRef}
-        className="flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-3 sm:p-6"
-        {...viewportProps}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <img
-          ref={imageRef}
-          src={attachment.url}
-          alt={attachment.fileName || 'Shared photo'}
-          className="max-h-full max-w-full select-none object-contain"
-          style={imageStyle}
-          draggable={false}
-        />
-      </div>
+      {isImage ? (
+        <div
+          ref={viewportRef}
+          className="flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-3 sm:p-6"
+          {...viewportProps}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <img
+            ref={imageRef}
+            src={attachment.url}
+            alt={mediaLabel}
+            className="max-h-full max-w-full select-none object-contain"
+            style={imageStyle}
+            draggable={false}
+          />
+        </div>
+      ) : (
+        <div
+          className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-3 sm:p-6"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <video
+            src={attachment.url}
+            controls
+            autoPlay
+            playsInline
+            preload="metadata"
+            controlsList="nodownload noremoteplayback nofullscreen"
+            disablePictureInPicture
+            className="max-h-full max-w-full rounded-xl bg-black object-contain"
+            aria-label={mediaLabel}
+          />
+        </div>
+      )}
     </div>
   )
 }
