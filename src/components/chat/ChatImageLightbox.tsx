@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { ZoomIn, ZoomOut, X } from 'lucide-react'
 
 import type { ChatAttachment } from '@/api/chat'
@@ -24,15 +24,54 @@ export default function ChatImageLightbox({
     resetKey: attachment?.url || '',
   })
 
+  const historyEntryRef = useRef(false)
+
+  const closeLightbox = useCallback(() => {
+    reset()
+    onClose()
+
+    if (historyEntryRef.current) {
+      historyEntryRef.current = false
+      window.history.back()
+    }
+  }, [onClose, reset])
+
   useEffect(() => {
-    if (!attachment) return
+    if (!attachment?.url) return
+
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
+    if (!historyEntryRef.current) {
+      const currentState = window.history.state
+      const preservedState =
+        currentState && typeof currentState === 'object'
+          ? currentState
+          : {}
+
+      window.history.pushState(
+        {
+          ...preservedState,
+          digitalhoodChatImageOpen: true,
+        },
+        '',
+        window.location.href
+      )
+      historyEntryRef.current = true
+    }
+
+    const handlePopState = () => {
+      if (!historyEntryRef.current) return
+
+      historyEntryRef.current = false
+      reset()
+      onClose()
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        reset()
-        onClose()
+        closeLightbox()
+        return
       }
       if (event.key === '+' || event.key === '=') {
         zoomIn()
@@ -43,19 +82,17 @@ export default function ChatImageLightbox({
       if (event.key === '0') reset()
     }
 
+    window.addEventListener('popstate', handlePopState)
     document.addEventListener('keydown', handleKeyDown)
+
     return () => {
       document.body.style.overflow = previousOverflow
+      window.removeEventListener('popstate', handlePopState)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [attachment, onClose, reset, zoomIn, zoomOut])
+  }, [attachment?.url, closeLightbox, onClose, reset, zoomIn, zoomOut])
 
   if (!attachment?.url) return null
-
-  const closeLightbox = () => {
-    reset()
-    onClose()
-  }
 
   return (
     <div
