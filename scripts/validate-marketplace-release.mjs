@@ -113,10 +113,10 @@ assert(
   'recently viewed must retain one compact reusable rail and a compact history manager'
 )
 assert(
-  home.includes('fetchHomeDiscovery(requestInterests, 12)') &&
-    home.includes('const personalizationReady =') &&
-    home.includes('useMarketplaceStateReady()') &&
-    home.includes('deriveHomeDiscoveryInterests') &&
+  home.includes('fetchFastHomeDiscovery(') &&
+    home.includes('isLowDataConnection() ? 4 : 6') &&
+    !home.includes('useMarketplaceStateReady') &&
+    !home.includes('useRecentlyViewed') &&
     home.includes('title="Picked for You"') &&
     home.includes('analyticsStrategy="best-selling"') &&
     home.includes('products={discovery.shelves.flashSales}') &&
@@ -127,7 +127,7 @@ assert(
     productShowcase.includes("eventKey: 'recommendation_impression'") &&
     productShowcase.includes("eventKey: 'recommendation_click'") &&
     flashSale.includes("strategy: 'flash-sale'"),
-  'homepage shelves must come from one personalized discovery response with consent-aware recommendation measurements'
+  'homepage shelves must come from one compact non-blocking discovery response with consent-aware recommendation measurements'
 )
 
 const summaryIndex = checkout.indexOf('Order Summary')

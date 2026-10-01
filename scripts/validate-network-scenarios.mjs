@@ -17,6 +17,7 @@ function strategy({ method = 'GET', path, mode = 'cors', sameOrigin = true }) {
 }
 
 const cases = [
+  [{ path: '/api/public/home-discovery?limit=6' }, 'stale-while-revalidate-bounded'],
   [{ path: '/api/public/products?per_page=4' }, 'stale-while-revalidate-bounded'],
   [{ path: '/api/public/status' }, 'stale-while-revalidate-bounded'],
   [{ path: '/api/account/orders' }, 'network-only'],

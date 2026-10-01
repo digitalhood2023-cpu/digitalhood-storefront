@@ -1,5 +1,5 @@
 import { isLowDataConnection } from '@/lib/networkResilience'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import Header from '@/sections/Header'
 import Hero from '@/sections/Hero'
@@ -14,17 +14,10 @@ import RecentlyViewed from '@/sections/RecentlyViewed'
 import Footer from '@/sections/Footer'
 
 import {
-  fetchHomeDiscovery,
+  fetchFastHomeDiscovery,
   type HomeDiscoveryResponse,
   type WooProduct,
 } from '@/lib/woocommerce'
-import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
-import { useMarketplaceStateReady } from '@/context/MarketplaceStateReadiness'
-import {
-  readMarketplaceSearchHistory,
-  SEARCH_HISTORY_CHANGED_EVENT,
-} from '@/lib/marketplaceBrowserState'
-import { deriveHomeDiscoveryInterests } from '@/lib/homeDiscovery'
 
 type HomeProduct = {
   id: string
@@ -125,7 +118,7 @@ function MarketplaceHomeSkeleton() {
     <section className="bg-white py-8 lg:py-10">
       <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {Array.from({ length: 8 }).map((_, index) => (
+          {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
               className="overflow-hidden rounded-2xl border border-dh-light-gray bg-white shadow-sm"
@@ -145,16 +138,8 @@ function MarketplaceHomeSkeleton() {
 }
 
 export default function Home() {
-  const {
-    items: recentlyViewedItems,
-    isReady: isRecentlyViewedReady,
-  } = useRecentlyViewed()
-  const isMarketplaceStateReady = useMarketplaceStateReady()
   const [discovery, setDiscovery] = useState<HomeDiscoveryResponse>(
     EMPTY_HOME_DISCOVERY
-  )
-  const [searchHistory, setSearchHistory] = useState<string[]>(() =>
-    readMarketplaceSearchHistory()
   )
   const [isLoadingProducts, setIsLoadingProducts] = useState(true)
   const [showSlowProductNotice, setShowSlowProductNotice] = useState(false)
@@ -162,41 +147,7 @@ export default function Home() {
   const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
-    const refreshSearchHistory = () => {
-      setSearchHistory(readMarketplaceSearchHistory())
-    }
-
-    window.addEventListener(
-      SEARCH_HISTORY_CHANGED_EVENT,
-      refreshSearchHistory
-    )
-
-    return () => {
-      window.removeEventListener(
-        SEARCH_HISTORY_CHANGED_EVENT,
-        refreshSearchHistory
-      )
-    }
-  }, [])
-
-  const interests = useMemo(
-    () =>
-      deriveHomeDiscoveryInterests({
-        searches: searchHistory,
-        recentlyViewed: recentlyViewedItems,
-      }),
-    [recentlyViewedItems, searchHistory]
-  )
-  const interestsRef = useRef(interests)
-  interestsRef.current = interests
-  const personalizationReady =
-    isMarketplaceStateReady && isRecentlyViewedReady
-
-  useEffect(() => {
-    if (!personalizationReady) return
-
     let mounted = true
-    const requestInterests = interestsRef.current
 
     async function loadHomeProducts() {
       setIsLoadingProducts(true)
@@ -204,9 +155,9 @@ export default function Home() {
       setDiscovery(EMPTY_HOME_DISCOVERY)
 
       try {
-        const response = await (isLowDataConnection()
-          ? fetchHomeDiscovery([], 4)
-          : fetchHomeDiscovery(requestInterests, 12))
+        const response = await fetchFastHomeDiscovery(
+          isLowDataConnection() ? 4 : 6
+        )
 
         if (!mounted) return
 
@@ -233,7 +184,7 @@ export default function Home() {
     return () => {
       mounted = false
     }
-  }, [personalizationReady, loadAttempt])
+  }, [loadAttempt])
 
   useEffect(() => {
     if (!isLoadingProducts) {
@@ -267,9 +218,10 @@ export default function Home() {
       <Header />
 
       <main>
-        <Hero products={discovery.shelves.hero} />
-
-        <RecentlyViewed />
+        <Hero
+          products={discovery.shelves.hero}
+          isLoading={isLoadingProducts}
+        />
 
         {showSlowProductNotice && (
           <p className="px-4 py-3 text-sm text-gray-700">
@@ -301,7 +253,7 @@ export default function Home() {
               viewAllLink="/collections/new-arrivals"
               bgColor="white"
               analyticsStrategy="newest"
-              priorityImageCount={4}
+              priorityImageCount={2}
             />
 
             {discovery.personalization.active && (
@@ -351,6 +303,8 @@ export default function Home() {
         />
 
         <Categories />
+
+        <RecentlyViewed />
 
         <Testimonials />
         <Services />

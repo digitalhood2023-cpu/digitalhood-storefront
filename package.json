@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server.js",
-    "test:startup": "node --test server/liteStorefront.test.js scripts/startupRecovery.test.mjs"
+    "test:startup": "node --test server/liteStorefront.test.js server/homeDiscovery.test.js scripts/startupRecovery.test.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

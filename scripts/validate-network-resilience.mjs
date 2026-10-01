@@ -38,6 +38,7 @@ assert(policy.version === policy.retainedVersions[0], 'the current service-worke
 assert(policy.retainedVersions.length === 2, 'exactly one previous public shell version must be retained for rollback')
 assert(policy.maxPublicEntries <= 100 && policy.maxAssetEntries <= 150, 'runtime caches must have bounded entry counts')
 assert(policy.maxPublicResponseBytes <= 524288, 'public API cache entries must stay under 512 KiB')
+assert(policy.publicReadPrefixes.includes('/api/public/home-discovery'), 'the compact homepage catalogue must be available to bounded stale-while-revalidate caching')
 assert(worker.includes("cacheControl.includes('private')") && worker.includes("cacheControl.includes('no-store')"), 'private and no-store responses must never be cached')
 
 assert(

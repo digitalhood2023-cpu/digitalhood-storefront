@@ -1,6 +1,7 @@
 import express from 'express';
 import { installLiteStorefront } from './server/liteStorefront.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -14,6 +15,7 @@ import {
   resolveSellerDomainHostname,
 } from './server/sellerDomains.js';
 import { createGoogleMerchantFeedService } from './server/googleMerchantFeed.js';
+import { createHomeDiscoveryService } from './server/homeDiscovery.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +44,7 @@ const googleMerchantFeed = createGoogleMerchantFeedService({
     process.env.GOOGLE_MERCHANT_FEED_STALE_TTL_MS || 48 * 60 * 60 * 1000
   ),
 });
+const homeDiscovery = createHomeDiscoveryService({ apiBase: PAYMENTS_API_URL });
 
 const STOREFRONT_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -294,6 +297,29 @@ app.use(
   })
 );
 
+app.get('/api/public/home-discovery', async (req, res) => {
+  try {
+    const result = await homeDiscovery.get(req.query.limit);
+
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+    res.setHeader('X-DigitalHood-Discovery-Cache', result.cacheStatus);
+    res.setHeader('Last-Modified', new Date(result.at).toUTCString());
+
+    if (result.cacheStatus === 'STALE') {
+      res.setHeader('Warning', '110 - "Response is stale"');
+    }
+
+    return res.json(result.payload);
+  } catch (error) {
+    console.error('Homepage discovery failed:', error?.message || error);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Retry-After', '15');
+    return res.status(Number(error?.status || 503)).json({
+      error: 'Homepage products are temporarily unavailable.',
+    });
+  }
+});
+
 app.get('/sitemap.xml', async (_req, res) => {
   res.type('application/xml');
   res.setHeader('Cache-Control', 'public, max-age=900, stale-while-revalidate=3600');
@@ -335,6 +361,30 @@ app.get('/google-merchant-feed.xml', async (req, res) => {
 installLiteStorefront(app, { apiBase: PAYMENTS_API_URL });
 
 const distDir = path.join(__dirname, 'dist');
+let homePreloadTagPromise;
+
+function getHomePreloadTag() {
+  if (!homePreloadTagPromise) {
+    homePreloadTagPromise = fs
+      .readFile(path.join(distDir, '.vite', 'manifest.json'), 'utf8')
+      .then((source) => {
+        const file = JSON.parse(source)?.['src/pages/Home.tsx']?.file;
+        return typeof file === 'string' && /^assets\/[a-zA-Z0-9_.-]+\.js$/.test(file)
+          ? `<link rel="modulepreload" crossorigin href="/${file}">`
+          : '';
+      })
+      .catch(() => '');
+  }
+
+  return homePreloadTagPromise;
+}
+
+async function injectHomePreload(html) {
+  const tag = await getHomePreloadTag();
+  return tag && !html.includes(tag)
+    ? html.replace('</head>', `    ${tag}\n  </head>`)
+    : html;
+}
 
 app.use(
   express.static(distDir, {
@@ -453,7 +503,11 @@ app.use(async (req, res) => {
     }
 
     const seo = await buildServerSeo(req.path);
-    const html = injectSeo(await getIndexHtml(distDir), seo);
+    let html = injectSeo(await getIndexHtml(distDir), seo);
+
+    if (req.path === '/') {
+      html = await injectHomePreload(html);
+    }
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');

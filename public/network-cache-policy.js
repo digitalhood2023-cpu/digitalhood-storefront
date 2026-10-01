@@ -1,8 +1,8 @@
 /* Source-controlled executable cache classification for the DigitalHood service worker. */
 self.DIGITALHOOD_NETWORK_POLICY = Object.freeze({
   schemaVersion: 1,
-  version: 'dh-pwa-v2',
-  retainedVersions: ['dh-pwa-v2', 'dh-pwa-v1'],
+  version: 'dh-pwa-v3',
+  retainedVersions: ['dh-pwa-v3', 'dh-pwa-v2'],
   maxPublicEntries: 80,
   maxAssetEntries: 120,
   maxPublicResponseBytes: 524288,
@@ -31,6 +31,7 @@ self.DIGITALHOOD_NETWORK_POLICY = Object.freeze({
     '/track-order',
   ],
   publicReadPrefixes: [
+    '/api/public/home-discovery',
     '/api/public/products',
     '/api/public/sellers',
     '/api/public/stores',
