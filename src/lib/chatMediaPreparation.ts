@@ -145,12 +145,10 @@ export async function prepareChatMediaFile(file: File) {
     const width = Math.max(1, Math.round(decoded.width * scale))
     const height = Math.max(1, Math.round(decoded.height * scale))
 
-    if (
-      scale === 1 &&
-      file.size <= TARGET_IMAGE_BYTES &&
-      SERVER_IMAGE_TYPES.has(file.type.toLowerCase())
-    ) return file
-
+    // Always re-encode chat images before upload. Even small JPEG/PNG/WebP files can
+    // contain metadata or encoding variants that browsers display correctly but the
+    // stricter chat-media backend rejects. Normalizing through canvas makes edited
+    // and unedited uploads follow the same reliable path.
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d', { alpha: true })
     if (!context) throw new Error('Unable to optimize this image on this device.')
