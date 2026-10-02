@@ -21,8 +21,8 @@ Make verified product ratings, seller/store ratings, product sold counts, and st
 - [x] Refresh public seller/store aggregates after a one-minute freshness window and invalidate them immediately when feedback changes.
 - [x] Add regression tests for product and seller aggregate precedence, zero-rating fallback, sold totals, batching, failure fallback, and response contracts.
 - [x] Run focused tests, full backend checks, the complete storefront production build, and performance budgets.
-- [ ] Commit and push both backend and storefront branches.
-- [ ] Open, verify, and merge both pull requests.
+- [x] Commit and push both backend and storefront branches.
+- [x] Open, verify, and merge both pull requests in dependency order.
 
 ## Implemented state flow
 
@@ -37,4 +37,6 @@ Make verified product ratings, seller/store ratings, product sold counts, and st
 
 - Payments API branch: `fix/live-marketplace-ratings`
 - Storefront branch: `fix/live-marketplace-ratings`
+- Payments API PR: [digitalhood-payments#39](https://github.com/digitalhood2023-cpu/digitalhood-payments/pull/39) — merged after Payments CI passed
+- Storefront PR: [digitalhood-storefront#32](https://github.com/digitalhood2023-cpu/digitalhood-storefront/pull/32) — merged after Storefront verification and browser acceptance passed
 - Deployment: not started by this task
