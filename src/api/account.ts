@@ -221,6 +221,12 @@ export type AccountProduct = {
   stock_label?: string
   stock_tone?: string
   can_add_to_cart?: boolean
+  averageRating?: number
+  average_rating?: number | string
+  ratingCount?: number
+  rating_count?: number
+  totalSales?: number
+  total_sales?: number
   image?: string
   imageThumb?: string
   imageCard?: string

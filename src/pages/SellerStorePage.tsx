@@ -1527,10 +1527,14 @@ export default function SellerStorePage() {
                             <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-gray-500">
                               <span className="inline-flex items-center gap-1">
                                 <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
-                                {safeNumber(product.averageRating).toFixed(1)}
-                                <span className="text-gray-400">
-                                  ({safeNumber(product.ratingCount)})
-                                </span>
+                                {safeNumber(product.averageRating) > 0 && safeNumber(product.ratingCount) > 0 ? (
+                                  <>
+                                    {safeNumber(product.averageRating).toFixed(1)}
+                                    <span className="text-gray-400">
+                                      ({safeNumber(product.ratingCount)})
+                                    </span>
+                                  </>
+                                ) : 'New'}
                               </span>
 
                               {safeNumber(product.totalSales) > 0 && (

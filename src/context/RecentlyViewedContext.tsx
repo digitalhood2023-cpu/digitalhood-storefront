@@ -78,8 +78,9 @@ function accountProductToRecentlyViewed(product: AccountProduct): RecentlyViewed
     imageMedium: product.imageMedium,
     imageLarge: product.imageLarge,
     imageOriginal: product.imageOriginal,
-    rating: 0,
-    reviews: 0,
+    rating: Number(product.averageRating || product.average_rating || 0),
+    reviews: Number(product.ratingCount || product.rating_count || 0),
+    totalSales: Number(product.totalSales || product.total_sales || 0),
     category: 'Marketplace',
     inStock: product.stock_status !== 'outofstock',
   }

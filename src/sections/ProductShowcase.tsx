@@ -35,6 +35,7 @@ type ShowcaseProduct = {
   images?: string[]
   rating: number
   reviews: number
+  totalSales?: number
   badge?: string
   category: string
   type?: string
@@ -440,14 +441,23 @@ export default function ProductShowcase({
                 </div>
 
                 <div className="p-3 sm:p-3.5">
-                  <div className="mb-2 flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
-                    <span className="text-xs font-medium">
-                      {safeNumber(product.rating).toFixed(1)}
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-2 text-xs">
+                    <span className="inline-flex min-w-0 items-center gap-1 font-medium">
+                      <Star className="h-3 w-3 shrink-0 fill-[#ffb54a] text-[#ffb54a]" />
+                      {safeNumber(product.rating) > 0 && safeNumber(product.reviews) > 0 ? (
+                        <>
+                          <span>{safeNumber(product.rating).toFixed(1)}</span>
+                          <span className="text-gray-400">({safeNumber(product.reviews)})</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-500">New</span>
+                      )}
                     </span>
-                    <span className="text-xs text-gray-400">
-                      ({safeNumber(product.reviews)})
-                    </span>
+                    {safeNumber(product.totalSales) > 0 && (
+                      <span className="shrink-0 font-bold text-gray-400">
+                        {safeNumber(product.totalSales).toLocaleString('en-ZM')} sold
+                      </span>
+                    )}
                   </div>
 
                   <Link
