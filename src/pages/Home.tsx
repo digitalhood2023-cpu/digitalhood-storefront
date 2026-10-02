@@ -29,6 +29,7 @@ type HomeProduct = {
   images?: string[]
   rating: number
   reviews: number
+  totalSales: number
   badge?: string
   category: string
   type?: string
@@ -76,6 +77,7 @@ function toHomeProduct(product: WooProduct, badge?: string): HomeProduct {
     images: product.images || [],
     rating: Number(product.averageRating || 0),
     reviews: Number(product.reviewCount || product.ratingCount || 0),
+    totalSales: Number(product.totalSales || 0),
     badge: badge || product.discoveryBadge,
     category,
     type: product.type,

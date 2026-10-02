@@ -8,7 +8,7 @@ const API_ORIGIN =
   )
 
 const PUBLIC_SELLER_CACHE_TTL_MS =
-  5 * 60 * 1000
+  60 * 1000
 
 type TimedCacheEntry<T> = {
   expiresAt: number

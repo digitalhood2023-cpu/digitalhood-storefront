@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Search,
   Sparkles,
+  Star,
   Store,
 } from 'lucide-react'
 
@@ -209,6 +210,17 @@ export default function Hero({
                       <p className="mb-1.5 text-[11px] font-bold text-[#ffd18e]">
                         {getSellerName(featuredProduct)}
                       </p>
+                      <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold text-white/80">
+                        <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
+                        <span>
+                          {safeNumber(featuredProduct.averageRating) > 0 && safeNumber(featuredProduct.ratingCount) > 0
+                            ? `${safeNumber(featuredProduct.averageRating).toFixed(1)} (${safeNumber(featuredProduct.ratingCount)})`
+                            : 'New'}
+                        </span>
+                        {safeNumber(featuredProduct.totalSales) > 0 && (
+                          <span>· {safeNumber(featuredProduct.totalSales).toLocaleString('en-ZM')} sold</span>
+                        )}
+                      </p>
                       <h3 className="line-clamp-2 font-display text-lg font-black leading-tight text-white sm:text-xl">
                         {featuredProduct.name}
                       </h3>
@@ -250,6 +262,17 @@ export default function Hero({
                           />
                         </div>
                         <div className="px-0.5 pb-0.5 pt-2">
+                          <p className="flex items-center gap-1 text-[9px] font-bold text-slate-500">
+                            <Star className="h-2.5 w-2.5 fill-[#ffb54a] text-[#ffb54a]" />
+                            <span>
+                              {safeNumber(product.averageRating) > 0 && safeNumber(product.ratingCount) > 0
+                                ? `${safeNumber(product.averageRating).toFixed(1)} (${safeNumber(product.ratingCount)})`
+                                : 'New'}
+                            </span>
+                            {safeNumber(product.totalSales) > 0 && (
+                              <span className="truncate">· {safeNumber(product.totalSales).toLocaleString('en-ZM')} sold</span>
+                            )}
+                          </p>
                           <p className="line-clamp-2 min-h-8 text-[11px] font-black leading-4 sm:text-xs">
                             {product.name}
                           </p>

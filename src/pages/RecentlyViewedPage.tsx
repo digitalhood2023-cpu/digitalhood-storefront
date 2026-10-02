@@ -239,15 +239,22 @@ export default function RecentlyViewedPage() {
                     </div>
 
                     <div className="p-2.5 sm:p-3">
-                      <div className="mb-1.5 flex items-center gap-1 text-[10px] font-bold text-gray-500">
-                        {Number(product.rating || 0) > 0 ? (
-                          <>
+                      <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-gray-500">
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          {Number(product.rating || 0) > 0 && Number(product.reviews || 0) > 0 ? (
+                            <>
                             <Star className="h-3 w-3 fill-[#ffb54a] text-[#ffb54a]" />
                             <span>{Number(product.rating).toFixed(1)}</span>
                             <span className="text-gray-400">({Number(product.reviews || 0)})</span>
-                          </>
-                        ) : (
-                          <span className="truncate">{product.category || 'Marketplace'}</span>
+                            </>
+                          ) : (
+                            <span className="truncate">New</span>
+                          )}
+                        </span>
+                        {Number(product.totalSales || 0) > 0 && (
+                          <span className="shrink-0 text-gray-400">
+                            {Number(product.totalSales).toLocaleString('en-ZM')} sold
+                          </span>
                         )}
                       </div>
                       <Link to={getProductUrl(product)}>

@@ -32,6 +32,7 @@ const productShowcase = read('src/sections/ProductShowcase.tsx')
 const flashSale = read('src/sections/FlashSale.tsx')
 const recentlyViewed = read('src/sections/RecentlyViewed.tsx')
 const recentlyViewedPage = read('src/pages/RecentlyViewedPage.tsx')
+const recentlyViewedContext = read('src/context/RecentlyViewedContext.tsx')
 const favicon = read('public/favicon.svg')
 const woocommerce = read('src/lib/woocommerce.ts')
 const shop = read('src/pages/ShopPage.tsx')
@@ -51,12 +52,14 @@ const cartDrawer = read('src/features/cart/CartDrawer.tsx')
 const wishlistDrawer = read('src/components/wishlist/WishlistDrawer.tsx')
 const sellerStore = read('src/pages/SellerStorePage.tsx')
 const sellerDomainStore = read('src/pages/SellerDomainStorefrontPage.tsx')
+const publicSellers = read('src/api/publicSellers.ts')
 const sellerDomainCategories = read('src/pages/SellerDomainCategoriesPage.tsx')
 const sellerCheckout = read('src/api/sellerCheckout.ts')
 const sellerOrderComplete = read('src/pages/SellerOrderCompletePage.tsx')
 const appRouter = read('src/App.tsx')
 const sellerDomains = read('src/lib/sellerDomains.ts')
 const storefrontServer = read('server.js')
+const homeDiscoveryProxy = read('server/homeDiscovery.js')
 const tracking = read('src/pages/OrderTrackingDetailsPage.tsx')
 const trackOrder = read('src/pages/TrackOrderPage.tsx')
 const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
@@ -317,6 +320,27 @@ assert(
     product.includes('getPublicFeedback(\'sellers\', sellerKey)') &&
     product.includes('% positive feedback'),
   'product ratings and seller reputation must come from their independent verified-feedback summaries'
+)
+assert(
+  home.includes('totalSales: Number(product.totalSales || 0)') &&
+    productShowcase.includes('safeNumber(product.totalSales)') &&
+    homeHero.includes('featuredProduct.averageRating') &&
+    homeHero.includes('featuredProduct.totalSales') &&
+    flashSale.includes('product.averageRating') &&
+    flashSale.includes('product.totalSales') &&
+    recentlyViewedContext.includes('averageRating || product.average_rating') &&
+    recentlyViewedContext.includes('totalSales || product.total_sales') &&
+    recentlyViewed.includes('product.totalSales') &&
+    recentlyViewedPage.includes('product.totalSales') &&
+    shop.includes('getRatingText(product)') &&
+    shop.includes('getSoldText(product)') &&
+    sellerStore.includes('product.averageRating') &&
+    sellerStore.includes('product.totalSales') &&
+    sellerDomainStore.includes('product.averageRating') &&
+    sellerDomainStore.includes('product.totalSales') &&
+    publicSellers.includes('60 * 1000') &&
+    homeDiscoveryProxy.includes('DEFAULT_FRESH_MS = 30_000'),
+  'verified ratings and live sold totals must remain visible and refresh promptly across marketplace cards and stores'
 )
 assert(
   searchAutocomplete.includes('cameraInputRef') &&

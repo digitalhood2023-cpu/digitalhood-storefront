@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingCart, Clock, Flame, Check, ArrowRight } from 'lucide-react'
+import { ShoppingCart, Clock, Flame, Check, ArrowRight, Star } from 'lucide-react'
 
 import { useCartStore } from '@/store/cartStore'
 import { Button } from '@/components/ui/button'
@@ -287,6 +287,19 @@ export default function FlashSale({
                   </div>
 
                   <div className="p-3 sm:p-3.5">
+                    <div className="mb-2 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-gray-500">
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <Star className="h-3 w-3 shrink-0 fill-[#ffb54a] text-[#ffb54a]" />
+                        {safeNumber(product.averageRating) > 0 && safeNumber(product.ratingCount) > 0
+                          ? `${safeNumber(product.averageRating).toFixed(1)} (${safeNumber(product.ratingCount)})`
+                          : 'New'}
+                      </span>
+                      {safeNumber(product.totalSales) > 0 && (
+                        <span className="shrink-0 text-gray-400">
+                          {safeNumber(product.totalSales).toLocaleString('en-ZM')} sold
+                        </span>
+                      )}
+                    </div>
                     <Link
                       to={productUrl}
                       onClick={() => {

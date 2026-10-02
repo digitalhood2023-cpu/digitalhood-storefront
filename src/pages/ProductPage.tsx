@@ -586,6 +586,7 @@ export default function ProductPage({
       imageOriginal: product.imageOriginal,
       rating: Number(product.averageRating || 0),
       reviews: Number(product.ratingCount || 0),
+      totalSales: Number(product.totalSales || 0),
       category: product.categories?.[0]?.name || 'Marketplace',
       inStock: product.stockStatus !== 'outofstock',
     })
