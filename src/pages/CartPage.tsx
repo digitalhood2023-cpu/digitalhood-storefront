@@ -264,7 +264,7 @@ export default function CartPage({
         window.alert(
           error instanceof Error
             ? error.message
-            : 'Secure checkout could not be opened.'
+            : 'Checkout could not be opened.'
         )
       }
 
@@ -683,7 +683,7 @@ export default function CartPage({
                     }`}
                   >
                     {isOpeningSecureCheckout
-                      ? 'Opening secure checkout…'
+                      ? 'Opening checkout…'
                       : hasUnavailableItems
                       ? 'Checkout unavailable'
                       : selectedItems.length === 0

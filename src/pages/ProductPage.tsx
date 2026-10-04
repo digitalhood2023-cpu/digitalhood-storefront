@@ -1216,7 +1216,7 @@ export default function ProductPage({
         window.alert(
           error instanceof Error
             ? error.message
-            : 'Secure checkout could not be opened.'
+            : 'Checkout could not be opened.'
         )
       }
 
@@ -1896,7 +1896,7 @@ export default function ProductPage({
                     }`}
                   >
                     <Zap className="w-5 h-5 mr-2" />
-                    {isStartingSellerCheckout ? 'Opening secure checkout…' : 'Buy it Now'}
+                    {isStartingSellerCheckout ? 'Opening checkout…' : 'Buy it Now'}
                   </Button>
                 </div>
 

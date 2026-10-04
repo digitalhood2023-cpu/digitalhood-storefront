@@ -537,9 +537,9 @@ export default function RegisterPage() {
                   <div className="flex gap-3 rounded-2xl bg-white/10 p-4">
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
                     <div>
-                      <p className="font-semibold">Secure account</p>
+                      <p className="font-semibold">Order updates</p>
                       <p className="text-sm text-white/70">
-                        Your account session is protected and private.
+                        Follow purchases, delivery progress, and support cases.
                       </p>
                     </div>
                   </div>

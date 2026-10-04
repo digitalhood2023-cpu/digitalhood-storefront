@@ -37,7 +37,7 @@ function getCustomerCardErrorMessage(message: string | undefined, fallback: stri
       normalized
     )
   ) {
-    return 'The secure card form could not complete this payment. Please retry Card or choose Mobile Money on the same order.'
+    return 'The card form could not complete this payment. Please retry Card or choose Mobile Money on the same order.'
   }
 
   return normalized || fallback
@@ -97,7 +97,7 @@ export default function StripeCheckoutForm({
       const message =
         preparationError instanceof Error
           ? preparationError.message
-          : 'Could not create the secure card payment.'
+          : 'Could not create the card payment.'
 
       setError(message)
       submissionInFlightRef.current = false
@@ -122,10 +122,10 @@ export default function StripeCheckoutForm({
       const providerMessage =
         confirmationError instanceof Error
           ? confirmationError.message
-          : 'The card provider could not be reached. Please try again.'
+          : 'The card service could not be reached. Please try again.'
       const message = getCustomerCardErrorMessage(
         providerMessage,
-        'The card provider could not be reached. Please try again.'
+        'The card service could not be reached. Please try again.'
       )
 
       setError(message)

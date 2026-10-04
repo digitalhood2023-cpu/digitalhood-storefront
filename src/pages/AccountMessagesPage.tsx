@@ -3373,7 +3373,7 @@ export default function AccountMessagesPage() {
                       {query.trim() &&
                       conversations.length > 0
                         ? 'Try another store name or message keyword.'
-                        : 'Open a product and choose Chat to start a secure conversation with its seller.'}
+                        : 'Open a product and choose Chat to start a conversation with its seller.'}
                     </p>
                   </div>
                 ) : (

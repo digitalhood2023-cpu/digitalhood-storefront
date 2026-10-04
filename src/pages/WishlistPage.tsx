@@ -232,7 +232,7 @@ export default function WishlistPage() {
                   {wishlistItems.length === 0
                     ? 'Products you save will appear here.'
                     : `${wishlistItems.length} saved product${wishlistItems.length === 1 ? '' : 's'}.`}
-                  {isSyncing ? ' Syncing...' : ''}
+                  {isSyncing ? ' Updating...' : ''}
                 </p>
               </div>
 

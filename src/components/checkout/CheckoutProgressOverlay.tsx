@@ -63,7 +63,7 @@ const STAGE_COPY: Record<
   confirming: {
     eyebrow: 'Almost done',
     title: 'Just a moment — confirming your order',
-    message: 'We are securely matching the payment and preparing your confirmation.',
+    message: 'Please wait while your payment is confirmed.',
   },
   confirmed: {
     eyebrow: 'Order confirmed',
@@ -73,12 +73,12 @@ const STAGE_COPY: Record<
   failed: {
     eyebrow: 'Payment not completed',
     title: 'Your order needs attention',
-    message: 'The payment could not be confirmed. Your order details are safe.',
+    message: 'The payment could not be confirmed. Review the message below before trying again.',
   },
   delayed: {
     eyebrow: 'Confirmation delayed',
     title: 'We are still checking your payment',
-    message: 'DigitalHood will continue reconciling this order securely in the background.',
+    message: 'You can leave this page and check the order status later.',
   },
 }
 

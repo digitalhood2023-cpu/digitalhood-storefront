@@ -136,7 +136,7 @@ export default function LoginPage() {
             <section className="rounded-3xl bg-white p-6 shadow-sm sm:p-8 lg:p-10">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-dh-secondary/15 px-4 py-2 text-sm font-semibold text-dh-primary">
                 <LockKeyhole className="h-4 w-4" />
-                Secure customer login
+                Customer login
               </div>
 
               <h1 className="font-display text-3xl font-bold text-dh-primary lg:text-4xl">
@@ -291,7 +291,7 @@ export default function LoginPage() {
                     <div>
                       <p className="font-semibold">Google sign-in</p>
                       <p className="text-sm text-white/70">
-                        Continue quickly and securely with your Google account.
+                        Continue with your Google account.
                       </p>
                     </div>
                   </div>
@@ -299,10 +299,9 @@ export default function LoginPage() {
                   <div className="flex gap-3 rounded-2xl bg-white/10 p-4">
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-dh-secondary" />
                     <div>
-                      <p className="font-semibold">Protected customer session</p>
+                      <p className="font-semibold">Account support</p>
                       <p className="text-sm text-white/70">
-                        Your account stays private and connected only to your
-                        DigitalHood shopping experience.
+                        Keep your orders, support cases, and account details in one place.
                       </p>
                     </div>
                   </div>

@@ -422,7 +422,7 @@ export default function AccountNotificationsPage() {
                 <div>
                   <h2 className="dh-notification-title text-sm font-black">Choose useful updates</h2>
                   <p className="dh-notification-body mt-0.5 text-[11px]">
-                    Important payment, account-security and active-order updates remain available in your protected feed.
+                    Important payment, account, and active-order updates remain available here.
                   </p>
                 </div>
                 {isSavingPreferences && <Loader2 className="h-4 w-4 animate-spin text-[#28256d]" />}
@@ -541,7 +541,7 @@ export default function AccountNotificationsPage() {
                 <PackageCheck className="h-8 w-8 text-[#28256d]" />
                 <p className="dh-notification-title mt-3 font-display text-lg font-black">Nothing here right now</p>
                 <p className="dh-notification-body mt-1 max-w-sm text-xs leading-5">
-                  You are caught up in this category. New marketplace activity will appear automatically.
+                  You are caught up in this category.
                 </p>
               </div>
             )}
