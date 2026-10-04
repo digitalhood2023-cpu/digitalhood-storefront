@@ -274,7 +274,7 @@ export default function OrderTrackingDetailsPage() {
 
         {displayLoading && <div className="dh-order-card dh-order-card-copy mt-4 rounded-2xl p-10 text-center text-sm">Loading order journey…</div>}
         {!displayLoading && displayError && (
-          <div className="dh-order-alert dh-order-alert--warning mt-4 rounded-2xl p-6 text-center"><ShieldAlert className="mx-auto h-7 w-7" /><p className="mt-2 font-bold">Tracking details are protected</p><p className="mx-auto mt-1 max-w-md text-sm">{displayError}</p><Button asChild className="mt-4 bg-[#28256d] text-white"><Link to="/track-order">Return to tracking</Link></Button></div>
+          <div className="dh-order-alert dh-order-alert--warning mt-4 rounded-2xl p-6 text-center"><ShieldAlert className="mx-auto h-7 w-7" /><p className="mt-2 font-bold">Unable to show tracking details</p><p className="mx-auto mt-1 max-w-md text-sm">{displayError}</p><Button asChild className="mt-4 bg-[#28256d] text-white"><Link to="/track-order">Return to tracking</Link></Button></div>
         )}
 
         {!displayLoading && !displayError && order && state && (
@@ -290,7 +290,7 @@ export default function OrderTrackingDetailsPage() {
               ) : order.paymentRetry?.eligible ? (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-[#f5a623]/10 p-4"><p className="text-sm text-amber-100">Complete payment before {formatOrderDate(order.paymentRetry.deadline, true)} to confirm this order.</p><Button asChild className="h-9 bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]"><Link to={paymentUrl}>Pay now</Link></Button></div>
               ) : order.paymentRetry?.lifecycle === 'awaiting-verification' ? (
-                <div className="border-t border-white/10 bg-white/5 p-4 text-sm text-white/70">DigitalHood is checking the payment provider. Delivery tracking will appear only after payment is confirmed.</div>
+                <div className="border-t border-white/10 bg-white/5 p-4 text-sm text-white/70">Payment confirmation is pending. Delivery tracking will be available after payment is confirmed.</div>
               ) : state.trackable ? (
                 <div className="grid grid-cols-4 border-t border-white/10 px-2 py-4 sm:px-5">
                   {JOURNEY.map((step, index) => { const Icon = step.icon; const complete = index <= progress; return <div key={step.key} className="relative text-center"><div className={`relative z-10 mx-auto flex h-8 w-8 items-center justify-center rounded-full border ${complete ? 'border-[#f5a623] bg-[#f5a623] text-[#191744]' : 'border-white/20 bg-[#24215b] text-white/40'}`}>{index < progress ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}</div><p className={`mt-2 text-[10px] font-bold sm:text-xs ${complete ? 'text-white' : 'text-white/40'}`}>{step.label}</p>{index < 3 && <span className={`absolute left-[62%] top-4 h-px w-[76%] ${index < progress ? 'bg-[#f5a623]' : 'bg-white/15'}`} />}</div> })}

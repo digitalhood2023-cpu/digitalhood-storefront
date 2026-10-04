@@ -355,7 +355,7 @@ export default function CheckoutPage() {
         setSellerCheckoutError(
           error instanceof Error
             ? error.message
-            : 'Secure store checkout could not be opened.'
+            : 'Store checkout could not be opened.'
         )
         setSellerCheckoutState('error')
       })
@@ -544,7 +544,7 @@ export default function CheckoutPage() {
 
   const showConfirmedOrder = () => {
     setCheckoutProgressStage('confirmed')
-    setCheckoutProgressMessage('Your order is securely confirmed and ready for fulfilment.')
+    setCheckoutProgressMessage('Your order is confirmed and ready for fulfilment.')
     setIsSubmitting(false)
     setOrderComplete(true)
   }
@@ -1102,7 +1102,7 @@ export default function CheckoutPage() {
         message:
           'Your order has been created and a Mobile Money payment request has been sent to your phone.',
         nextStep:
-          'Approve the payment on your phone. This screen will update automatically once payment is confirmed.',
+          'Approve the payment on your phone, then wait for confirmation.',
         confirmed: false,
       }
     }
@@ -1160,7 +1160,7 @@ export default function CheckoutPage() {
     // a second Mobile Money prompt.
 
     setCheckoutProgressStage('awaiting-approval')
-    setCheckoutProgressMessage('Approve the secure request on your phone. We will confirm it here automatically.')
+    setCheckoutProgressMessage('Approve the payment request on your phone, then wait for confirmation.')
 
     const poll = async () => {
       try {
@@ -1177,7 +1177,7 @@ export default function CheckoutPage() {
         if (paymentConfirmed) {
           stopLencoPolling()
           setCheckoutProgressStage('confirming')
-          setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
+          setCheckoutProgressMessage('Payment received. Your order is being confirmed.')
           setSuccessState(getSuccessState('mobile-confirmed'))
           setCreatedOrderId(orderId)
           setCompletedOrderTotal(finalTotal)
@@ -1198,7 +1198,7 @@ export default function CheckoutPage() {
             title: 'Payment Not Completed',
             message: failureMessage,
             nextStep:
-              'Open your order to retry securely. DigitalHood will not ask for your Mobile Money PIN.',
+              'Open your order to retry. DigitalHood will not ask for your Mobile Money PIN.',
             confirmed: false,
             failed: true,
           })
@@ -1209,12 +1209,12 @@ export default function CheckoutPage() {
         }
 
         setCheckoutProgressMessage(
-          result.message || 'Your request is still active. Approve it on your phone and we will confirm it automatically.'
+          result.message || 'Your request is still active. Approve it on your phone, then wait for confirmation.'
         )
       } catch (error) {
         console.error(error)
         setCheckoutProgressMessage(
-          'Your connection changed while Mobile Money was open. We are still checking the same payment securely.'
+          'Your connection changed before payment was confirmed. Open the order to check its current status.'
         )
       }
 
@@ -1230,7 +1230,7 @@ export default function CheckoutPage() {
         setSuccessState({
           title: 'Payment Is Still Being Confirmed',
           message:
-            'The provider has not returned a final result within 10 seconds. Your order is reserved and DigitalHood is continuing the same secure check in the background.',
+            'Payment confirmation is taking longer than expected. You can leave this page and check the order later.',
           nextStep:
             'If money was deducted, do not pay again. Open the same order to view its payment state or contact support with the payment reference.',
           confirmed: false,
@@ -1285,7 +1285,7 @@ export default function CheckoutPage() {
       order.currency !== 'ZMW'
     ) {
       throw new Error(
-        'Your secure order total changed before payment. Review the order total and try again; your card was not charged.'
+        'Your order total changed before payment. Review the order total and try again; your card was not charged.'
       )
     }
 
@@ -1345,7 +1345,7 @@ export default function CheckoutPage() {
 
   const handleCardPaymentConfirming = () => {
     setCheckoutProgressStage('confirming')
-    setCheckoutProgressMessage('Processing your card payment securely. Please wait while we confirm the result.')
+    setCheckoutProgressMessage('Processing your card payment. Please wait for confirmation.')
   }
 
   const handleCardPaymentFailure = async (
@@ -1375,8 +1375,8 @@ export default function CheckoutPage() {
         if (verification.pending) {
           setSuccessState({
             title: 'Card Confirmation Pending',
-            message: verification.message || 'The card provider has not returned a final result yet. DigitalHood is safely checking this same order.',
-            nextStep: 'No second charge will be started while this attempt is uncertain. Open the order to see its live payment status.',
+            message: verification.message || 'Card payment confirmation is taking longer than expected.',
+            nextStep: 'Do not pay again if you may have been charged. Open the order to check its payment status.',
             confirmed: false,
           })
           setOrderComplete(true)
@@ -1386,8 +1386,8 @@ export default function CheckoutPage() {
       } catch {
         setSuccessState({
           title: 'Card Confirmation Pending',
-          message: 'Your connection changed while the provider result was being checked. The existing order remains protected.',
-          nextStep: 'Open the order to see the live provider state. DigitalHood will keep checking this same attempt.',
+          message: 'Your connection changed before the card payment was confirmed.',
+          nextStep: 'Do not pay again if you may have been charged. Open the order to check its payment status.',
           confirmed: false,
         })
         setOrderComplete(true)
@@ -1414,7 +1414,7 @@ export default function CheckoutPage() {
     setCheckoutError('')
     setIsSubmitting(true)
     setCheckoutProgressStage('confirming')
-    setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
+    setCheckoutProgressMessage('Payment received. Your order is being confirmed.')
 
     try {
       const validationError = validateCheckout()
@@ -1426,7 +1426,7 @@ export default function CheckoutPage() {
       }
 
       if (!paymentIntentId) {
-        throw new Error('The card provider did not return a payment reference.')
+        throw new Error('Card payment confirmation could not be completed.')
       }
 
       const verification = await verifyStripePayment(
@@ -1435,7 +1435,7 @@ export default function CheckoutPage() {
       )
       if (!verification.success) {
         throw new Error(
-          'The card provider has not confirmed this payment yet. DigitalHood will keep checking it safely.'
+          'Card payment confirmation is pending. Open the order to check its status.'
         )
       }
 
@@ -1505,7 +1505,7 @@ export default function CheckoutPage() {
     setCheckoutProgressMessage(
       paymentMethod === 'cod'
         ? 'Checking stock and confirming your delivery details…'
-        : 'Checking stock, delivery and your secure order total…'
+        : 'Checking stock, delivery and your order total…'
     )
 
     try {
@@ -1522,7 +1522,7 @@ export default function CheckoutPage() {
         const reference = `DH_ORDER_${order.orderId}`
 
         setCheckoutProgressStage('requesting-payment')
-        setCheckoutProgressMessage('Sending a secure approval request to your Mobile Money phone…')
+        setCheckoutProgressMessage('Sending an approval request to your Mobile Money phone…')
 
         let response
 
@@ -1570,7 +1570,7 @@ export default function CheckoutPage() {
 
         if (paymentConfirmed) {
           setCheckoutProgressStage('confirming')
-          setCheckoutProgressMessage('Payment received. We are securely confirming your order now.')
+          setCheckoutProgressMessage('Payment received. Your order is being confirmed.')
           setSuccessState(getSuccessState('mobile-confirmed'))
           removeCheckedOutItems()
           showConfirmedOrder()
@@ -1587,7 +1587,7 @@ export default function CheckoutPage() {
             title: 'Payment Not Completed',
             message: failureMessage,
             nextStep:
-              'Open your order and choose Card or Mobile Money to retry securely. DigitalHood will not ask for your Mobile Money PIN.',
+              'Open your order and choose Card or Mobile Money to retry. DigitalHood will not ask for your Mobile Money PIN.',
             confirmed: false,
             failed: true,
           })
@@ -2304,7 +2304,7 @@ export default function CheckoutPage() {
                     />
 
                     <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px]">
-                      <span className="text-dh-dark-gray">Network detected automatically</span>
+                      <span className="text-dh-dark-gray">Network</span>
                       {detectMobileMoneyOperator(formData.paymentPhone) ? (
                         <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-black text-emerald-700">
                           {detectMobileMoneyOperator(formData.paymentPhone) === 'mtn'
@@ -2347,15 +2347,11 @@ export default function CheckoutPage() {
                     {hasUnavailableItems
                       ? 'Checkout unavailable'
                       : isSubmitting
-                        ? 'Securing your order…'
+                        ? 'Placing your order…'
                         : `Place order · ${formatPrice(finalTotal)}`}
                   </Button>
                 )}
 
-                <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-dh-dark-gray">
-                  <Shield className="h-3.5 w-3.5" />
-                  <span>Protected payment and order details</span>
-                </div>
               </div>
             </div>
           </div>

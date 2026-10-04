@@ -98,7 +98,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
           ? 'Your session has expired. Please sign in again.'
           : requestError instanceof Error
           ? requestError.message
-          : 'We could not refresh your account. Your saved session is still active.'
+          : 'We could not refresh your account. Please try again.'
       )
 
       return isAccountUnauthorizedError(requestError)

@@ -450,7 +450,7 @@ export default function AccountSupportCasesPage() {
                 </h1>
               </div>
               <p className="mt-1 text-sm text-dh-dark-gray">
-                One place for reports, replies and resolutions. Updates refresh automatically.
+                One place for reports, replies and resolutions.
               </p>
             </div>
 
@@ -586,7 +586,7 @@ export default function AccountSupportCasesPage() {
                             DigitalHood needs your reply
                           </p>
                           <p className="mt-0.5 text-xs text-orange-700">
-                            Continue securely from the linked order.
+                            Continue from the linked order.
                           </p>
                         </div>
                         <Link
@@ -711,7 +711,7 @@ export default function AccountSupportCasesPage() {
                                 Awaiting the first support update
                               </p>
                               <p className="mt-1 text-xs text-dh-dark-gray">
-                                New replies will appear here automatically.
+                                Check this case for new replies.
                               </p>
                             </div>
                           )}

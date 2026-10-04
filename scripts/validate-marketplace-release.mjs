@@ -5,6 +5,12 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (relativePath) =>
   fs.readFileSync(path.join(root, relativePath), 'utf8')
+const readSourceTree = (directory) =>
+  fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name)
+    if (entry.isDirectory()) return readSourceTree(entryPath)
+    return /\.(?:ts|tsx)$/.test(entry.name) ? fs.readFileSync(entryPath, 'utf8') : []
+  })
 const assert = (condition, message) => {
   if (!condition) throw new Error(`Marketplace release contract failed: ${message}`)
 }
@@ -65,6 +71,7 @@ const trackOrder = read('src/pages/TrackOrderPage.tsx')
 const accountOrderIssue = read('src/pages/AccountOrderIssuePage.tsx')
 const supportLinks = read('src/lib/supportLinks.ts')
 const html = read('index.html')
+const sourceUi = readSourceTree(path.join(root, 'src')).join('\n')
 const optimisticTextSend = buyerChat.slice(
   buyerChat.indexOf('const optimisticMessage: ChatMessage'),
   buyerChat.indexOf('async function retryOptimisticMessage')
@@ -585,6 +592,16 @@ assert(
     accountOrderIssue.includes('video/mp4') &&
     supportLinks.includes('/account/orders/${encodeURIComponent(orderId)}/report'),
   'signed-in order reports must remain account-linked with controlled photo/video evidence'
+)
+
+assert(
+  !paymentRetryPage.includes('inventoryReservation') &&
+    !/stock (?:is )?reserved|reserved items/i.test(sourceUi),
+  'stock-reservation mechanics must remain hidden from storefront users'
+)
+assert(
+  !/(?:will appear|refresh|detected) automatically|reconciling this order securely in the background|provider has not returned a final result/i.test(sourceUi),
+  'storefront copy must not narrate polling, detection, or background-processing mechanics'
 )
 
 console.log('Marketplace release validation passed')

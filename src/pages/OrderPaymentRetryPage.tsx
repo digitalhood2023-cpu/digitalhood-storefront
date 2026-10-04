@@ -159,7 +159,7 @@ export default function OrderPaymentRetryPage() {
         }
         setMobileStatus('Waiting for approval on your phone…')
       } catch {
-        if (active) setMobileStatus('Still waiting for the payment provider…')
+        if (active) setMobileStatus('Still waiting for payment confirmation…')
       }
 
       if (active && attempts < 180) timeout = window.setTimeout(poll, 5000)
@@ -230,14 +230,14 @@ export default function OrderPaymentRetryPage() {
         !response.clientSecret ||
         !response.paymentIntentId
       ) {
-        throw new Error('The secure card payment could not be prepared.')
+        throw new Error('The card payment could not be prepared.')
       }
 
       if (
         Math.abs(Number(response.amount) - Number(order.total)) > 0.005 ||
         String(response.currency).toUpperCase() !== String(order.currency || 'ZMW').toUpperCase()
       ) {
-        throw new Error('The secure payment total does not match this order.')
+        throw new Error('The payment total does not match this order.')
       }
 
       setRetry(response)
@@ -322,10 +322,10 @@ export default function OrderPaymentRetryPage() {
           : current)
       }
       setError(result.pending
-        ? result.message || 'The card provider is still checking this payment. DigitalHood will keep this order safe until the result is final.'
+        ? result.message || 'This card payment is still pending. Open the order again shortly to check its status.'
         : `${message} You can retry this order with Card or Mobile Money.`)
     } catch {
-      setError('DigitalHood is checking the card provider before allowing another payment. Please wait a moment.')
+      setError('Payment confirmation is still pending. Please wait a moment before trying again.')
     }
   }
 
@@ -348,10 +348,10 @@ export default function OrderPaymentRetryPage() {
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-3 py-5 sm:px-5 sm:py-7">
         <Link to="/track-order" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#28256d]"><ArrowLeft className="h-4 w-4" /> Back to orders</Link>
-        {displayLoading && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Checking secure payment window…</div>}
+        {displayLoading && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Checking payment availability…</div>}
 
         {!displayLoading && !hasRecoveryAccess && (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center"><LockKeyhole className="mx-auto h-7 w-7 text-amber-700" /><h1 className="mt-2 text-lg font-black text-amber-950">Sign in to retry payment</h1><p className="mt-1 text-sm text-amber-800">Payment retries are protected by your DigitalHood account.</p><Button asChild className="mt-4 bg-[#28256d] text-white"><Link to={`/login?redirect=${encodeURIComponent(`/orders/${orderId}/pay`)}`}>Sign in</Link></Button></div>
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center"><LockKeyhole className="mx-auto h-7 w-7 text-amber-700" /><h1 className="mt-2 text-lg font-black text-amber-950">Sign in to retry payment</h1><p className="mt-1 text-sm text-amber-800">Use the account that placed this order.</p><Button asChild className="mt-4 bg-[#28256d] text-white"><Link to={`/login?redirect=${encodeURIComponent(`/orders/${orderId}/pay`)}`}>Sign in</Link></Button></div>
         )}
 
         {!displayLoading && error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
@@ -359,20 +359,19 @@ export default function OrderPaymentRetryPage() {
         {!displayLoading && order && (
           <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="bg-[#191744] p-4 text-white sm:p-5">
-              <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-white/55">Secure payment retry</p><h1 className="mt-1 text-xl font-black">Order #{order.number || order.id}</h1></div><span className="rounded-full bg-[#f5a623] px-3 py-1 text-xs font-black text-[#191744]">{formatOrderMoney(order.total, order.currency)}</span></div>
+              <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-white/55">Payment retry</p><h1 className="mt-1 text-xl font-black">Order #{order.number || order.id}</h1></div><span className="rounded-full bg-[#f5a623] px-3 py-1 text-xs font-black text-[#191744]">{formatOrderMoney(order.total, order.currency)}</span></div>
               {order.paymentRetry?.deadline && <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"><p className="flex items-center gap-1.5 text-xs text-white/70"><Clock3 className="h-3.5 w-3.5 text-[#f5a623]" /> Pay before {formatOrderDate(order.paymentRetry.deadline, true)}</p><p className="mt-1 font-mono text-lg font-black tracking-tight text-[#f5a623]" aria-live="polite">{countdown}</p></div>}
             </div>
 
             {awaitingVerification ? (
-              <div className="p-5 text-center"><Clock3 className="mx-auto h-7 w-7 animate-pulse text-[#28256d]" /><h2 className="mt-2 font-black text-slate-800">Checking payment confirmation</h2><p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">This order only shows Awaiting payment while DigitalHood checks the payment provider. If it is not confirmed in the short verification window, this page will change to Pay now and the 72-hour recovery window remains available.</p></div>
+              <div className="p-5 text-center"><Clock3 className="mx-auto h-7 w-7 animate-pulse text-[#28256d]" /><h2 className="mt-2 font-black text-slate-800">Checking payment confirmation</h2><p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">Payment confirmation is pending. Check this order again shortly.</p></div>
             ) : unavailable ? (
               <div className="p-5 text-center"><TriangleAlert className="mx-auto h-7 w-7 text-slate-400" /><h2 className="mt-2 font-black text-slate-800">Payment retry unavailable</h2><p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{order.paymentRetry?.message || 'This order is closed or no longer inside its payment window.'}</p><Button asChild variant="outline" className="mt-4"><Link to="/track-order">Return to orders</Link></Button></div>
             ) : (
               <div className="p-4 sm:p-5">
-                {order.inventoryReservation?.reserved && <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-800">{order.inventoryReservation.message} No seller action is needed.</div>}
                 <div className="rounded-xl bg-slate-50 p-3">
                   <p className="text-sm font-black text-slate-800">Choose how to pay</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Use Card or Mobile Money for this same order. Its total and reserved items cannot be changed here.</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Use Card or Mobile Money to pay this order. Order details cannot be changed here.</p>
                   <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Payment method">
                     <button
                       type="button"
@@ -404,7 +403,7 @@ export default function OrderPaymentRetryPage() {
                     <Label htmlFor="retry-phone">Mobile Money number</Label>
                     <Input id="retry-phone" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 h-11" placeholder="0971234567" inputMode="tel" autoComplete="tel" />
                     <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-                      <span className="text-slate-500">Network detected automatically</span>
+                      <span className="text-slate-500">Network</span>
                       {detectedOperator ? (
                         <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700">
                           {detectedOperator === 'mtn' ? 'MTN MoMo' : 'Airtel Money'}
@@ -416,7 +415,7 @@ export default function OrderPaymentRetryPage() {
                   </div>
                 )}
 
-                {!retry && selectedMethod === 'mobile' && <Button type="button" onClick={prepareMobilePayment} disabled={preparing || !detectedOperator} className="mt-4 h-11 w-full rounded-xl bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]">{preparing ? 'Sending secure prompt…' : 'Send Mobile Money prompt'}</Button>}
+                {!retry && selectedMethod === 'mobile' && <Button type="button" onClick={prepareMobilePayment} disabled={preparing || !detectedOperator} className="mt-4 h-11 w-full rounded-xl bg-[#f5a623] font-black text-[#191744] hover:bg-[#ffb536]">{preparing ? 'Sending prompt…' : 'Send Mobile Money prompt'}</Button>}
 
                 {selectedMethod === 'card' && retry?.mode !== 'mobile' && (
                   <div className="mt-4">

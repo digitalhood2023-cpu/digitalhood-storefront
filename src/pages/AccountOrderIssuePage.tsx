@@ -14,7 +14,6 @@ import {
   PackageCheck,
   Paperclip,
   Send,
-  ShieldCheck,
   ShoppingBag,
   X,
 } from 'lucide-react'
@@ -411,7 +410,6 @@ export default function AccountOrderIssuePage() {
                     <StoredEvidence attachments={existingCase.attachments} />
                     <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500"><Clock3 className="h-3.5 w-3.5" />Opened {formatOrderDate(existingCase.createdAt, true)}</div>
                   </section>
-                  <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs leading-5 text-emerald-800"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />This case is attached to your account, order and customer profile for secure follow-up.</div>
                 </aside>
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -421,7 +419,7 @@ export default function AccountOrderIssuePage() {
                       const fromCustomer = String(message.direction || message.senderType || message.role || '').toLowerCase().match(/customer|inbound/)
                       return <article key={message.id || index} className={`rounded-xl p-3 ${fromCustomer ? 'ml-5 bg-indigo-50' : 'mr-5 bg-slate-100'}`}><div className="flex justify-between gap-2"><p className="text-xs font-black text-dh-primary">{fromCustomer ? 'You' : String(message.authorName || message.author || 'DigitalHood Support')}</p><p className="text-[10px] text-slate-500">{formatOrderDate(message.createdAt, true)}</p></div><p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-700">{message.message}</p><StoredEvidence attachments={message.attachments} /></article>
                     })}
-                    {!existingCase.messages?.length && <div className="rounded-xl bg-slate-50 p-6 text-center"><PackageCheck className="mx-auto h-6 w-6 text-dh-primary" /><p className="mt-2 text-sm font-bold text-dh-primary">Report received</p><p className="mt-1 text-xs text-slate-500">Support updates will appear here automatically.</p></div>}
+                    {!existingCase.messages?.length && <div className="rounded-xl bg-slate-50 p-6 text-center"><PackageCheck className="mx-auto h-6 w-6 text-dh-primary" /><p className="mt-2 text-sm font-bold text-dh-primary">Report received</p><p className="mt-1 text-xs text-slate-500">Check this case for support replies.</p></div>}
                   </div>
 
                   {existingCase.canReply && !['RESOLVED', 'CLOSED'].includes(normalizeCaseStatus(existingCase.status)) && (
@@ -450,7 +448,7 @@ export default function AccountOrderIssuePage() {
                   <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe what happened, what you expected and the help you need." className="mt-3 min-h-32 rounded-xl border-slate-200 text-sm leading-6" />
                   <div className="mt-1 flex justify-between text-[10px] font-semibold"><span className="text-slate-500">Include useful dates or delivery details.</span><span className={wordCount > MAX_DESCRIPTION_WORDS ? 'text-red-600' : 'text-slate-500'}>{wordCount}/{MAX_DESCRIPTION_WORDS} words</span></div>
                   <div className="mt-3"><p className="mb-1.5 flex items-center gap-1.5 text-xs font-black text-dh-primary"><FileImage className="h-4 w-4" /><FileVideo className="h-4 w-4" />Evidence</p><EvidencePicker files={evidence} onChange={setEvidence} disabled={submitting} /></div>
-                  <Button type="submit" disabled={submitting || !reason || description.trim().length < 10 || wordCount > MAX_DESCRIPTION_WORDS} className="mt-3 h-11 w-full rounded-xl bg-dh-primary text-xs font-black text-white"><Send className="mr-2 h-4 w-4" />{submitting ? 'Creating secure case…' : 'Submit report'}</Button>
+                  <Button type="submit" disabled={submitting || !reason || description.trim().length < 10 || wordCount > MAX_DESCRIPTION_WORDS} className="mt-3 h-11 w-full rounded-xl bg-dh-primary text-xs font-black text-white"><Send className="mr-2 h-4 w-4" />{submitting ? 'Creating case…' : 'Submit report'}</Button>
                   <p className="mt-2 text-center text-[10px] leading-4 text-slate-500">You will receive updates here and by email. Your evidence is only shared with authorised support staff.</p>
                 </section>
               </form>

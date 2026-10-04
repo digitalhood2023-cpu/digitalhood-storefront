@@ -16,7 +16,7 @@ async function parseResponse(response: Response) {
   if (!response.ok || payload?.success === false) {
     throw new Error(
       payload?.error ||
-        'Secure checkout could not be opened. Please try again.'
+        'Checkout could not be opened. Please try again.'
     )
   }
 
@@ -45,7 +45,7 @@ export async function createSellerCheckoutHandoff(items: CartItem[]) {
   const handoffId = String(payload?.handoffId || '')
 
   if (!HANDOFF_ID_PATTERN.test(handoffId)) {
-    throw new Error('The secure checkout response was invalid.')
+    throw new Error('The checkout response was invalid.')
   }
 
   return { handoffId, expiresAt: payload.expiresAt as string | undefined }
@@ -53,7 +53,7 @@ export async function createSellerCheckoutHandoff(items: CartItem[]) {
 
 export function submitSellerCheckoutHandoff(handoffId: string) {
   if (!HANDOFF_ID_PATTERN.test(handoffId)) {
-    throw new Error('The secure checkout link is invalid.')
+    throw new Error('The checkout link is invalid.')
   }
 
   const form = document.createElement('form')

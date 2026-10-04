@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight, Folder, Grid2X2, Loader2, LockKeyhole, Store } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Folder, Grid2X2, Loader2, Store } from 'lucide-react'
 
 import SEO from '@/components/SEO'
 import {
@@ -176,10 +176,8 @@ export default function SellerDomainCategoriesPage({ hostname }: { hostname: str
           </section>
         )}
 
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-100 sm:text-xs">
-          <LockKeyhole className="h-3.5 w-3.5 shrink-0" />
-          Checkout and marketplace support remain protected by DigitalHood.
-          <a href={getMarketplaceUrl('/marketplace-terms')} className="ml-auto shrink-0 font-black">Terms</a>
+        <div className="mt-3 flex justify-end">
+          <a href={getMarketplaceUrl('/marketplace-terms')} className="text-[10px] font-black text-[#26248c] sm:text-xs">Marketplace terms</a>
         </div>
       </main>
 

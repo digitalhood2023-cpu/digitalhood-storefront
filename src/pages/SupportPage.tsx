@@ -176,7 +176,7 @@ function TurnstileWidget({
   return (
     <div className={interactionOnly ? 'rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100' : 'rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100'}>
       <p className={`${interactionOnly ? 'mb-1 text-[10px] text-slate-500' : 'mb-3 text-xs font-black text-[#26248c]'}`}>
-        {interactionOnly ? 'Protected by automatic Cloudflare verification' : 'Human verification'}
+        Human verification
       </p>
 
       <div
@@ -618,7 +618,7 @@ export default function SupportPage() {
               </h1>
               <p className="mt-1.5 text-sm leading-6 text-white/65">
                 {isAuthenticated
-                  ? 'Your verified account details are attached securely. Choose a reason, add a subject and tell us what you need.'
+                  ? 'Choose a reason, add a subject and tell us what you need.'
                   : 'Create a support request or use your case number and email to check an existing request.'}
               </p>
             </div>
