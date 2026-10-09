@@ -17,7 +17,11 @@ async function main() {
     for (const theme of ['light', 'dark']) for (const mobile of [false, true]) {
       const context = await browser.newContext({ viewport: { width: mobile ? 390 : 1440, height: mobile ? 844 : 1000 }, colorScheme: theme, serviceWorkers: 'block' })
       const errors = [], mutations = []
-      await context.addInitScript(theme => { document.documentElement.dataset.theme = theme }, theme)
+      await context.addInitScript(theme => {
+        const apply = () => { document.documentElement.dataset.theme = theme }
+        if (document.documentElement) apply()
+        else document.addEventListener('DOMContentLoaded', apply, { once: true })
+      }, theme)
       await context.route('**/*', route => {
         const req = route.request(), u = new URL(req.url())
         if (!['GET', 'HEAD'].includes(req.method())) mutations.push(req.url())
@@ -26,6 +30,7 @@ async function main() {
       const page = await context.newPage()
       page.on('pageerror', error => errors.push(error.message))
       await page.goto(origin + '/scripts/product-template-fixture.html')
+      assert.equal(await page.locator('html').getAttribute('data-theme'), theme)
       await page.getByRole('heading', { name: 'Protective phone case · fixture', exact: true }).waitFor()
       await page.locator('.dh-product-price > strong').getByText('K299.00', { exact: true }).waitFor()
       assert.equal(await page.getByRole('button', { name: 'Add to Cart', exact: true }).isDisabled(), true)
