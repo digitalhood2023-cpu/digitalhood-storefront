@@ -23,6 +23,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 
+import { MarketplaceProductLayout, MarketplaceSellerStrip, MarketplaceProductOffer, MarketplaceProductTabs, ProductDescription } from '@/components/product/MarketplaceProduct'
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
 import RecentlyViewed from '@/sections/RecentlyViewed'
@@ -32,12 +33,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import StockBadge from '@/components/StockBadge'
 
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
 
 import {
   fetchWooProductBySlug,
@@ -1444,14 +1439,9 @@ export default function ProductPage({
               </Link>
             </div>
           ) : (
-            <div className="grid min-w-0 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:gap-6 xl:grid-cols-[0.82fr_1.18fr] xl:gap-8">
-              <div className="product-image min-w-0 rounded-3xl bg-white p-3 shadow-sm sm:p-4 lg:self-start">
-                <div className="mb-3">
-                  <h1 className="break-words font-display text-lg font-black leading-snug text-black sm:text-xl lg:text-2xl">
-                    {product.name}
-                  </h1>
-                </div>
-
+            <MarketplaceProductLayout
+              title={<h1>{product.name}</h1>}
+              gallery={<>
                 <div
                   className="relative mb-3 aspect-[4/3] w-full touch-pan-y overflow-hidden rounded-2xl bg-gray-100 sm:mb-4 lg:aspect-[5/4]"
                   onTouchStart={handleTouchStart}
@@ -1532,131 +1522,32 @@ export default function ProductPage({
                   </div>
                 )}
 
-                <div className="hidden lg:block">
-                  <RecommendationsPanel />
-                </div>
-              </div>
-
-              <div className="product-info min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5 lg:self-start xl:p-6">
-                <div className="mb-4">
-                  {sellerDisplay.storeName && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dh-light-gray bg-dh-gray p-2.5">
-                      <Link
-                        to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
-                        className="flex min-w-0 items-center gap-2.5"
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xs font-black text-dh-primary shadow-sm">
-                          {sellerDisplay.isOfficialDigitalHood ? (
-                            <DigitalHoodMark className="h-full w-full border-0 shadow-none" />
-                          ) : sellerDisplay.avatarUrl ? (
-                            <img
-                              src={sellerDisplay.avatarUrl}
-                              alt={sellerDisplay.storeName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            sellerDisplay.initials
-                          )}
-                        </span>
-
-                        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                          <span className="truncate text-sm font-black leading-tight text-dh-primary">
-                            {sellerDisplay.storeName}
-                          </span>
-                          <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black leading-tight text-emerald-700">
-                            {sellerDisplay.feedbackText}
-                          </span>
-                        </span>
-                      </Link>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Link
-                          to={sellerDisplay.sellerUrl || '/seller/digitalhood'}
-                          className="rounded-full bg-white px-3 py-2 text-xs font-black text-dh-primary transition hover:bg-dh-primary hover:text-white"
-                        >
-                          Visit store
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={handleOpenSellerChat}
-                          disabled={isOpeningChat}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-dh-primary px-3 py-2 text-xs font-black text-white transition hover:bg-dh-secondary disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isOpeningChat ? (
-                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                          ) : (
-                            <MessageCircle className="h-3.5 w-3.5" />
-                          )}
-
-                          {isOpeningChat ? 'Opening...' : 'Chat'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-3 rounded-2xl border border-dh-light-gray bg-white p-3">
-                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-1">
-                        <span className="font-display text-xl font-black leading-none text-dh-primary sm:text-2xl">
-                          {formatProductPrice(activePrice)}
-                        </span>
-
-                        <span className="pb-0.5 text-xs font-black text-green-700 sm:text-sm">
-                          {shipping.fee === 0
-                            ? '+ free shipping'
-                            : `+ ${formatProductPrice(shipping.fee)} shipping`}
-                        </span>
-                      </div>
-
-                      <div className="flex min-w-0 items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-green-700 lg:max-w-[46%]">
-                        <Truck className="h-4 w-4 shrink-0" />
-
-                        <div className="relative h-5 min-w-0 flex-1 overflow-hidden text-xs font-black">
-                          <div className="animate-[deliveryTicker_7.5s_ease-in-out_infinite]">
-                            <p className="h-5 truncate leading-5">
-                              {shipping.estimate}
-                            </p>
-
-                            <p className="h-5 truncate leading-5">
-                              {shipping.isLusaka
-                                ? shipping.countdown
-                                : shipping.title}
-                            </p>
-
-                            <p className="h-5 truncate leading-5">
-                              Final delivery fee updates at checkout.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-primary"
-                        aria-label={ratingText}
-                      >
-                        <Star className="h-3.5 w-3.5 fill-[#ffb54a] text-[#ffb54a]" />
-                        {product.ratingCount > 0 && product.averageRating > 0
-                          ? `${product.averageRating.toFixed(1)} (${product.ratingCount})`
-                          : 'No ratings'}
-                      </span>
-
-                      {soldText && (
-                        <span className="rounded-full bg-dh-gray px-2.5 py-1 text-xs font-bold text-dh-dark-gray">
-                          {soldText}
-                        </span>
-                      )}
-
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
-                        <Truck className="h-3.5 w-3.5" />
-                        {shipping.title}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
+              </>}
+              galleryFooter={<div className="hidden lg:block"><RecommendationsPanel /></div>}
+            >
+                {sellerDisplay.storeName && <MarketplaceSellerStrip
+                  name={sellerDisplay.storeName}
+                  avatar={sellerDisplay.avatarUrl}
+                  avatarContent={sellerDisplay.isOfficialDigitalHood ? <DigitalHoodMark className="h-full w-full border-0 shadow-none" /> : undefined}
+                  nameContent={<Link to={sellerDisplay.sellerUrl || '/seller/digitalhood'}>{sellerDisplay.storeName}</Link>}
+                  feedback={sellerDisplay.feedbackText}
+                  actions={<>
+                    <Link to={sellerDisplay.sellerUrl || '/seller/digitalhood'}>Visit store</Link>
+                    <button type="button" onClick={handleOpenSellerChat} disabled={isOpeningChat}>
+                      {isOpeningChat ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <MessageCircle />}
+                      {isOpeningChat ? 'Opening...' : 'Chat'}
+                    </button>
+                  </>}
+                />}
+                <MarketplaceProductOffer price={formatProductPrice(activePrice)}
+                  shipping={<small><Truck />{shipping.fee === 0 ? '+ free shipping' : `+ ${formatProductPrice(shipping.fee)} shipping`}</small>}
+                  meta={<>
+                    <span aria-label={ratingText}><Star />{product.ratingCount > 0 && product.averageRating > 0 ? `${product.averageRating.toFixed(1)} (${product.ratingCount})` : 'No ratings'}</span>
+                    {soldText && <span>{soldText}</span>}
+                    <span><Truck />{shipping.estimate}</span>
+                    <span>{shipping.isLusaka ? shipping.countdown : shipping.title}</span>
+                  </>}
+                />
                 {product.attributes.length > 0 && (
                   <div className="space-y-5 mb-6">
                     {product.attributes.map((attribute) => (
@@ -1844,7 +1735,7 @@ export default function ProductPage({
                   </div>
                 </div>
 
-                <div className="mb-8 grid w-full gap-3">
+                <div className="dh-product-purchase">
                   <Button
                     type="button"
                     onClick={handleAddToCart}
@@ -1929,43 +1820,11 @@ export default function ProductPage({
                   </div>
                 </div>
 
-                <Tabs
-                  value={activeTab}
-                  onValueChange={setActiveTab}
-                  className="rounded-2xl bg-dh-gray p-2.5"
-                >
-                  <TabsList className="grid h-auto w-full grid-cols-3 overflow-hidden rounded-2xl bg-white p-1">
-                    <TabsTrigger
-                      value="description"
-                      className="min-w-0 rounded-xl px-2 py-2.5 text-xs font-black text-dh-dark-gray transition data-[state=active]:bg-dh-primary data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm"
-                    >
-                      Description
-                    </TabsTrigger>
-
-                    <TabsTrigger
-                      value="details"
-                      className="min-w-0 rounded-xl px-2 py-2.5 text-xs font-black text-dh-dark-gray transition data-[state=active]:bg-dh-primary data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm"
-                    >
-                      Details
-                    </TabsTrigger>
-
-                    <TabsTrigger
-                      value="trust"
-                      className="min-w-0 rounded-xl px-1.5 py-2.5 text-[11px] font-black text-dh-dark-gray transition data-[state=active]:bg-dh-primary data-[state=active]:text-white data-[state=active]:shadow-sm sm:px-2 sm:text-sm"
-                    >
-                      Trust/Feedback
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="description" className="mt-3 rounded-2xl bg-white p-4">
+                <MarketplaceProductTabs value={activeTab} onChange={setActiveTab}
+                  description={<>
                     {descriptionHtml ? (
                       <div>
-                        <div
-                          className="max-w-none overflow-hidden text-sm leading-relaxed text-dh-dark-gray [&_a]:text-dh-primary [&_a]:underline [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-dh-light-gray [&_img]:shadow-sm [&_li]:ml-5 [&_ol]:mb-4 [&_p]:mb-4 [&_strong]:text-dh-primary [&_table]:block [&_table]:overflow-x-auto [&_ul]:mb-4"
-                          dangerouslySetInnerHTML={{
-                            __html: visibleDescriptionHtml,
-                          }}
-                        />
+                        <ProductDescription html={visibleDescriptionHtml} />
 
                         {hasLongDescription && (
                           <button
@@ -1986,9 +1845,8 @@ export default function ProductPage({
                         Product details are managed from WooCommerce.
                       </p>
                     )}
-                  </TabsContent>
-
-                  <TabsContent value="details" className="mt-3 rounded-2xl bg-white p-4">
+                  </>}
+                  details={<>
                     <div className="space-y-4">
                       <div className="flex items-end justify-between gap-3 border-b border-dh-light-gray pb-3">
                         <div>
@@ -2007,14 +1865,9 @@ export default function ProductPage({
                       </div>
 
                       {productDetailRows.length > 0 ? (
-                        <dl className="overflow-hidden rounded-2xl border border-dh-light-gray">
-                          {productDetailRows.map((detail, index) => (
-                            <div
-                              key={`${detail.label}-${detail.value}`}
-                              className={`grid grid-cols-[minmax(105px,0.42fr)_minmax(0,0.58fr)] gap-3 px-3 py-2.5 text-sm sm:grid-cols-[minmax(150px,0.38fr)_minmax(0,0.62fr)] sm:px-4 ${
-                                index % 2 === 0 ? 'bg-dh-gray' : 'bg-white'
-                              }`}
-                            >
+                        <dl className="dh-product-specs">
+                          {productDetailRows.map((detail) => (
+                            <div key={`${detail.label}-${detail.value}`}>
                               <dt className="font-bold text-dh-dark-gray">
                                 {detail.label}
                               </dt>
@@ -2076,9 +1929,8 @@ export default function ProductPage({
                       </div>
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="trust" className="mt-3 rounded-2xl bg-white p-4">
+                  </>}
+                  trust={<>
                     <div className="grid gap-3">
                       <div className="rounded-2xl border border-dh-light-gray bg-dh-gray p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2234,14 +2086,13 @@ export default function ProductPage({
                         </div>
                       </div>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  </>}
+                />
 
                 <div className="lg:hidden">
                   <RecommendationsPanel mobile />
                 </div>
-              </div>
-            </div>
+            </MarketplaceProductLayout>
           )}
         </div>
       </main>

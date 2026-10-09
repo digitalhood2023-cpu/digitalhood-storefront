@@ -8,6 +8,8 @@ on:
     paths:
       - 'src/**'
       - 'scripts/check-resolution-ui.cjs'
+      - 'scripts/*product*'
+      - 'config/product-template.json'
       - '.github/workflows/resolution-ui.yml'
 
 permissions:
@@ -28,6 +30,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: node scripts/validate-product-template.mjs
       - run: npm run build
       - name: Install isolated browser test runtime
         run: |
@@ -46,9 +49,18 @@ jobs:
             sleep 1
           done
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-resolution-ui.cjs
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-template-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: resolution-ui-buyer
           path: scripts/order-resolution-ui/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: product-template-acceptance
+          path: |
+            scripts/product-template-ui/
+            scripts/product-editor-ui/
           if-no-files-found: ignore
