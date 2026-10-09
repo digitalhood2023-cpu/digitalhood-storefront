@@ -315,7 +315,8 @@ assert(
 assert(
   product.includes('Item specifications') &&
     product.includes('product.specifications') &&
-    product.includes('data-[state=active]:bg-dh-primary') &&
+    product.includes('MarketplaceProductTabs') &&
+    read('src/components/product/marketplace-product.css').includes("[aria-selected='true']") &&
     productDetails.includes('extractDescriptionSpecificationRows') &&
     woocommerce.includes('/slug/${encodeURIComponent(slug)}'),
   'product details must show imported specifications, visible active tabs, and use the direct detail endpoint'
@@ -414,8 +415,8 @@ assert(
   'homepage categories must retain explicit readable light and dark surfaces'
 )
 assert(
-  product.includes('lg:items-start') &&
-    product.includes('product-info min-w-0 rounded-3xl') &&
+  product.includes('<MarketplaceProductLayout') &&
+    read('src/components/product/marketplace-product.css').includes('align-items: start') &&
     !product.includes('lg:sticky lg:top-24 lg:self-start'),
   'desktop product media and purchase cards must remain top-aligned'
 )

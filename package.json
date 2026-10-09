@@ -78,6 +78,7 @@
     "zustand": "^5.0.13"
   },
   "overrides": {
+    "proxy-addr": "2.0.8",
     "body-parser": "2.3.0",
     "picomatch": "4.0.4",
     "qs": "6.16.0"

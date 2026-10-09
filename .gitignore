@@ -1,4 +1,6 @@
 node_modules
+scripts/product-template-ui/
+scripts/product-editor-ui/
 dist
 .env
 .env.*
