@@ -53,7 +53,7 @@ async function main() {
       assert.equal(await open.evaluate(node => node === document.activeElement), true)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false)
       const contrast = await page.evaluate(() => {
-        const luminance = value => value.match(/[\\d.]+/g).slice(0,3).map(Number).map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c+.055)/1.055)**2.4).reduce((s,c,i) => s+c*[.2126,.7152,.0722][i],0)
+        const luminance = value => value.match(/[0-9.]+/g).slice(0,3).map(Number).map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c+.055)/1.055)**2.4).reduce((s,c,i) => s+c*[.2126,.7152,.0722][i],0)
         return ['.dh-product-title h1','.dh-product-price > strong','.dh-product-tabpanel'].map(selector => {
           const element = document.querySelector(selector)
           let ancestor = element, bg = 'rgba(0, 0, 0, 0)'
