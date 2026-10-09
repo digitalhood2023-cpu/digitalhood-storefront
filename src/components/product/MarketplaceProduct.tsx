@@ -87,8 +87,10 @@ export type PreviewProduct = {
   variationOptions?: Array<{ name: string; values: string[] }>
   variations?: Array<{ id: string; enabled?: boolean; attributes?: Record<string, string>; sku?: string; regularPrice?: string; salePrice?: string; stockQuantity?: number; condition?: string; image?: string }>
 }
-export function ProductSpecifications({ product }: { product: PreviewProduct }) {
+export function ProductSpecifications({ product, overrides = {} }: { product: PreviewProduct; overrides?: Record<string, string> }) {
+  const selected = new Map(Object.entries(overrides).map(([name, value]) => [name.trim().toLowerCase(), value]))
   const rows = mergeProductSpecificationRows(
+    Object.entries(overrides).map(([label, value]) => ({ label, value })),
     (product.attributes || []).map((row) => ({ label: row.name, value: row.value })),
     [
       { label: 'Brand', value: product.brand || '' }, { label: 'Condition', value: product.condition || '' }, { label: 'SKU', value: product.sku || '' },
@@ -96,6 +98,6 @@ export function ProductSpecifications({ product }: { product: PreviewProduct }) 
       { label: 'Dimensions', value: product.dimensions ? [product.dimensions.length, product.dimensions.width, product.dimensions.height].filter(Boolean).join(' × ') : '' },
     ],
     extractDescriptionSpecificationRows(product.description || '')
-  )
+  ).map((row) => selected.has(row.label.toLowerCase()) ? { ...row, value: selected.get(row.label.toLowerCase())! } : row)
   return <><h2 className="dh-product-section-title">Item specifications</h2>{rows.length ? <dl className="dh-product-specs">{rows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl> : <p>No specifications added yet.</p>}</>
 }

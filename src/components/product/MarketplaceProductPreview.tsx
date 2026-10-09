@@ -59,7 +59,7 @@ export function MarketplaceProductPreview({ product, sellerName, sellerAvatar }:
       <div className="dh-product-purchase" aria-label="Inactive buyer actions"><button type="button" disabled><ShoppingCart />Add to Cart</button><button type="button" disabled><Zap />Buy it Now</button></div>
       <div className="dh-product-assurance"><span><Truck />Zambia delivery</span><span><Shield />Secure checkout</span></div>
       <MarketplaceProductTabs value={tab} onChange={setTab} description={<ProductDescription html={product.description || product.shortDescription || ''} />}
-        details={<ProductSpecifications product={{ ...product, sku: variation?.sku || product.sku, condition: variation?.condition || product.condition, attributes: [...Object.entries(variation?.attributes || {}).map(([name, value]) => ({ name, value })), ...(product.attributes || [])] }} />}
+        details={<ProductSpecifications product={{ ...product, sku: variation?.sku || product.sku, condition: variation?.condition || product.condition }} overrides={variation?.attributes} />}
         trust={<><h2 className="dh-product-section-title">Verified buyer feedback</h2><p>Feedback is attached to the published product and seller. It is not generated for a draft preview.</p></>} />
     </MarketplaceProductLayout>
     {viewer && image && <div className="dh-product-lightbox" role="dialog" aria-modal="true" aria-label="Product image viewer" onKeyDown={(event) => {

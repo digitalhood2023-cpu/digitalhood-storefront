@@ -1,8 +1,8 @@
 {
   "version": "digitalhood-v1",
   "files": {
-    "src/components/product/MarketplaceProduct.tsx": "8cff9c3621fe6ac39c5f598ad27097112abcda35865bb9ef862ac59f32a78040",
-    "src/components/product/MarketplaceProductPreview.tsx": "b4dd0631bda88442de19e27da11cd4719c3a5b24a98e0023ff2b0b7dabfe5304",
+    "src/components/product/MarketplaceProduct.tsx": "be2b39a6fdd27fd167023ead5044c910958b40985635786032648006d88daeb1",
+    "src/components/product/MarketplaceProductPreview.tsx": "3bd0a5167139951272b64322f283a3556e329991de91e3f5dbb74bf1da19e2cd",
     "src/components/product/marketplace-product.css": "93c3a83ac00f5be1190dc45e12f0021abce363b28ed5ab5b379c06341a2e20c9",
     "src/components/product/productSpecifications.ts": "8d22cf3a938faec4b783200f1d2c7be94576643f8f896344de61cda269dd9bfa"
   }
