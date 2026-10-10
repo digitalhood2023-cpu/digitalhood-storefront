@@ -34,6 +34,7 @@ export type WooProductAttribute = {
   name: string;
   taxonomy: string | null;
   options: string[];
+  variation?: boolean;
 };
 
 export type WooProductSpecification = {
@@ -56,6 +57,7 @@ export type WooProductVariation = {
   stockStatus: string;
   stockQuantity: number | null;
   manageStock: boolean;
+  stockManagedByParent?: boolean;
   stockLabel: string;
   stockTone: MarketplaceStockTone;
   canAddToCart: boolean;
@@ -665,6 +667,7 @@ function mapWooAttributes(product: any): WooProductAttribute[] {
         name: normalizeAttributeName(attribute.name || attribute.taxonomy || ''),
         taxonomy: attribute.taxonomy || attribute.name || null,
         options,
+        variation: typeof attribute.variation === 'boolean' ? attribute.variation : undefined,
       };
     })
     .filter((attribute: WooProductAttribute) => attribute.options.length > 0);
@@ -701,14 +704,9 @@ function mapVariationAttributes(variation: any): Record<string, string> {
       attribute.name || attribute.taxonomy || attribute.attribute || ''
     );
 
-    const value =
-      attribute.value ||
-      attribute.term ||
-      attribute.option ||
-      attribute.name ||
-      '';
+    const value = attribute.option ?? attribute.value ?? attribute.term ?? '';
 
-    if (key && value) {
+    if (key && typeof value === 'string') {
       attributes[key] = value;
     }
   });
@@ -814,6 +812,7 @@ export function mapWooVariation(variation: any): WooProductVariation {
     stockStatus,
     stockQuantity,
     manageStock,
+    stockManagedByParent: variation.manage_stock === 'parent' || variation.stockManagedByParent === true,
     stockLabel: stock.label,
     stockTone: stock.tone,
     canAddToCart: stock.canAddToCart,

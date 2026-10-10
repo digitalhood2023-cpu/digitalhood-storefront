@@ -48,6 +48,7 @@ import {
 } from '@/lib/woocommerce'
 
 import { getShippingDetails } from '@/lib/shipping'
+import { effectiveVariationStock, purchaseOptions, selectMatchingVariation, selectionForVariation } from '@/lib/productVariationSelection'
 import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
@@ -303,6 +304,7 @@ export default function ProductPage({
     useState<SellerStorefrontResolution | null>(null)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showVariations, setShowVariations] = useState(false)
+  const [variationPage, setVariationPage] = useState(1)
   const [selectedAttributes, setSelectedAttributes] =
     useState<Record<string, string>>({})
 
@@ -671,7 +673,7 @@ export default function ProductPage({
   const hasVariations = Boolean(product?.variations?.length)
 
   const requiredAttributeNames = useMemo(() => {
-    return product?.attributes?.map((attribute) => attribute.name) || []
+    return purchaseOptions(product?.attributes || []).map((attribute) => attribute.name)
   }, [product])
 
   const allRequiredAttributesSelected = useMemo(() => {
@@ -691,13 +693,8 @@ export default function ProductPage({
 
     if (!allRequiredAttributesSelected) return null
 
-    return (
-      product.variations.find((variation) => {
-        return Object.entries(selectedAttributes).every(
-          ([key, value]) => variation.attributes[key] === value
-        )
-      }) || null
-    )
+    const found = selectMatchingVariation(product.variations, product.attributes, selectedAttributes)
+    return found ? effectiveVariationStock(product, found) : null
   }, [product, selectedAttributes, allRequiredAttributesSelected])
 
   const activePrice =
@@ -902,7 +899,7 @@ export default function ProductPage({
   }
 
   const handleDirectVariationSelect = (variation: WooProductVariation) => {
-    setSelectedAttributes(variation.attributes || {})
+    setSelectedAttributes(selectionForVariation(variation, product?.attributes || [], selectedAttributes))
     setSelectedImage(0)
     setQuantity(1)
   }
@@ -1548,15 +1545,18 @@ export default function ProductPage({
                     <span>{shipping.isLusaka ? shipping.countdown : shipping.title}</span>
                   </>}
                 />
-                {product.attributes.length > 0 && (
+                {purchaseOptions(product.attributes).length > 0 && (
                   <div className="space-y-5 mb-6">
-                    {product.attributes.map((attribute) => (
+                    {purchaseOptions(product.attributes).map((attribute) => (
                       <div key={attribute.id}>
                         <p className="text-sm font-semibold text-black mb-3">
                           {attribute.name}
                         </p>
 
-                        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+                        {attribute.options.length > 12 ? <select aria-label={'Choose ' + attribute.name} className="w-full rounded-lg border border-gray-300 bg-white p-2 text-base" value={selectedAttributes[attribute.name] || ''} onChange={event => handleVariationChange(attribute.name, event.target.value)}>
+                          <option value="">Choose {attribute.name}</option>
+                          {attribute.options.map(option => <option key={option} value={option}>{option}</option>)}
+                        </select> : <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
                           {attribute.options.map((option) => {
                             const isSelected =
                               selectedAttributes[
@@ -1583,7 +1583,7 @@ export default function ProductPage({
                               </button>
                             )
                           })}
-                        </div>
+                        </div>}
                       </div>
                     ))}
                   </div>
@@ -1606,7 +1606,7 @@ export default function ProductPage({
 
                       <button
                         type="button"
-                        onClick={() => setShowVariations((current) => !current)}
+                        onClick={() => { setVariationPage(1); setShowVariations((current) => !current) }}
                         className="shrink-0 rounded-full border border-black px-4 py-2 text-xs font-semibold text-black transition hover:bg-black hover:text-white"
                       >
                         {showVariations ? 'Hide' : 'Show'}
@@ -1623,9 +1623,10 @@ export default function ProductPage({
                       </div>
                     )}
 
-                    {showVariations && (
+                    {showVariations && (<>
                       <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-                        {product.variations.map((variation) => {
+                        {product.variations.slice((variationPage - 1) * 25, variationPage * 25).map((sourceVariation) => {
+                          const variation = effectiveVariationStock(product, sourceVariation)
                           const isSelected = matchingVariation?.id === variation.id
                           const canSelect =
                             variation.canAddToCart !== false &&
@@ -1658,6 +1659,12 @@ export default function ProductPage({
                           )
                         })}
                       </div>
+                      {product.variations.length > 25 && <div className="mt-2 flex items-center justify-between gap-2 text-sm" aria-label="Variation pages">
+                        <button type="button" disabled={variationPage === 1} onClick={() => setVariationPage(n => n-1)}>Previous</button>
+                        <span>{variationPage} / {Math.ceil(product.variations.length / 25)}</span>
+                        <button type="button" disabled={variationPage * 25 >= product.variations.length} onClick={() => setVariationPage(n => n+1)}>Next</button>
+                      </div>}
+                    </>
                     )}
                   </div>
                 )}
