@@ -80,12 +80,12 @@ export function ProductDescription({ html }: { html: string }) {
 
 export type PreviewProduct = {
   name: string; sellerStoreName?: string; mainImage?: string; images?: string[]; regularPrice?: string; salePrice?: string
-  stockQuantity?: number; condition?: string; sku?: string; category?: string; brand?: string; productType?: string
+  stockQuantity?: number | null; stockStatus?: string; manageStock?: boolean | 'parent'; condition?: string; sku?: string; category?: string; brand?: string; productType?: string
   description?: string; shortDescription?: string; weight?: string | number
   dimensions?: { length?: string | number; width?: string | number; height?: string | number }
   attributes?: Array<{ name: string; value: string }>
   variationOptions?: Array<{ name: string; values: string[] }>
-  variations?: Array<{ id: string; enabled?: boolean; attributes?: Record<string, string>; sku?: string; regularPrice?: string; salePrice?: string; stockQuantity?: number; condition?: string; image?: string }>
+  variations?: Array<{ id: string; enabled?: boolean; attributes?: Record<string, string>; sku?: string; regularPrice?: string; salePrice?: string; stockQuantity?: number | null; stockStatus?: string; manageStock?: boolean | 'parent'; condition?: string; image?: string }>
 }
 export function ProductSpecifications({ product, overrides = {} }: { product: PreviewProduct; overrides?: Record<string, string> }) {
   const selected = new Map(Object.entries(overrides).map(([name, value]) => [name.trim().toLowerCase(), value]))

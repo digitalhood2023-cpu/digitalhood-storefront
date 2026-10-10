@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Image as ImageIcon, MessageCircle, Shield, ShoppingCart, Star, Truck, X, Zap, ZoomIn, ZoomOut } from 'lucide-react'
 import { usePointZoom } from '../../hooks/usePointZoom'
 import { MarketplaceProductLayout, MarketplaceSellerStrip, MarketplaceProductOffer, MarketplaceProductTabs, ProductDescription, ProductSpecifications, type PreviewProduct } from './MarketplaceProduct'
@@ -8,7 +8,7 @@ function productMoney(value?: string | number) {
   const amount = Number(String(value || 0).replace(/,/g, ''))
   return 'K' + (Number.isFinite(amount) ? amount : 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
-export function MarketplaceProductPreview({ product, sellerName, sellerAvatar }: { product: PreviewProduct; sellerName?: string; sellerAvatar?: string }) {
+export function MarketplaceProductPreview({ product, sellerName, sellerAvatar, selectedVariation, variationControl }: { product: PreviewProduct; sellerName?: string; sellerAvatar?: string; selectedVariation?: NonNullable<PreviewProduct['variations']>[number] | null; variationControl?: ReactNode }) {
   const [tab, setTab] = useState('description')
   const [selectedImage, setSelectedImage] = useState('')
   const [variantId, setVariantId] = useState('')
@@ -16,10 +16,16 @@ export function MarketplaceProductPreview({ product, sellerName, sellerAvatar }:
   const closeRef = useRef<HTMLButtonElement>(null)
   const priorFocus = useRef<HTMLElement | null>(null)
   const variations = product.productType === 'variable' ? (product.variations || []).filter((item) => item.enabled !== false) : []
-  const variation = variations.find((item) => item.id === variantId) || variations[0]
+  const variation = selectedVariation === undefined ? variations.find((item) => item.id === variantId) || variations[0] : selectedVariation || undefined
   const images = [...new Set([variation?.image, product.mainImage, ...(product.images || [])].filter((item): item is string => Boolean(item)))]
   const image = images.includes(selectedImage) ? selectedImage : images[0]
-  const stock = variation?.stockQuantity ?? product.stockQuantity ?? 0
+  const stock = variation?.manageStock === 'parent' ? product.stockQuantity : variation ? variation.stockQuantity : product.stockQuantity
+  const stockStatus = variation?.stockStatus || product.stockStatus
+  const stockLabel = variation?.enabled === false ? 'Not listed' : product.productType === 'variable' && !variation ? 'Select a variation'
+    : stockStatus === 'onbackorder' ? 'Available on backorder'
+    : stockStatus === 'outofstock' || (stock != null && stock <= 0) ? 'Out of stock'
+    : stock != null ? stock + ' in stock' : stockStatus === 'onbackorder' ? 'Available on backorder' : 'Live stock checked at checkout'
+  const unavailable = stockLabel === 'Out of stock' || stockLabel === 'Not listed'
   const regularPrice = variation?.regularPrice ?? product.regularPrice
   const salePrice = variation?.salePrice ?? product.salePrice
   const validSale = Number(salePrice) > 0 && Number(salePrice) < Number(regularPrice)
@@ -48,14 +54,14 @@ export function MarketplaceProductPreview({ product, sellerName, sellerAvatar }:
     <MarketplaceProductLayout title={<h1>{product.name || 'Your product title'}</h1>} gallery={
       <div className="dh-product-photo">
         {image ? <button type="button" className="dh-product-photo-open" onClick={() => setViewer(true)} aria-label="Open product photo"><img src={image} alt={product.name || 'Product photo'} decoding="async" /><span>Tap to view</span></button> : <div className="dh-product-no-photo"><ImageIcon />Add product photos</div>}
-        <span className={'dh-product-stock ' + (stock > 0 ? 'is-instock' : 'is-outofstock')}>{stock > 0 ? stock + ' in stock' : 'Out of stock'}</span>
+        <span className={'dh-product-stock ' + (unavailable ? 'is-outofstock' : 'is-instock')}>{stockLabel}</span>
         {images.length > 1 && <><button type="button" className="dh-product-prev" onClick={() => moveImage(-1)} aria-label="Previous product image"><ChevronLeft /></button><button type="button" className="dh-product-next" onClick={() => moveImage(1)} aria-label="Next product image"><ChevronRight /></button><span className="dh-product-photo-count">{images.indexOf(image) + 1} / {images.length}</span></>}
       </div>
     } galleryFooter={<div className="dh-product-dots">{images.map((url, index) => <button type="button" key={url} className={url === image ? 'is-active' : ''} onClick={() => setSelectedImage(url)} aria-label={'Show product image ' + (index + 1)} aria-pressed={url === image} />)}</div>}>
       <MarketplaceSellerStrip name={sellerName || product.sellerStoreName || 'Your store'} avatar={sellerAvatar} actions={<><button type="button" disabled>Visit store</button><button type="button" disabled><MessageCircle />Chat</button></>} />
-      <MarketplaceProductOffer price={productMoney(validSale ? salePrice : regularPrice)} regularPrice={validSale ? productMoney(regularPrice) : undefined}
+      <MarketplaceProductOffer price={product.productType === 'variable' && !variation && !regularPrice ? 'Select for price' : productMoney(validSale ? salePrice : regularPrice)} regularPrice={validSale ? productMoney(regularPrice) : undefined}
         shipping={<small><Truck />Delivery confirmed at checkout</small>} meta={<><span><Star />Buyer ratings appear after verified purchases</span>{product.category && <span>{product.category}</span>}</>} />
-      {variations.length > 0 && <label className="dh-product-variant"><strong>Available variations</strong><select aria-label="Preview variation" value={variation?.id || ''} onChange={(event) => { setVariantId(event.target.value); setSelectedImage('') }}>{variations.map((item) => <option key={item.id} value={item.id}>{Object.values(item.attributes || {}).join(' / ') || item.id}</option>)}</select></label>}
+      {variationControl ?? (variations.length > 0 && <label className="dh-product-variant"><strong>Available variations</strong><select aria-label="Preview variation" value={variation?.id || ''} onChange={(event) => { setVariantId(event.target.value); setSelectedImage('') }}>{variations.map((item) => <option key={item.id} value={item.id}>{Object.values(item.attributes || {}).join(' / ') || item.id}</option>)}</select></label>)}
       <div className="dh-product-purchase" aria-label="Inactive buyer actions"><button type="button" disabled><ShoppingCart />Add to Cart</button><button type="button" disabled><Zap />Buy it Now</button></div>
       <div className="dh-product-assurance"><span><Truck />Zambia delivery</span><span><Shield />Secure checkout</span></div>
       <MarketplaceProductTabs value={tab} onChange={setTab} description={<ProductDescription html={product.description || product.shortDescription || ''} />}
