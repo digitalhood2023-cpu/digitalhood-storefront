@@ -9,6 +9,7 @@ on:
       - 'src/**'
       - 'scripts/check-resolution-ui.cjs'
       - 'scripts/*product*'
+      - 'scripts/*variation*'
       - 'config/product-template.json'
       - '.github/workflows/resolution-ui.yml'
 
@@ -31,6 +32,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/validate-product-template.mjs
+      - run: node scripts/check-variation-selection.cjs
       - run: npm run build
       - name: Install isolated browser test runtime
         run: |
@@ -50,6 +52,7 @@ jobs:
           done
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-resolution-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-template-ui.cjs
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variation-review-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -63,4 +66,5 @@ jobs:
           path: |
             scripts/product-template-ui/
             scripts/product-editor-ui/
+            scripts/variation-review-ui/
           if-no-files-found: ignore
