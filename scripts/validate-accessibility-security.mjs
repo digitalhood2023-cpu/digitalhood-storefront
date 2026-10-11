@@ -77,4 +77,7 @@ assert(!server.includes('WC_CONSUMER_SECRET'), 'the storefront must never hold p
 assert(!server.includes("app.post('/api/woocommerce/orders/"), 'the storefront must not expose privileged order mutation routes')
 assert(!server.includes("app.post('/api/lenco/mobile-money'"), 'Mobile Money initiation belongs only to the hardened payments API')
 
+assert(server.includes('microphone=(self)'), 'voice input must be restricted to the storefront origin')
+assert(!server.includes('microphone=*'), 'microphone access must never allow arbitrary origins')
+
 console.log('Accessibility and security validation passed')

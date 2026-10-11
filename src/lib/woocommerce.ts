@@ -382,13 +382,13 @@ function rememberProductDetail(key: string, data: unknown) {
   }
 }
 
-async function fetchProductDetailDocument(key: string, url: string) {
-  const cached = readProductDetailCache(key);
+async function fetchProductDetailDocument(key: string, url: string, forceFresh = false) {
+  const cached = forceFresh ? null : readProductDetailCache(key);
   if (cached && Date.now() - cached.storedAt <= PRODUCT_DETAIL_FRESH_MS) {
     return cached.data;
   }
 
-  const pending = productDetailRequests.get(key);
+  const pending = forceFresh ? undefined : productDetailRequests.get(key);
   if (pending) return pending;
 
   const request = (async () => {
@@ -1300,21 +1300,21 @@ function mapWooProductDetailResponse(detailData: any): WooProduct | null {
 }
 
 export async function fetchWooProductBySlug(
-  slug: string
+  slug: string, forceFresh = false
 ): Promise<WooProduct | null> {
   const numericProductId = Number(slug);
 
   if (Number.isFinite(numericProductId) && numericProductId > 0) {
     const detailData = await fetchProductDetailDocument(
       `id:${numericProductId}:lean`,
-      `${MARKETPLACE_PRODUCTS_API}/${numericProductId}?include_variations=0`
+      `${MARKETPLACE_PRODUCTS_API}/${numericProductId}?include_variations=0`, forceFresh
     );
     return mapWooProductDetailResponse(detailData);
   }
 
   const detailData = await fetchProductDetailDocument(
     `slug:${slug}:lean`,
-    `${MARKETPLACE_PRODUCTS_API}/slug/${encodeURIComponent(slug)}?include_variations=0`
+    `${MARKETPLACE_PRODUCTS_API}/slug/${encodeURIComponent(slug)}?include_variations=0`, forceFresh
   );
 
   return mapWooProductDetailResponse(detailData);
@@ -1552,7 +1552,7 @@ export async function fetchSearchSuggestions(
 
 export async function searchProductsByImage(
   imageFile: File,
-  hint = ''
+  hint = '', signal?: AbortSignal
 ): Promise<ImageSearchResponse> {
   const formData = new FormData();
 
@@ -1563,7 +1563,7 @@ export async function searchProductsByImage(
 
   const response = await fetch(`${PAYMENTS_API_URL}/api/search/image`, {
     method: 'POST',
-    body: formData,
+    body: formData, signal,
   });
 
   const data = await parseJsonResponse(response);
