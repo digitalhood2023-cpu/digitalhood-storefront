@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ArrowRight, Mic, Paperclip, Send, ShoppingCart, Sparkles, X, Plus, Scale, Search, Package, RotateCcw, Heart, Loader2 } from 'lucide-react'
-import DigitalHoodMark from '@/components/DigitalHoodMark'
+import Header from '@/sections/Header'
+import Footer from '@/sections/Footer'
 import SEO from '@/components/SEO'
 import { fetchSearchSuggestions, fetchWooProductBySlug, searchProductsByImage, type SearchSuggestionProduct, type WooProduct } from '@/lib/woocommerce'
 import { prepareImageSearchFile } from '@/lib/imageSearch'
@@ -45,6 +46,7 @@ export default function ShoppingAssistantPage() {
   const [cartReview,setCartReview] = useState(false)
   const [photo,setPhoto] = useState<File|null>(null)
   const [photoBusy,setPhotoBusy] = useState(false)
+  const headerFrame = useRef<HTMLDivElement>(null)
   const [viewportHeight,setViewportHeight] = useState<number|null>(null)
   const [contextIds,setContextIds] = useState<number[]>([])
   const [remember,setRemember] = useState(false)
@@ -69,9 +71,10 @@ export default function ShoppingAssistantPage() {
 
   useEffect(()=>{
     const viewport=window.visualViewport
-    const resize=()=>setViewportHeight(window.innerWidth<=700 && viewport ? Math.round(viewport.height) : null)
+    const resize=()=>setViewportHeight(Math.max(240,Math.round((viewport?.height || window.innerHeight)-(headerFrame.current?.getBoundingClientRect().height || 0))))
+    const observer=new ResizeObserver(resize);if(headerFrame.current)observer.observe(headerFrame.current)
     resize();viewport?.addEventListener('resize',resize);window.addEventListener('resize',resize)
-    return ()=>{viewport?.removeEventListener('resize',resize);window.removeEventListener('resize',resize)}
+    return ()=>{observer.disconnect();viewport?.removeEventListener('resize',resize);window.removeEventListener('resize',resize)}
   },[])
   useEffect(()=>{
     try {
@@ -157,13 +160,13 @@ export default function ShoppingAssistantPage() {
     draft(label==='Change my search'?'':label)
   }
   const support=<Link to="/support">Talk to support <ArrowRight size={14}/></Link>
-  return <div className="ai-app" style={viewportHeight ? {height:viewportHeight} : undefined}>
+  return <><div ref={headerFrame}><Header /></div><div className="ai-app" style={viewportHeight ? {height:viewportHeight} : undefined}>
     <SEO title="DigitalHood AI | Shopping assistant" description="Find, compare and choose products from the live DigitalHood marketplace."/>
-    <header className="ai-top"><Link to="/" className="ai-brand"><DigitalHoodMark className="h-9 w-9"/><span>digital<span>hood</span></span></Link><nav aria-label="Marketplace"><Link to="/shop">Shop</Link><Link to="/orders">My orders</Link><Link to="/wishlist">Saved</Link></nav><span className="ai-location">Zambia · ZMW</span><button type="button" onClick={()=>setCartReview(v=>!v)} aria-label={`Review cart, ${items.reduce((n,i)=>n+i.quantity,0)} items`}><ShoppingCart size={20}/><span>{items.reduce((n,i)=>n+i.quantity,0)}</span></button></header>
+
     <main className="ai-layout" id="main-content">
       <aside className="ai-rail"><p className="ai-eyebrow">YOUR SHOPPING SPACE</p><button type="button" onClick={clearConversation}><Plus size={16}/>New conversation</button><nav aria-label="Assistant tasks">{jobs.map(({key,label,icon:Icon})=><button type="button" key={key} aria-pressed={job===key} onClick={()=>{setJob(key);if(key==='compare')setShowComparison(true)}}><Icon size={17}/>{label}</button>)}</nav><p className="ai-eyebrow">RECENT SEARCHES</p>{turns.slice(-3).map(t=><button type="button" key={t.id} onClick={()=>draft(t.question)} className="ai-history">{t.question}</button>)}<div className="ai-rail-bottom">{support}<button type="button" onClick={()=>setShowPrefs(v=>!v)}>Edit preferences</button><button type="button" onClick={clearConversation}>Delete conversation</button></div></aside>
       <section className="ai-panel" aria-label="DigitalHood assistant">
-        <div className="ai-head"><span className="ai-mark"><Sparkles size={22}/></span><div><h1>DigitalHood AI</h1><small>Your personal shopping assistant</small></div><span className="ai-status">Live catalogue</span></div>
+        <div className="ai-head"><span className="ai-mark"><Sparkles size={22}/></span><div><h1>DigitalHood AI</h1><small>Your personal shopping assistant</small></div><button type="button" className="ai-status" onClick={()=>setCartReview(v=>!v)} aria-label={`Review cart, ${items.reduce((n,i)=>n+i.quantity,0)} items`}><ShoppingCart size={16}/> Cart ({items.reduce((n,i)=>n+i.quantity,0)})</button></div>
         <nav className="ai-mobile-jobs" aria-label="Assistant tasks on mobile">{jobs.map(({key,label})=><button type="button" key={key} aria-pressed={job===key} onClick={()=>{setJob(key);if(key==='compare')setShowComparison(true)}}>{label}</button>)}</nav>
         <div className="ai-scroll" ref={scroll}>
           {showPrefs && <section className="ai-note"><h2>Shopping preferences</h2><p>Save only a budget and size on this device. Addresses stay in your secure checkout account.</p><label>Budget in Kwacha<input type="number" min="1" max="999999999" value={budget} onChange={e=>setBudget(e.target.value.slice(0,12))}/></label><label>Size / device preference<input maxLength={40} value={size} onChange={e=>setSize(e.target.value)}/></label><div className="ai-actions"><button type="button" onClick={()=>{const prefs={budget:/^\d+(\.\d{1,2})?$/.test(budget)?budget:'',size:size.slice(0,40)};setSavedPrefs(prefs);try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch{}setShowPrefs(false)}}>Save preferences</button><button type="button" onClick={()=>{setSavedPrefs(null);setBudget('');setSize('');try{localStorage.removeItem(PREFS)}catch{}}}>Forget preferences</button></div><label><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Remember conversation in this browser tab (last 10 turns)</label><button type="button" onClick={clearConversation}>Delete conversation</button></section>}
@@ -188,9 +191,9 @@ export default function ShoppingAssistantPage() {
           <label htmlFor="shopping-question" className="sr-only">Ask for a product, budget or recommendation</label><textarea ref={input} id="shopping-question" maxLength={500} rows={2} value={message} onChange={e=>{setMessage(e.target.value);setContextIds([])}} onFocus={()=>setFocused(true)} placeholder="Ask for a product, budget or recommendation…" disabled={busy || job==='track' || job==='return'}/>
           <div className="ai-composer-actions"><div><input ref={upload} type="file" accept="image/*" className="sr-only" onChange={e=>{void attach(e.target.files?.[0]);e.target.value=''}}/><button type="button" aria-label="Attach product photo" disabled={busy || job==='track' || job==='return'} onClick={()=>upload.current?.click()}><Paperclip size={20}/></button><button type="button" aria-label={listening?'Stop voice input':'Use voice input'} aria-pressed={listening} disabled={busy || job==='track' || job==='return'} onClick={()=>listening?voice.current?.stop():setVoiceNotice(true)}><Mic size={22}/></button><button type="button" className="ai-mobile-memory" onClick={()=>setShowPrefs(v=>!v)}>Preferences</button></div><button type="submit" className="ai-send" disabled={busy || photoBusy || message.trim().length<3 || job==='track' || job==='return'}>{photoBusy?'Preparing…':'Send'} <Send size={16}/></button></div><small>Review listings before buying. No orders or payments are made by AI.</small>
         </form>
-        <nav className="ai-bottom" aria-label="Mobile navigation"><Link to="/">Home</Link><Link to="/shop">Explore</Link><button type="button" onClick={clearConversation}>New search</button><button type="button" onClick={()=>setCartReview(v=>!v)}>Cart</button><button type="button" onClick={clearConversation}>Delete chat</button></nav>
+        <nav className="ai-bottom" aria-label="Mobile navigation"><button type="button" onClick={clearConversation}>New search</button><button type="button" onClick={()=>setCartReview(v=>!v)}>Cart</button><button type="button" onClick={clearConversation}>Delete chat</button></nav>
       </section>
       <aside className="ai-discovery"><h2>Product discovery</h2><p>Explore listings from your latest search.</p>{allProducts.slice(0,3).map(p=><button type="button" className="ai-mini" key={p.id} onClick={()=>draft('Tell me about '+p.name,[p.id])}><img src={p.image} alt="" width={64} height={64} referrerPolicy="no-referrer" onError={e=>{if(e.currentTarget.getAttribute('src')!=='/product-placeholder.svg')e.currentTarget.src='/product-placeholder.svg'}}/><span><strong>{p.name}</strong><small>{money(p.price)}</small><small>Ask about this ↗</small></span></button>)}<div className="ai-note"><h3>Can’t decide between two?</h3><p>Compare published specifications and prices.</p><button type="button" onClick={()=>{setSelected(allProducts.slice(0,2));setShowComparison(true)}}>Compare the options</button></div>{support}<p className="ai-source">No sponsored placement is added by this assistant. Seller and delivery details must be verified before checkout.</p></aside>
     </main>
-  </div>
+  </div><Footer /></>
 }
