@@ -434,6 +434,7 @@ export default function Header() {
               </div>
 
             <div className="hidden shrink-0 items-center gap-1 md:flex lg:gap-2">
+              <Link to="/assistant" className="rounded-full px-3 py-2 text-sm font-semibold text-black hover:bg-gray-100">Shopping assistant</Link>
               <Link
                   to="/shops"
                   className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
@@ -789,6 +790,8 @@ export default function Header() {
                 >
                   <Store className="h-4 w-4" /> Shops
                 </Link>
+
+                <Link to="/assistant" className="flex items-center rounded-xl bg-dh-gray px-3 py-2.5 font-bold hover:bg-dh-secondary/20">Shopping assistant</Link>
 
                 {isAuthenticated ? (
                   <>
