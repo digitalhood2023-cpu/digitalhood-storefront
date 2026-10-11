@@ -75,7 +75,7 @@ function applyStorefrontSecurityHeaders(req, res, next) {
   res.setHeader('Origin-Agent-Cluster', '?1');
   res.setHeader(
     'Permissions-Policy',
-    'accelerometer=(), camera=(self), geolocation=(self), gyroscope=(), microphone=(), payment=(self), usb=()'
+    'accelerometer=(), camera=(self), geolocation=(self), gyroscope=(), microphone=(self), payment=(self), usb=()'
   );
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-Content-Type-Options', 'nosniff');
