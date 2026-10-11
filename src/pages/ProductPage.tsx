@@ -366,7 +366,7 @@ export default function ProductPage({
     setSelectedImage(0)
     setIsGalleryOpen(false)
     setSelectedAttributes({})
-    setActiveTab('description')
+    setActiveTab('details')
     setQuantity(1)
     setShowFullDescription(false)
     setShowVariations(false)
