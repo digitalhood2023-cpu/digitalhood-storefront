@@ -22,6 +22,13 @@ type StaticRoute = SeoConfig & {
 }
 
 const STATIC_ROUTES: Record<string, StaticRoute> = {
+  '/assistant': {
+    heading: 'Shopping assistant',
+    title: 'Shopping assistant',
+    description: 'Find current DigitalHood products by brand, product type and budget.',
+    path: '/assistant',
+    schemaType: 'WebPage',
+  },
   '/shop': {
     heading: 'Shop',
     title: 'Shop Phones, Laptops & Tech in Zambia',
