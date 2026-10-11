@@ -434,31 +434,31 @@ export default function Header() {
               </div>
 
             <div className="hidden shrink-0 items-center gap-1 md:flex lg:gap-2">
-              <Link to="/assistant" className="rounded-full px-3 py-2 text-sm font-semibold text-black hover:bg-gray-100">Shopping assistant</Link>
+              <Link to="/assistant" className="lg:hidden rounded-full px-3 py-2 text-sm font-semibold text-black hover:bg-gray-100">Shopping assistant</Link>
               <Link
                   to="/shops"
-                  className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
+                  className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 2xl:inline-flex"
                 >
                   Shops
                 </Link>
 
               <Link
                 to="/categories"
-                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
+                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 2xl:inline-flex"
               >
                 Categories
               </Link>
 
               <Link
                 to="/collections/deals"
-                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
+                className="hidden items-center rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 2xl:inline-flex"
               >
                 Deals
               </Link>
 
               <a
                 href="https://seller.digitalhood.info"
-                className="hidden items-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-black xl:inline-flex"
+                className="hidden items-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-black 2xl:inline-flex"
               >
                 Sell
               </a>
@@ -510,7 +510,7 @@ export default function Header() {
 
               <Link
                 to="/track-order"
-                className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 xl:inline-flex"
+                className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-100 2xl:inline-flex"
               >
                 <PackageCheck className="h-4 w-4 text-[#ffb54a]" />
                 Track Order
