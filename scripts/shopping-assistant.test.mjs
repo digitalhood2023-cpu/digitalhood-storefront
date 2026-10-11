@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart} from '../src/lib/shoppingAssistant.ts';
+import {readFile} from 'node:fs/promises';
+import ts from 'typescript';
+// Node 22.11 (Coolify) cannot import TypeScript directly. Use the existing
+// compiler to load this standalone helper without relying on type stripping.
+const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
 test('rejects hostile links, invalid prices and duplicate results',()=>{
  const result=normalizeAssistantReply({answer:'hello',products:[product,product,{...product,id:2,url:'https://attacker.test/product/a'},{...product,id:3,price:-1},{...product,id:4,image:'javascript:alert(1)'}]});
