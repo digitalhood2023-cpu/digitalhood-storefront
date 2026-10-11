@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test:startup && node --test server/googleMerchantFeed.test.js && node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-network-scenarios.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build && node scripts/validate-performance-budgets.mjs",
+    "build": "npm run test:startup && npm run test:assistant && node --test server/googleMerchantFeed.test.js && node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-network-scenarios.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build && node scripts/validate-performance-budgets.mjs",
     "test:merchant-feed": "node --test server/googleMerchantFeed.test.js",
     "validate:seo": "node scripts/validate-seo-foundation.mjs",
     "validate:release": "node scripts/validate-marketplace-release.mjs",
@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server.js",
-    "test:startup": "node --test server/liteStorefront.test.js server/homeDiscovery.test.js scripts/startupRecovery.test.mjs"
+    "test:startup": "node --test server/liteStorefront.test.js server/homeDiscovery.test.js scripts/startupRecovery.test.mjs",
+    "test:assistant": "node --test scripts/shopping-assistant.test.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

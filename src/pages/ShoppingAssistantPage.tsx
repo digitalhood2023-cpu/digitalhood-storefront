@@ -1,118 +1,196 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowRight, Loader2, Search, Sparkles } from 'lucide-react'
-import { PRODUCT_IMAGE_FALLBACK } from '@/lib/productImages'
-import Header from '@/sections/Header'
-import Footer from '@/sections/Footer'
+import { ArrowRight, Mic, Paperclip, Send, ShoppingCart, Sparkles, X, Plus, Scale, Search, Package, RotateCcw, Heart, Loader2 } from 'lucide-react'
+import DigitalHoodMark from '@/components/DigitalHoodMark'
 import SEO from '@/components/SEO'
+import { fetchSearchSuggestions, fetchWooProductBySlug, searchProductsByImage, type SearchSuggestionProduct, type WooProduct } from '@/lib/woocommerce'
+import { prepareImageSearchFile } from '@/lib/imageSearch'
+import { useCartStore } from '@/store/cartStore'
+import { normalizeAssistantReply, readAssistantResponse, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
+import { ACCOUNT_STATE_CLEARED_EVENT } from '@/lib/marketplaceBrowserState'
+import './shopping-assistant.css'
 
-type Product = { id: number; name: string; price: number; url: string; image?: string }
-type Reply = { answer: string; products: Product[]; aiUsed: boolean }
+type Turn = {id:number; question:string; reply:AssistantReply; removeFilters?:string[]}
+type Job = 'find' | 'compare' | 'track' | 'return' | 'value'
+type Voice = {start:()=>void; stop:()=>void; onresult:((event:{results:{[index:number]:{[index:number]:{transcript:string}}}})=>void)|null; onerror:(()=>void)|null; onend:(()=>void)|null; lang:string; interimResults:boolean}
+const jobs = [{key:'find',label:'Find products',icon:Search},{key:'compare',label:'Compare',icon:Scale},{key:'track',label:'Track order',icon:Package},{key:'return',label:'Returns',icon:RotateCcw},{key:'value',label:'Help me decide',icon:Heart}] as const
+const SESSION = 'digitalhood-ai-session-v1'
+const PREFS = 'digitalhood-ai-preferences-v1'
+const money = (n:number) => new Intl.NumberFormat('en-ZM',{style:'currency',currency:'ZMW'}).format(n)
+  function ProductCard({product,selected,cartBusy,draft,toggleCompare,prepareCart}:{product:AssistantProduct;selected:AssistantProduct[];cartBusy:boolean;draft:(text:string,ids?:number[])=>void;toggleCompare:(p:AssistantProduct)=>void;prepareCart:(p:AssistantProduct)=>Promise<void>}){return <article className="ai-product">
+    <Link to={new URL(product.url).pathname} className="ai-photo"><img src={product.image} alt="" width={240} height={160} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={e=>{if(e.currentTarget.getAttribute('src')!=='/product-placeholder.svg')e.currentTarget.src='/product-placeholder.svg'}}/></Link>
+    <div className="ai-product-body"><Link to={new URL(product.url).pathname} className="ai-name">{product.name}</Link><strong>{money(product.price)}</strong>
+      <small>{product.sellerStoreName || 'Seller details on listing'}</small><small>{product.ratingCount && product.averageRating != null ? `${product.averageRating.toFixed(1)} / 5 · ${product.ratingCount} ratings`:'No rating information'}</small><small>{product.stockLabel || (product.stockStatus==='instock'?'In stock at last catalogue check':'Check availability')}</small><small>Delivery & fees: check at checkout</small>
+      <div className="ai-actions"><button type="button" onClick={()=>draft('Tell me about '+product.name,[product.id])}>Ask about it</button><button type="button" aria-label={'Compare '+product.name} aria-pressed={selected.some(p=>p.id===product.id)} onClick={()=>toggleCompare(product)}><Scale size={16}/></button></div>
+      <div className="ai-actions">{product.canAddToCart===true?<button type="button" disabled={cartBusy} onClick={()=>void prepareCart(product)}>Add to cart</button>:<Link to={new URL(product.url).pathname}>Check options <ArrowRight size={14}/></Link>}<a href={product.url}>Source</a></div>
+    </div>
+  </article>}
 
 export default function ShoppingAssistantPage() {
   const location = useLocation()
-  const initialQuestion = typeof location.state?.question === 'string' ? location.state.question.slice(0, 500) : ''
-  const [message, setMessage] = useState(initialQuestion)
-  const input = useRef<HTMLTextAreaElement | null>(null)
-  useEffect(() => {
-    if (typeof location.state?.question === 'string') {
-      setMessage(location.state.question.slice(0, 500))
-      input.current?.focus()
-    }
-  }, [location.key, location.state])
-  const [reply, setReply] = useState<Reply | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const active = useRef<AbortController | null>(null)
-  useEffect(() => () => active.current?.abort(), [])
+  const [message,setMessage] = useState<string>(typeof location.state?.question === 'string' ? location.state.question.slice(0,500) : '')
+  const [turns,setTurns] = useState<Turn[]>([])
+  const [job,setJob] = useState<Job>('find')
+  const [busy,setBusy] = useState(false)
+  const [preview,setPreview] = useState('')
+  const [pendingQuestion,setPendingQuestion] = useState('')
+  const [error,setError] = useState('')
+  const [notice,setNotice] = useState('')
+  const [suggestions,setSuggestions] = useState<SearchSuggestionProduct[]>([])
+  const [focused,setFocused] = useState(false)
+  const [selected,setSelected] = useState<AssistantProduct[]>([])
+  const [showComparison,setShowComparison] = useState(false)
+  const [pendingCart,setPendingCart] = useState<WooProduct|null>(null)
+  const [cartBusy,setCartBusy] = useState(false)
+  const [cartReview,setCartReview] = useState(false)
+  const [photo,setPhoto] = useState<File|null>(null)
+  const [photoBusy,setPhotoBusy] = useState(false)
+  const [viewportHeight,setViewportHeight] = useState<number|null>(null)
+  const [contextIds,setContextIds] = useState<number[]>([])
+  const [remember,setRemember] = useState(false)
+  const [showPrefs,setShowPrefs] = useState(false)
+  const [budget,setBudget] = useState('')
+  const [size,setSize] = useState('')
+  const [savedPrefs,setSavedPrefs] = useState<{budget:string;size:string}|null>(null)
+  const [voiceNotice,setVoiceNotice] = useState(false)
+  const [listening,setListening] = useState(false)
+  const input = useRef<HTMLTextAreaElement>(null)
+  const upload = useRef<HTMLInputElement>(null)
+  const scroll = useRef<HTMLDivElement>(null)
+  const active = useRef<AbortController|null>(null)
+  const voice = useRef<Voice|null>(null)
+  const requestId = useRef(0)
+  const cartRequest = useRef(0)
+  const items = useCartStore(s=>s.items)
+  const addItem = useCartStore(s=>s.addItem)
+  const latest = turns.at(-1)
+  const allProducts = latest?.reply.products || []
+  const [shown,setShown] = useState(6)
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (busy || message.trim().length < 3) return
-    const controller = new AbortController()
-    active.current = controller
-    const timer = setTimeout(() => controller.abort(), 15000)
-    setBusy(true); setError(''); setReply(null)
+  useEffect(()=>{
+    const viewport=window.visualViewport
+    const resize=()=>setViewportHeight(window.innerWidth<=700 && viewport ? Math.round(viewport.height) : null)
+    resize();viewport?.addEventListener('resize',resize);window.addEventListener('resize',resize)
+    return ()=>{viewport?.removeEventListener('resize',resize);window.removeEventListener('resize',resize)}
+  },[])
+  useEffect(()=>{
     try {
-      const response = await fetch('https://ai.digitalhood.info/api/assistant/chat', {
-        method: 'POST', credentials: 'omit', redirect: 'error',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message.trim() }), signal: controller.signal,
-      })
-      if (!response.ok) throw new Error(response.status === 429 ? 'Please wait a little before searching again.' : 'The assistant is temporarily unavailable. Please try the Shop page.')
-      const body = await response.json()
-      if (typeof body.answer !== 'string' || !Array.isArray(body.products)) throw new Error('The assistant could not complete this search. Please try the Shop page.')
-      const products = body.products.filter((product: Product) => {
-        try {
-          const url = new URL(product.url)
-          return Number.isSafeInteger(product.id) && Number.isFinite(product.price) && product.price > 0 && typeof product.name === 'string' && url.origin === 'https://store.digitalhood.info' && url.pathname.startsWith('/product/') && !url.username && !url.password
-        } catch { return false }
-      }).slice(0, 6)
-      const illustratedProducts = products.map((product: Product) => {
-        let image = PRODUCT_IMAGE_FALLBACK
-        try {
-          const candidate = new URL(product.image || '')
-          if (candidate.protocol === 'https:' && !candidate.username && !candidate.password) image = candidate.href
-        } catch { /* Keep the local placeholder. */ }
-        return { ...product, image }
-      })
-      setReply({ answer: body.answer.slice(0, 1200), products: illustratedProducts, aiUsed: body.aiUsed === true })
-    } catch (failure) {
-      if (active.current === controller) setError(failure instanceof Error && failure.name !== 'AbortError' ? failure.message : 'The search took too long. Please try again or browse the Shop page.')
-    } finally {
-      clearTimeout(timer)
-      if (active.current === controller) { active.current = null; setBusy(false) }
-    }
+      const stored = JSON.parse(localStorage.getItem(PREFS) || 'null')
+      if (stored && typeof stored.budget === 'string' && typeof stored.size === 'string') {setSavedPrefs({budget:stored.budget.slice(0,12),size:stored.size.slice(0,40)});setBudget(stored.budget.slice(0,12));setSize(stored.size.slice(0,40))}
+      const session = JSON.parse(sessionStorage.getItem(SESSION) || 'null')
+      if (Array.isArray(session)) {setTurns(session.slice(-10).flatMap(t=>{try{return typeof t.question === 'string' ? [{id:Number(t.id),question:t.question.slice(0,500),reply:normalizeAssistantReply(t.reply),removeFilters:Array.isArray(t.removeFilters)?t.removeFilters.filter((k:unknown)=>typeof k==='string' && ['brand','category','maxPrice'].includes(k)).slice(0,3):[]}] : []}catch{return []}}));setRemember(true)}
+    } catch { /* Storage may be unavailable. */ }
+    const clear = ()=>{requestId.current++;cartRequest.current++;active.current?.abort();if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop();voice.current=null}setTurns([]);setPendingCart(null);setSelected([]);setSavedPrefs(null);setBudget('');setSize('');setRemember(false);setListening(false);setVoiceNotice(false);setPhotoBusy(false);setContextIds([]);setBusy(false);setPreview('');setPhoto(null);setMessage('');setCartReview(false);try{localStorage.removeItem(PREFS);sessionStorage.removeItem(SESSION)}catch{}}
+    window.addEventListener(ACCOUNT_STATE_CLEARED_EVENT,clear)
+    return ()=>{window.removeEventListener(ACCOUNT_STATE_CLEARED_EVENT,clear);requestId.current++;cartRequest.current++;active.current?.abort();if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop()}}
+  },[])
+  useEffect(()=>{try{if(remember)sessionStorage.setItem(SESSION,JSON.stringify(turns.slice(-10)));else sessionStorage.removeItem(SESSION)}catch{}},[turns,remember])
+  useEffect(()=>{if(typeof location.state?.question === 'string'){setMessage(location.state.question.slice(0,500));input.current?.focus()}},[location.key,location.state])
+  useEffect(()=>{
+    if(!focused || busy || photo || message.trim().length<2){setSuggestions([]);return}
+    let cancelled=false
+    const timer=setTimeout(()=>{fetchSearchSuggestions(message.trim(),5).then(r=>{if(!cancelled)setSuggestions(r.suggestions.slice(0,5))}).catch(()=>{if(!cancelled)setSuggestions([])})},250)
+    return ()=>{cancelled=true;clearTimeout(timer)}
+  },[message,focused,busy,photo])
+  useEffect(()=>{scroll.current?.scrollTo({top:scroll.current.scrollHeight,behavior:'auto'})},[turns,busy,preview,showComparison,cartReview])
+
+  function draft(text:string,ids:number[]=[]){setContextIds(ids);setMessage(text.slice(0,500));setJob('find');setFocused(false);input.current?.focus()}
+  function clearConversation(){if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop();voice.current=null}setListening(false);setVoiceNotice(false);setPhotoBusy(false);requestId.current++;cartRequest.current++;active.current?.abort();setTurns([]);setSelected([]);setPendingCart(null);setShowComparison(false);setPreview('');setPendingQuestion('');setBusy(false);setMessage('');setPhoto(null);setError('');setNotice('');setJob('find');setShown(6);setCartReview(false);setContextIds([]);try{sessionStorage.removeItem(SESSION)}catch{}}
+  async function search(text=message,removeFilters:string[]=[]) {
+    const question=text.trim();if(busy || photoBusy || question.length<3 || question.length>500)return
+    if(/\b(?:track (?:my |an? )?order|return (?:my |an? )?(?:order|item|product)|refund)\b/i.test(question)){setJob(/track/i.test(question)?'track':'return');setNotice('Use the secure order tools below. Your order details have not been sent to an AI model.');return}
+    const id=++requestId.current;const controller=new AbortController();active.current=controller;const timer=setTimeout(()=>controller.abort(),20000)
+    setBusy(true);setError('');setNotice('');setPreview('');setPendingQuestion(question);setSuggestions([]);setFocused(false)
+    try {
+      let reply:AssistantReply
+      if(photo){
+        const response=await searchProductsByImage(photo,question,controller.signal)
+        reply=normalizeAssistantReply({answer:response.message || 'These are visual matches from the catalogue. Check the listing to confirm details.',aiUsed:false,products:response.suggestions.map(p=>({...p,price:Number(p.price),url:'https://store.digitalhood.info/product/'+encodeURIComponent(p.slug),stockStatus:p.stock_status,stockLabel:p.stock_label,canAddToCart:false,specifications:[]})),filters:[],followups:['Compare top two','Show specifications','Browse the shop']})
+      }else{
+        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,productIds:contextIds}),signal:controller.signal})
+        if(!response.ok)throw new Error(response.status===429?'Please wait before searching again.':'Search is unavailable. Browse the shop or contact support.')
+        reply=await readAssistantResponse(response,t=>{if(requestId.current===id)setPreview(t)})
+      }
+      if(requestId.current!==id)return
+      setTurns(old=>[...old,{id,question,reply,removeFilters}].slice(-10));setMessage('');setPhoto(null);setContextIds([]);setShown(6);setSelected([]);setShowComparison(false)
+    }catch(failure){if(requestId.current===id)setError(failure instanceof Error && failure.name!=='AbortError'?failure.message:'The search took too long. Please try again or browse the shop.')}
+    finally{clearTimeout(timer);if(requestId.current===id){setBusy(false);setPreview('');setPendingQuestion('');active.current=null}}
   }
-
-  const prompts = ['HP laptop charger under K1,000', 'JBL speaker', 'Compare power banks']
-  return <>
-    <SEO title="Shopping assistant | DigitalHood" description="Find current DigitalHood products by brand, product type and budget." />
-    <Header />
-    <main id="main-content" className="mx-auto w-full max-w-[1500px] px-4 py-3 sm:px-6 lg:px-8 xl:px-12">
-      <section aria-labelledby="assistant-title" className="rounded-2xl border border-dh-light-gray bg-white p-3 shadow-sm sm:p-4">
-        <div className="flex items-center justify-between gap-3">
-          <h1 id="assistant-title" className="flex items-center gap-2 text-lg font-bold text-dh-primary"><Sparkles className="h-5 w-5" aria-hidden="true" />DigitalHood AI</h1>
-          <Link to="/shop" className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-dh-primary">Shop <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+  function submit(event:FormEvent){event.preventDefault();void search()}
+  function toggleCompare(product:AssistantProduct){setSelected(old=>old.some(p=>p.id===product.id)?old.filter(p=>p.id!==product.id):old.length<4?[...old,product]:old)}
+  async function prepareCart(product:AssistantProduct){
+    if(cartBusy)return;const id=++cartRequest.current;setCartBusy(true);setError('')
+    try{const fresh=await fetchWooProductBySlug(String(product.id),true);if(cartRequest.current!==id)return
+      if(!fresh || !canConfirmAssistantCart(fresh,product.id)){setNotice('This listing needs option, stock or seller verification. Open its product page to continue.');return}setPendingCart(fresh)
+    }catch{if(cartRequest.current===id)setError('Could not verify this listing. Please open its product page.')}
+    finally{if(cartRequest.current===id)setCartBusy(false)}
+  }
+  async function confirmCart(){
+    if(!pendingCart || cartBusy)return;const previous=pendingCart;const id=++cartRequest.current;setCartBusy(true)
+    try{const fresh=await fetchWooProductBySlug(String(previous.id),true);if(cartRequest.current!==id)return
+      if(!fresh || !canConfirmAssistantCart(fresh,previous.id)){setPendingCart(null);throw new Error('Availability or options changed. Open the listing to continue.')}
+      if(fresh.price!==previous.price || (fresh.sellerKey || fresh.seller?.key)!==(previous.sellerKey || previous.seller?.key)){setPendingCart(fresh);setNotice('Price or seller changed. Please review the updated summary and confirm again.');return}
+      const added=addItem({...fresh,images:fresh.images.map(src=>({src}))},1)
+      if(!added)throw new Error('Could not add this item. Please check the listing.')
+      setPendingCart(null);setCartReview(true);setNotice('Added one item to your cart. Review it before checkout.')
+    }catch(failure){if(cartRequest.current===id)setError(failure instanceof Error?failure.message:'Could not add this item.')}
+    finally{if(cartRequest.current===id)setCartBusy(false)}
+  }
+  async function attach(file:File|undefined){
+    if(!file)return;const id=++requestId.current;setPhotoBusy(true)
+    try{const prepared=await prepareImageSearchFile(file);if(requestId.current!==id)return;setPhoto(prepared);setMessage(m=>m || 'Find something like this');setNotice('Your photo stays here until Send. It will use DigitalHood image search.')}
+    catch(f){if(requestId.current===id)setError(f instanceof Error?f.message:'Could not prepare photo.')}
+    finally{if(requestId.current===id)setPhotoBusy(false)}
+  }
+  function startVoice(){
+    const Constructor=(window as unknown as {SpeechRecognition?:new()=>Voice;webkitSpeechRecognition?:new()=>Voice}).SpeechRecognition || (window as unknown as {webkitSpeechRecognition?:new()=>Voice}).webkitSpeechRecognition
+    if(!Constructor){setNotice('Voice input is unavailable in this browser. You can type or use your keyboard microphone.');return}
+    const recognition=new Constructor();voice.current=recognition;recognition.lang='en-ZM';recognition.interimResults=false
+    recognition.onresult=e=>{setMessage(e.results[0][0].transcript.slice(0,500));setListening(false)}
+    recognition.onerror=()=>{setListening(false);setNotice('Voice input stopped. Please type or try again.')};recognition.onend=()=>setListening(false)
+    try{recognition.start();setListening(true);setVoiceNotice(false)}catch{setListening(false);setNotice('Microphone could not start. Please type instead.')}
+  }
+  function followup(label:string,turn:Turn){
+    if(label==='Compare top two'){setSelected(turn.reply.products.slice(0,2));setShowComparison(true);return}
+    if(label==='Show specifications'){setSelected(turn.reply.products.slice(0,4));setShowComparison(true);return}
+    if(label==='Lower my budget'){draft(turn.question.replace(/\b(?:under|below|up to)\s*(?:K|ZMW)?\s*[\d,]+/i,'')+' under K');return}
+    draft(label==='Change my search'?'':label)
+  }
+  const support=<Link to="/support">Talk to support <ArrowRight size={14}/></Link>
+  return <div className="ai-app" style={viewportHeight ? {height:viewportHeight} : undefined}>
+    <SEO title="DigitalHood AI | Shopping assistant" description="Find, compare and choose products from the live DigitalHood marketplace."/>
+    <header className="ai-top"><Link to="/" className="ai-brand"><DigitalHoodMark className="h-9 w-9"/><span>digital<span>hood</span></span></Link><nav aria-label="Marketplace"><Link to="/shop">Shop</Link><Link to="/orders">My orders</Link><Link to="/wishlist">Saved</Link></nav><span className="ai-location">Zambia · ZMW</span><button type="button" onClick={()=>setCartReview(v=>!v)} aria-label={`Review cart, ${items.reduce((n,i)=>n+i.quantity,0)} items`}><ShoppingCart size={20}/><span>{items.reduce((n,i)=>n+i.quantity,0)}</span></button></header>
+    <main className="ai-layout" id="main-content">
+      <aside className="ai-rail"><p className="ai-eyebrow">YOUR SHOPPING SPACE</p><button type="button" onClick={clearConversation}><Plus size={16}/>New conversation</button><nav aria-label="Assistant tasks">{jobs.map(({key,label,icon:Icon})=><button type="button" key={key} aria-pressed={job===key} onClick={()=>{setJob(key);if(key==='compare')setShowComparison(true)}}><Icon size={17}/>{label}</button>)}</nav><p className="ai-eyebrow">RECENT SEARCHES</p>{turns.slice(-3).map(t=><button type="button" key={t.id} onClick={()=>draft(t.question)} className="ai-history">{t.question}</button>)}<div className="ai-rail-bottom">{support}<button type="button" onClick={()=>setShowPrefs(v=>!v)}>Edit preferences</button><button type="button" onClick={clearConversation}>Delete conversation</button></div></aside>
+      <section className="ai-panel" aria-label="DigitalHood assistant">
+        <div className="ai-head"><span className="ai-mark"><Sparkles size={22}/></span><div><h1>DigitalHood AI</h1><small>Your personal shopping assistant</small></div><span className="ai-status">Live catalogue</span></div>
+        <nav className="ai-mobile-jobs" aria-label="Assistant tasks on mobile">{jobs.map(({key,label})=><button type="button" key={key} aria-pressed={job===key} onClick={()=>{setJob(key);if(key==='compare')setShowComparison(true)}}>{label}</button>)}</nav>
+        <div className="ai-scroll" ref={scroll}>
+          {showPrefs && <section className="ai-note"><h2>Shopping preferences</h2><p>Save only a budget and size on this device. Addresses stay in your secure checkout account.</p><label>Budget in Kwacha<input type="number" min="1" max="999999999" value={budget} onChange={e=>setBudget(e.target.value.slice(0,12))}/></label><label>Size / device preference<input maxLength={40} value={size} onChange={e=>setSize(e.target.value)}/></label><div className="ai-actions"><button type="button" onClick={()=>{const prefs={budget:/^\d+(\.\d{1,2})?$/.test(budget)?budget:'',size:size.slice(0,40)};setSavedPrefs(prefs);try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch{}setShowPrefs(false)}}>Save preferences</button><button type="button" onClick={()=>{setSavedPrefs(null);setBudget('');setSize('');try{localStorage.removeItem(PREFS)}catch{}}}>Forget preferences</button></div><label><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Remember conversation in this browser tab (last 10 turns)</label><button type="button" onClick={clearConversation}>Delete conversation</button></section>}
+          {(job==='track'||job==='return')?<section className="ai-welcome"><h2>{job==='track'?'Where is my order?':'Help with a return'}</h2><p>Use your secure order page to view tracking or review an issue before submitting a request. The AI cannot place orders, send payments or issue refunds.</p><div className="ai-actions"><Link to={job==='track'?'/track-order':'/orders'}>{job==='track'?'Track an order':'Choose an order'}</Link><Link to="/returns">Return information</Link>{support}</div></section>:<>
+          {!turns.length && <section className="ai-welcome"><p className="ai-eyebrow">FIND IT FASTER. SHOP SMARTER.</p><h2>Hey there 👋<br/>What are you <span>shopping for?</span></h2><p>Tell me what you need, your budget or what matters most.</p><div className="ai-chips">{['Laptop under K8,000','Gaming mouse','Compare phones'].map(p=><button type="button" key={p} onClick={()=>draft(p)}>{p}</button>)}</div><h3>Or start with what matters to you</h3><div className="ai-starters">{[['Shop my budget','Find a laptop under K8,000'],['Compare the options','Compare phones'],['Find compatible gear','Find a charger for my device'],['Help me decide','Help me decide']].map(([label,q])=><button type="button" key={label} onClick={()=>draft(q)}><Sparkles size={18}/><span>{label}</span></button>)}</div>{savedPrefs && <button type="button" onClick={()=>draft(`Find ${savedPrefs.size || 'products'}${savedPrefs.budget?' under K'+savedPrefs.budget:''}`)}>Use my saved preferences</button>}</section>}
+          {turns.map((turn,index)=><section key={turn.id} className="ai-turn"><p className="ai-user">{turn.question}</p><div className="ai-answer"><Sparkles size={18}/><p>{turn.reply.answer}</p></div><div className="ai-filters">{turn.reply.filters.map(f=><button type="button" disabled={busy} key={f.key} onClick={()=>void search(turn.question,[...new Set([...(turn.removeFilters || []),f.key])])}>{turn.reply.relaxedFilters.includes(f.key)?'Relaxed: ':''}{f.label} <X size={12}/></button>)}</div>{turn.reply.products.length>0 && <><p className="ai-source">Catalogue results · Prices checked when searched · Shipping fees calculated at checkout</p><div className="ai-products">{turn.reply.products.slice(0,index===turns.length-1?shown:3).map(p=><ProductCard key={p.id} product={p} selected={selected} cartBusy={cartBusy} draft={draft} toggleCompare={toggleCompare} prepareCart={prepareCart}/>)}</div>{index===turns.length-1 && shown<turn.reply.products.length && <button type="button" onClick={()=>setShown(12)}>Show more products</button>}</>}<div className="ai-chips">{(turn.reply.followups.length?turn.reply.followups:['Change my search','Browse the shop','Talk to support']).map(label=>label==='Browse the shop'?<Link key={label} to="/shop">Browse the shop</Link>:label==='Talk to support'?<Link key={label} to="/support">Talk to support</Link>:<button type="button" key={label} disabled={busy} onClick={()=>followup(label,turn)}>{label}</button>)}</div>{turn.reply.aiUsed && <small>AI-assisted explanation. Product listings are the source.</small>}</section>)}
+          {showComparison && <section className="ai-note"><h2>Compare your options</h2><p>{selected.length<2?'Select two to four products using their compare buttons.':'Compare only published details. Missing specifications are shown explicitly.'}</p>{selected.length>0 && <div className="ai-table-wrap"><table><caption>Selected catalogue listings</caption><thead><tr><th>Detail</th>{selected.map(p=><th key={p.id}><Link to={new URL(p.url).pathname}>{p.name}</Link><button type="button" aria-label={'Remove '+p.name+' from comparison'} onClick={()=>toggleCompare(p)}>×</button></th>)}</tr></thead><tbody><tr><th>Price</th>{selected.map(p=><td key={p.id}>{money(p.price)}</td>)}</tr><tr><th>Seller</th>{selected.map(p=><td key={p.id}>{p.sellerStoreName || 'Check listing'}</td>)}</tr>{[...new Set(selected.flatMap(p=>p.specifications.map(s=>s.label)))].slice(0,12).map(label=><tr key={label}><th>{label}</th>{selected.map(p=><td key={p.id}>{p.specifications.find(s=>s.label===label)?.value || 'Not published'}</td>)}</tr>)}</tbody></table></div>}{selected.length>=2 && <button type="button" onClick={()=>draft('Compare these selected products',selected.map(p=>p.id))}>Ask AI about these options</button>}{support}</section>}
+          {selected.length>0 && !showComparison && <button type="button" onClick={()=>setShowComparison(true)}>Compare selected ({selected.length}/4)</button>}
+          </>}
+          {cartBusy && <p role="status" className="ai-source">Checking current price, seller and stock…</p>}
+          {pendingCart && <section className="ai-note" aria-label="Confirm cart addition"><h2>Review before adding</h2><p>{pendingCart.name} · Quantity 1</p><p>{money(pendingCart.price)} · {pendingCart.sellerStoreName || pendingCart.seller?.storeName || pendingCart.sellerKey}</p><p>Delivery and fees will be checked during checkout.</p><div className="ai-actions"><button type="button" disabled={cartBusy} onClick={()=>void confirmCart()}>{cartBusy?'Checking…':'Confirm add to cart'}</button><button type="button" disabled={cartBusy} onClick={()=>{cartRequest.current++;setPendingCart(null)}}>Cancel</button>{support}</div></section>}
+          {cartReview && <section className="ai-note"><h2>Your cart</h2>{items.length?items.map(item=><p key={item.id}>{item.name} · {item.quantity} × {money(item.price)} · {item.sellerStoreName || 'Seller details in cart'}</p>):<p>Your cart is empty.</p>}<p>Each seller’s availability, shipping and fees are checked in the existing cart and checkout.</p><div className="ai-actions"><Link to="/cart">Review cart & choose sellers</Link>{items.length>0 && <Link to="/checkout">Continue to secure checkout</Link>}{support}</div></section>}
+          {busy && <div role="status" className="ai-turn"><p className="ai-user">{pendingQuestion}</p><p>{preview || 'Searching the live catalogue…'}</p><Loader2 size={20} className="animate-spin motion-reduce:animate-none"/></div>}
+          {error && <div role="alert" className="ai-note"><p>{error}</p><div className="ai-actions"><Link to="/shop">Browse the shop</Link>{support}</div></div>}
+          {notice && <p role="status" className="ai-source">{notice}</p>}
         </div>
-        <form onSubmit={submit}>
-          <label htmlFor="shopping-question" className="mb-2 block text-sm text-dh-dark-gray">What are you looking for?</label>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <textarea ref={input} id="shopping-question" aria-describedby="shopping-privacy" required minLength={3} maxLength={500} value={message} onChange={event => setMessage(event.target.value)} placeholder="Try: HP charger under K1,000" rows={2} className="w-full min-w-0 flex-1 resize-y rounded-xl border border-dh-light-gray bg-dh-gray px-3 py-2 text-base text-dh-primary focus:border-dh-primary focus:outline-none focus:ring-2 focus:ring-dh-primary" />
-            <button type="submit" disabled={busy || message.trim().length < 3} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-dh-primary px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Search className="h-4 w-4" aria-hidden="true" />}{busy ? 'Searching…' : 'Find products'}
-            </button>
-          </div>
-          <p id="shopping-privacy" className="mt-2 text-xs text-dh-dark-gray">Products only — leave out personal and payment details.</p>
+        <form className="ai-composer" onSubmit={submit}>
+          {contextIds.length>0 && <p>Using {contextIds.length} selected catalogue listing(s)<button type="button" onClick={()=>setContextIds([])} aria-label="Clear selected product context"><X size={16}/></button></p>}
+          {suggestions.length>0 && <div className="ai-suggestions" aria-label="Live catalogue suggestions">{suggestions.map(p=><button type="button" key={p.id} onClick={()=>{draft(p.name);setSuggestions([])}}>{p.name}<span>{money(Number(p.price))}</span></button>)}</div>}
+          {photo && <p>{photo.name}<button type="button" aria-label="Remove attached photo" onClick={()=>setPhoto(null)}><X size={16}/></button></p>}
+          {voiceNotice && <div className="ai-source">Voice uses your browser’s speech service and may send audio to its provider. Review the transcript before sending.<button type="button" onClick={startVoice}>Start voice input</button><button type="button" onClick={()=>setVoiceNotice(false)}>Cancel</button></div>}
+          <label htmlFor="shopping-question" className="sr-only">Ask for a product, budget or recommendation</label><textarea ref={input} id="shopping-question" maxLength={500} rows={2} value={message} onChange={e=>{setMessage(e.target.value);setContextIds([])}} onFocus={()=>setFocused(true)} placeholder="Ask for a product, budget or recommendation…" disabled={busy || job==='track' || job==='return'}/>
+          <div className="ai-composer-actions"><div><input ref={upload} type="file" accept="image/*" className="sr-only" onChange={e=>{void attach(e.target.files?.[0]);e.target.value=''}}/><button type="button" aria-label="Attach product photo" disabled={busy || job==='track' || job==='return'} onClick={()=>upload.current?.click()}><Paperclip size={20}/></button><button type="button" aria-label={listening?'Stop voice input':'Use voice input'} aria-pressed={listening} disabled={busy || job==='track' || job==='return'} onClick={()=>listening?voice.current?.stop():setVoiceNotice(true)}><Mic size={22}/></button><button type="button" className="ai-mobile-memory" onClick={()=>setShowPrefs(v=>!v)}>Preferences</button></div><button type="submit" className="ai-send" disabled={busy || photoBusy || message.trim().length<3 || job==='track' || job==='return'}>{photoBusy?'Preparing…':'Send'} <Send size={16}/></button></div><small>Review listings before buying. No orders or payments are made by AI.</small>
         </form>
-        <div aria-label="Suggested searches" className="mt-3 flex flex-wrap gap-2">{prompts.map(prompt => <button type="button" key={prompt} disabled={busy} onClick={() => { setMessage(prompt); input.current?.focus() }} className="min-h-10 rounded-full border border-dh-light-gray px-3 py-2 text-left text-xs font-semibold text-dh-primary hover:bg-dh-gray focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary disabled:opacity-50">{prompt}</button>)}</div>
+        <nav className="ai-bottom" aria-label="Mobile navigation"><Link to="/">Home</Link><Link to="/shop">Explore</Link><button type="button" onClick={clearConversation}>New search</button><button type="button" onClick={()=>setCartReview(v=>!v)}>Cart</button><button type="button" onClick={clearConversation}>Delete chat</button></nav>
       </section>
-
-      <section aria-label="Shopping results" aria-busy={busy} className="mt-3 min-w-0">
-        <div aria-live="polite">
-          {error && <p role="alert" className="rounded-xl border border-dh-light-gray bg-dh-gray p-3 text-sm text-dh-primary">{error}</p>}
-          {reply && <div className="rounded-xl border border-dh-light-gray bg-white p-3 text-sm text-dh-primary">
-            <p className="whitespace-pre-line leading-relaxed">{reply.answer}</p>
-            {reply.aiUsed && <p className="mt-2 text-xs text-dh-dark-gray">AI-assisted. Check the listing before buying.</p>}
-          </div>}
-          {busy && <p role="status" className="flex items-center gap-2 py-3 text-sm text-dh-dark-gray"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Searching current listings…</p>}
-        </div>
-        {!reply && !busy && !error && <p className="py-4 text-center text-sm text-dh-dark-gray">Search above to see matching products and prices.</p>}
-        {busy && <div aria-hidden="true" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">{[0,1,2,3].map(index => <div key={index} className="rounded-2xl border border-dh-light-gray bg-white p-2.5"><div className="aspect-square rounded-xl bg-dh-gray motion-safe:animate-pulse" /><div className="mt-3 h-4 w-3/4 rounded bg-dh-gray" /><div className="mt-2 h-4 w-1/3 rounded bg-dh-gray" /></div>)}</div>}
-        {reply && reply.products.length > 0 && <>
-          <div className="mb-2 mt-3 flex items-center justify-between gap-3"><h2 className="text-sm font-bold text-dh-primary">Matching products</h2><span className="text-xs text-dh-dark-gray">{reply.products.length} found</span></div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">{reply.products.map(product => <Link key={product.id} to={new URL(product.url).pathname} className="group min-w-0 overflow-hidden rounded-2xl border border-dh-light-gray bg-white p-2.5 transition-colors hover:border-dh-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dh-primary focus-visible:ring-offset-2">
-            <div className="aspect-square overflow-hidden rounded-xl bg-white p-2">
-              <img src={product.image} alt="" width={210} height={210} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { if (event.currentTarget.getAttribute('src') !== PRODUCT_IMAGE_FALLBACK) event.currentTarget.src = PRODUCT_IMAGE_FALLBACK }} className="h-full w-full object-contain" />
-            </div>
-            <h3 className="mt-2 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-dh-primary">{product.name}</h3>
-            <p className="mt-2 text-base font-bold text-dh-primary">{new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(product.price)}</p>
-            <span className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-dh-dark-gray">View product <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></span>
-          </Link>)}</div>
-        </>}
-        {reply && reply.products.length === 0 && <Link to="/shop" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full border border-dh-light-gray px-4 py-2 text-sm font-semibold text-dh-primary">Browse the shop <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
-      </section>
+      <aside className="ai-discovery"><h2>Product discovery</h2><p>Explore listings from your latest search.</p>{allProducts.slice(0,3).map(p=><button type="button" className="ai-mini" key={p.id} onClick={()=>draft('Tell me about '+p.name,[p.id])}><img src={p.image} alt="" width={64} height={64} referrerPolicy="no-referrer" onError={e=>{if(e.currentTarget.getAttribute('src')!=='/product-placeholder.svg')e.currentTarget.src='/product-placeholder.svg'}}/><span><strong>{p.name}</strong><small>{money(p.price)}</small><small>Ask about this ↗</small></span></button>)}<div className="ai-note"><h3>Can’t decide between two?</h3><p>Compare published specifications and prices.</p><button type="button" onClick={()=>{setSelected(allProducts.slice(0,2));setShowComparison(true)}}>Compare the options</button></div>{support}<p className="ai-source">No sponsored placement is added by this assistant. Seller and delivery details must be verified before checkout.</p></aside>
     </main>
-    <Footer />
-  </>
+  </div>
 }
