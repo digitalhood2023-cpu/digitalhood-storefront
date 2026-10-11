@@ -28,7 +28,7 @@ export function MarketplaceProductOffer({ price, regularPrice, shipping, meta }:
   return <div className="dh-product-offer"><div className="dh-product-price"><strong>{price}</strong>{regularPrice && <del>{regularPrice}</del>}{shipping}</div>{meta && <div className="dh-product-meta">{meta}</div>}</div>
 }
 
-const tabs = [['description', 'Description'], ['details', 'Details'], ['trust', 'Trust/Feedback']] as const
+const tabs = [['details', 'Details'], ['description', 'Description'], ['trust', 'Trust/Feedback']] as const
 export function MarketplaceProductTabs({ value, onChange, description, details, trust }: {
   value: string; onChange: (value: string) => void; description: ReactNode; details: ReactNode; trust: ReactNode
 }) {

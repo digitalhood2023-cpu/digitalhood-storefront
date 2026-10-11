@@ -9,7 +9,7 @@ function productMoney(value?: string | number) {
   return 'K' + (Number.isFinite(amount) ? amount : 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 export function MarketplaceProductPreview({ product, sellerName, sellerAvatar, selectedVariation, variationControl }: { product: PreviewProduct; sellerName?: string; sellerAvatar?: string; selectedVariation?: NonNullable<PreviewProduct['variations']>[number] | null; variationControl?: ReactNode }) {
-  const [tab, setTab] = useState('description')
+  const [tab, setTab] = useState('details')
   const [selectedImage, setSelectedImage] = useState('')
   const [variantId, setVariantId] = useState('')
   const [viewer, setViewer] = useState(false)
