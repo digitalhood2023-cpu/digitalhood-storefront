@@ -9,6 +9,7 @@ import { MarketplaceStateProvider } from '@/context/MarketplaceStateContext'
 import MarketplaceSEO from '@/components/MarketplaceSEO'
 import NetworkStatusBanner from '@/components/NetworkStatusBanner'
 import AccessibilityFoundation from '@/components/AccessibilityFoundation'
+import DigitalHoodAIShortcut from '@/components/DigitalHoodAIShortcut'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import { getCurrentSellerDomainContext } from '@/lib/sellerDomains'
 import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
@@ -187,6 +188,7 @@ function App() {
           <WishlistProvider>
             <RecentlyViewedProvider>
             <MarketplaceSEO />
+            <DigitalHoodAIShortcut />
             <NavigationScrollManager />
             <AccessibilityFoundation />
             <NetworkStatusBanner />

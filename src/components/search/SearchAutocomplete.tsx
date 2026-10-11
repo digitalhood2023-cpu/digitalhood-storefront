@@ -310,6 +310,17 @@ export default function SearchAutocomplete({
           className="h-full min-w-0 flex-1 bg-transparent px-1 text-[16px] outline-none placeholder:text-gray-400 sm:px-2"
         />
 
+        <Link
+          to="/assistant"
+          state={{ question: trimmedQuery.slice(0, 500) }}
+          onClick={() => { setIsOpen(false); textInputRef.current?.blur() }}
+          aria-label="Ask DigitalHood AI about your search"
+          title="Ask DigitalHood AI"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800 transition-colors hover:bg-[#ffb54a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2"
+        >
+          <Sparkles className="h-4 w-4" aria-hidden="true" />
+        </Link>
+
         <button
           type="button"
           onClick={() => {
