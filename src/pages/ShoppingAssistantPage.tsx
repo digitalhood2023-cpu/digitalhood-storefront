@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowRight, Mic, Paperclip, Send, ShoppingCart, Sparkles, X, Plus, Scale, Search, Package, RotateCcw, Heart, Loader2 } from 'lucide-react'
+import { ArrowRight, Mic, Paperclip, Send, Sparkles, X, Plus, Scale, Search, Package, RotateCcw, Heart, Loader2 } from 'lucide-react'
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
+import AssistantDiscovery from '@/components/AssistantDiscovery'
 import SEO from '@/components/SEO'
 import { fetchSearchSuggestions, fetchWooProductBySlug, searchProductsByImage, type SearchSuggestionProduct, type WooProduct } from '@/lib/woocommerce'
 import { prepareImageSearchFile } from '@/lib/imageSearch'
@@ -16,6 +17,7 @@ type Job = 'find' | 'compare' | 'track' | 'return' | 'value'
 type Voice = {start:()=>void; stop:()=>void; onresult:((event:{results:{[index:number]:{[index:number]:{transcript:string}}}})=>void)|null; onerror:(()=>void)|null; onend:(()=>void)|null; lang:string; interimResults:boolean}
 const jobs = [{key:'find',label:'Find products',icon:Search},{key:'compare',label:'Compare',icon:Scale},{key:'track',label:'Track order',icon:Package},{key:'return',label:'Returns',icon:RotateCcw},{key:'value',label:'Help me decide',icon:Heart}] as const
 const SESSION = 'digitalhood-ai-session-v1'
+const MEMORY = SESSION+'-enabled'
 const PREFS = 'digitalhood-ai-preferences-v1'
 const money = (n:number) => new Intl.NumberFormat('en-ZM',{style:'currency',currency:'ZMW'}).format(n)
   function ProductCard({product,selected,cartBusy,draft,toggleCompare,prepareCart}:{product:AssistantProduct;selected:AssistantProduct[];cartBusy:boolean;draft:(text:string,ids?:number[])=>void;toggleCompare:(p:AssistantProduct)=>void;prepareCart:(p:AssistantProduct)=>Promise<void>}){return <article className="ai-product">
@@ -49,7 +51,9 @@ export default function ShoppingAssistantPage() {
   const headerFrame = useRef<HTMLDivElement>(null)
   const [viewportHeight,setViewportHeight] = useState<number|null>(null)
   const [contextIds,setContextIds] = useState<number[]>([])
-  const [remember,setRemember] = useState(false)
+  const [hydrated,setHydrated] = useState(false)
+  const [compactDiscovery,setCompactDiscovery] = useState(window.innerWidth<=1100)
+  const [remember,setRemember] = useState(true)
   const [showPrefs,setShowPrefs] = useState(false)
   const [budget,setBudget] = useState('')
   const [size,setSize] = useState('')
@@ -71,7 +75,7 @@ export default function ShoppingAssistantPage() {
 
   useEffect(()=>{
     const viewport=window.visualViewport
-    const resize=()=>setViewportHeight(Math.max(240,Math.round((viewport?.height || window.innerHeight)-(headerFrame.current?.getBoundingClientRect().height || 0))))
+    const resize=()=>{setCompactDiscovery(window.innerWidth<=1100);setViewportHeight(Math.max(240,Math.round((viewport?.height || window.innerHeight)-(headerFrame.current?.getBoundingClientRect().height || 0))))}
     const observer=new ResizeObserver(resize);if(headerFrame.current)observer.observe(headerFrame.current)
     resize();viewport?.addEventListener('resize',resize);window.addEventListener('resize',resize)
     return ()=>{observer.disconnect();viewport?.removeEventListener('resize',resize);window.removeEventListener('resize',resize)}
@@ -80,14 +84,16 @@ export default function ShoppingAssistantPage() {
     try {
       const stored = JSON.parse(localStorage.getItem(PREFS) || 'null')
       if (stored && typeof stored.budget === 'string' && typeof stored.size === 'string') {setSavedPrefs({budget:stored.budget.slice(0,12),size:stored.size.slice(0,40)});setBudget(stored.budget.slice(0,12));setSize(stored.size.slice(0,40))}
+      setRemember(sessionStorage.getItem(MEMORY)!=='false')
       const session = JSON.parse(sessionStorage.getItem(SESSION) || 'null')
-      if (Array.isArray(session)) {setTurns(session.slice(-10).flatMap(t=>{try{return typeof t.question === 'string' ? [{id:Number(t.id),question:t.question.slice(0,500),reply:normalizeAssistantReply(t.reply),removeFilters:Array.isArray(t.removeFilters)?t.removeFilters.filter((k:unknown)=>typeof k==='string' && ['brand','category','maxPrice'].includes(k)).slice(0,3):[]}] : []}catch{return []}}));setRemember(true)}
+      if (Array.isArray(session)) {setTurns(session.slice(-10).flatMap(t=>{try{return typeof t.question === 'string' ? [{id:Number(t.id),question:t.question.slice(0,500),reply:normalizeAssistantReply(t.reply),removeFilters:Array.isArray(t.removeFilters)?t.removeFilters.filter((k:unknown)=>typeof k==='string' && ['brand','category','maxPrice'].includes(k)).slice(0,3):[]}] : []}catch{return []}}));setRemember(sessionStorage.getItem(MEMORY)!=='false')}
     } catch { /* Storage may be unavailable. */ }
-    const clear = ()=>{requestId.current++;cartRequest.current++;active.current?.abort();if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop();voice.current=null}setTurns([]);setPendingCart(null);setSelected([]);setSavedPrefs(null);setBudget('');setSize('');setRemember(false);setListening(false);setVoiceNotice(false);setPhotoBusy(false);setContextIds([]);setBusy(false);setPreview('');setPhoto(null);setMessage('');setCartReview(false);try{localStorage.removeItem(PREFS);sessionStorage.removeItem(SESSION)}catch{}}
+    setHydrated(true)
+    const clear = ()=>{requestId.current++;cartRequest.current++;active.current?.abort();if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop();voice.current=null}setTurns([]);setPendingCart(null);setSelected([]);setSavedPrefs(null);setBudget('');setSize('');setRemember(false);setListening(false);setVoiceNotice(false);setPhotoBusy(false);setContextIds([]);setBusy(false);setPreview('');setPhoto(null);setMessage('');setCartReview(false);try{localStorage.removeItem(PREFS);sessionStorage.removeItem(SESSION);sessionStorage.removeItem(MEMORY)}catch{}}
     window.addEventListener(ACCOUNT_STATE_CLEARED_EVENT,clear)
     return ()=>{window.removeEventListener(ACCOUNT_STATE_CLEARED_EVENT,clear);requestId.current++;cartRequest.current++;active.current?.abort();if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop()}}
   },[])
-  useEffect(()=>{try{if(remember)sessionStorage.setItem(SESSION,JSON.stringify(turns.slice(-10)));else sessionStorage.removeItem(SESSION)}catch{}},[turns,remember])
+  useEffect(()=>{if(!hydrated)return;try{sessionStorage.setItem(MEMORY,String(remember));if(remember)sessionStorage.setItem(SESSION,JSON.stringify(turns.slice(-10)));else sessionStorage.removeItem(SESSION)}catch{}},[turns,remember,hydrated])
   useEffect(()=>{if(typeof location.state?.question === 'string'){setMessage(location.state.question.slice(0,500));input.current?.focus()}},[location.key,location.state])
   useEffect(()=>{
     if(!focused || busy || photo || message.trim().length<2){setSuggestions([]);return}
@@ -95,7 +101,7 @@ export default function ShoppingAssistantPage() {
     const timer=setTimeout(()=>{fetchSearchSuggestions(message.trim(),5).then(r=>{if(!cancelled)setSuggestions(r.suggestions.slice(0,5))}).catch(()=>{if(!cancelled)setSuggestions([])})},250)
     return ()=>{cancelled=true;clearTimeout(timer)}
   },[message,focused,busy,photo])
-  useEffect(()=>{scroll.current?.scrollTo({top:scroll.current.scrollHeight,behavior:'auto'})},[turns,busy,preview,showComparison,cartReview])
+  useEffect(()=>{const last=scroll.current?.querySelector<HTMLElement>('.ai-turn:last-of-type');if(scroll.current)scroll.current.scrollTo({top:last ? last.getBoundingClientRect().top-scroll.current.getBoundingClientRect().top+scroll.current.scrollTop : 0,behavior:'auto'})},[turns])
 
   function draft(text:string,ids:number[]=[]){setContextIds(ids);setMessage(text.slice(0,500));setJob('find');setFocused(false);input.current?.focus()}
   function clearConversation(){if(voice.current){voice.current.onresult=null;voice.current.onend=null;voice.current.onerror=null;voice.current.stop();voice.current=null}setListening(false);setVoiceNotice(false);setPhotoBusy(false);requestId.current++;cartRequest.current++;active.current?.abort();setTurns([]);setSelected([]);setPendingCart(null);setShowComparison(false);setPreview('');setPendingQuestion('');setBusy(false);setMessage('');setPhoto(null);setError('');setNotice('');setJob('find');setShown(6);setCartReview(false);setContextIds([]);try{sessionStorage.removeItem(SESSION)}catch{}}
@@ -166,10 +172,10 @@ export default function ShoppingAssistantPage() {
     <main className="ai-layout" id="main-content">
       <aside className="ai-rail"><p className="ai-eyebrow">YOUR SHOPPING SPACE</p><button type="button" onClick={clearConversation}><Plus size={16}/>New conversation</button><nav aria-label="Assistant tasks">{jobs.map(({key,label,icon:Icon})=><button type="button" key={key} aria-pressed={job===key} onClick={()=>{setJob(key);if(key==='compare')setShowComparison(true)}}><Icon size={17}/>{label}</button>)}</nav><p className="ai-eyebrow">RECENT SEARCHES</p>{turns.slice(-3).map(t=><button type="button" key={t.id} onClick={()=>draft(t.question)} className="ai-history">{t.question}</button>)}<div className="ai-rail-bottom">{support}<button type="button" onClick={()=>setShowPrefs(v=>!v)}>Edit preferences</button><button type="button" onClick={clearConversation}>Delete conversation</button></div></aside>
       <section className="ai-panel" aria-label="DigitalHood assistant">
-        <div className="ai-head"><span className="ai-mark"><Sparkles size={22}/></span><div><h1>DigitalHood AI</h1><small>Your personal shopping assistant</small></div><button type="button" className="ai-status" onClick={()=>setCartReview(v=>!v)} aria-label={`Review cart, ${items.reduce((n,i)=>n+i.quantity,0)} items`}><ShoppingCart size={16}/> Cart ({items.reduce((n,i)=>n+i.quantity,0)})</button></div>
+        <div className="ai-head"><span className="ai-mark"><Sparkles size={22}/></span><div><h1>DigitalHood AI</h1><small>Your personal shopping assistant</small></div></div>
         <nav className="ai-mobile-jobs" aria-label="Assistant tasks on mobile">{jobs.map(({key,label})=><button type="button" key={key} aria-pressed={job===key} onClick={()=>{setJob(key);if(key==='compare')setShowComparison(true)}}>{label}</button>)}</nav>
         <div className="ai-scroll" ref={scroll}>
-          {showPrefs && <section className="ai-note"><h2>Shopping preferences</h2><p>Save only a budget and size on this device. Addresses stay in your secure checkout account.</p><label>Budget in Kwacha<input type="number" min="1" max="999999999" value={budget} onChange={e=>setBudget(e.target.value.slice(0,12))}/></label><label>Size / device preference<input maxLength={40} value={size} onChange={e=>setSize(e.target.value)}/></label><div className="ai-actions"><button type="button" onClick={()=>{const prefs={budget:/^\d+(\.\d{1,2})?$/.test(budget)?budget:'',size:size.slice(0,40)};setSavedPrefs(prefs);try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch{}setShowPrefs(false)}}>Save preferences</button><button type="button" onClick={()=>{setSavedPrefs(null);setBudget('');setSize('');try{localStorage.removeItem(PREFS)}catch{}}}>Forget preferences</button></div><label><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Remember conversation in this browser tab (last 10 turns)</label><button type="button" onClick={clearConversation}>Delete conversation</button></section>}
+          {showPrefs && <section className="ai-note"><h2>Shopping preferences</h2><p>Save only a budget and size on this device. Addresses stay in your secure checkout account.</p><label>Budget in Kwacha<input type="number" min="1" max="999999999" value={budget} onChange={e=>setBudget(e.target.value.slice(0,12))}/></label><label>Size / device preference<input maxLength={40} value={size} onChange={e=>setSize(e.target.value)}/></label><div className="ai-actions"><button type="button" onClick={()=>{const prefs={budget:/^\d+(\.\d{1,2})?$/.test(budget)?budget:'',size:size.slice(0,40)};setSavedPrefs(prefs);try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch{}setShowPrefs(false)}}>Save preferences</button><button type="button" onClick={()=>{setSavedPrefs(null);setBudget('');setSize('');try{localStorage.removeItem(PREFS)}catch{}}}>Forget preferences</button></div><label><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Keep recent searches in this browser tab (last 10 turns; shared-device users can turn this off)</label><button type="button" onClick={clearConversation}>Delete conversation</button></section>}
           {(job==='track'||job==='return')?<section className="ai-welcome"><h2>{job==='track'?'Where is my order?':'Help with a return'}</h2><p>Use your secure order page to view tracking or review an issue before submitting a request. The AI cannot place orders, send payments or issue refunds.</p><div className="ai-actions"><Link to={job==='track'?'/track-order':'/orders'}>{job==='track'?'Track an order':'Choose an order'}</Link><Link to="/returns">Return information</Link>{support}</div></section>:<>
           {!turns.length && <section className="ai-welcome"><p className="ai-eyebrow">FIND IT FASTER. SHOP SMARTER.</p><h2>Hey there 👋<br/>What are you <span>shopping for?</span></h2><p>Tell me what you need, your budget or what matters most.</p><div className="ai-chips">{['Laptop under K8,000','Gaming mouse','Compare phones'].map(p=><button type="button" key={p} onClick={()=>draft(p)}>{p}</button>)}</div><h3>Or start with what matters to you</h3><div className="ai-starters">{[['Shop my budget','Find a laptop under K8,000'],['Compare the options','Compare phones'],['Find compatible gear','Find a charger for my device'],['Help me decide','Help me decide']].map(([label,q])=><button type="button" key={label} onClick={()=>draft(q)}><Sparkles size={18}/><span>{label}</span></button>)}</div>{savedPrefs && <button type="button" onClick={()=>draft(`Find ${savedPrefs.size || 'products'}${savedPrefs.budget?' under K'+savedPrefs.budget:''}`)}>Use my saved preferences</button>}</section>}
           {turns.map((turn,index)=><section key={turn.id} className="ai-turn"><p className="ai-user">{turn.question}</p><div className="ai-answer"><Sparkles size={18}/><p>{turn.reply.answer}</p></div><div className="ai-filters">{turn.reply.filters.map(f=><button type="button" disabled={busy} key={f.key} onClick={()=>void search(turn.question,[...new Set([...(turn.removeFilters || []),f.key])])}>{turn.reply.relaxedFilters.includes(f.key)?'Relaxed: ':''}{f.label} <X size={12}/></button>)}</div>{turn.reply.products.length>0 && <><p className="ai-source">Catalogue results · Prices checked when searched · Shipping fees calculated at checkout</p><div className="ai-products">{turn.reply.products.slice(0,index===turns.length-1?shown:3).map(p=><ProductCard key={p.id} product={p} selected={selected} cartBusy={cartBusy} draft={draft} toggleCompare={toggleCompare} prepareCart={prepareCart}/>)}</div>{index===turns.length-1 && shown<turn.reply.products.length && <button type="button" onClick={()=>setShown(12)}>Show more products</button>}</>}<div className="ai-chips">{(turn.reply.followups.length?turn.reply.followups:['Change my search','Browse the shop','Talk to support']).map(label=>label==='Browse the shop'?<Link key={label} to="/shop">Browse the shop</Link>:label==='Talk to support'?<Link key={label} to="/support">Talk to support</Link>:<button type="button" key={label} disabled={busy} onClick={()=>followup(label,turn)}>{label}</button>)}</div>{turn.reply.aiUsed && <small>AI-assisted explanation. Product listings are the source.</small>}</section>)}
@@ -182,6 +188,7 @@ export default function ShoppingAssistantPage() {
           {busy && <div role="status" className="ai-turn"><p className="ai-user">{pendingQuestion}</p><p>{preview || 'Searching the live catalogue…'}</p><Loader2 size={20} className="animate-spin motion-reduce:animate-none"/></div>}
           {error && <div role="alert" className="ai-note"><p>{error}</p><div className="ai-actions"><Link to="/shop">Browse the shop</Link>{support}</div></div>}
           {notice && <p role="status" className="ai-source">{notice}</p>}
+          {compactDiscovery && <AssistantDiscovery searches={turns.slice(-5).reverse().map(t=>t.question)} products={allProducts} />}
         </div>
         <form className="ai-composer" onSubmit={submit}>
           {contextIds.length>0 && <p>Using {contextIds.length} selected catalogue listing(s)<button type="button" onClick={()=>setContextIds([])} aria-label="Clear selected product context"><X size={16}/></button></p>}
@@ -193,7 +200,7 @@ export default function ShoppingAssistantPage() {
         </form>
         <nav className="ai-bottom" aria-label="Mobile navigation"><button type="button" onClick={clearConversation}>New search</button><button type="button" onClick={()=>setCartReview(v=>!v)}>Cart</button><button type="button" onClick={clearConversation}>Delete chat</button></nav>
       </section>
-      <aside className="ai-discovery"><h2>Product discovery</h2><p>Explore listings from your latest search.</p>{allProducts.slice(0,3).map(p=><button type="button" className="ai-mini" key={p.id} onClick={()=>draft('Tell me about '+p.name,[p.id])}><img src={p.image} alt="" width={64} height={64} referrerPolicy="no-referrer" onError={e=>{if(e.currentTarget.getAttribute('src')!=='/product-placeholder.svg')e.currentTarget.src='/product-placeholder.svg'}}/><span><strong>{p.name}</strong><small>{money(p.price)}</small><small>Ask about this ↗</small></span></button>)}<div className="ai-note"><h3>Can’t decide between two?</h3><p>Compare published specifications and prices.</p><button type="button" onClick={()=>{setSelected(allProducts.slice(0,2));setShowComparison(true)}}>Compare the options</button></div>{support}<p className="ai-source">No sponsored placement is added by this assistant. Seller and delivery details must be verified before checkout.</p></aside>
+      {!compactDiscovery && <AssistantDiscovery searches={turns.slice(-5).reverse().map(t=>t.question)} products={allProducts} />}
     </main>
   </div><Footer /></>
 }
