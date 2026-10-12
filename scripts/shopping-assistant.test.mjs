@@ -6,7 +6,7 @@ import ts from 'typescript';
 // compiler to load this standalone helper without relying on type stripping.
 const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
 test('rejects hostile links, invalid prices and duplicate results',()=>{
  const result=normalizeAssistantReply({answer:'hello',products:[product,product,{...product,id:2,url:'https://attacker.test/product/a'},{...product,id:3,price:-1},{...product,id:4,image:'javascript:alert(1)'}]});
@@ -37,11 +37,25 @@ test('discovery derives bounded catalogue interests from searches and viewed cat
 
 const shuffleSource=await readFile(new URL('../src/lib/assistantDiscovery.ts',import.meta.url),'utf8');
 const shuffleJS=ts.transpileModule(shuffleSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {shuffleDiscovery}=await import('data:text/javascript;base64,'+Buffer.from(shuffleJS).toString('base64'));
+const {shuffleDiscovery,nextDiscoveryStep}=await import('data:text/javascript;base64,'+Buffer.from(shuffleJS).toString('base64'));
 test('discovery excludes search products, deduplicates and refresh changes first product even with identical random order',()=>{
  const pool=[{id:1},{id:2},{id:2},{id:3},{id:4}];
  const first=shuffleDiscovery(pool,[1],undefined,()=>0.99);
  const next=shuffleDiscovery(pool,[1],first[0].id,()=>0.99);
  assert.deepEqual(first.map(p=>p.id),[2,3,4]);assert.notEqual(first[0].id,next[0].id);assert.equal(pool.length,5);
  assert.deepEqual(shuffleDiscovery([{id:1}],[1]),[]);
+});
+
+test('typed followups use selected or last listing IDs instead of unrelated search',()=>{
+ assert.deepEqual(resolveAssistantContext('compare these selected products which one is better',[],[21,22],[99]),[21,22]);
+ assert.deepEqual(resolveAssistantContext('is it a phone or a tablet?',[],[],[21]),[21]);
+ assert.deepEqual(resolveAssistantContext('hello, how are you?',[],[],[21]),[]);
+ assert.deepEqual(resolveAssistantContext('find a gaming mouse',[],[],[21]),[]);
+ assert.deepEqual(resolveAssistantContext('compare these',[],[],[1,2,3,4,5]),[]);
+});
+
+test('discovery completes every group and catalogue page before starting the next cycle',()=>{
+ let step={page:0,sourcePage:1,cycleComplete:false};const visited=[];
+ for(let i=0;i<6;i++){visited.push([step.sourcePage,step.page]);step=nextDiscoveryStep(step.page,3,step.sourcePage,2)}
+ assert.deepEqual(visited,[[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]]);assert.deepEqual(step,{page:0,sourcePage:1,cycleComplete:true});
 });

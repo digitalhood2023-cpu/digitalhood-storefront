@@ -8,7 +8,7 @@ import SEO from '@/components/SEO'
 import { fetchSearchSuggestions, fetchWooProductBySlug, searchProductsByImage, type SearchSuggestionProduct, type WooProduct } from '@/lib/woocommerce'
 import { prepareImageSearchFile } from '@/lib/imageSearch'
 import { useCartStore } from '@/store/cartStore'
-import { normalizeAssistantReply, readAssistantResponse, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
+import { normalizeAssistantReply, readAssistantResponse, resolveAssistantContext, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
 import { ACCOUNT_STATE_CLEARED_EVENT } from '@/lib/marketplaceBrowserState'
 import './shopping-assistant.css'
 
@@ -115,7 +115,7 @@ export default function ShoppingAssistantPage() {
         const response=await searchProductsByImage(photo,question,controller.signal)
         reply=normalizeAssistantReply({answer:response.message || 'These are visual matches from the catalogue. Check the listing to confirm details.',aiUsed:false,products:response.suggestions.map(p=>({...p,price:Number(p.price),url:'https://store.digitalhood.info/product/'+encodeURIComponent(p.slug),stockStatus:p.stock_status,stockLabel:p.stock_label,canAddToCart:false,specifications:[]})),filters:[],followups:['Compare top two','Show specifications','Browse the shop']})
       }else{
-        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,productIds:contextIds}),signal:controller.signal})
+        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,productIds:resolveAssistantContext(question,contextIds,selected.map(p=>p.id),[...turns].reverse().find(t=>t.reply.products.length)?.reply.products.map(p=>p.id) || [])}),signal:controller.signal})
         if(!response.ok)throw new Error(response.status===429?'Please wait before searching again.':'Search is unavailable. Browse the shop or contact support.')
         reply=await readAssistantResponse(response,t=>{if(requestId.current===id)setPreview(t)})
       }
