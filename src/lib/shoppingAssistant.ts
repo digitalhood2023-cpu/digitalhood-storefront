@@ -63,3 +63,14 @@ export async function readAssistantResponse(response: Response, onText: (text: s
 export function canConfirmAssistantCart(product: {id:number; price:number; type:string; hasOptions:boolean; purchasable:boolean; canAddToCart:boolean; stockStatus:string; sellerKey?:string; seller?:{key?:string}|null}, expectedId: number) {
   return product.id === expectedId && product.type === 'simple' && !product.hasOptions && product.purchasable === true && product.canAddToCart === true && product.stockStatus === 'instock' && Number.isFinite(product.price) && product.price > 0 && Boolean(product.sellerKey || product.seller?.key)
 }
+
+export function resolveAssistantContext(message:string,explicitIds:number[],selectedIds:number[],previousIds:number[]):number[]{
+ if(explicitIds.length)return explicitIds.slice(0,4)
+ if(/^(?:hello|hi|hey|thanks|thank you)\b/i.test(message) || /^(?:find|show|search|i (?:want|need)|looking for)\b/i.test(message))return []
+ const compare=/\b(?:compare|comparison|versus|which.*better|difference)\b/i.test(message)
+ const followup=/\b(?:it|this|that|these|those|them|which one|worth|specifications)\b/i.test(message)
+ if(!compare && !followup)return []
+ if(selectedIds.length)return selectedIds.slice(0,4)
+ if(/\btop two\b/i.test(message))return previousIds.slice(0,2)
+ return previousIds.length<=4 ? previousIds : []
+}

@@ -5,3 +5,9 @@ export function shuffleDiscovery<T extends {id:number}>(products:T[],excluded:nu
  if(result.length>1 && result[0].id===previousFirst)result.push(result.shift()!)
  return result
 }
+
+export function nextDiscoveryStep(page:number,pages:number,sourcePage:number,totalPages:number){
+ if(page<pages-1)return {page:page+1,sourcePage,cycleComplete:false}
+ if(sourcePage<totalPages)return {page:0,sourcePage:sourcePage+1,cycleComplete:false}
+ return {page:0,sourcePage:1,cycleComplete:true}
+}
