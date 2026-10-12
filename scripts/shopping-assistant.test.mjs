@@ -59,3 +59,6 @@ test('discovery completes every group and catalogue page before starting the nex
  for(let i=0;i<6;i++){visited.push([step.sourcePage,step.page]);step=nextDiscoveryStep(step.page,3,step.sourcePage,2)}
  assert.deepEqual(visited,[[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]]);assert.deepEqual(step,{page:0,sourcePage:1,cycleComplete:true});
 });
+
+test('answer-only response retains grounded source context without becoming a results response',()=>{const r=normalizeAssistantReply({answer:'Published battery details are missing.',products:[product],responseMode:'answer'});assert.equal(r.responseMode,'answer');assert.equal(r.products[0].id,1);assert.equal(normalizeAssistantReply({answer:'Results',products:[product]}).responseMode,'results')});
+test('price/best comparisons keep original group after a single-product followup',()=>{assert.deepEqual(resolveAssistantContext('which one is the cheapest?',[],[],[1,2,3],[1]),[1,2,3]);assert.deepEqual(resolveAssistantContext('which one is the best of the 3?',[],[],[1,2,3],[1]),[1,2,3]);assert.deepEqual(resolveAssistantContext('does it have an internal battery?',[],[],[1,2,3],[1]),[1]);assert.deepEqual(resolveAssistantContext('Tell me about Wired Mouse\ndoes it have an internal battery?',[1],[],[1,2,3]),[1])});
