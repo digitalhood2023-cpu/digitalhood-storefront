@@ -25,3 +25,12 @@ test('cart confirmation fails closed for stale ID, stock, variable products or m
  assert.equal(canConfirmAssistantCart(p,1),true);
  for(const change of [{id:2},{stockStatus:'outofstock'},{type:'variable'},{hasOptions:true},{sellerKey:''},{price:NaN}])assert.equal(canConfirmAssistantCart({...p,...change},1),false);
 });
+
+const interestSource=await readFile(new URL('../src/lib/homeDiscovery.ts',import.meta.url),'utf8');
+const interestCompiled=ts.transpileModule(interestSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {deriveHomeDiscoveryInterests}=await import('data:text/javascript;base64,'+Buffer.from(interestCompiled).toString('base64'));
+test('discovery derives bounded catalogue interests from searches and viewed categories without contact details',()=>{
+ const interests=deriveHomeDiscoveryInterests({searches:['Laptops','laptops','person@example.com','+260971047570'],recentlyViewed:[{name:'Laptop',category:'Accessories'}]});
+ assert.deepEqual(interests,['laptops','accessories']);
+ assert.equal(deriveHomeDiscoveryInterests({searches:['one','two','three','four','five','six']}).length,5);
+});

@@ -744,7 +744,7 @@ export default function Header() {
             </div>
           </div>
 
-          <div className="relative z-[120] mt-2 lg:hidden">
+          <div className={`relative z-[120] mt-2 lg:hidden ${location.pathname === "/assistant" ? "hidden md:block" : ""}`}>
             <SearchAutocomplete compact placeholder="Search products, shops and categories..." />
           </div>
         </div>
