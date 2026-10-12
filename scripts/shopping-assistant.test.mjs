@@ -34,3 +34,14 @@ test('discovery derives bounded catalogue interests from searches and viewed cat
  assert.deepEqual(interests,['laptops','accessories']);
  assert.equal(deriveHomeDiscoveryInterests({searches:['one','two','three','four','five','six']}).length,5);
 });
+
+const shuffleSource=await readFile(new URL('../src/lib/assistantDiscovery.ts',import.meta.url),'utf8');
+const shuffleJS=ts.transpileModule(shuffleSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {shuffleDiscovery}=await import('data:text/javascript;base64,'+Buffer.from(shuffleJS).toString('base64'));
+test('discovery excludes search products, deduplicates and refresh changes first product even with identical random order',()=>{
+ const pool=[{id:1},{id:2},{id:2},{id:3},{id:4}];
+ const first=shuffleDiscovery(pool,[1],undefined,()=>0.99);
+ const next=shuffleDiscovery(pool,[1],first[0].id,()=>0.99);
+ assert.deepEqual(first.map(p=>p.id),[2,3,4]);assert.notEqual(first[0].id,next[0].id);assert.equal(pool.length,5);
+ assert.deepEqual(shuffleDiscovery([{id:1}],[1]),[]);
+});
