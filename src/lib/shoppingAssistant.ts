@@ -83,3 +83,27 @@ export function resolveAssistantContext(message:string,explicitIds:number[],sele
  const candidates=compare?previousIds:focusedIds
  return candidates.length<=4 ? candidates : []
 }
+
+export type ChatTurn={id:number;question:string;reply:AssistantReply;removeFilters?:string[];photoPreview?:string}
+export type AssistantConversation={id:string;title:string;updated:number;turns:ChatTurn[]}
+export function normalizeConversations(value:unknown):AssistantConversation[]{
+ if(!Array.isArray(value))return []
+ const seen=new Set<string>()
+ return value.slice(0,20).flatMap(c=>{
+  if(!c || typeof c.id!=='string' || !/^[a-zA-Z0-9-]{1,80}$/.test(c.id) || seen.has(c.id) || !Array.isArray(c.turns))return []
+  seen.add(c.id)
+  const turns:ChatTurn[]=c.turns.slice(-30).flatMap((t:ChatTurn)=>{try{
+   if(typeof t.question!=='string' || !Number.isFinite(t.id))return []
+   return [{id:t.id,question:t.question.slice(0,500),reply:normalizeAssistantReply(t.reply),removeFilters:Array.isArray(t.removeFilters)?t.removeFilters.filter(k=>['brand','category','maxPrice'].includes(k)).slice(0,3):[],photoPreview:typeof t.photoPreview==='string' && t.photoPreview.length<=60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t.photoPreview)?t.photoPreview:undefined}]
+  }catch{return []}})
+  return turns.length?[{id:c.id,title:typeof c.title==='string'?c.title.slice(0,70):turns[0].question.slice(0,70),updated:Number.isFinite(c.updated)?c.updated:0,turns}]:[]
+ })
+}
+export function saveConversation(chats:AssistantConversation[],id:string,turns:ChatTurn[],updated:number):AssistantConversation[]{
+ if(!turns.length || (!chats.some(c=>c.id===id) && chats.length>=20))return chats
+ const existing=chats.find(c=>c.id===id)
+ const conversation={id,title:existing?.title || turns[0].question.slice(0,70),updated,turns:turns.slice(-30)}
+ return [conversation,...chats.filter(c=>c.id!==id)].slice(0,20)
+}
+
+export function deleteConversation(chats:AssistantConversation[],id:string){return chats.filter(c=>c.id!==id)}

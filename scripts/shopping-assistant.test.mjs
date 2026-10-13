@@ -6,7 +6,7 @@ import ts from 'typescript';
 // compiler to load this standalone helper without relying on type stripping.
 const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
 test('rejects hostile links, invalid prices and duplicate results',()=>{
  const result=normalizeAssistantReply({answer:'hello',products:[product,product,{...product,id:2,url:'https://attacker.test/product/a'},{...product,id:3,price:-1},{...product,id:4,image:'javascript:alert(1)'}]});
@@ -71,3 +71,14 @@ test('screen protector conversation retains focus for price and recovers named e
  assert.deepEqual(resolveAssistantContext('price for screen protector',[],[],[99],[99],history),[]);
  assert.deepEqual(resolveAssistantContext('find a mouse',[],[],[6034],[6034],history),[]);
 });
+
+test('history stores exchanges under one conversation and deletion preserves other chats',()=>{
+ const turn={id:1,question:'Find a phone',reply:normalizeAssistantReply({answer:'Results',products:[product]})};
+ let chats=saveConversation([],'chat-a',[turn],1);chats=saveConversation(chats,'chat-a',[turn,{...turn,id:2,question:'What is the price?'}],2);assert.equal(chats.length,1);assert.equal(chats[0].turns.length,2);
+ chats=saveConversation(chats,'chat-b',[{...turn,question:'Find a laptop'}],3);const remaining=deleteConversation(chats,'chat-a');assert.equal(remaining.length,1);assert.equal(remaining[0].id,'chat-b');assert.equal(chats.length,2);assert.equal(normalizeConversations(JSON.parse(JSON.stringify(chats)))[1].turns.length,2);
+});
+test('history rejects unsafe previews and does not evict a different chat at capacity',()=>{const turn={id:1,question:'Photo',photoPreview:'data:image/svg+xml,<svg onload=alert(1)>',reply:normalizeAssistantReply({answer:'OK',products:[]})};assert.equal(normalizeConversations([{id:'a',turns:[turn]}])[0].turns[0].photoPreview,undefined);const chats=Array.from({length:20},(_,i)=>({id:'c-'+i,title:'Existing',updated:i,turns:[turn]}));assert.deepEqual(saveConversation(chats,'new',[turn],21),chats)});
+const imageSource=await readFile(new URL('../src/lib/imageSearch.ts',import.meta.url),'utf8');
+const imageJS=ts.transpileModule(imageSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {isVideoAttachment}=await import('data:text/javascript;base64,'+Buffer.from(imageJS).toString('base64'));
+test('videos are identified by MIME or filename before preparation/upload',()=>{assert.equal(isVideoAttachment({type:'video/mp4',name:'clip'}),true);assert.equal(isVideoAttachment({type:'',name:'clip.MOV'}),true);assert.equal(isVideoAttachment({type:'image/jpeg',name:'photo.jpg'}),false)});
