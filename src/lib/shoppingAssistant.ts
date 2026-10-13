@@ -64,12 +64,19 @@ export function canConfirmAssistantCart(product: {id:number; price:number; type:
   return product.id === expectedId && product.type === 'simple' && !product.hasOptions && product.purchasable === true && product.canAddToCart === true && product.stockStatus === 'instock' && Number.isFinite(product.price) && product.price > 0 && Boolean(product.sellerKey || product.seller?.key)
 }
 
-export function resolveAssistantContext(message:string,explicitIds:number[],selectedIds:number[],previousIds:number[],focusedIds:number[]=previousIds):number[]{
+export function resolveAssistantContext(message:string,explicitIds:number[],selectedIds:number[],previousIds:number[],focusedIds:number[]=previousIds,knownProducts:{id:number;name:string}[]=[]):number[]{
  if(/^(?:hello|hi|hey|thanks|thank you)\b/i.test(message) || /^(?:find|search|i (?:want|need)|looking for)\b/i.test(message))return []
  if(/\b(?:show|display|list)\s+(?:me\s+)?(?:these|those|the|matching)?\s*(?:products|options|listings|items|again)\b/i.test(message))return previousIds.length<=4?previousIds:[]
  if(explicitIds.length)return explicitIds.slice(0,4)
+ const words=message.toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ').filter(w=>w && !['what','whats','s','is','the','price','cost','for','of','how','much','does','it','a','an','tell','me','about','please','this','that','and','have'].includes(w))
+ if(words.length>=2 || words.some(w=>/\d/.test(w))){
+  const unique=[...new Map(knownProducts.map(p=>[p.id,p])).values()]
+  const matches=unique.filter(p=>{const name=p.name.toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ');return words.every(w=>name.includes(w))})
+  if(matches.length===1)return [matches[0].id]
+  if(matches.length>1)return []
+ }
  const compare=/\b(?:compare|comparison|versus|which.*(?:better|best|cheap|expensive)|difference|cheapest|most expensive)\b/i.test(message)
- const followup=/\b(?:it|this|that|these|those|them|which one|worth|specifications|does|has|have|battery)\b/i.test(message)
+ const followup=/\b(?:it|this|that|these|those|them|which one|worth|specifications|does|has|have|battery|price|cost|how much)\b/i.test(message)
  if(!compare && !followup)return []
  if(selectedIds.length)return selectedIds.slice(0,4)
  if(/\btop two\b/i.test(message))return previousIds.slice(0,2)
