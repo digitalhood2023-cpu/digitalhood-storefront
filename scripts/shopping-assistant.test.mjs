@@ -62,3 +62,12 @@ test('discovery completes every group and catalogue page before starting the nex
 
 test('answer-only response retains grounded source context without becoming a results response',()=>{const r=normalizeAssistantReply({answer:'Published battery details are missing.',products:[product],responseMode:'answer'});assert.equal(r.responseMode,'answer');assert.equal(r.products[0].id,1);assert.equal(normalizeAssistantReply({answer:'Results',products:[product]}).responseMode,'results')});
 test('price/best comparisons keep original group after a single-product followup',()=>{assert.deepEqual(resolveAssistantContext('which one is the cheapest?',[],[],[1,2,3],[1]),[1,2,3]);assert.deepEqual(resolveAssistantContext('which one is the best of the 3?',[],[],[1,2,3],[1]),[1,2,3]);assert.deepEqual(resolveAssistantContext('does it have an internal battery?',[],[],[1,2,3],[1]),[1]);assert.deepEqual(resolveAssistantContext('Tell me about Wired Mouse\ndoes it have an internal battery?',[1],[],[1,2,3]),[1])});
+
+test('screen protector conversation retains focus for price and recovers named earlier product',()=>{
+ const history=[{id:6034,name:'9D Screen Protector for Iphone'},{id:6035,name:'Airbag Edge Privacy Screen Protector'},{id:99,name:'M180 Wireless Mouse'}];
+ assert.deepEqual(resolveAssistantContext('whats the price',[],[],[6034,6035],[6034],history),[6034]);
+ assert.deepEqual(resolveAssistantContext("what's the price?",[],[],[6034,6035],[6034],history),[6034]);
+ assert.deepEqual(resolveAssistantContext('price for the 9D screen protector',[],[],[99],[99],history),[6034]);
+ assert.deepEqual(resolveAssistantContext('price for screen protector',[],[],[99],[99],history),[]);
+ assert.deepEqual(resolveAssistantContext('find a mouse',[],[],[6034],[6034],history),[]);
+});
