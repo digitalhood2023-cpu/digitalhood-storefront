@@ -137,3 +137,17 @@ export async function prepareImageSearchFile(file: File): Promise<File> {
     }
   }
 }
+
+export async function createImageSearchPreview(file:File):Promise<string>{
+ const image=await loadImageElement(file)
+ const canvas=document.createElement('canvas')
+ const scale=Math.min(1,320/Math.max(image.naturalWidth,image.naturalHeight))
+ canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale))
+ const context=canvas.getContext('2d');if(!context)throw new Error('Photo preview is unavailable.')
+ context.drawImage(image,0,0,canvas.width,canvas.height)
+ const preview=canvas.toDataURL('image/jpeg',0.6)
+ if(preview.length>60000)throw new Error('Choose a simpler or smaller photo for preview.')
+ return preview
+}
+
+export function isVideoAttachment(file:Pick<File,'type'|'name'>){return file.type.startsWith('video/') || /\.(?:mp4|mov|webm|avi|mkv|m4v|mpeg|mpg|3gp)$/i.test(file.name)}
