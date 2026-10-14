@@ -6,7 +6,7 @@ import ts from 'typescript';
 // compiler to load this standalone helper without relying on type stripping.
 const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
 test('rejects hostile links, invalid prices and duplicate results',()=>{
  const result=normalizeAssistantReply({answer:'hello',products:[product,product,{...product,id:2,url:'https://attacker.test/product/a'},{...product,id:3,price:-1},{...product,id:4,image:'javascript:alert(1)'}]});
@@ -82,3 +82,6 @@ const imageSource=await readFile(new URL('../src/lib/imageSearch.ts',import.meta
 const imageJS=ts.transpileModule(imageSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {isVideoAttachment}=await import('data:text/javascript;base64,'+Buffer.from(imageJS).toString('base64'));
 test('videos are identified by MIME or filename before preparation/upload',()=>{assert.equal(isVideoAttachment({type:'video/mp4',name:'clip'}),true);assert.equal(isVideoAttachment({type:'',name:'clip.MOV'}),true);assert.equal(isVideoAttachment({type:'image/jpeg',name:'photo.jpg'}),false)});
+
+test('concierge refinements never inherit product IDs and search state stays bounded',()=>{assert.deepEqual(resolveAssistantContext('more like this',[],[],[1]),[]);assert.deepEqual(resolveAssistantContext('Cheaper',[],[],[1]),[]);const reply=normalizeAssistantReply({answer:'Results',products:[{...product,whyPicked:'Within your stated budget'}],searchState:'HP laptop under K6400'});assert.equal(reply.searchState,'HP laptop under K6400');assert.equal(reply.products[0].whyPicked,'Within your stated budget')});
+test('local task counters are bounded fields without chat contents and preserve previous counts',()=>{const counts=incrementConciergeMetric({searches:2},'refinements');assert.equal(counts.searches,2);assert.equal(counts.refinements,1);assert.equal(incrementConciergeMetric(counts,'cartAdds').cartAdds,1);assert.equal(Object.keys(counts).length,7)});
