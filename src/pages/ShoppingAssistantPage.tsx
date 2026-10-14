@@ -10,7 +10,7 @@ import SEO from '@/components/SEO'
 import { fetchSearchSuggestions, fetchWooProductBySlug, searchProductsByImage, type SearchSuggestionProduct, type WooProduct } from '@/lib/woocommerce'
 import { prepareImageSearchFile, createImageSearchPreview, isVideoAttachment } from '@/lib/imageSearch'
 import { useCartStore } from '@/store/cartStore'
-import { normalizeAssistantReply, readAssistantResponse, resolveAssistantContext, incrementConciergeMetric, type ConciergeMetrics, normalizeConversations, saveConversation, deleteConversation, type AssistantConversation, type ChatTurn, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
+import { normalizeAssistantReply, readAssistantResponse, resolveAssistantContext, isAssistantAcknowledgement, incrementConciergeMetric, type ConciergeMetrics, normalizeConversations, saveConversation, deleteConversation, type AssistantConversation, type ChatTurn, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
 import { ACCOUNT_STATE_CLEARED_EVENT } from '@/lib/marketplaceBrowserState'
 import './shopping-assistant.css'
 
@@ -110,7 +110,7 @@ export default function ShoppingAssistantPage() {
   useEffect(()=>{if(!hydrated)return;const next=saveConversation(chats,activeChat,turns,Date.now());if(turns.length)setChats(next);try{sessionStorage.setItem(MEMORY,String(remember));if(remember)sessionStorage.setItem(CHATS,JSON.stringify({active:activeChat,chats:next}));else sessionStorage.removeItem(CHATS)}catch{setNotice('Chat history could not be saved in this browser. Delete unneeded chats or free browser storage.')}},[turns,remember,hydrated,activeChat])
   useEffect(()=>{if(typeof location.state?.question === 'string'){setMessage(location.state.question.slice(0,500));input.current?.focus()}},[location.key,location.state])
   useEffect(()=>{
-    if(!focused || busy || photo || message.trim().length<2){setSuggestions([]);return}
+    if(!focused || busy || photo || isAssistantAcknowledgement(message) || message.trim().length<2){setSuggestions([]);return}
     let cancelled=false
     const timer=setTimeout(()=>{fetchSearchSuggestions(message.trim(),5).then(r=>{if(!cancelled)setSuggestions(r.suggestions.slice(0,5))}).catch(()=>{if(!cancelled)setSuggestions([])})},250)
     return ()=>{cancelled=true;clearTimeout(timer)}
@@ -126,7 +126,7 @@ export default function ShoppingAssistantPage() {
   async function search(text=message,removeFilters:string[]=[]) {
     if(chats.length>=20 && !chats.some(c=>c.id===activeChat)){setNotice('You have 20 saved conversations. Delete one chat before starting another.');return}
     const conversationTurns=editingIndex===null?turns:turns.slice(0,editingIndex)
-    const question=text.trim();if(busy || photoBusy || question.length<3 || question.length>500)return
+    const question=text.trim();if(busy || photoBusy || (question.length<3 && !isAssistantAcknowledgement(question)) || question.length>500)return
     if(/\b(?:track (?:my |an? )?order|return (?:my |an? )?(?:order|item|product)|refund)\b/i.test(question)){setJob(/track/i.test(question)?'track':'return');setNotice('Use the secure order tools below. Your order details have not been sent to an AI model.');return}
     const id=++requestId.current;const controller=new AbortController();active.current=controller;const timer=setTimeout(()=>controller.abort(),20000)
     setBusy(true);setError('');setNotice('');setPreview('');setPendingQuestion(question);setSuggestions([]);setFocused(false)
@@ -181,8 +181,9 @@ export default function ShoppingAssistantPage() {
     try{recognition.start();setListening(true);setVoiceNotice(false)}catch{setListening(false);setNotice('Microphone could not start. Please type instead.')}
   }
   function followup(label:string,turn:Turn){
-    if(label==='Compare top two'){setSelected(turn.reply.products.slice(0,2));setShowComparison(true);return}
-    if(label==='Show specifications'){setSelected(turn.reply.products.slice(0,4));setShowComparison(true);return}
+    const contextualProducts=turn.reply.products.length?turn.reply.products:[...turns.slice(0,turns.indexOf(turn))].reverse().find(t=>t.reply.products.length)?.reply.products || []
+    if(label==='Compare top two'){setSelected(contextualProducts.slice(0,2));setShowComparison(true);return}
+    if(label==='Show specifications'){setSelected(contextualProducts.slice(0,4));setShowComparison(true);return}
     if(label==='Cheaper'){draft('Cheaper');return}
     if(label==='Remove price limit'){void search(turn.reply.searchState || turn.question,[...new Set([...(turn.removeFilters || []),'maxPrice'])]);return}
     if(label==='Lower my budget'){draft(turn.question.replace(/\b(?:under|below|up to)\s*(?:K|ZMW)?\s*[\d,]+/i,'')+' under K');return}
@@ -222,7 +223,7 @@ export default function ShoppingAssistantPage() {
           {photo && <p><img className="ai-upload-preview" src={photoPreview} alt="Attached product photo"/><button type="button" aria-label="Remove attached photo" onClick={()=>{setPhoto(null);setPhotoPreview('')}}><X size={16}/></button></p>}
           {voiceNotice && <div className="ai-source">Voice uses your browser’s speech service and may send audio to its provider. Review the transcript before sending.<button type="button" onClick={startVoice}>Start voice input</button><button type="button" onClick={()=>setVoiceNotice(false)}>Cancel</button></div>}
           <label htmlFor="shopping-question" className="sr-only">Ask for a product, budget or recommendation</label><textarea ref={input} id="shopping-question" maxLength={500} rows={2} value={message} onChange={e=>{setMessage(e.target.value)}} onFocus={()=>setFocused(true)} placeholder="Describe what you’re looking for…" disabled={busy || job==='track' || job==='return'}/>
-          <div className="ai-composer-actions"><div><input ref={upload} type="file" accept="image/*" className="sr-only" onChange={e=>{void attach(e.target.files?.[0]);e.target.value=''}}/><button type="button" aria-label="Attach product photo" disabled={busy || job==='track' || job==='return'} onClick={()=>upload.current?.click()}><Paperclip size={20}/></button><button type="button" aria-label={listening?'Stop voice input':'Use voice input'} aria-pressed={listening} disabled={busy || job==='track' || job==='return'} onClick={()=>listening?voice.current?.stop():setVoiceNotice(true)}><Mic size={22}/></button><button type="button" className="ai-mobile-memory" onClick={()=>setShowPrefs(v=>!v)}>Preferences</button></div><button type="submit" className="ai-send" disabled={busy || photoBusy || message.trim().length<3 || job==='track' || job==='return'}>{photoBusy?'Preparing…':'Send'} <Send size={16}/></button></div><small>Photos supported · Videos not supported. Review listings before buying.</small>
+          <div className="ai-composer-actions"><div><input ref={upload} type="file" accept="image/*" className="sr-only" onChange={e=>{void attach(e.target.files?.[0]);e.target.value=''}}/><button type="button" aria-label="Attach product photo" disabled={busy || job==='track' || job==='return'} onClick={()=>upload.current?.click()}><Paperclip size={20}/></button><button type="button" aria-label={listening?'Stop voice input':'Use voice input'} aria-pressed={listening} disabled={busy || job==='track' || job==='return'} onClick={()=>listening?voice.current?.stop():setVoiceNotice(true)}><Mic size={22}/></button><button type="button" className="ai-mobile-memory" onClick={()=>setShowPrefs(v=>!v)}>Preferences</button></div><button type="submit" className="ai-send" disabled={busy || photoBusy || (message.trim().length<3 && !isAssistantAcknowledgement(message.trim())) || job==='track' || job==='return'}>{photoBusy?'Preparing…':'Send'} <Send size={16}/></button></div><small>Photos supported · Videos not supported. Review listings before buying.</small>
         </form>
         <nav className="ai-bottom" aria-label="Mobile navigation"><button type="button" onClick={clearConversation}>New chat</button><button type="button" onClick={()=>setShowHistory(v=>!v)}>Chats</button><button type="button" onClick={()=>setCartReview(v=>!v)}>Cart</button><button type="button" onClick={()=>deleteChat(activeChat)}>Delete this chat</button></nav>
       </section>

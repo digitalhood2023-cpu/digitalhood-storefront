@@ -6,7 +6,7 @@ import ts from 'typescript';
 // compiler to load this standalone helper without relying on type stripping.
 const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const {normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
 test('rejects hostile links, invalid prices and duplicate results',()=>{
  const result=normalizeAssistantReply({answer:'hello',products:[product,product,{...product,id:2,url:'https://attacker.test/product/a'},{...product,id:3,price:-1},{...product,id:4,image:'javascript:alert(1)'}]});
@@ -87,3 +87,5 @@ test('concierge refinements never inherit product IDs and search state stays bou
 test('local task counters are bounded fields without chat contents and preserve previous counts',()=>{const counts=incrementConciergeMetric({searches:2},'refinements');assert.equal(counts.searches,2);assert.equal(counts.refinements,1);assert.equal(incrementConciergeMetric(counts,'cartAdds').cartAdds,1);assert.equal(Object.keys(counts).length,7)});
 
 test('catalogue corrections trigger fresh search instead of inheriting unrelated product IDs',()=>{assert.deepEqual(resolveAssistantContext('The site has wireless chargers',[],[],[21,22],[21]),[]);assert.deepEqual(resolveAssistantContext('Does it support wireless charging?',[],[],[21],[21]),[21])});
+
+test('standalone praise and emoji are conversational, product phrases remain searches',()=>{for(const text of ['Great 👍','cool','nice','👍','OK']){assert.equal(isAssistantAcknowledgement(text),true);assert.deepEqual(resolveAssistantContext(text,[1],[2],[1,2]),[])}assert.equal(isAssistantAcknowledgement('nice wireless charger'),false);assert.equal(isAssistantAcknowledgement('cooling fan'),false);const ack=normalizeAssistantReply({answer:'Glad that helped!',products:[],responseMode:'answer'});assert.equal(ack.responseMode,'answer')});
