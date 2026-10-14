@@ -10,7 +10,7 @@ import SEO from '@/components/SEO'
 import { fetchSearchSuggestions, fetchWooProductBySlug, searchProductsByImage, type SearchSuggestionProduct, type WooProduct } from '@/lib/woocommerce'
 import { prepareImageSearchFile, createImageSearchPreview, isVideoAttachment } from '@/lib/imageSearch'
 import { useCartStore } from '@/store/cartStore'
-import { normalizeAssistantReply, readAssistantResponse, resolveAssistantContext, isAssistantAcknowledgement, incrementConciergeMetric, type ConciergeMetrics, normalizeConversations, saveConversation, deleteConversation, type AssistantConversation, type ChatTurn, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
+import { normalizeAssistantReply, readAssistantResponse, isAssistantAcknowledgement, incrementConciergeMetric, type ConciergeMetrics, normalizeConversations, saveConversation, deleteConversation, type AssistantConversation, type ChatTurn, canConfirmAssistantCart, type AssistantProduct, type AssistantReply } from '@/lib/shoppingAssistant'
 import { ACCOUNT_STATE_CLEARED_EVENT } from '@/lib/marketplaceBrowserState'
 import './shopping-assistant.css'
 
@@ -128,7 +128,7 @@ export default function ShoppingAssistantPage() {
     const conversationTurns=editingIndex===null?turns:turns.slice(0,editingIndex)
     const question=text.trim();if(busy || photoBusy || (question.length<3 && !isAssistantAcknowledgement(question)) || question.length>500)return
     if(/\b(?:track (?:my |an? )?order|return (?:my |an? )?(?:order|item|product)|refund)\b/i.test(question)){setJob(/track/i.test(question)?'track':'return');setNotice('Use the secure order tools below. Your order details have not been sent to an AI model.');return}
-    const id=++requestId.current;const controller=new AbortController();active.current=controller;const timer=setTimeout(()=>controller.abort(),20000)
+    const id=++requestId.current;const controller=new AbortController();active.current=controller;const timer=setTimeout(()=>controller.abort(),35000)
     setBusy(true);setError('');setNotice('');setPreview('');setPendingQuestion(question);setSuggestions([]);setFocused(false)
     try {
       let reply:AssistantReply
@@ -136,7 +136,7 @@ export default function ShoppingAssistantPage() {
         const response=await searchProductsByImage(photo,question,controller.signal)
         reply=normalizeAssistantReply({answer:response.message || 'These are visual matches from the catalogue. Check the listing to confirm details.',aiUsed:false,products:response.suggestions.map(p=>({...p,price:Number(p.price),url:'https://store.digitalhood.info/product/'+encodeURIComponent(p.slug),stockStatus:p.stock_status,stockLabel:p.stock_label,canAddToCart:false,specifications:[]})),filters:[],followups:['Compare top two','Show specifications','Browse the shop']})
       }else{
-        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,previousSearch:[...conversationTurns].reverse().find(t=>t.reply.responseMode!=='answer')?.reply.searchState,productIds:resolveAssistantContext(question,contextIds,selected.map(p=>p.id),[...conversationTurns].reverse().find(t=>t.reply.responseMode!=='answer' && t.reply.products.length)?.reply.products.map(p=>p.id) || [],[...conversationTurns].reverse().find(t=>t.reply.products.length)?.reply.products.map(p=>p.id) || [],conversationTurns.flatMap(t=>t.reply.products))}),signal:controller.signal})
+        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,previousSearch:[...conversationTurns].reverse().find(t=>t.reply.responseMode!=='answer')?.reply.searchState,contextToken:conversationTurns.at(-1)?.reply.contextToken,productIds:(contextIds.length?contextIds:selected.map(p=>p.id)).slice(0,4)}),signal:controller.signal})
         if(!response.ok)throw new Error(response.status===429?'Please wait before searching again.':'Search is unavailable. Browse the shop or contact support.')
         reply=await readAssistantResponse(response,t=>{if(requestId.current===id)setPreview(t)})
       }

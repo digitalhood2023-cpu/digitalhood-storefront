@@ -89,3 +89,10 @@ test('local task counters are bounded fields without chat contents and preserve 
 test('catalogue corrections trigger fresh search instead of inheriting unrelated product IDs',()=>{assert.deepEqual(resolveAssistantContext('The site has wireless chargers',[],[],[21,22],[21]),[]);assert.deepEqual(resolveAssistantContext('Does it support wireless charging?',[],[],[21],[21]),[21])});
 
 test('standalone praise and emoji are conversational, product phrases remain searches',()=>{for(const text of ['Great 👍','cool','nice','👍','OK']){assert.equal(isAssistantAcknowledgement(text),true);assert.deepEqual(resolveAssistantContext(text,[1],[2],[1,2]),[])}assert.equal(isAssistantAcknowledgement('nice wireless charger'),false);assert.equal(isAssistantAcknowledgement('cooling fan'),false);const ack=normalizeAssistantReply({answer:'Glad that helped!',products:[],responseMode:'answer'});assert.equal(ack.responseMode,'answer')});
+test('opaque server context survives chat normalization and remains separate per conversation',()=>{
+ const token='a'.repeat(48);const reply=normalizeAssistantReply({answer:'Hello',products:[],contextToken:token,degraded:false,responseMode:'answer'});
+ assert.equal(reply.contextToken,token);
+ const chats=normalizeConversations([{id:'first',title:'One',updated:1,turns:[{id:1,question:'hello',reply}]},{id:'second',title:'Two',updated:2,turns:[{id:2,question:'hello',reply:{...reply,contextToken:'b'.repeat(48)}}]}]);
+ assert.equal(chats.find(c=>c.id==='first').turns[0].reply.contextToken,token);assert.notEqual(chats[0].turns[0].reply.contextToken,chats[1].turns[0].reply.contextToken);
+ assert.equal(normalizeAssistantReply({answer:'Retry',products:[],contextToken:'hostile data',degraded:true}).contextToken,undefined);
+});
