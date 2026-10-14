@@ -65,6 +65,7 @@ export function canConfirmAssistantCart(product: {id:number; price:number; type:
 }
 
 export function resolveAssistantContext(message:string,explicitIds:number[],selectedIds:number[],previousIds:number[],focusedIds:number[]=previousIds,knownProducts:{id:number;name:string}[]=[]):number[]{
+ if(/\b(?:site|marketplace|shop|store|catalogue)\b.*\b(?:has|have|does|lists?|sells?)\b/i.test(message) && /\b(?:chargers?|mice|mouse|laptops?|phones?|tablets?)\b/i.test(message))return []
  if(/^(?:cheaper|show cheaper|less expensive|more like this|same search|only |under |below |budget )/i.test(message))return []
  if(/^(?:hello|hi|hey|thanks|thank you)\b/i.test(message) || /^(?:find|search|i (?:want|need)|looking for)\b/i.test(message))return []
  if(/\b(?:show|display|list)\s+(?:me\s+)?(?:these|those|the|matching)?\s*(?:products|options|listings|items|again)\b/i.test(message))return previousIds.length<=4?previousIds:[]
