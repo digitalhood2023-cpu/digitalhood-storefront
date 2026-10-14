@@ -65,6 +65,7 @@ export function canConfirmAssistantCart(product: {id:number; price:number; type:
 }
 
 export function resolveAssistantContext(message:string,explicitIds:number[],selectedIds:number[],previousIds:number[],focusedIds:number[]=previousIds,knownProducts:{id:number;name:string}[]=[]):number[]{
+ if(isAssistantAcknowledgement(message))return []
  if(/\b(?:site|marketplace|shop|store|catalogue)\b.*\b(?:has|have|does|lists?|sells?)\b/i.test(message) && /\b(?:chargers?|mice|mouse|laptops?|phones?|tablets?)\b/i.test(message))return []
  if(/^(?:cheaper|show cheaper|less expensive|more like this|same search|only |under |below |budget )/i.test(message))return []
  if(/^(?:hello|hi|hey|thanks|thank you)\b/i.test(message) || /^(?:find|search|i (?:want|need)|looking for)\b/i.test(message))return []
@@ -112,3 +113,8 @@ export function deleteConversation(chats:AssistantConversation[],id:string){retu
 
 export type ConciergeMetrics={searches:number;refinements:number;cartAdds:number;escalations:number;completed:number;positive:number;negative:number}
 export function incrementConciergeMetric(current:Partial<ConciergeMetrics>,key:keyof ConciergeMetrics):ConciergeMetrics{if(!current || typeof current!=='object')current={};const result={searches:0,refinements:0,cartAdds:0,escalations:0,completed:0,positive:0,negative:0};for(const name of Object.keys(result) as (keyof ConciergeMetrics)[])result[name]=Number.isSafeInteger(current[name])&&Number(current[name])>=0?Number(current[name]):0;result[key]++;return result}
+
+export function isAssistantAcknowledgement(text:string){
+ const normalized=text.normalize('NFKC').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]/gu,'').replace(/[.!?,;:]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase()
+ return normalized ? /^(?:great|cool|nice|awesome|perfect|brilliant|excellent|lovely|sounds good|looks good|got it|okay|ok|alright|thanks|thank you)(?:\s+(?:mate|thanks|thank you|so much))?$/.test(normalized) : /(?:👍|👌|🙌|👏|🙏|😊|😁|😄|🙂|✅|❤)/u.test(text)
+}
