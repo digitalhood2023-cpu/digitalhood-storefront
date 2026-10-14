@@ -5,7 +5,7 @@ export type AssistantProduct = {
   whyPicked?:string; specifications: {label: string; value: string}[];
 }
 export type AssistantReply = {
-  searchState?:string; responseMode?: 'answer' | 'results'; answer: string; products: AssistantProduct[]; aiUsed: boolean; clarification?: boolean;
+  contextToken?:string; degraded?:boolean; searchState?:string; responseMode?: 'answer' | 'results'; answer: string; products: AssistantProduct[]; aiUsed: boolean; clarification?: boolean;
   filters: {key: string; value: string | number; label: string}[]; relaxedFilters: string[]; followups: string[];
 }
 export function safeProductImage(value: unknown) {
@@ -35,7 +35,7 @@ export function normalizeAssistantReply(body: unknown): AssistantReply {
     } catch { return [] }
   }).slice(0,12)
   const filters = Array.isArray(raw.filters) ? raw.filters.filter(f => f && ['brand','category','maxPrice'].includes(f.key) && typeof f.label === 'string').slice(0,3).map(f=>({key:f.key,value:typeof f.value === 'number' || typeof f.value === 'string' ? f.value : '',label:f.label.slice(0,100)})) : []
-  return {searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,1200), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
+  return {contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,1200), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
 }
 export async function readAssistantResponse(response: Response, onText: (text: string) => void) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) return normalizeAssistantReply(await response.json())
