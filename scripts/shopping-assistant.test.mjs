@@ -96,3 +96,10 @@ test('opaque server context survives chat normalization and remains separate per
  assert.equal(chats.find(c=>c.id==='first').turns[0].reply.contextToken,token);assert.notEqual(chats[0].turns[0].reply.contextToken,chats[1].turns[0].reply.contextToken);
  assert.equal(normalizeAssistantReply({answer:'Retry',products:[],contextToken:'hostile data',degraded:true}).contextToken,undefined);
 });
+test('multiline specification answers survive normalization, SSE and saved history without the old 1200-character cut',async()=>{
+ const answer='Published specifications:\n'+('Display: 27 inches; refresh rate: 144 Hz\n'.repeat(50));
+ const payload={answer,products:[product],responseMode:'answer',contextToken:'c'.repeat(48)};
+ assert.equal(normalizeAssistantReply(payload).answer,answer);
+ const streamed=await readAssistantResponse(new Response('event: text\ndata: '+JSON.stringify({text:answer})+'\n\nevent: result\ndata: '+JSON.stringify(payload)+'\n\n',{headers:{'Content-Type':'text/event-stream'}}),text=>assert.equal(text,answer));assert.equal(streamed.answer,answer);
+ const chats=normalizeConversations([{id:'specs',title:'Specs',updated:1,turns:[{id:1,question:'Their specs',reply:payload}]}]);assert.equal(chats[0].turns[0].reply.answer,answer);
+});
