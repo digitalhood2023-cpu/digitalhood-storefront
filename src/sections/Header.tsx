@@ -456,12 +456,13 @@ export default function Header() {
                 Deals
               </Link>
 
-              <a
-                href="https://seller.digitalhood.info"
+              <Link
+                to="/sell"
+                aria-label="Sell on DigitalHood"
                 className="hidden items-center rounded-full bg-dh-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ffb54a] hover:text-black 2xl:inline-flex"
               >
                 Sell
-              </a>
+              </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -940,9 +941,9 @@ export default function Header() {
                   <Headphones className="h-4 w-4" /> Support
                 </Link>
 
-                <a href="https://seller.digitalhood.info" className="flex items-center gap-2 rounded-xl bg-[#16145f] px-3 py-2.5 font-bold text-white transition hover:bg-[#26248c]">
-                  <Store className="h-4 w-4 text-[#ffb54a]" /> Sell with us
-                </a>
+                <Link to="/sell" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 rounded-xl bg-[#16145f] px-3 py-2.5 font-bold text-white transition hover:bg-[#26248c]">
+                  <Store className="h-4 w-4 text-[#ffb54a]" /> Sell on DigitalHood
+                </Link>
 
                 {isAuthenticated && (
                   <button

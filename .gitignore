@@ -1,6 +1,7 @@
 node_modules
 scripts/product-template-ui/
 scripts/product-editor-ui/
+scripts/sell-landing-ui/
 dist
 .env
 .env.*

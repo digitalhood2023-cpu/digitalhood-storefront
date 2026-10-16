@@ -69,6 +69,13 @@ jobs:
           curl -fsS http://127.0.0.1:3000/sitemap.xml > /tmp/sitemap.xml
           grep -F '<urlset' /tmp/sitemap.xml
           grep -F 'https://store.digitalhood.info/shop' /tmp/sitemap.xml
+          grep -F 'https://store.digitalhood.info/sell' /tmp/sitemap.xml
+
+          curl -fsS http://127.0.0.1:3000/sell > /tmp/sell.html
+          grep -F 'Sell on DigitalHood Zambia | Start Your Online Store' /tmp/sell.html
+          grep -F '<h1 id="sell-title">Sell on DigitalHood</h1>' /tmp/sell.html
+          grep -F 'https://seller.digitalhood.info/register' /tmp/sell.html
+          grep -F 'https://store.digitalhood.info/sell' /tmp/sell.html
 
           curl -fsSI http://127.0.0.1:3000/checkout > /tmp/checkout-headers.txt
           tr -d '\r' < /tmp/checkout-headers.txt | grep -Fi 'x-robots-tag: noindex, nofollow'

@@ -154,6 +154,7 @@ export default function Hero({
                 ))}
               </div>
             </nav>
+            <p className="dh-home-hero-copy mt-3 text-xs">Have a business? <Link to="/sell" className="dh-home-hero-link font-bold underline underline-offset-4">Sell on DigitalHood <span aria-hidden="true">→</span></Link></p>
           </div>
 
           <div className="relative mx-auto w-full max-w-2xl lg:mx-0">

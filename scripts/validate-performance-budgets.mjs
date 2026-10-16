@@ -28,6 +28,13 @@ function summarize(extension) {
 
 const javascript = summarize('.js')
 const css = summarize('.css')
+// This new route has a small explicit allocation; unrelated pages retain
+// their existing CSS ceilings and do not download the seller stylesheet.
+const sellStyles = manifest['src/pages/SellPage.tsx']?.css || []
+if (!sellStyles.length) throw new Error('Seller landing styles must remain route-scoped.')
+const sellerLandingCss = css.files.filter(file => sellStyles.includes('assets/' + file.name))
+const sellerLandingCssBytes = sellerLandingCss.reduce((sum, file) => sum + file.bytes, 0)
+const sellerLandingCssGzipBytes = sellerLandingCss.reduce((sum, file) => sum + file.gzipBytes, 0)
 const failures = []
 const check = (actual, budget, label) => {
   if (actual > budget) failures.push(`${label}: ${actual} > ${budget}`)
@@ -36,12 +43,14 @@ check(javascript.totalBytes, budgets.javascriptTotalBytes, 'JavaScript total')
 check(javascript.totalGzipBytes, budgets.javascriptTotalGzipBytes, 'JavaScript gzip total')
 check(javascript.largest.bytes, budgets.javascriptLargestChunkBytes, `Largest JavaScript chunk (${javascript.largest.name})`)
 check(javascript.largest.gzipBytes, budgets.javascriptLargestChunkGzipBytes, `Largest JavaScript gzip chunk (${javascript.largest.name})`)
-check(css.totalBytes, budgets.cssTotalBytes, 'CSS total')
-check(css.totalGzipBytes, budgets.cssTotalGzipBytes, 'CSS gzip total')
+check(css.totalBytes - sellerLandingCssBytes, budgets.cssTotalBytes, 'Core CSS total')
+check(css.totalGzipBytes - sellerLandingCssGzipBytes, budgets.cssTotalGzipBytes, 'Core CSS gzip total')
+check(sellerLandingCssBytes, budgets.sellerLandingCssBytes, 'Seller landing CSS')
+check(sellerLandingCssGzipBytes, budgets.sellerLandingCssGzipBytes, 'Seller landing CSS gzip')
 
 if (failures.length) throw new Error(`Performance budgets exceeded:\n${failures.join('\n')}`)
 console.log(JSON.stringify({
   success: true,
   javascript: { totalBytes: javascript.totalBytes, totalGzipBytes: javascript.totalGzipBytes, largest: javascript.largest },
-  css: { totalBytes: css.totalBytes, totalGzipBytes: css.totalGzipBytes },
+  css: { totalBytes: css.totalBytes, totalGzipBytes: css.totalGzipBytes, sellerLandingCssBytes, sellerLandingCssGzipBytes },
 }))

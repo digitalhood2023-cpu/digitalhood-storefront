@@ -45,14 +45,21 @@ jobs:
           set -euo pipefail
           node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4273 > "$RUNNER_TEMP/resolution-preview.log" 2>&1 &
           PREVIEW_PID=$!
-          trap 'kill "$PREVIEW_PID" 2>/dev/null || true' EXIT
+          PORT=4276 node server.js > "$RUNNER_TEMP/sell-static-preview.log" 2>&1 &
+          STATIC_PID=$!
+          trap 'kill "$PREVIEW_PID" "$STATIC_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:4273/ > /dev/null; then break; fi
+            sleep 1
+          done
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4276/sell > /dev/null; then break; fi
             sleep 1
           done
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-resolution-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-template-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variation-review-ui.cjs
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-sell-landing-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,4 +74,5 @@ jobs:
             scripts/product-template-ui/
             scripts/product-editor-ui/
             scripts/variation-review-ui/
+            scripts/sell-landing-ui/
           if-no-files-found: ignore

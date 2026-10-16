@@ -1,0 +1,68 @@
+/* Public seller recruitment: compact, adaptive, and usable before JS starts. */
+.dh-sell-page { color:var(--dh-ui-text); background:var(--dh-ui-page); }
+.dh-sell-wrap { width:100%; max-width:1180px; margin:0 auto; padding:14px 18px 28px; }
+.dh-sell-breadcrumb { display:flex; gap:9px; align-items:center; margin:0 0 14px; color:var(--dh-ui-text-muted); font-size:12px; }
+.dh-sell-breadcrumb a:hover { text-decoration:underline; }
+.dh-sell-hero { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(240px,.8fr); gap:28px; align-items:center; padding:22px 0; }
+.dh-sell-eyebrow { margin-bottom:9px; color:var(--dh-ui-text-muted); font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.dh-sell-page h1 { margin:0; font-size:clamp(28px,3.3vw,40px); line-height:1.1; font-weight:900; letter-spacing:-.035em; }
+.dh-sell-tagline { margin:12px 0 8px; font-size:17px; line-height:1.4; font-weight:750; }
+.dh-sell-copy { max-width:590px; color:var(--dh-ui-text-muted); font-size:14px; line-height:1.75; }
+.dh-sell-actions { display:flex; flex-wrap:wrap; gap:8px; margin:17px 0 9px; }
+.dh-sell-primary,.dh-sell-secondary { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:42px; padding:10px 18px; border:1px solid transparent; border-radius:999px; font-size:13px; font-weight:800; text-decoration:none; }
+.dh-sell-page .dh-sell-primary { background:#ffb54a; color:#171429; }
+.dh-sell-page .dh-sell-primary:hover { background:#ffd18e; }
+.dh-sell-page .dh-sell-secondary { background:var(--dh-ui-surface); color:var(--dh-ui-text); border-color:var(--dh-ui-border); }
+.dh-sell-note { max-width:550px; color:var(--dh-ui-text-subtle); font-size:11px; line-height:1.6; }
+.dh-sell-start,.dh-sell-card,.dh-sell-panel { border:1px solid var(--dh-ui-border); border-radius:16px; background:var(--dh-ui-surface); }
+.dh-sell-start { padding:20px; background:var(--dh-ui-surface-muted); }
+.dh-sell-page h2 { font-size:16px; line-height:1.4; font-weight:850; }
+.dh-sell-page h3 { font-size:13px; line-height:1.5; font-weight:800; }
+.dh-sell-start h2 { margin:9px 0 7px; }
+.dh-sell-start p,.dh-sell-card p,.dh-sell-panel p { color:var(--dh-ui-text-muted); font-size:13px; line-height:1.7; }
+.dh-sell-start a { display:inline-flex; gap:5px; align-items:center; margin-top:12px; font-size:12px; font-weight:750; text-decoration:underline; text-underline-offset:3px; }
+.dh-sell-accent { color:#8b5000; flex-shrink:0; }
+html[data-theme='dark'] .dh-sell-accent { color:#ffbf66; }
+.dh-sell-journey { display:flex; gap:9px; align-items:center; margin-top:14px; font-size:11px; font-weight:800; }
+.dh-sell-journey span { border-radius:7px; padding:5px 8px; border:1px solid var(--dh-ui-border); background:var(--dh-ui-surface); }
+.dh-sell-section { margin:16px 0; }
+.dh-sell-section-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px; margin:0 0 10px; }
+.dh-sell-section-heading>span { color:var(--dh-ui-text-muted); font-size:11px; }
+.dh-sell-benefits { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.dh-sell-card { padding:16px; }
+.dh-sell-card h3 { margin:8px 0 5px; }
+.dh-sell-details-grid { display:grid; grid-template-columns:1.1fr 1fr; gap:12px; margin:16px 0; }
+.dh-sell-panel { padding:18px; }
+.dh-sell-steps { list-style:none; display:grid; gap:14px; margin:16px 0 0; padding:0; }
+.dh-sell-steps li { display:flex; align-items:flex-start; gap:10px; }
+.dh-sell-step-number { flex-shrink:0; width:25px; height:25px; display:grid; place-items:center; background:var(--dh-ui-surface-muted); color:var(--dh-ui-text); border:1px solid var(--dh-ui-border); border-radius:8px; font-size:11px; font-weight:800; }
+.dh-sell-steps h3 { margin:0 0 2px; }
+.dh-sell-checklist { list-style:none; display:grid; gap:13px; padding:0; margin:17px 0; }
+.dh-sell-checklist li { display:flex; align-items:flex-start; gap:8px; color:var(--dh-ui-text-muted); font-size:13px; line-height:1.7; }
+.dh-sell-checklist svg { margin-top:3px; }
+.dh-sell-policy-links { display:flex; flex-wrap:wrap; gap:10px 16px; padding-top:12px; border-top:1px solid var(--dh-ui-border); font-size:12px; font-weight:750; }
+.dh-sell-policy-links a { text-decoration:underline; text-underline-offset:3px; }
+.dh-sell-faq details { border-top:1px solid var(--dh-ui-border); margin-top:12px; padding-top:12px; }
+.dh-sell-faq summary { cursor:pointer; display:flex; justify-content:space-between; gap:14px; align-items:center; list-style:none; font-size:13px; font-weight:750; }
+.dh-sell-faq summary::-webkit-details-marker { display:none; }
+.dh-sell-faq details[open] summary svg { transform:rotate(180deg); }
+.dh-sell-faq p { max-width:850px; margin-top:9px; }
+.dh-sell-finish { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:20px 0 0; }
+.dh-sell-finish p { color:var(--dh-ui-text-muted); font-size:13px; margin-top:5px; }
+.dh-sell-finish>a { flex-shrink:0; }
+.dh-sell-wrap a:focus-visible,.dh-sell-wrap summary:focus-visible { outline:3px solid #c27b00; outline-offset:3px; }
+html[data-theme='dark'] .dh-sell-wrap a:focus-visible,html[data-theme='dark'] .dh-sell-wrap summary:focus-visible { outline-color:#ffd18e; }
+.dh-sell-static-header { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:16px max(18px,calc((100vw - 1144px)/2)); border-bottom:1px solid var(--dh-ui-border); background:var(--dh-ui-surface); font-weight:800; font-size:14px; }
+.dh-sell-static-header a { display:inline-flex; align-items:center; gap:8px; }
+.dh-sell-static-header img { border-radius:50%; }
+@media(max-width:760px) {
+  .dh-sell-hero { grid-template-columns:1fr; gap:16px; padding:12px 0; }
+  .dh-sell-start { padding:15px; }
+  .dh-sell-start>svg { display:none; }
+  .dh-sell-start h2 { margin-top:0; }
+  .dh-sell-benefits { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dh-sell-details-grid { grid-template-columns:1fr; }
+  .dh-sell-card { padding:13px; }
+  .dh-sell-finish { flex-wrap:wrap; }
+  .dh-sell-wrap { padding:12px 14px 24px; }
+}
