@@ -16,6 +16,7 @@ import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 import { RouteLoading } from '@/components/StartupBoundary'
 
 const Home = lazy(() => import('@/pages/Home'))
+const SellPage = lazy(() => import('@/pages/SellPage'))
 const ShoppingAssistantPage = lazy(() => import('@/pages/ShoppingAssistantPage'))
 const ShopPage = lazy(() => import('@/pages/ShopPage'))
 const VisualSearchResultsPage = lazy(() => import('@/pages/VisualSearchResultsPage'))
@@ -198,6 +199,7 @@ function App() {
                 <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<ShopPage />} />
+                <Route path="/sell" element={<SellPage />} />
                 <Route path="/assistant" element={<ShoppingAssistantPage />} />
                 <Route path="/search" element={<ShopPage />} />
                 <Route path="/visual-search/:searchId" element={<VisualSearchResultsPage />} />

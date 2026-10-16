@@ -12,6 +12,7 @@ import {
   buildWebsiteSchema,
 } from '@/lib/structuredData'
 import { SITE, type SeoConfig } from '@/lib/site'
+import sellContent from '../../config/sell-page.json'
 
 const API_BASE_URL =
   import.meta.env.VITE_PAYMENTS_API_URL || 'https://payments.digitalhood.info'
@@ -22,6 +23,13 @@ type StaticRoute = SeoConfig & {
 }
 
 const STATIC_ROUTES: Record<string, StaticRoute> = {
+  '/sell': {
+    heading: sellContent.heading,
+    title: sellContent.title,
+    description: sellContent.description,
+    path: sellContent.path,
+    schemaType: 'WebPage',
+  },
   '/assistant': {
     heading: 'Shopping assistant',
     title: 'Shopping assistant',

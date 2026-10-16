@@ -33,7 +33,7 @@ const supportLinks = [
 const companyLinks = [
   { name: 'About', href: '/about' },
   { name: 'Contact', href: '/contact' },
-  { name: 'Sell on DigitalHood', href: 'https://seller.digitalhood.info', external: true },
+  { name: 'Sell on DigitalHood', href: '/sell' },
   { name: 'Marketplace Terms', href: '/marketplace-terms' },
   { name: 'Seller Terms', href: '/seller-terms' },
   { name: 'Prohibited Products', href: '/prohibited-products' },

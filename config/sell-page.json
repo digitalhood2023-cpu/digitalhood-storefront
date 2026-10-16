@@ -1,0 +1,35 @@
+{
+  "path": "/sell",
+  "title": "Sell on DigitalHood Zambia | Start Your Online Store",
+  "description": "Sell on DigitalHood Marketplace in Zambia. Apply as an individual or business, build your storefront and manage products, orders and customers in Seller Center.",
+  "heading": "Sell on DigitalHood",
+  "eyebrow": "For Zambia. For local business.",
+  "tagline": "Your products. Your store. More possibilities.",
+  "intro": "Bring your business online with a storefront of your own, marketplace discovery and practical tools for your everyday selling. Built for sellers and shoppers in Zambia.",
+  "registerUrl": "https://seller.digitalhood.info/register",
+  "loginUrl": "https://seller.digitalhood.info/login",
+  "benefits": [
+    {"title": "A store you can share", "text": "Bring your brand, organise your own categories and share your approved store’s personal DigitalHood address."},
+    {"title": "One seller workspace", "text": "Manage product photos, specifications, variations, prices, stock and orders from Seller Center."},
+    {"title": "Checkout, connected", "text": "Let buyers use DigitalHood’s managed checkout with supported card and mobile-money payment methods."},
+    {"title": "Real customer connections", "text": "Answer buyer messages, follow order issues and build your reputation through verified purchase feedback."}
+  ],
+  "steps": [
+    {"title": "Create your account", "text": "Register or sign in, then choose an individual or business seller application."},
+    {"title": "Complete your application", "text": "Add your store information and the verification details requested for your account type."},
+    {"title": "Prepare your listings", "text": "After seller approval, add accurate photos, specifications, prices and available stock for review."},
+    {"title": "Start serving buyers", "text": "Approved products can go live. Keep stock current, respond to buyers and fulfil your orders."}
+  ],
+  "requirements": [
+    "Accurate contact, identity and business information where requested.",
+    "Products you are entitled to sell and can fulfil in Zambia.",
+    "Clear photos, honest descriptions, correct prices and stock quantities.",
+    "A plan for delivery, customer questions and after-sales responsibilities."
+  ],
+  "faqs": [
+    {"question": "Do I need a registered company to apply?", "answer": "Individual and business applications are available. Choose the account type that matches you and provide the verification information requested during your application."},
+    {"question": "What does it cost, and how are settlements handled?", "answer": "Applicable fees, commission and settlement schedules are confirmed in your seller agreement. Contact seller support for current arrangements before you start selling."},
+    {"question": "Will my store and products appear immediately?", "answer": "Seller applications and product listings must pass review and follow marketplace policies before they go live. Complete your application accurately and respond to any requests for more information."},
+    {"question": "Can I share my store outside the marketplace?", "answer": "Yes. Approved stores can share their assigned DigitalHood storefront address with customers. Accounts, messaging and checkout remain managed by DigitalHood."}
+  ]
+}

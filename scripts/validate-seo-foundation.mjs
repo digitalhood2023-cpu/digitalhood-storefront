@@ -51,8 +51,18 @@ for (const privatePath of ['/cart', '/checkout', '/wishlist', '/account', '/orde
   assert(!sitemap.includes(`${privatePath}</loc>`), `${privatePath} must not appear in sitemap`)
 }
 
-for (const publicPath of ['/shop', '/categories', '/about', '/contact', '/privacy']) {
+for (const publicPath of ['/shop', '/sell', '/categories', '/about', '/contact', '/privacy']) {
   assert(sitemap.includes(`${publicPath}</loc>`), `${publicPath} is missing from sitemap`)
+}
+
+assert(app.includes('path="/sell"'), 'public seller recruitment route must be registered')
+assert(marketplaceSeo.includes("'/sell'"), 'client SEO must include the seller landing page')
+assert(serverSeo.includes('buildSellPageSeo()'), 'server SEO must identify the seller landing page')
+assert(server.includes('injectSellLandingContent(html,'), 'seller recruitment copy must be readable before JavaScript')
+for (const file of ['src/sections/Header.tsx', 'src/sections/Hero.tsx', 'src/sections/Footer.tsx']) {
+  const contents = read(file)
+  assert(contents.includes('/sell'), file + ' must link to the public seller landing page')
+  assert(!contents.includes('href="https://seller.digitalhood.info"'), file + ' must not bypass the public page')
 }
 
 console.log('SEO foundation validation passed')

@@ -1,4 +1,5 @@
 import express from 'express';
+import { getSellLandingStyles, injectSellLandingContent } from './server/sellLandingPage.js';
 import { installLiteStorefront } from './server/liteStorefront.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import fs from 'fs/promises';
@@ -504,6 +505,7 @@ app.use(async (req, res) => {
 
     const seo = await buildServerSeo(req.path);
     let html = injectSeo(await getIndexHtml(distDir), seo);
+    if (seo.path === '/sell') html = injectSellLandingContent(html, await getSellLandingStyles(distDir));
 
     if (req.path === '/') {
       html = await injectHomePreload(html);
