@@ -23,6 +23,8 @@ export function hasMarketplaceAnalyticsConsent() {
 export function setMarketplaceAnalyticsConsent(granted: boolean) {
   localStorage.setItem(CONSENT_KEY, granted ? 'granted' : 'denied')
   if (!granted) sessionStorage.removeItem(SESSION_KEY)
+  const google = window as Window & { gtag?: (...args: unknown[]) => void }
+  google.gtag?.('consent', 'update', { analytics_storage: granted ? 'granted' : 'denied' })
 }
 
 export async function emitMarketplaceEvent(event: MarketplaceEvent) {
