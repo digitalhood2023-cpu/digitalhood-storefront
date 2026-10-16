@@ -80,6 +80,12 @@ test('loads every declared Store API page', async () => {
   const requestedPages = []
   const fakeFetch = async (input) => {
     const url = new URL(input)
+    assert.equal(url.searchParams.get('per_page'), '50')
+    assert.equal(url.searchParams.get('orderby'), 'id')
+    assert.equal(url.searchParams.get('order'), 'asc')
+    assert.equal(url.searchParams.get('stock_status'), 'instock')
+    assert.ok(url.searchParams.get('_fields').split(',').includes('is_password_protected'))
+    assert.ok(url.searchParams.get('_fields').split(',').includes('prices'))
     const page = Number(url.searchParams.get('page'))
     requestedPages.push(page)
 
@@ -96,6 +102,101 @@ test('loads every declared Store API page', async () => {
   const products = await fetchLiveMerchantProducts({ fetchImpl: fakeFetch })
   assert.deepEqual(requestedPages.sort(), [1, 2, 3])
   assert.deepEqual(products.map((item) => item.id), [1, 2, 3])
+})
+
+test('retries a transient upstream error once without publishing a partial feed', async () => {
+  let calls = 0
+  let cancelled = false
+  const products = await fetchLiveMerchantProducts({
+    fetchImpl: async () => {
+      calls += 1
+      if (calls === 1) {
+        return { ok: false, status: 503, body: { async cancel() { cancelled = true } } }
+      }
+      return new Response(JSON.stringify([product()]), {
+        headers: { 'x-wp-totalpages': '1', 'x-wp-total': '1' },
+      })
+    },
+  })
+  assert.equal(calls, 2)
+  assert.equal(cancelled, true)
+  assert.equal(products.length, 1)
+})
+
+test('does not retry authentication, rate limit, or permanent upstream failures', async () => {
+  for (const status of [400, 401, 403, 404, 429]) {
+    let calls = 0
+    await assert.rejects(fetchLiveMerchantProducts({
+      fetchImpl: async () => {
+        calls += 1
+        return new Response('', { status })
+      },
+    }), new RegExp(`HTTP ${status}`))
+    assert.equal(calls, 1)
+  }
+  let calls = 0
+  await assert.rejects(fetchLiveMerchantProducts({
+    fetchImpl: async () => { calls += 1; return new Response('', { status: 500 }) },
+  }), /HTTP 500/)
+  assert.equal(calls, 2)
+})
+
+test('retries a network failure but obeys the shared cancellation deadline', async () => {
+  let calls = 0
+  await fetchLiveMerchantProducts({
+    fetchImpl: async () => {
+      calls += 1
+      if (calls === 1) throw new TypeError('fetch failed')
+      return new Response(JSON.stringify([product()]))
+    },
+  })
+  assert.equal(calls, 2)
+  let abortCalls = 0
+  await assert.rejects(fetchLiveMerchantProducts({
+    timeoutMs: 5,
+    fetchImpl: async (_url, { signal }) => {
+      abortCalls += 1
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      })
+    },
+  }), /abort/i)
+  assert.equal(abortCalls, 1)
+})
+
+test('limits concurrent upstream requests to two', async () => {
+  let active = 0
+  let maximum = 0
+  const items = await fetchLiveMerchantProducts({
+    fetchImpl: async (input) => {
+      active += 1
+      maximum = Math.max(maximum, active)
+      const page = Number(new URL(input).searchParams.get('page'))
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      active -= 1
+      return new Response(JSON.stringify([product({ id: page })]), {
+        headers: { 'x-wp-totalpages': '6', 'x-wp-total': '6' },
+      })
+    },
+  })
+  assert.equal(items.length, 6)
+  assert.equal(maximum, 2)
+})
+
+test('rejects duplicate IDs and a catalogue that changes during pagination', async () => {
+  await assert.rejects(fetchLiveMerchantProducts({
+    fetchImpl: async () => new Response(JSON.stringify([product()]), {
+      headers: { 'x-wp-totalpages': '2', 'x-wp-total': '2' },
+    }),
+  }), /duplicate product IDs/)
+  await assert.rejects(fetchLiveMerchantProducts({
+    fetchImpl: async (input) => {
+      const page = Number(new URL(input).searchParams.get('page'))
+      return new Response(JSON.stringify([product({ id: page })]), {
+        headers: { 'x-wp-totalpages': '2', 'x-wp-total': String(page === 1 ? 2 : 3) },
+      })
+    },
+  }), /changed during pagination/)
 })
 
 test('rejects an incomplete paginated catalogue', async () => {
