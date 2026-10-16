@@ -1,11 +1,24 @@
 import { createHash } from 'node:crypto'
+import { setTimeout as delay } from 'node:timers/promises'
 
 const GOOGLE_NAMESPACE = 'http://base.google.com/ns/1.0'
 const DEFAULT_MARKETPLACE_ORIGIN = 'https://store.digitalhood.info'
 const DEFAULT_SOURCE_URL =
   'https://digitalhood.info/wp-json/wc/store/v1/products'
-const DEFAULT_PAGE_SIZE = 100
-const MAX_SOURCE_PAGES = 20
+// Large Store API pages can exhaust the upstream PHP worker on rich catalogues.
+// Keep each request small and preserve the existing 2,000-product safety bound.
+const DEFAULT_PAGE_SIZE = 50
+const MAX_SOURCE_PAGES = 40
+const SOURCE_CONCURRENCY = 2
+const SOURCE_FIELDS = [
+  'id', 'name', 'title', 'slug', 'status', 'prices', 'price', 'currency',
+  'images', 'image', 'description', 'short_description', 'descriptionHtml',
+  'shortDescription', 'categories', 'attributes', 'specifications', 'brand',
+  'brands', 'condition', 'item_condition', 'product_condition', 'gtin',
+  'global_unique_id', 'upc', 'ean', 'isbn', 'mpn', 'manufacturer_part_number',
+  'manufacturer_product_number', 'identifier_exists', 'is_in_stock',
+  'stock_status', 'is_purchasable', 'purchasable', 'is_password_protected',
+].join(',')
 const MAX_ADDITIONAL_IMAGES = 10
 const GOOGLE_TITLE_LIMIT = 150
 const GOOGLE_DESCRIPTION_LIMIT = 5000
@@ -521,15 +534,37 @@ async function fetchProductPage(fetchImpl, sourceUrl, page, signal) {
   url.searchParams.set('per_page', String(DEFAULT_PAGE_SIZE))
   url.searchParams.set('page', String(page))
   url.searchParams.set('stock_status', 'instock')
+  url.searchParams.set('orderby', 'id')
+  url.searchParams.set('order', 'asc')
+  url.searchParams.set('_fields', SOURCE_FIELDS)
 
-  const response = await fetchImpl(url, {
-    signal,
-    cache: 'no-store',
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'DigitalHood-Google-Merchant-Feed/1.0',
-    },
-  })
+  let response
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      response = await fetchImpl(url, {
+        signal,
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'DigitalHood-Google-Merchant-Feed/1.1',
+        },
+      })
+    } catch (error) {
+      if (attempt === 0 && !signal.aborted) {
+        await delay(250, undefined, { signal })
+        continue
+      }
+      throw error
+    }
+    // Never retry auth, validation or rate-limit failures. One bounded retry
+    // handles transient upstream 5xx responses within the shared deadline.
+    if (attempt === 0 && response.status >= 500 && response.status <= 599) {
+      await response.body?.cancel()
+      await delay(250, undefined, { signal })
+      continue
+    }
+    break
+  }
 
   if (!response.ok) {
     throw new Error(`Merchant feed source returned HTTP ${response.status}.`)
@@ -576,9 +611,9 @@ export async function fetchLiveMerchantProducts({
     )
     const products = [...firstPage.products]
 
-    for (let page = 2; page <= firstPage.totalPages; page += 4) {
+    for (let page = 2; page <= firstPage.totalPages; page += SOURCE_CONCURRENCY) {
       const pageNumbers = Array.from(
-        { length: Math.min(4, firstPage.totalPages - page + 1) },
+        { length: Math.min(SOURCE_CONCURRENCY, firstPage.totalPages - page + 1) },
         (_value, index) => page + index
       )
       const pages = await Promise.all(
@@ -586,18 +621,31 @@ export async function fetchLiveMerchantProducts({
           fetchProductPage(fetchImpl, sourceUrl, pageNumber, controller.signal)
         )
       )
-      for (const result of pages) products.push(...result.products)
+      for (const result of pages) {
+        if (
+          result.totalPages !== firstPage.totalPages ||
+          result.totalProducts !== firstPage.totalProducts
+        ) {
+          throw new Error('Merchant feed catalogue changed during pagination. Retry the complete snapshot.')
+        }
+        products.push(...result.products)
+      }
     }
 
+    const uniqueIds = new Set(products.map((product) => String(product?.id || '')))
+    if (uniqueIds.has('') || uniqueIds.size !== products.length) {
+      throw new Error('Merchant feed source returned missing or duplicate product IDs.')
+    }
     if (
       firstPage.totalProducts !== null &&
-      products.length < firstPage.totalProducts
+      products.length !== firstPage.totalProducts
     ) {
       throw new Error('Merchant feed source returned an incomplete catalogue.')
     }
 
     return products
   } finally {
+    controller.abort()
     clearTimeout(timeout)
   }
 }
