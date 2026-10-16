@@ -2,6 +2,56 @@
 <html lang="en-ZM">
   <head>
     <meta charset="UTF-8" />
+    <!-- One Google tag, two destinations. No customer data or purchase events are supplied here. -->
+    <script id="digitalhood-google-tag">
+(function () {
+  if (window.location.hostname !== 'store.digitalhood.info') return;
+  var loaded = false;
+  var analyticsConsent = 'denied';
+  try { if (window.localStorage.getItem('digitalhood_analytics_consent_v1') === 'granted') analyticsConsent = 'granted'; } catch (error) {}
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+  window.gtag('consent', 'default', {
+    ad_storage: 'denied', analytics_storage: analyticsConsent,
+    ad_user_data: 'denied', ad_personalization: 'denied'
+  });
+  window.gtag('set', 'ads_data_redaction', true);
+  window.gtag('set', 'url_passthrough', false);
+  // Never pass query strings, fragments, account/order URLs or referrers to these destinations.
+  // Unknown/new routes fail closed instead of accidentally measuring a private workflow.
+  var privatePage = !/^(\/|\/(shop|search|categories|shops|about|privacy|cookies|terms|shipping|returns|warranty)\/?|\/(product|category|collections|seller|stores|visual-search)\/[^/]+\/?|\/(phone-accessories-zambia|iphone-zambia|samsung-phones-zambia|laptops-zambia|headphones-zambia|power-banks-zambia|screen-repair-zambia|buy-iphone-zambia|buy-samsung-zambia|buy-laptop-zambia|phone-repair-lusaka)\/?)$/i.test(window.location.pathname);
+  window.gtag('set', {
+    page_location: 'https://store.digitalhood.info' + (privatePage ? '/' : window.location.pathname),
+    page_referrer: '', page_title: 'DigitalHood Marketplace'
+  });
+  window.gtag('js', new Date());
+  window.gtag('config', 'G-XG41R92KG2', {
+    send_page_view: !privatePage, allow_google_signals: false, allow_ad_personalization_signals: false
+  });
+  window.gtag('config', 'AW-18470467311', { allow_enhanced_conversions: false });
+  window.addEventListener('storage', function (event) {
+    if (event.key === 'digitalhood_analytics_consent_v1' || event.key === null) {
+      var consent = event.key !== null && event.newValue === 'granted' ? 'granted' : 'denied';
+      window.gtag('consent', 'update', { analytics_storage: consent });
+    }
+  });
+  window.__digitalhoodLoadGoogleTag = function () {
+    if (loaded || privatePage) return;
+    var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    try { if (window.localStorage.getItem('digitalhood_data_saver') === 'on') return; } catch (error) {}
+    if (connection && (connection.saveData || /^(slow-2g|2g)$/.test(connection.effectiveType || ''))) return;
+    loaded = true;
+    if (document.querySelector('script[src^="https://www.googletagmanager.com/gtag/js"]')) return;
+    var script = document.createElement('script');
+    script.id = 'digitalhood-google-tag-loader';
+    script.async = true;
+    script.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18470467311';
+    script.setAttribute('fetchpriority', 'low');
+    script.onerror = function () { /* Measurement must never interrupt shopping or payment. */ };
+    document.head.appendChild(script);
+  };
+}());
+    </script>
     <meta name="google-site-verification" content="-zADrHYgCqjgzucFzdZdQNyfHPwcCJ7MsdfcQoSDEXg" />
     <meta name="google-site-verification" content="FxG3Rm5KEN3qEb04s_eIw8L2vmCvrnGp5-NtSiQM11I" />
     <meta name="color-scheme" content="light dark" />
@@ -174,11 +224,6 @@
   }
   function optionalIntegrations() {
     if (lowData()) return;
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
-    window.gtag('js', new Date());
-    window.gtag('config', 'G-XG41R92KG2');
-    addScript('https://www.googletagmanager.com/gtag/js?id=G-XG41R92KG2');
     addScript('https://www.gstatic.com/shopping/merchant/merchantwidget.js', function () {
       try {
         if (window.merchantwidget && window.merchantwidget.start) window.merchantwidget.start({ merchant_id: 5857752325, position: 'RIGHT_BOTTOM' });
@@ -194,6 +239,10 @@
     var shell = document.getElementById('dh-app-shell');
     if (startup && startup.parentNode) startup.parentNode.removeChild(startup);
     if (shell && shell.parentNode) shell.parentNode.removeChild(shell);
+    // Start the single asynchronous tag soon after React is ready, not after the six-second widget delay.
+    window.setTimeout(function () {
+      if (window.__digitalhoodLoadGoogleTag) window.__digitalhoodLoadGoogleTag();
+    }, 1000);
     // Give the route and initial product request a head start; skip optional downloads on low-data connections.
     window.setTimeout(optionalIntegrations, 6000);
   };

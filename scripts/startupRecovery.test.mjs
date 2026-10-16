@@ -9,9 +9,10 @@ const ts = require('typescript');
 const index = fs.readFileSync('index.html', 'utf8');
 const boot = index.match(/<script id="digitalhood-bootstrap">([\s\S]*?)<\/script>/)?.[1];
 const theme = index.match(/<script id="digitalhood-theme">([\s\S]*?)<\/script>/)?.[1];
-assert.ok(boot && theme, 'Both independently executable recovery scripts must exist');
+const google = index.match(/<script id="digitalhood-google-tag">([\s\S]*?)<\/script>/)?.[1];
+assert.ok(boot && theme && google, 'Independently executable startup and Google tag scripts must exist');
 
-function browser({ legacy = false, storageBlocked = false, connectionType = '', pathname = '/' } = {}) {
+function browser({ legacy = false, storageBlocked = false, connectionType = '', pathname = '/', hostname = 'store.digitalhood.info', analyticsConsent = '', dataSaver = false, saveData = false, existingGoogleTag = false } = {}) {
   const scheduled = [];
   const listeners = {};
   const appended = [];
@@ -40,17 +41,18 @@ function browser({ legacy = false, storageBlocked = false, connectionType = '', 
     createElement(tag) { return { tagName: tag.toUpperCase(), ...(legacy ? {} : { noModule: false }), setAttribute() {} }; },
     createTextNode(text) { return { text }; },
     getElementById(id) { return id === 'dh-startup' ? startup : id === 'dh-app-shell' ? shell : id === 'dh-startup-status' ? status : null; },
+    querySelector() { return existingGoogleTag ? { src: 'https://www.googletagmanager.com/gtag/js?id=G-XG41R92KG2' } : null; },
   };
   const window = {
     document,
     Promise, fetch() {}, AbortController,
-    localStorage: { getItem() { if (storageBlocked) throw new Error('Storage denied'); return null; } },
+    localStorage: { getItem(key) { if (storageBlocked) throw new Error('Storage denied'); return key === 'digitalhood_analytics_consent_v1' ? analyticsConsent : key === 'digitalhood_data_saver' && dataSaver ? 'on' : null; } },
     setTimeout(fn, ms) { scheduled.push({ fn, ms, cancelled: false }); return scheduled.length; },
     clearTimeout(id) { if (scheduled[id - 1]) scheduled[id - 1].cancelled = true; },
     addEventListener(type, fn) { listeners[type] = fn; },
-    location: { pathname, replace(url) { state.redirect = url; } },
+    location: { hostname, pathname, search: '?email=private@example.invalid&token=secret', hash: '#private', replace(url) { state.redirect = url; } },
   };
-  const context = vm.createContext({ window, document, navigator: { connection: connectionType ? { effectiveType: connectionType } : undefined } });
+  const context = vm.createContext({ window, document, navigator: { connection: { effectiveType: connectionType, saveData } } });
   return { context, state, window, scheduled, listeners, appended };
 }
 
@@ -106,7 +108,7 @@ test('a normal 3g estimate does not force low-data mode', () => {
   vm.runInContext(boot, b.context);
   b.window.__digitalhoodBootReady();
   b.scheduled.find((item) => item.ms === 6000).fn();
-  assert.equal(b.appended.length, 3);
+  assert.equal(b.appended.length, 2);
 });
 
 test('healthy connections load optional integrations only after startup', () => {
@@ -115,7 +117,7 @@ test('healthy connections load optional integrations only after startup', () => 
   assert.equal(b.appended.length, 0);
   b.window.__digitalhoodBootReady();
   b.scheduled.find((item) => item.ms === 6000).fn();
-  assert.equal(b.appended.length, 3);
+  assert.equal(b.appended.length, 2);
 });
 
 test('a non-module browser is sent to real HTML for public browsing, never payment or account pages', () => {
@@ -143,7 +145,7 @@ test('browser recovery scripts contain no modern syntax in their TypeScript pars
     ts.SyntaxKind.ArrowFunction, ts.SyntaxKind.ClassDeclaration, ts.SyntaxKind.TemplateExpression,
     ts.SyntaxKind.NoSubstitutionTemplateLiteral, ts.SyntaxKind.AwaitExpression, ts.SyntaxKind.SpreadElement,
   ]);
-  for (const code of [boot, theme]) {
+  for (const code of [boot, theme, google]) {
     const source = ts.createSourceFile('boot.js', code, ts.ScriptTarget.ES5, true, ts.ScriptKind.JS);
     assert.equal(source.parseDiagnostics.length, 0);
     function visit(node) {
@@ -154,6 +156,94 @@ test('browser recovery scripts contain no modern syntax in their TypeScript pars
     }
     visit(source);
   }
+});
+
+test('Google Ads and GA4 share one deferred loader, initialized after consent defaults', () => {
+  const b = browser();
+  vm.runInContext(google, b.context);
+  const commands = b.window.dataLayer.map(args => Array.from(args));
+  assert.deepEqual(commands[0].slice(0, 2), ['consent', 'default']);
+  assert.equal(commands[0][2].ad_storage, 'denied');
+  assert.equal(commands[0][2].analytics_storage, 'denied');
+  assert.equal(commands[0][2].ad_user_data, 'denied');
+  assert.equal(commands[0][2].ad_personalization, 'denied');
+  assert.equal(commands.filter(args => args[0] === 'config' && args[1] === 'AW-18470467311').length, 1);
+  assert.equal(commands.filter(args => args[0] === 'config' && args[1] === 'G-XG41R92KG2').length, 1);
+  assert.equal(commands.find(args => args[1] === 'AW-18470467311')[2].allow_enhanced_conversions, false);
+  assert.equal(b.appended.length, 0, 'tag must not compete with initial app startup');
+  vm.runInContext(boot, b.context);
+  b.window.__digitalhoodBootReady();
+  b.scheduled.find(item => item.ms === 1000).fn();
+  b.window.__digitalhoodLoadGoogleTag();
+  assert.equal(b.appended.length, 1, 'repeated readiness or loader calls cannot duplicate the Google tag');
+  assert.equal(b.appended[0].src, 'https://www.googletagmanager.com/gtag/js?id=AW-18470467311');
+  assert.equal(b.appended[0].async, true);
+  assert.doesNotThrow(() => b.appended[0].onerror());
+  assert.equal(commands.filter(args => args[0] === 'event').length, 0, 'no fabricated purchase conversion');
+});
+
+test('Google tag preserves low-data startup, private routes and seller-domain boundaries', () => {
+  for (const options of [
+    { connectionType: '2g' }, { connectionType: 'slow-2g' }, { dataSaver: true }, { saveData: true },
+    { hostname: 'digitalhood.store.digitalhood.info' }, { hostname: 'localhost' },
+    ...['/checkout', '/orders/123/pay', '/track-order/123', '/account/messages/private', '/Account', '/reset-password', '/assistant', '/new-private-route'].map(pathname => ({ pathname })),
+    { existingGoogleTag: true },
+  ]) {
+    const b = browser(options);
+    vm.runInContext(google, b.context);
+    b.window.__digitalhoodLoadGoogleTag?.();
+    assert.equal(b.appended.length, 0, JSON.stringify(options));
+  }
+  for (const pathname of ['/', '/shop', '/search', '/product/29224', '/category/phones', '/seller/digitalhood', '/visual-search/public-id']) {
+    const b = browser({ pathname, storageBlocked: true });
+    vm.runInContext(google, b.context);
+    b.window.__digitalhoodLoadGoogleTag();
+    assert.equal(b.appended.length, 1, pathname);
+    const commands = JSON.stringify(b.window.dataLayer.map(args => Array.from(args)));
+    assert.ok(!commands.includes('private@example.invalid') && !commands.includes('secret') && !commands.includes('#private'));
+  }
+});
+
+test('existing analytics consent never opts a visitor into advertising and revocation updates the tag', () => {
+  const b = browser({ analyticsConsent: 'granted' });
+  vm.runInContext(google, b.context);
+  assert.equal(b.window.dataLayer[0][2].analytics_storage, 'granted');
+  assert.equal(b.window.dataLayer[0][2].ad_storage, 'denied');
+  b.listeners.storage({ key: 'digitalhood_analytics_consent_v1', newValue: 'denied' });
+  assert.equal(b.window.dataLayer.at(-1)[2].analytics_storage, 'denied');
+  b.listeners.storage({ key: null });
+  assert.equal(b.window.dataLayer.at(-1)[2].analytics_storage, 'denied');
+  b.listeners.storage({ key: 'digitalhood_analytics_consent_v1', newValue: 'granted' });
+  assert.equal(b.window.dataLayer.at(-1)[2].analytics_storage, 'granted');
+});
+
+test('same-page analytics preference changes update Google consent without enabling advertising', () => {
+  const calls = [], stored = new Map(), removed = [];
+  const sandbox = {
+    exports: {}, localStorage: { setItem(key, value) { stored.set(key, value); } },
+    sessionStorage: { removeItem(key) { removed.push(key); } },
+    window: { gtag(...args) { calls.push(args); } },
+  };
+  const source = fs.readFileSync('src/lib/marketplaceAnalytics.ts', 'utf8');
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  vm.runInNewContext(code, sandbox);
+  for (const granted of [true, false]) {
+    sandbox.exports.setMarketplaceAnalyticsConsent(granted);
+    assert.equal(calls.at(-1)[2].analytics_storage, granted ? 'granted' : 'denied');
+    assert.deepEqual(Object.keys(calls.at(-1)[2]), ['analytics_storage']);
+    assert.equal(stored.get('digitalhood_analytics_consent_v1'), granted ? 'granted' : 'denied');
+  }
+  assert.deepEqual(removed, ['digitalhood_analytics_session_v1']);
+});
+
+test('Google Ads has its documented CSP endpoints without adding arbitrary script hosts or unsafe-eval', () => {
+  const server = fs.readFileSync('server.js', 'utf8');
+  const scriptPolicy = server.match(/"script-src [^"]+"/)[0];
+  const connectPolicy = server.match(/"connect-src [^"]+"/)[0];
+  for (const host of ['https://www.googletagmanager.com', 'https://www.googleadservices.com', 'https://www.google.com']) assert.ok(scriptPolicy.includes(host));
+  for (const host of ['https://www.googleadservices.com', 'https://googleads.g.doubleclick.net', 'https://pagead2.googlesyndication.com', 'https://ad.doubleclick.net']) assert.ok(connectPolicy.includes(host));
+  assert.doesNotMatch(scriptPolicy, /unsafe-eval|https:\/\/\*\.doubleclick|https:\/\/\*\.googleadservices/);
+  assert.ok(index.indexOf('id="digitalhood-google-tag"') < index.indexOf('</head>'));
 });
 
 const source = fs.readFileSync('src/lib/catalogueRequest.ts', 'utf8');
