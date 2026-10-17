@@ -27,9 +27,9 @@ export default function SellPage() {
           </div>
           <aside className="dh-sell-start" aria-label="Your seller journey">
             <Store size={23} className="dh-sell-accent" aria-hidden="true" />
-            <h2>Local ambition. Connected tools.</h2>
-            <p>Keep your brand at the centre. Let the marketplace connect the rest.</p>
-            <div className="dh-sell-journey" aria-label="Application, review, live store"><span>Apply</span><ArrowRight size={14} aria-hidden="true" /><span>Review</span><ArrowRight size={14} aria-hidden="true" /><span>Go live</span></div>
+            <h2>Choose your starting point</h2>
+            <p>Same marketplace. A setup that fits your business.</p>
+            <div className="dh-sell-paths">{content.sellerTypes.map(type => <a href={type.href} key={type.name}><strong>{type.name} <ArrowRight size={13} aria-hidden="true" /></strong><span>{type.text}</span></a>)}</div>
             <Link to="/shops">Explore marketplace stores <ArrowRight size={14} aria-hidden="true" /></Link>
           </aside>
         </section>
@@ -42,7 +42,7 @@ export default function SellPage() {
         </section>
         <div className="dh-sell-details-grid">
           <section aria-labelledby="sell-steps-title" className="dh-sell-panel"><h2 id="sell-steps-title">From application to your first listing</h2><ol className="dh-sell-steps">{content.steps.map((step, index) => <li key={step.title}><span className="dh-sell-step-number" aria-hidden="true">{index + 1}</span><div><h3>{step.title}</h3><p>{step.text}</p></div></li>)}</ol></section>
-          <section aria-labelledby="sell-ready-title" className="dh-sell-panel"><h2 id="sell-ready-title">Before you apply</h2><ul className="dh-sell-checklist">{content.requirements.map(item => <li key={item}><Check size={16} className="dh-sell-accent" aria-hidden="true" /><span>{item}</span></li>)}</ul><nav className="dh-sell-policy-links" aria-label="Seller guidance"><Link to="/seller-terms">Seller terms</Link><Link to="/prohibited-products">Restricted products</Link><Link to="/contact">Ask seller support</Link></nav></section>
+          <section aria-labelledby="sell-ready-title" className="dh-sell-panel"><h2 id="sell-ready-title">Before you apply</h2><ul className="dh-sell-checklist">{content.requirements.map(item => <li key={item}><Check size={16} className="dh-sell-accent" aria-hidden="true" /><span>{item}</span></li>)}</ul><nav className="dh-sell-policy-links" aria-label="Seller guidance"><Link to="/seller-terms">Seller terms</Link><Link to="/prohibited-products">Restricted products</Link><Link to={content.supportUrl}>Ask seller support</Link></nav></section>
         </div>
         <section className="dh-sell-panel dh-sell-faq" aria-labelledby="sell-faq-title"><h2 id="sell-faq-title">A few things worth knowing</h2>{content.faqs.map(faq => <details key={faq.question}><summary>{faq.question}<ChevronDown size={16} aria-hidden="true" /></summary><p>{faq.answer}</p></details>)}</section>
         <section className="dh-sell-finish" aria-label="Start your seller application"><div><h2>Let’s build your next chapter.</h2><p>Bring your business to DigitalHood. Start with your seller application.</p></div><a className="dh-sell-primary" href={content.registerUrl}>Start selling <ArrowRight size={16} aria-hidden="true" /></a></section>
