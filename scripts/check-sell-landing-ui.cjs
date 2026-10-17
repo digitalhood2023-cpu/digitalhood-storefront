@@ -43,6 +43,8 @@ async function main() {
       const main = page.locator('main.dh-sell-wrap');
       for (const link of await main.getByRole('link', { name: 'Start selling' }).all()) assert.equal(await link.getAttribute('href'), content.registerUrl);
       assert.equal(await main.getByRole('link', { name: 'Seller sign in', exact: true }).getAttribute('href'), content.loginUrl);
+      for (const type of content.sellerTypes) assert.equal(await main.getByRole('link', { name: type.name, exact: false }).getAttribute('href'), type.href);
+      assert.equal(await main.getByRole('link', { name: 'Ask seller support', exact: true }).getAttribute('href'), content.supportUrl);
       await main.getByText(content.faqs[1].question, { exact: true }).click();
       await main.getByText(content.faqs[1].answer, { exact: true }).waitFor({ state: 'visible' });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, 'No horizontal overflow');
@@ -53,6 +55,22 @@ async function main() {
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(output, theme + '-' + width + '.png'), fullPage: true });
       results.push({ theme, width, contrast });
+      for (const slug of ['seller-terms', 'prohibited-products', 'marketplace-terms', 'dispute-resolution', 'data-protection', 'incident-response']) {
+        await page.goto('http://127.0.0.1:4273/' + slug);
+        await page.locator('main.dh-policy-wrap h1').waitFor();
+        assert.equal(await page.getByText('operational foundation for DigitalHood', { exact: false }).count(), 0);
+        assert.equal(await page.locator('main').count(), 1);
+        assert.equal(await page.getByRole('navigation', { name: 'Marketplace policies', exact: true }).locator('[aria-current="page"]').getAttribute('href'), '/' + slug);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, slug + ': no horizontal overflow');
+        const colors = await page.locator('.dh-policy-section p').first().evaluate(el => ({ text: getComputedStyle(el).color, background: getComputedStyle(document.querySelector('.dh-policy-body')).backgroundColor }));
+        const values = [luminance(colors.text), luminance(colors.background)].sort((a, b) => b - a);
+        assert.ok((values[0] + .05) / (values[1] + .05) >= 4.5, slug + ': readable policy contrast');
+        if (['seller-terms', 'prohibited-products'].includes(slug)) {
+          assert.equal(await page.getByRole('link', { name: 'Ask seller support', exact: true }).getAttribute('href'), content.supportUrl);
+          await page.screenshot({ path: path.join(output, `${slug}-${theme}-${width}.png`), fullPage: false });
+        }
+        assert.deepEqual(errors, []);
+      }
       await context.close();
     }
     const staticContext = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false, serviceWorkers: 'block' });

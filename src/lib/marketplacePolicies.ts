@@ -3,6 +3,7 @@ export type MarketplacePolicyPage = {
   title: string
   subtitle: string
   lastUpdated: string
+  highlights?: string[]
   sections: {
     title: string
     body: string[]
@@ -54,6 +55,11 @@ export const MARKETPLACE_POLICY_PAGES: Record<string, MarketplacePolicyPage> = {
     subtitle:
       'Rules every approved seller must follow before selling on DigitalHood Marketplace.',
     lastUpdated: '2026-07-06',
+    highlights: [
+      'Keep your identity, listings, prices and available stock accurate.',
+      'Seller approval and product review are separate checks before products go live.',
+      'Fulfil orders and cooperate with buyer support, warranty and dispute requests.',
+    ],
     sections: [
       {
         title: 'Seller responsibility',
@@ -92,6 +98,11 @@ export const MARKETPLACE_POLICY_PAGES: Record<string, MarketplacePolicyPage> = {
     subtitle:
       'Products that cannot be sold or may require review before listing on DigitalHood.',
     lastUpdated: '2026-07-06',
+    highlights: [
+      'No counterfeit, stolen, illegal, unsafe or misleading products.',
+      'Some categories require source, safety or compliance evidence before approval.',
+      'If you are unsure, ask seller support before submitting a listing.',
+    ],
     sections: [
       {
         title: 'Strictly prohibited',
