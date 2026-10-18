@@ -43,7 +43,8 @@ async function main() {
       const main = page.locator('main.dh-sell-wrap');
       for (const link of await main.getByRole('link', { name: 'Start selling' }).all()) assert.equal(await link.getAttribute('href'), content.registerUrl);
       assert.equal(await main.getByRole('link', { name: 'Seller sign in', exact: true }).getAttribute('href'), content.loginUrl);
-      for (const type of content.sellerTypes) assert.equal(await main.getByRole('link', { name: type.name, exact: false }).getAttribute('href'), type.href);
+      assert.equal(await main.locator('a[href*="register?type="]').count(), 0, 'Only the signed-in application asks for seller type');
+      await main.getByText(content.applicationNote, { exact: true }).waitFor();
       assert.equal(await main.getByRole('link', { name: 'Ask seller support', exact: true }).getAttribute('href'), content.supportUrl);
       await main.getByText(content.faqs[1].question, { exact: true }).click();
       await main.getByText(content.faqs[1].answer, { exact: true }).waitFor({ state: 'visible' });

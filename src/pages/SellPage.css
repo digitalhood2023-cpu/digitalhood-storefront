@@ -23,10 +23,6 @@
 .dh-sell-start a { display:inline-flex; gap:5px; align-items:center; margin-top:12px; font-size:12px; font-weight:750; text-decoration:underline; text-underline-offset:3px; }
 .dh-sell-accent { color:#8b5000; flex-shrink:0; }
 html[data-theme='dark'] .dh-sell-accent { color:#ffbf66; }
-.dh-sell-paths { display:grid; gap:7px; margin-top:10px; }
-.dh-sell-paths a { display:block; margin:0; padding:9px 11px; border:1px solid var(--dh-ui-border); border-radius:10px; background:var(--dh-ui-surface); text-decoration:none; }
-.dh-sell-paths strong { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
-.dh-sell-paths span { display:block; margin-top:3px; color:var(--dh-ui-text-muted); font-size:11px; line-height:1.5; }
 .dh-sell-section { margin:16px 0; }
 .dh-sell-section-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px; margin:0 0 10px; }
 .dh-sell-section-heading>span { color:var(--dh-ui-text-muted); font-size:11px; }

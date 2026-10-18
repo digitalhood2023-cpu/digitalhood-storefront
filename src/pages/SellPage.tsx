@@ -27,9 +27,8 @@ export default function SellPage() {
           </div>
           <aside className="dh-sell-start" aria-label="Your seller journey">
             <Store size={23} className="dh-sell-accent" aria-hidden="true" />
-            <h2>Choose your starting point</h2>
-            <p>Same marketplace. A setup that fits your business.</p>
-            <div className="dh-sell-paths">{content.sellerTypes.map(type => <a href={type.href} key={type.name}><strong>{type.name} <ArrowRight size={13} aria-hidden="true" /></strong><span>{type.text}</span></a>)}</div>
+            <h2>A single seller application</h2>
+            <p>{content.applicationNote}</p>
             <Link to="/shops">Explore marketplace stores <ArrowRight size={14} aria-hidden="true" /></Link>
           </aside>
         </section>
