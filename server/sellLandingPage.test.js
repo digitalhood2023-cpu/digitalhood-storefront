@@ -31,7 +31,8 @@ test('no-JavaScript HTML contains real copy, application links, guidance and nat
   assert.equal(html.split('<details>').length - 1, content.faqs.length)
   for (const path of ['/seller-terms', '/prohibited-products']) assert.ok(html.includes('href="' + path + '"'))
   assert.ok(html.includes('href="' + content.supportUrl.replace(/&/g, '&amp;') + '"'))
-  for (const type of content.sellerTypes) assert.ok(html.includes('href="' + type.href + '"'))
+  assert.ok(html.includes(content.applicationNote))
+  assert.ok(!html.includes('/register?type='), 'Seller type is chosen in the authenticated application only')
   for (const unsafe of ['<script', '<form', '/wp-admin', 'free selling', 'instant payouts', 'largest marketplace']) assert.ok(!html.includes(unsafe))
 })
 

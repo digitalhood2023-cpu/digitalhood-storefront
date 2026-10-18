@@ -9,10 +9,7 @@
   "registerUrl": "https://seller.digitalhood.info/register",
   "loginUrl": "https://seller.digitalhood.info/login",
   "supportUrl": "/contact?type=SELLER_SUPPORT&subject=Seller%20support",
-  "sellerTypes": [
-    {"name": "Individual seller", "text": "For independent traders and entrepreneurs.", "href": "https://seller.digitalhood.info/register?type=individual"},
-    {"name": "Business seller", "text": "For registered businesses and organisations.", "href": "https://seller.digitalhood.info/register?type=business"}
-  ],
+  "applicationNote": "Create your account, choose your seller type and add your store details. Review updates and corrections stay in the same application.",
   "benefits": [
     {"title": "A store you can share", "text": "Bring your brand, organise your own categories and share your approved store’s personal DigitalHood address."},
     {"title": "One seller workspace", "text": "Manage product photos, specifications, variations, prices, stock and orders from Seller Center."},
@@ -20,8 +17,8 @@
     {"title": "Real customer connections", "text": "Answer buyer messages, follow order issues and build your reputation through verified purchase feedback."}
   ],
   "steps": [
-    {"title": "Choose how you sell", "text": "Start as an individual or business. Register or sign in with your DigitalHood account; your choice stays with you."},
-    {"title": "Complete your application", "text": "Add your store information and the verification details requested for your account type."},
+    {"title": "Create your account", "text": "Register or sign in with one DigitalHood account for your application and seller workspace."},
+    {"title": "Set up your store", "text": "Choose individual or business in your application, then add the relevant store and verification details."},
     {"title": "Prepare your listings", "text": "After seller approval, add accurate photos, specifications, prices and available stock for review."},
     {"title": "Start serving buyers", "text": "Approved products can go live. Keep stock current, respond to buyers and fulfil your orders."}
   ],
