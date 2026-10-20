@@ -74,7 +74,8 @@ async function main() {
         const values = [luminance(colors.text), luminance(colors.background)].sort((a, b) => b - a);
         assert.ok((values[0] + .05) / (values[1] + .05) >= 4.5, slug + ': readable policy contrast');
         assert.equal(await page.locator('h1').innerText(), policies[slug].title);
-        for (const href of ['/support', '/support/track', '/help', '/shipping', '/returns', '/warranty']) assert.equal(await page.locator(`footer a[href="${href}"]`).count(), 1, 'Support destination: ' + href);
+        // Footer owns separate desktop and mobile markup; only one is visible.
+        for (const href of ['/support', '/support/track', '/help', '/shipping', '/returns', '/warranty']) assert.equal(await page.locator(`footer a[href="${href}"]`).count(), 2, 'Desktop/mobile Support destination: ' + href);
         if (slug === 'returns') {
           await page.getByText(policies.returns.highlights[0], { exact: true }).waitFor();
           await page.getByText(policies.returns.highlights[2], { exact: true }).waitFor();
