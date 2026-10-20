@@ -1083,7 +1083,9 @@ export default function CheckoutPage() {
       response.order.deliveryEstimate?.label || deliveryEstimate
     )
     // Prefer the estimate returned with the created order, not a newly calculated date.
-    setConfirmedDeliveryDate(response.order.deliveryEstimate?.expectedDate || '')
+    const expectedDate = response.order.deliveryEstimate?.expectedDate || ''
+    // Google requires YYYY-MM-DD; API timestamps may also include a time.
+    setConfirmedDeliveryDate(/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(expectedDate) ? expectedDate.slice(0, 10) : '')
 
     return {
       orderId,
