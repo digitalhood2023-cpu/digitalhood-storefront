@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const content = require('../config/sell-page.json');
+const policies = { ...require('../config/customer-support.json'), ...require('../config/marketplace-policies.json') };
 const output = path.join(__dirname, 'sell-landing-ui');
 
 function luminance(rgb) {
@@ -26,6 +27,12 @@ async function main() {
       await context.routeWebSocket('**/*', socket => socket.close());
       await context.route('**/*', route => {
         const request = route.request(), url = new URL(request.url());
+        if (url.pathname.startsWith('/api/public/policies/')) {
+          assert.equal(request.method(), 'GET', 'Policy reads must not mutate state');
+          const slug = url.pathname.slice('/api/public/policies/'.length);
+          const policy = Object.hasOwn(policies, slug) ? policies[slug] : null;
+          return route.fulfill({ status: policy ? 200 : 404, contentType: 'application/json', body: JSON.stringify(policy || { error: 'Policy not found.' }) });
+        }
         if (url.pathname.startsWith('/api/') || url.pathname.includes('/wp-json/')) {
           assert.ok(['GET', 'OPTIONS'].includes(request.method()), 'Public seller page must not mutate production state');
           return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': request.headers().origin || 'http://127.0.0.1:4273', 'access-control-allow-credentials': 'true', 'access-control-allow-methods': 'GET,OPTIONS', 'access-control-allow-headers': request.headers()['access-control-request-headers'] || 'content-type' }, body: JSON.stringify({ success: true, products: [], categories: [], sellers: [], stores: [], conversations: [], notifications: [], unreadCount: 0, items: [] }) });
@@ -56,7 +63,7 @@ async function main() {
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(output, theme + '-' + width + '.png'), fullPage: true });
       results.push({ theme, width, contrast });
-      for (const slug of ['seller-terms', 'prohibited-products', 'marketplace-terms', 'dispute-resolution', 'data-protection', 'incident-response']) {
+      for (const slug of Object.keys(policies)) {
         await page.goto('http://127.0.0.1:4273/' + slug);
         await page.locator('main.dh-policy-wrap h1').waitFor();
         assert.equal(await page.getByText('operational foundation for DigitalHood', { exact: false }).count(), 0);
@@ -66,12 +73,23 @@ async function main() {
         const colors = await page.locator('.dh-policy-section p').first().evaluate(el => ({ text: getComputedStyle(el).color, background: getComputedStyle(document.querySelector('.dh-policy-body')).backgroundColor }));
         const values = [luminance(colors.text), luminance(colors.background)].sort((a, b) => b - a);
         assert.ok((values[0] + .05) / (values[1] + .05) >= 4.5, slug + ': readable policy contrast');
+        assert.equal(await page.locator('h1').innerText(), policies[slug].title);
+        for (const href of ['/support', '/support/track', '/help', '/shipping', '/returns', '/warranty']) assert.equal(await page.locator(`footer a[href="${href}"]`).count(), 1, 'Support destination: ' + href);
+        if (slug === 'returns') {
+          await page.getByText(policies.returns.highlights[0], { exact: true }).waitFor();
+          await page.getByText(policies.returns.highlights[2], { exact: true }).waitFor();
+          await page.screenshot({ path: path.join(output, `returns-${theme}-${width}.png`), fullPage: false });
+        }
         if (['seller-terms', 'prohibited-products'].includes(slug)) {
           assert.equal(await page.getByRole('link', { name: 'Ask seller support', exact: true }).getAttribute('href'), content.supportUrl);
           await page.screenshot({ path: path.join(output, `${slug}-${theme}-${width}.png`), fullPage: false });
         }
         assert.deepEqual(errors, []);
       }
+      await context.route('**/api/public/policies/returns', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+      await page.goto('http://127.0.0.1:4273/returns');
+      await page.getByRole('alert').filter({ hasText: 'We could not load this guide' }).waitFor();
+      assert.equal(await page.getByRole('link', { name: 'Open readable web version', exact: true }).getAttribute('href'), '/returns');
       await context.close();
     }
     const staticContext = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false, serviceWorkers: 'block' });
@@ -84,6 +102,16 @@ async function main() {
     await staticPage.getByText(content.faqs[0].answer, { exact: true }).waitFor({ state: 'visible' });
     await staticPage.screenshot({ path: path.join(output, 'no-javascript-mobile.png'), fullPage: true });
     results.push({ javaScript: false, width: 390, nativeFaq: true });
+    for (const [slug, policy] of Object.entries(policies)) {
+      await staticPage.goto('http://127.0.0.1:4276/' + slug);
+      await staticPage.getByRole('heading', { level: 1, name: policy.title, exact: true }).waitFor({ state: 'visible' });
+      await staticPage.getByText(policy.sections[0].body[0], { exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await staticPage.locator('main').count(), 1);
+      assert.equal(await staticPage.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, slug + ': static mobile overflow');
+    }
+    await staticPage.goto('http://127.0.0.1:4276/returns');
+    await staticPage.screenshot({ path: path.join(output, 'returns-no-javascript-mobile.png'), fullPage: false });
+    results.push({ javaScript: false, width: 390, policies: Object.keys(policies).length, readableReturns: true });
     await staticContext.close();
   } finally { await browser.close(); }
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(results, null, 2));
