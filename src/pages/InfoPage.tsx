@@ -14,76 +14,6 @@ const pageContent: Record<
     sections: Array<{ title: string; text: string }>
   }
 > = {
-  '/help': {
-    eyebrow: 'Customer support',
-    title: 'Help centre',
-    description: 'Find quick help for shopping, orders, delivery, payments and account support.',
-    sections: [
-      { title: 'Orders and checkout', text: 'Use your account and order pages to review purchases, payment status and order details.' },
-      { title: 'Product support', text: 'Check product pages carefully for descriptions, stock status, prices and available options.' },
-      { title: 'Need help?', text: 'Contact DigitalHood using the phone or email shown below and our team will assist you.' },
-    ],
-  },
-  '/faqs': {
-    eyebrow: 'Questions',
-    title: 'Frequently asked questions',
-    description: 'Answers to common DigitalHood marketplace questions.',
-    sections: [
-      { title: 'How do I place an order?', text: 'Browse products, add available items to cart, then complete checkout securely.' },
-      { title: 'Can I track my order?', text: 'Yes. Use the Track Order page or your account order history.' },
-      { title: 'Can I sell on DigitalHood?', text: 'Yes. Sellers apply through seller.digitalhood.info and must be approved first.' },
-    ],
-  },
-  '/shipping': {
-    eyebrow: 'Delivery',
-    title: 'Shipping information',
-    description: 'Delivery and pickup options for DigitalHood orders.',
-    sections: [
-      { title: 'Delivery coverage', text: 'DigitalHood is building reliable delivery support across Zambia, starting with key customer locations.' },
-      { title: 'Delivery fees', text: 'Delivery fees may depend on product, location and order type. Final details are shown during checkout or order support.' },
-      { title: 'Order updates', text: 'Use your order page or Track Order page to follow order progress.' },
-    ],
-  },
-  '/returns': {
-    eyebrow: 'After sales',
-    title: 'Returns and refunds',
-    description: 'How returns and refund support works on DigitalHood.',
-    sections: [
-      { title: 'Return request', text: 'Contact DigitalHood support with your order details and reason for return.' },
-      { title: 'Product condition', text: 'Returned items should be in the condition required for the specific product and issue.' },
-      { title: 'Refund handling', text: 'Approved refunds are handled according to the payment method and marketplace review.' },
-    ],
-  },
-  '/warranty': {
-    eyebrow: 'Protection',
-    title: 'Warranty policy',
-    description: 'Warranty support depends on the product, supplier and listed warranty terms.',
-    sections: [
-      { title: 'Check product details', text: 'Warranty information should be reviewed on the product page or confirmed with support.' },
-      { title: 'Keep order records', text: 'Your DigitalHood order record helps verify purchase details for support.' },
-      { title: 'Support review', text: 'Warranty claims are reviewed based on product terms and issue details.' },
-    ],
-  },
-  '/terms': {
-    eyebrow: 'Legal',
-    title: 'Terms and conditions',
-    description: 'DigitalHood marketplace terms for customers, sellers and visitors.',
-    sections: [
-      { title: 'Marketplace use', text: 'Use DigitalHood responsibly and provide accurate account, order and contact information.' },
-      { title: 'Orders and payments', text: 'Orders are subject to product availability, pricing, payment confirmation and marketplace checks.' },
-      { title: 'Updates', text: 'DigitalHood may update marketplace policies as services expand.' },
-    ],
-  },
-  '/privacy': {
-    eyebrow: 'Legal',
-    title: 'Privacy policy',
-    description: 'How DigitalHood handles customer account, order and marketplace information.',
-    sections: [
-      { title: 'Data we use', text: 'We use account, order and contact information to provide marketplace services and support.' },
-      { title: 'Account protection', text: 'Keep your account details secure and contact support if you suspect unauthorized access.' },
-      { title: 'Support', text: 'Contact us for privacy-related questions or account support.' },
-    ],
-  },
   '/cookies': {
     eyebrow: 'Legal',
     title: 'Cookie policy',
@@ -118,7 +48,7 @@ const pageContent: Record<
 
 export default function InfoPage() {
   const location = useLocation()
-  const content = pageContent[location.pathname] || pageContent['/help']
+  const content = pageContent[location.pathname] || pageContent['/sitemap']
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-dh-gray">

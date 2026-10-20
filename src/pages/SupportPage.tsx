@@ -586,8 +586,8 @@ export default function SupportPage() {
     return (
       <div className="flex min-h-[100svh] flex-col bg-[#f7f8ff]">
         <Header />
-        <main className="flex flex-1 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#26248c]" />
+        <main id="main-content" className="flex flex-1 items-center justify-center p-5" style={{ background: 'var(--dh-ui-page)', color: 'var(--dh-ui-text)' }}>
+          <div><Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" /><p role="status">Loading secure support…</p><p className="mt-2 text-sm">You can still <Link to="/help" className="underline">read Help & FAQs</Link> or contact <a href="mailto:contact@digitalhood.info" className="underline">contact@digitalhood.info</a>.</p></div>
         </main>
         <Footer />
       </div>
@@ -598,7 +598,7 @@ export default function SupportPage() {
     <>
       <Header />
 
-      <main className="flex min-h-[100svh] flex-col bg-gradient-to-b from-[#f7f8ff] via-white to-[#fff7ec]/50">
+      <main id="main-content" className="flex min-h-[100svh] flex-col" style={{ background: 'var(--dh-ui-page)', color: 'var(--dh-ui-text)' }}>
       <SEO
         title="Contact DigitalHood Support | DigitalHood"
         description="Contact DigitalHood securely or create and track a guest support case in Zambia."
@@ -606,7 +606,7 @@ export default function SupportPage() {
 
 
       <section className="mx-auto w-full max-w-6xl px-3 py-5 sm:px-5 sm:py-7 lg:px-6">
-        <div className="mb-4 overflow-hidden rounded-2xl bg-[#191744] p-4 text-white shadow-sm sm:p-5">
+        <div className="mb-4 overflow-hidden rounded-2xl border p-4 shadow-sm sm:p-5" style={{ background: 'var(--dh-ui-surface)', borderColor: 'var(--dh-ui-border)' }}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
               <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5a623]">
@@ -616,7 +616,7 @@ export default function SupportPage() {
               <h1 className="mt-1.5 text-xl font-black sm:text-2xl">
                 {isAuthenticated ? `How can we help${customer?.firstName ? `, ${customer.firstName}` : ''}?` : 'Tell us how we can help'}
               </h1>
-              <p className="mt-1.5 text-sm leading-6 text-white/65">
+              <p className="mt-1.5 text-sm leading-6" style={{ color: 'var(--dh-ui-text-muted)' }}>
                 {isAuthenticated
                   ? 'Choose a reason, add a subject and tell us what you need.'
                   : 'Create a support request or use your case number and email to check an existing request.'}
@@ -625,12 +625,19 @@ export default function SupportPage() {
 
             {isAuthenticated && (
               <div className="flex flex-wrap gap-2">
-                <Link to="/account/support-cases" className="inline-flex h-9 items-center rounded-full bg-white/10 px-3 text-xs font-bold text-white hover:bg-white/15">My support cases</Link>
+                <Link to="/account/support-cases" className="inline-flex h-9 items-center rounded-full border px-3 text-xs font-bold" style={{ borderColor: 'var(--dh-ui-border)' }}>My support cases</Link>
                 <Link to="/orders" className="inline-flex h-9 items-center rounded-full bg-[#f5a623] px-3 text-xs font-black text-[#191744] hover:bg-[#ffb536]">Order help</Link>
               </div>
             )}
           </div>
         </div>
+
+        <nav aria-label="Support guides" className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
+          <Link to="/help" className="underline">Help & FAQs</Link>
+          <Link to="/shipping" className="underline">Shipping & delivery</Link>
+          <Link to="/returns" className="underline">7-day returns & refunds</Link>
+          <Link to="/warranty" className="underline">Warranty & repairs</Link>
+        </nav>
 
         {!isAuthenticated && (
           <div className="mb-4 flex flex-wrap gap-2">

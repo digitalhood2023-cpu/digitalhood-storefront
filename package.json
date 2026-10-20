@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test:startup && npm run test:assistant && node --test server/googleMerchantFeed.test.js server/sellLandingPage.test.js && node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-network-scenarios.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build && node scripts/validate-performance-budgets.mjs",
+    "build": "npm run test:startup && npm run test:assistant && npm run test:support-pages && node --test server/googleMerchantFeed.test.js server/sellLandingPage.test.js && node scripts/validate-seo-foundation.mjs && node scripts/validate-marketplace-release.mjs && node scripts/validate-network-resilience.mjs && node scripts/validate-network-scenarios.mjs && node scripts/validate-accessibility-security.mjs && tsc -b && vite build && node scripts/validate-performance-budgets.mjs",
     "test:merchant-feed": "node --test server/googleMerchantFeed.test.js",
     "test:sell-page": "node --test server/sellLandingPage.test.js",
+    "test:support-pages": "node --test server/supportPages.test.js",
     "validate:seo": "node scripts/validate-seo-foundation.mjs",
     "validate:release": "node scripts/validate-marketplace-release.mjs",
     "validate:network": "node scripts/validate-network-resilience.mjs",

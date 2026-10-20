@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { buildSellPageSeo } from './sellLandingPage.js'
+import { getPublicPolicy } from './supportPages.js'
 
 const SITE = 'https://store.digitalhood.info'
 const API = process.env.PAYMENTS_API_URL || 'https://payments.digitalhood.info'
@@ -80,7 +81,8 @@ async function fetchJson(url) {
 
 function base(pathname = '/') {
   const path = normalize(ALIASES[pathname] || pathname)
-  const [title, description] = STATIC[path] || [DEFAULT_TITLE, DEFAULT_DESCRIPTION]
+  const policy = getPublicPolicy(path)
+  const [title, description] = policy ? [policy.title, policy.subtitle] : STATIC[path] || [DEFAULT_TITLE, DEFAULT_DESCRIPTION]
   const noindex = NOINDEX.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
   return { title, description, path, image: IMAGE, type: 'website', noindex, graph: [] }
 }

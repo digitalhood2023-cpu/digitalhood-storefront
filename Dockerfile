@@ -17,6 +17,7 @@ RUN npm install --omit=dev
 
 COPY server.js ./server.js
 COPY server ./server
+COPY config ./config
 COPY --from=build /app/dist ./dist
 
 ENV NODE_ENV=production

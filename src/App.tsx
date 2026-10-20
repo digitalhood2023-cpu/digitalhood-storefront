@@ -12,7 +12,6 @@ import AccessibilityFoundation from '@/components/AccessibilityFoundation'
 import DigitalHoodAIShortcut from '@/components/DigitalHoodAIShortcut'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import { getCurrentSellerDomainContext } from '@/lib/sellerDomains'
-import MarketplacePolicyPage from './pages/MarketplacePolicyPage'
 import { RouteLoading } from '@/components/StartupBoundary'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -49,6 +48,7 @@ const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
 const InfoPage = lazy(() => import('@/pages/InfoPage'))
+const MarketplacePolicyPage = lazy(() => import('@/pages/MarketplacePolicyPage'))
 
 const PhoneAccessoriesPage = lazy(() => import('@/pages/seo/PhoneAccessoriesPage'))
 const IPhonePage = lazy(() => import('@/pages/seo/IPhonePage'))
@@ -240,13 +240,13 @@ function App() {
                 <Route path="/orders/:orderId" element={<LegacyOrderDetailsRedirect />} />
                 <Route path="/orders/:orderId/pay" element={<OrderPaymentRetryPage />} />
 
-                <Route path="/help" element={<InfoPage />} />
-                <Route path="/faqs" element={<InfoPage />} />
-                <Route path="/shipping" element={<InfoPage />} />
-                <Route path="/returns" element={<InfoPage />} />
-                <Route path="/warranty" element={<InfoPage />} />
-                <Route path="/terms" element={<InfoPage />} />
-                <Route path="/privacy" element={<InfoPage />} />
+                <Route path="/help" element={<MarketplacePolicyPage />} />
+                <Route path="/faqs" element={<Navigate to="/help" replace />} />
+                <Route path="/shipping" element={<MarketplacePolicyPage />} />
+                <Route path="/returns" element={<MarketplacePolicyPage />} />
+                <Route path="/warranty" element={<MarketplacePolicyPage />} />
+                <Route path="/terms" element={<Navigate to="/marketplace-terms" replace />} />
+                <Route path="/privacy" element={<Navigate to="/data-protection" replace />} />
                 <Route path="/cookies" element={<InfoPage />} />
                 <Route path="/marketplace-terms" element={<MarketplacePolicyPage />} />
                 <Route path="/seller-terms" element={<MarketplacePolicyPage />} />
