@@ -107,7 +107,8 @@ async function main() {
       await staticPage.goto('http://127.0.0.1:4276/' + slug);
       await staticPage.getByRole('heading', { level: 1, name: policy.title, exact: true }).waitFor({ state: 'visible' });
       await staticPage.getByText(policy.sections[0].body[0], { exact: true }).waitFor({ state: 'visible' });
-      assert.equal(await staticPage.locator('main').count(), 1);
+      assert.equal(await staticPage.locator('#root main').count(), 1, 'One policy main in the public document');
+      assert.equal(await staticPage.getByRole('main').count(), 1, 'The hidden startup shell must not expose another landmark');
       assert.equal(await staticPage.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, slug + ': static mobile overflow');
     }
     await staticPage.goto('http://127.0.0.1:4276/returns');
