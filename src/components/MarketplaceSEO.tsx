@@ -239,6 +239,9 @@ const STATIC_ROUTES: Record<string, StaticRoute> = {
 }
 
 const CANONICAL_ALIASES: Record<string, string> = {
+  '/faqs': '/help',
+  '/terms': '/marketplace-terms',
+  '/privacy': '/data-protection',
   '/buy-iphone-zambia': '/iphone-zambia',
   '/buy-samsung-zambia': '/samsung-phones-zambia',
   '/buy-laptop-zambia': '/laptops-zambia',

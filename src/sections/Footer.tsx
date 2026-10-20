@@ -24,10 +24,10 @@ const shopLinks = [
 const supportLinks = [
   { name: 'Support Center', href: '/support' },
   { name: 'Track Support Case', href: '/support/track' },
-  { name: 'Help', href: '/help' },
-  { name: 'Shipping', href: '/shipping' },
-  { name: 'Returns', href: '/returns' },
-  { name: 'Warranty', href: '/warranty' },
+  { name: 'Help & FAQs', href: '/help' },
+  { name: 'Shipping & delivery', href: '/shipping' },
+  { name: 'Returns & refunds', href: '/returns' },
+  { name: 'Warranty & repairs', href: '/warranty' },
 ]
 
 const companyLinks = [
@@ -37,7 +37,7 @@ const companyLinks = [
   { name: 'Marketplace Terms', href: '/marketplace-terms' },
   { name: 'Seller Terms', href: '/seller-terms' },
   { name: 'Prohibited Products', href: '/prohibited-products' },
-  { name: 'Disputes & Refunds', href: '/dispute-resolution' },
+  { name: 'Dispute resolution', href: '/dispute-resolution' },
   { name: 'Data Protection', href: '/data-protection' },
   { name: 'Incident Response', href: '/incident-response' },
   { name: 'Privacy', href: '/privacy' },

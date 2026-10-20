@@ -1,5 +1,6 @@
 import express from 'express';
 import { getSellLandingStyles, injectSellLandingContent } from './server/sellLandingPage.js';
+import { getPublicPolicy, injectPublicSupport, SUPPORT_ALIASES } from './server/supportPages.js';
 import { installLiteStorefront } from './server/liteStorefront.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import fs from 'fs/promises';
@@ -90,6 +91,14 @@ function applyStorefrontSecurityHeaders(req, res, next) {
 app.disable('x-powered-by');
 app.use(applyStorefrontSecurityHeaders);
 app.use(express.urlencoded({ extended: false, limit: '8kb' }));
+
+// Public, release-controlled text only; no catalogue, account or payment reads.
+app.get('/api/public/policies/:slug', (req, res) => {
+  const policy = getPublicPolicy('/' + req.params.slug);
+  res.setHeader('Cache-Control', 'no-store');
+  if (!policy) return res.status(404).json({ error: 'Policy not found.' });
+  return res.json(policy);
+});
 
 function getSellerDomainRequest(req) {
   return parseSellerDomainHostname(req.hostname, SELLER_STOREFRONT_SUFFIX);
@@ -448,6 +457,8 @@ app.use('/assets', (_req, res) => {
 
 app.use(async (req, res) => {
   try {
+    const supportAlias = SUPPORT_ALIASES[req.path.replace(/\/+$/, '')];
+    if (supportAlias && !getSellerDomainRequest(req)) return res.redirect(301, supportAlias);
     const sellerDomain = getSellerDomainRequest(req);
 
     if (sellerDomain && isSellerCommercePath(req.path)) {
@@ -506,6 +517,7 @@ app.use(async (req, res) => {
     const seo = await buildServerSeo(req.path);
     let html = injectSeo(await getIndexHtml(distDir), seo);
     if (seo.path === '/sell') html = injectSellLandingContent(html, await getSellLandingStyles(distDir));
+    html = injectPublicSupport(html, req.path);
 
     if (req.path === '/') {
       html = await injectHomePreload(html);
