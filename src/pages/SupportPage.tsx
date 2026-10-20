@@ -609,7 +609,7 @@ export default function SupportPage() {
         <div className="mb-4 overflow-hidden rounded-2xl border p-4 shadow-sm sm:p-5" style={{ background: 'var(--dh-ui-surface)', borderColor: 'var(--dh-ui-border)' }}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
-              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5a623]">
+              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: 'var(--dh-ui-text-muted)' }}>
                 {isAuthenticated ? <ShieldCheck className="h-3.5 w-3.5" /> : <LifeBuoy className="h-3.5 w-3.5" />}
                 {isAuthenticated ? 'Account contact' : 'DigitalHood support'}
               </p>
