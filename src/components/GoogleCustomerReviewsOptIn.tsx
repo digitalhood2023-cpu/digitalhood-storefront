@@ -129,7 +129,17 @@ export default function GoogleCustomerReviewsOptIn({
 
     if (window.gapi) {
       renderOptIn()
-    } else if (!document.getElementById(GOOGLE_CUSTOMER_REVIEWS_SCRIPT_ID)) {
+    } else if (document.getElementById(GOOGLE_CUSTOMER_REVIEWS_SCRIPT_ID)) {
+      // Re-mounted confirmations can occur while the shared script is still loading.
+      // Ensure Google's callback still targets the active order.
+      const existingScript = document.getElementById(GOOGLE_CUSTOMER_REVIEWS_SCRIPT_ID)
+      existingScript?.addEventListener('load', renderOptIn)
+      return () => {
+        active = false
+        pendingOrders.delete(normalizedOrderId)
+        existingScript?.removeEventListener('load', renderOptIn)
+      }
+    } else {
       const script = document.createElement('script')
 
       script.id = GOOGLE_CUSTOMER_REVIEWS_SCRIPT_ID

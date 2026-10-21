@@ -4,6 +4,7 @@ import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe, type StripeElementsOptions } from '@stripe/stripe-js'
 
 import {
+  CheckCircle2,
   AlertCircle,
   ChevronLeft,
   CreditCard,
@@ -437,6 +438,7 @@ export default function CheckoutPage() {
     useState<CheckoutProgressStage>('idle')
   const [checkoutProgressMessage, setCheckoutProgressMessage] = useState('')
   const [confirmedDeliveryLabel, setConfirmedDeliveryLabel] = useState('')
+  const [confirmedDeliveryDate, setConfirmedDeliveryDate] = useState('')
 
   const [lencoReference, setLencoReference] = useState('')
 
@@ -465,6 +467,7 @@ export default function CheckoutPage() {
     createdRecoveryTokenRef.current = ''
     setCreatedOrderId(null)
     setCreatedRecoveryToken('')
+    setConfirmedDeliveryDate('')
   }
 
   const selectedSavedAddress = useMemo(() => {
@@ -556,20 +559,15 @@ export default function CheckoutPage() {
   }, [])
 
   useEffect(() => {
-    if (checkoutProgressStage === 'idle') return
+    if (checkoutProgressStage === 'idle' || checkoutProgressStage === 'confirmed') return
     return acquireBodyScrollLock()
   }, [checkoutProgressStage])
 
   useEffect(() => {
+    // Once the order is confirmed, release the secure seller checkout handoff.
+    // Don't auto-redirect: the Google survey must remain usable on this page.
     if (checkoutProgressStage !== 'confirmed' || !sellerReturnUrl) return
-
     clearRememberedSellerCheckoutHandoff()
-
-    const timeout = window.setTimeout(() => {
-      window.location.assign(sellerReturnUrl)
-    }, 8000)
-
-    return () => window.clearTimeout(timeout)
   }, [checkoutProgressStage, sellerReturnUrl])
 
   useEffect(() => {
@@ -1085,6 +1083,10 @@ export default function CheckoutPage() {
     setConfirmedDeliveryLabel(
       response.order.deliveryEstimate?.label || deliveryEstimate
     )
+    // Prefer the estimate returned with the created order, not a newly calculated date.
+    const expectedDate = response.order.deliveryEstimate?.expectedDate || ''
+    // Google requires YYYY-MM-DD; API timestamps may also include a time.
+    setConfirmedDeliveryDate(/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(expectedDate) ? expectedDate.slice(0, 10) : '')
 
     return {
       orderId,
@@ -1632,6 +1634,49 @@ export default function CheckoutPage() {
       setIsSubmitting(false)
       checkoutSubmissionRef.current = false
     }
+  }
+
+  // Keep the confirmed order on a normal page so Google's survey is not
+  // obscured by the full-screen payment progress overlay.
+  if (orderComplete && successState.confirmed && createdOrderId) {
+    return (
+      <div ref={pageRef} className="flex min-h-[100svh] flex-col bg-dh-gray">
+        <Header />
+        <main className="flex-1 px-4 py-10 sm:py-16">
+          <section className="mx-auto max-w-xl rounded-3xl border border-emerald-200 bg-white p-6 text-center shadow-sm sm:p-9" aria-labelledby="checkout-confirmed-title">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-9 w-9" />
+            </div>
+            <h1 id="checkout-confirmed-title" className="font-display text-2xl font-black text-dh-primary sm:text-3xl">{successState.title}</h1>
+            <p className="mt-3 text-sm leading-6 text-dh-dark-gray">{successState.message}</p>
+            <dl className="mt-6 grid gap-3 rounded-2xl bg-slate-50 p-4 text-left text-sm sm:grid-cols-2">
+              <div><dt className="font-bold text-slate-500">Order</dt><dd className="mt-1 font-black text-dh-primary">#{orderNumber || createdOrderId}</dd></div>
+              <div><dt className="font-bold text-slate-500">Total</dt><dd className="mt-1 font-black text-dh-primary">{formatPrice(successOrderTotal)}</dd></div>
+              <div className="sm:col-span-2"><dt className="font-bold text-slate-500">Delivery estimate</dt><dd className="mt-1 font-semibold text-dh-primary">{confirmedDeliveryLabel || deliveryEstimate}</dd></div>
+            </dl>
+            {successState.nextStep && <p className="mt-5 text-sm text-dh-dark-gray">{successState.nextStep}</p>}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              {(isAuthenticated || createdRecoveryToken) && (
+                <Button onClick={() => navigate(`/track-order/${createdOrderId}${createdRecoveryToken ? `?token=${encodeURIComponent(createdRecoveryToken)}` : ''}`)} className="rounded-full bg-dh-primary px-6 text-white">View order</Button>
+              )}
+              <Button variant="outline" onClick={() => sellerReturnUrl ? window.location.assign(sellerReturnUrl) : navigate('/')} className="rounded-full px-6">Continue shopping</Button>
+            </div>
+          </section>
+          {getCheckoutEmail() && (
+            <GoogleCustomerReviewsOptIn
+              orderId={orderNumber || String(createdOrderId)}
+              email={getCheckoutEmail()}
+              deliveryCountry="ZM"
+              estimatedDeliveryDate={confirmedDeliveryDate || getGoogleCustomerReviewsDeliveryDate({
+                isLusaka: shipping.isLusaka,
+                isBeforeSameDayCutoff: shipping.isBeforeSameDayCutoff,
+              })}
+            />
+          )}
+        </main>
+        <Footer />
+      </div>
+    )
   }
 
   if (sellerCheckoutState === 'loading') {
@@ -2357,21 +2402,6 @@ export default function CheckoutPage() {
           </div>
         </div>
       </main>
-
-      {orderComplete &&
-        successState.confirmed &&
-        createdOrderId &&
-        getCheckoutEmail() && (
-          <GoogleCustomerReviewsOptIn
-            orderId={orderNumber || String(createdOrderId)}
-            email={getCheckoutEmail()}
-            deliveryCountry="ZM"
-            estimatedDeliveryDate={getGoogleCustomerReviewsDeliveryDate({
-              isLusaka: shipping.isLusaka,
-              isBeforeSameDayCutoff: shipping.isBeforeSameDayCutoff,
-            })}
-          />
-        )}
 
       <CheckoutProgressOverlay
         stage={checkoutProgressStage}
