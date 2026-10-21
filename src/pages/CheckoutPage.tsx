@@ -564,9 +564,10 @@ export default function CheckoutPage() {
   }, [checkoutProgressStage])
 
   useEffect(() => {
-    if (checkoutProgressStage === 'confirmed' && sellerReturnUrl) {
-      clearRememberedSellerCheckoutHandoff()
-    }
+    // Once the order is confirmed, release the secure seller checkout handoff.
+    // Don't auto-redirect: the Google survey must remain usable on this page.
+    if (checkoutProgressStage !== 'confirmed' || !sellerReturnUrl) return
+    clearRememberedSellerCheckoutHandoff()
   }, [checkoutProgressStage, sellerReturnUrl])
 
   useEffect(() => {
