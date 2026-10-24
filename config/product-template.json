@@ -7,7 +7,7 @@
     "src/components/product/productSpecifications.ts": "8d22cf3a938faec4b783200f1d2c7be94576643f8f896344de61cda269dd9bfa",
     "src/components/product/MarketplaceVariationBrowser.tsx": "8c114683073576238ad0a017582237af143455d158a19072a4ae16839495cf55",
     "src/components/product/productFeedback.ts": "208afab088027454277062a947061b14b1b3209a1e7391acd8c52062b9d6d939",
-    "src/components/product/useProductFeedback.ts": "e1f16d9b106e482b1ca2764a35d645ed097a41d2ff1a68578768bf849a4b9b18",
+    "src/components/product/useProductFeedback.ts": "cd559e83575725867ead74d3c552b54734d93ac90a1e1f803a7ede75105f825e",
     "src/components/product/MarketplaceProductFeedback.tsx": "8962e7ef7cf26dd433bafcf8a226032574a3d928b63a974e8949478656b57d3b",
     "src/components/product/marketplace-product-feedback.css": "a05580233b1c037dec0312c4716f43878fc86e49f02ea0e778987ddadb9afdaf"
   }

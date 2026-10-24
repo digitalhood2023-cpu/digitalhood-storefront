@@ -31,7 +31,7 @@ export function useProductFeedback(value: unknown) {
   useEffect(() => {
     if (!productId) return
     const activeRequest = request.current
-    void load()
+    const start = window.setTimeout(() => { void load() }, 0)
     const revalidate = () => { if (document.visibilityState === 'visible' && Date.now() - lastStarted.current >= 30_000) void load() }
     window.addEventListener('focus', revalidate)
     document.addEventListener('visibilitychange', revalidate)
@@ -39,6 +39,7 @@ export function useProductFeedback(value: unknown) {
     return () => {
       ++activeRequest.sequence
       activeRequest.controller?.abort()
+      window.clearTimeout(start)
       window.removeEventListener('focus', revalidate)
       document.removeEventListener('visibilitychange', revalidate)
       window.clearInterval(timer)
