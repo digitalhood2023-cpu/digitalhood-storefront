@@ -1,0 +1,15 @@
+.dh-product-feedback { --feedback-rating:#7a4700; --feedback-green:#166534; --feedback-green-bg:#dcfce7; }
+[data-theme='dark'] .dh-product-feedback { --feedback-rating:#ffe08a; --feedback-green:#a7f3d0; --feedback-green-bg:#11382b; }
+.dh-product-feedback-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.dh-product-feedback-heading .dh-product-section-title { margin:0; }
+.dh-product-feedback button { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:36px; border:1px solid var(--product-line); border-radius:10px; padding:6px 10px; background:var(--product-muted-surface); color:var(--product-accent); font:inherit; font-size:12px; font-weight:800; }
+.dh-product-feedback button:disabled { opacity:.7; }
+.dh-product-feedback-note { font-size:12px; color:var(--product-muted); margin:8px 0 12px; }
+.dh-product-feedback-summary { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-weight:700; }
+.dh-product-feedback-card { margin:12px 0; padding:12px; border:1px solid var(--product-line); border-radius:12px; }
+.dh-product-feedback-card .dh-product-description { margin-top:8px; }
+.dh-product-feedback-stars { display:flex; gap:3px; color:var(--product-muted); margin:8px 0; }.dh-product-feedback-stars .is-filled { fill:var(--feedback-rating); color:var(--feedback-rating); }
+.dh-product-verified { display:inline-flex; align-items:center; gap:4px; padding:4px 7px; border-radius:8px; color:var(--feedback-green); background:var(--feedback-green-bg); font-size:11px; font-weight:800; }
+.dh-product-feedback-error { padding:10px; border:1px solid var(--product-line); border-radius:10px; background:var(--product-muted-surface); color:var(--product-text); }.dh-product-feedback-error p { margin:0 0 8px; }
+.dh-product-feedback-card blockquote { margin:12px 0 0; padding:10px; border-left:3px solid var(--feedback-rating); background:var(--product-muted-surface); }.dh-product-feedback-card blockquote p { margin:4px 0 0; white-space:pre-wrap; }
+.dh-product-feedback-media { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }.dh-product-feedback-media :is(img,video) { width:100px; height:100px; border-radius:8px; object-fit:cover; }

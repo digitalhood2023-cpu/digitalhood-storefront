@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Image as ImageIcon, MessageCircle, Shield, ShoppingCart, Star, Truck, X, Zap, ZoomIn, ZoomOut } from 'lucide-react'
 import { usePointZoom } from '../../hooks/usePointZoom'
 import { MarketplaceProductLayout, MarketplaceSellerStrip, MarketplaceProductOffer, MarketplaceProductTabs, ProductDescription, ProductSpecifications, type PreviewProduct } from './MarketplaceProduct'
+import { useProductFeedback } from './useProductFeedback'
+import { MarketplaceProductFeedback } from './MarketplaceProductFeedback'
 
 // Version 1: identical preview in admin and seller; no commerce mutations.
 function productMoney(value?: string | number) {
@@ -9,6 +11,7 @@ function productMoney(value?: string | number) {
   return 'K' + (Number.isFinite(amount) ? amount : 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 export function MarketplaceProductPreview({ product, sellerName, sellerAvatar, selectedVariation, variationControl }: { product: PreviewProduct; sellerName?: string; sellerAvatar?: string; selectedVariation?: NonNullable<PreviewProduct['variations']>[number] | null; variationControl?: ReactNode }) {
+  const feedback = useProductFeedback(product.wooProductId)
   const [tab, setTab] = useState('details')
   const [selectedImage, setSelectedImage] = useState('')
   const [variantId, setVariantId] = useState('')
@@ -60,13 +63,13 @@ export function MarketplaceProductPreview({ product, sellerName, sellerAvatar, s
     } galleryFooter={<div className="dh-product-dots">{images.map((url, index) => <button type="button" key={url} className={url === image ? 'is-active' : ''} onClick={() => setSelectedImage(url)} aria-label={'Show product image ' + (index + 1)} aria-pressed={url === image} />)}</div>}>
       <MarketplaceSellerStrip name={sellerName || product.sellerStoreName || 'Your store'} avatar={sellerAvatar} actions={<><button type="button" disabled>Visit store</button><button type="button" disabled><MessageCircle />Chat</button></>} />
       <MarketplaceProductOffer price={product.productType === 'variable' && !variation && !regularPrice ? 'Select for price' : productMoney(validSale ? salePrice : regularPrice)} regularPrice={validSale ? productMoney(regularPrice) : undefined}
-        shipping={<small><Truck />Delivery confirmed at checkout</small>} meta={<><span><Star />Buyer ratings appear after verified purchases</span>{product.category && <span>{product.category}</span>}</>} />
+        shipping={<small><Truck />Delivery confirmed at checkout</small>} meta={<><span className={feedback.data?.count ? 'dh-product-signal dh-product-signal--rating' : ''}><Star />{feedback.data?.count ? `${feedback.data.averageRating.toFixed(1)} (${feedback.data.count})` : feedback.productId ? feedback.loading ? 'Loading buyer ratings…' : feedback.error ? 'Buyer ratings unavailable' : 'No verified ratings yet' : 'Buyer ratings appear after verified purchases'}</span>{product.category && <span>{product.category}</span>}</>} />
       {variationControl ?? (variations.length > 0 && <label className="dh-product-variant"><strong>Available variations</strong><select aria-label="Preview variation" value={variation?.id || ''} onChange={(event) => { setVariantId(event.target.value); setSelectedImage('') }}>{variations.map((item) => <option key={item.id} value={item.id}>{Object.values(item.attributes || {}).join(' / ') || item.id}</option>)}</select></label>)}
       <div className="dh-product-purchase" aria-label="Inactive buyer actions"><button type="button" disabled><ShoppingCart />Add to Cart</button><button type="button" disabled><Zap />Buy it Now</button></div>
       <div className="dh-product-assurance"><span><Truck />Zambia delivery</span><span><Shield />Secure checkout</span></div>
       <MarketplaceProductTabs value={tab} onChange={setTab} description={<ProductDescription html={product.description || product.shortDescription || ''} />}
         details={<ProductSpecifications product={{ ...product, sku: variation?.sku || product.sku, condition: variation?.condition || product.condition }} overrides={variation?.attributes} />}
-        trust={<><h2 className="dh-product-section-title">Verified buyer feedback</h2><p>Feedback is attached to the published product and seller. It is not generated for a draft preview.</p></>} />
+        trust={<MarketplaceProductFeedback feedback={feedback} />} />
     </MarketplaceProductLayout>
     {viewer && image && <div className="dh-product-lightbox" role="dialog" aria-modal="true" aria-label="Product image viewer" onKeyDown={(event) => {
         if (event.key === 'ArrowLeft') { event.preventDefault(); moveImage(-1) }

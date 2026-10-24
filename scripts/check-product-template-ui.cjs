@@ -1,12 +1,13 @@
 // Local fixture-only test: requests to production hosts are blocked.
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
-const { spawn } = require('node:child_process')
+const { spawn, execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 const origin = 'http://127.0.0.1:4291'
 const output = path.join(__dirname, 'product-template-ui')
 async function main() {
+  execFileSync(process.execPath, ['--test', 'scripts/product-feedback.test.mjs'], { stdio:'inherit' })
   fs.mkdirSync(output, { recursive: true })
   const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '4291', '--strictPort'], { stdio: 'ignore' })
   let browser
@@ -22,9 +23,23 @@ async function main() {
         if (document.documentElement) apply()
         else document.addEventListener('DOMContentLoaded', apply, { once: true })
       }, theme)
-      await context.route('**/*', route => {
+      let feedbackMode = 'initial', releaseStale, pendingStarted, releaseTimeout, pendingTimeout
+      const staleStarted = new Promise(resolve => { pendingStarted = resolve })
+      const timeoutStarted = new Promise(resolve => { pendingTimeout = resolve })
+      await context.route('**/*', async route => {
         const req = route.request(), u = new URL(req.url())
         if (!['GET', 'HEAD'].includes(req.method())) mutations.push(req.url())
+        if (/\/api\/products\/\d+\/reviews$/.test(u.pathname)) {
+          assert.equal(req.headers().authorization, undefined)
+          const productId = Number(u.pathname.split('/')[3]), page = Number(u.searchParams.get('page'))
+          const mode = feedbackMode
+          if (mode === 'fail') return route.fulfill({ status:503, headers:{'access-control-allow-origin':'*'}, body:'Unavailable' })
+          if (mode === 'null') return route.fulfill({ headers:{'access-control-allow-origin':'*'}, json:null })
+          if (mode === 'timeout') { pendingTimeout(); await new Promise(resolve => { releaseTimeout = resolve }) }
+          if (mode === 'stale' && productId === 6317) { pendingStarted(); await new Promise(resolve => { releaseStale = resolve }) }
+          const reviewer = productId === 6318 ? 'Other listing buyer' : mode === 'updated' ? 'Updated buyer' : mode === 'stale' ? 'Stale buyer' : page > 1 ? 'Next page buyer' : 'Verified buyer'
+          return route.fulfill({ headers:{'access-control-allow-origin':'*'}, json: { success:true, productId, source:'digitalhood-verified-delivery', reviews:[{id: reviewer, reviewer, rating:5, verified:true, review:'Accurate product and quick service.'},{id:'unverified', reviewer:'Unverified buyer', rating:5, verified:false}], summary:{count:21, averageRating:4.75}, pagination:{page, pages:2} } }).catch(() => {})
+        }
         return u.origin === origin || u.protocol === 'data:' ? route.continue() : route.abort()
       })
       const page = await context.newPage()
@@ -48,7 +63,7 @@ async function main() {
       await page.locator('.dh-product-specs').getByText('CASE-BLUE', { exact: true }).waitFor()
       await page.locator('.dh-product-specs').getByText('open box', { exact: true }).waitFor()
       await page.getByRole('tab', { name: 'Trust/Feedback', exact: true }).click()
-      await page.getByText('Feedback is attached to the published product and seller.', { exact: false }).waitFor()
+      await page.getByText('Buyer feedback will appear here after this listing is published', { exact: false }).waitFor()
       const open = page.getByRole('button', { name: 'Open product photo', exact: true })
       await open.click()
       await page.getByRole('dialog', { name: 'Product image viewer' }).waitFor()
@@ -58,9 +73,48 @@ async function main() {
       assert.equal(await page.getByRole('dialog').count(), 0)
       assert.equal(await open.evaluate(node => node === document.activeElement), true)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false)
+      await page.goto(origin + '/scripts/product-template-fixture.html?live=1')
+      await page.getByText('4.8 (21)', { exact:true }).waitFor()
+      await page.getByRole('tab', { name:'Trust/Feedback', exact:true }).click()
+      await page.getByText('Verified buyer', { exact:true }).waitFor()
+      assert.equal(await page.getByText('Unverified buyer', {exact:true}).count(), 0)
+      await page.getByRole('button', {name:'Load more feedback',exact:true}).click()
+      await page.getByText('Next page buyer', {exact:true}).waitFor()
+      feedbackMode = 'updated'
+      await page.getByRole('button', {name:'Refresh feedback',exact:true}).click()
+      await page.getByText('Updated buyer', {exact:true}).waitFor()
+      assert.equal(await page.getByText('Next page buyer', {exact:true}).count(), 0)
+      feedbackMode = 'fail'
+      await page.getByRole('button', {name:'Refresh feedback',exact:true}).click()
+      await page.getByRole('alert').getByText('Previously loaded feedback', {exact:false}).waitFor()
+      feedbackMode = 'null'
+      await page.getByRole('button', {name:'Retry feedback',exact:true}).click()
+      await page.getByRole('alert').waitFor()
+      feedbackMode = 'updated'
+      await page.getByRole('button', {name:'Retry feedback',exact:true}).click()
+      await page.getByRole('alert').waitFor({state:'detached'})
+      feedbackMode = 'stale'
+      await page.getByRole('button', {name:'Refresh feedback',exact:true}).click()
+      await staleStarted
+      await page.getByRole('button', {name:'Switch product',exact:true}).click()
+      await page.getByText('Other listing buyer', {exact:true}).waitFor()
+      releaseStale()
+      assert.equal(await page.getByText('Updated buyer', {exact:true}).count(), 0)
+      assert.equal(await page.getByText('Stale buyer', {exact:true}).count(), 0)
+      await page.clock.install()
+      feedbackMode = 'timeout'
+      await page.getByRole('button', {name:'Refresh feedback',exact:true}).click()
+      await timeoutStarted
+      await page.clock.fastForward(12_001)
+      await page.getByRole('alert').waitFor()
+      releaseTimeout()
+      feedbackMode = 'updated'
+      await page.getByRole('button', {name:'Retry feedback',exact:true}).click()
+      await page.getByRole('alert').waitFor({state:'detached'})
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false)
       const contrast = await page.evaluate(() => {
         const luminance = value => value.match(/[0-9.]+/g).slice(0,3).map(Number).map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c+.055)/1.055)**2.4).reduce((s,c,i) => s+c*[.2126,.7152,.0722][i],0)
-        return ['.dh-product-title h1','.dh-product-price > strong','.dh-product-tabpanel'].map(selector => {
+        return ['.dh-product-title h1','.dh-product-price > strong','.dh-product-tabpanel','.dh-product-signal--rating','.dh-product-signal--sold','.dh-product-signal--delivery','.dh-product-signal--cutoff','.dh-product-verified'].map(selector => {
           const element = document.querySelector(selector)
           let ancestor = element, bg = 'rgba(0, 0, 0, 0)'
           while (ancestor && bg === 'rgba(0, 0, 0, 0)') { bg = getComputedStyle(ancestor).backgroundColor; ancestor = ancestor.parentElement }

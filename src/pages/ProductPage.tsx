@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   Check,
+  Clock,
   Heart,
   Minus,
   Plus,
@@ -1539,10 +1540,10 @@ export default function ProductPage({
                 <MarketplaceProductOffer price={formatProductPrice(activePrice)}
                   shipping={<small><Truck />{shipping.fee === 0 ? '+ free shipping' : `+ ${formatProductPrice(shipping.fee)} shipping`}</small>}
                   meta={<>
-                    <span aria-label={ratingText}><Star />{product.ratingCount > 0 && product.averageRating > 0 ? `${product.averageRating.toFixed(1)} (${product.ratingCount})` : 'No ratings'}</span>
-                    {soldText && <span>{soldText}</span>}
-                    <span><Truck />{shipping.estimate}</span>
-                    <span>{shipping.isLusaka ? shipping.countdown : shipping.title}</span>
+                    <span className={product.ratingCount > 0 && product.averageRating > 0 ? 'dh-product-signal dh-product-signal--rating' : ''} aria-label={ratingText}><Star />{product.ratingCount > 0 && product.averageRating > 0 ? `${product.averageRating.toFixed(1)} (${product.ratingCount})` : 'No ratings'}</span>
+                    {soldText && <span className="dh-product-signal dh-product-signal--sold"><PackageCheck />{soldText}</span>}
+                    <span className="dh-product-signal dh-product-signal--delivery"><Truck />{shipping.estimate}</span>
+                    <span className={'dh-product-signal dh-product-signal--' + (shipping.isLusaka ? 'cutoff' : 'delivery')}><Clock />{shipping.isLusaka ? shipping.countdown : shipping.title}</span>
                   </>}
                 />
                 {purchaseOptions(product.attributes).length > 0 && (

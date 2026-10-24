@@ -79,6 +79,7 @@ export function ProductDescription({ html }: { html: string }) {
 }
 
 export type PreviewProduct = {
+  wooProductId?: string | number | null
   name: string; sellerStoreName?: string; mainImage?: string; images?: string[]; regularPrice?: string; salePrice?: string
   stockQuantity?: number | null; stockStatus?: string; manageStock?: boolean | 'parent'; condition?: string; sku?: string; category?: string; brand?: string; productType?: string
   description?: string; shortDescription?: string; weight?: string | number
