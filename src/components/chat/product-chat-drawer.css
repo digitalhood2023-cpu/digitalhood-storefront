@@ -1,5 +1,5 @@
-.dh-seller-chat-overlay { position:fixed; inset:0; z-index:70; background:rgb(8 12 28 / .48); animation:dh-chat-fade .18s ease-out; }
-.dh-seller-chat-drawer { position:fixed; inset:0 0 0 auto; z-index:75; width:100%; height:100dvh; display:flex; flex-direction:column; overflow:hidden; border-left:1px solid var(--dh-ui-border); background:var(--dh-ui-surface); color:var(--dh-ui-text); box-shadow:-12px 0 48px rgb(0 0 0 / .18); animation:dh-chat-slide .2s ease-out; }
+.dh-seller-chat-overlay { position:fixed; inset:0; z-index:125; background:rgb(8 12 28 / .48); animation:dh-chat-fade .18s ease-out; }
+.dh-seller-chat-drawer { position:fixed; inset:0 0 0 auto; z-index:130; width:100%; height:100dvh; display:flex; flex-direction:column; overflow:hidden; border-left:1px solid var(--dh-ui-border); background:var(--dh-ui-surface); color:var(--dh-ui-text); box-shadow:-12px 0 48px rgb(0 0 0 / .18); animation:dh-chat-slide .2s ease-out; }
 .dh-seller-chat-heading { display:flex; align-items:center; gap:8px; padding:14px 14px 12px; border-bottom:1px solid var(--dh-ui-border); flex:none; }
 .dh-seller-chat-heading > div { min-width:0; flex:1; }.dh-seller-chat-heading h2 { font-size:19px; font-weight:850; }.dh-seller-chat-heading p { margin-top:4px; font-size:11px; line-height:1.45; color:var(--dh-ui-text-muted); }
 .dh-seller-chat-heading button { display:grid; place-items:center; flex:none; width:38px; height:38px; border:1px solid var(--dh-ui-border); border-radius:50%; background:var(--dh-ui-surface-muted); }.dh-seller-chat-heading svg { width:17px; height:17px; }

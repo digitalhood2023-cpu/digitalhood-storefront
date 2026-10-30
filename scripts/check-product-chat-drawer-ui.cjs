@@ -52,6 +52,7 @@ async function main(){
         const drawer=page.getByRole('dialog',{name:'Message seller',exact:true})
         await drawer.waitFor();await drawer.getByText(messages[0].text,{exact:true}).waitFor()
         const box=await drawer.boundingBox();assert.ok(box&&Math.abs(box.x+box.width-width)<2);assert.ok(width<768?Math.abs(box.width-width)<2:box.width<=490&&box.width>=450)
+        assert.equal(await drawer.getByRole('button',{name:'Close seller chat',exact:true}).evaluate(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),true,'drawer controls must sit above the sticky storefront header')
         assert.equal(await page.locator('.product-info').count(),1,'product stays mounted behind chat')
         assert.ok(await page.evaluate(()=>Math.abs(scrollY-window.chatTriggerScroll)<2),'opening must preserve the actual trigger-click scroll, after browser auto-scroll')
         assert.equal(await drawer.locator('.dh-chat-inbox').count(),0)
