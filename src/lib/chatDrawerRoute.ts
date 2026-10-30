@@ -3,6 +3,7 @@ import type { ChatProductIntent } from '@/api/chat'
 
 export type ChatDrawerRouteState = {
   chatDrawer?: boolean
+  chatTriggerId?: string
   backgroundLocation?: Location
   drawerProduct?: ChatProductIntent
   pendingProduct?: ChatProductIntent
@@ -19,6 +20,6 @@ export function getChatDrawerBackground(location: Pick<Location,'pathname'|'stat
   return {...background,state:null}
 }
 
-export function productChatDrawerState(location: Location, product: ChatProductIntent): ChatDrawerRouteState {
-  return {chatDrawer:true,backgroundLocation:{...location,state:null},drawerProduct:product,pendingProduct:product}
+export function productChatDrawerState(location: Location, product: ChatProductIntent, chatTriggerId?: string): ChatDrawerRouteState {
+  return {chatDrawer:true,chatTriggerId,backgroundLocation:{...location,state:null},drawerProduct:product,pendingProduct:product}
 }

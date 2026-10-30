@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -287,6 +287,7 @@ export default function ProductPage({
   const [added, setAdded] = useState(false)
   const [isOpeningChat, setIsOpeningChat] = useState(false)
   const [chatError,setChatError] = useState('')
+  const chatTriggerId = useId()
   const [isStartingSellerCheckout, setIsStartingSellerCheckout] = useState(false)
   const [sellerDomainResolution, setSellerDomainResolution] =
     useState<SellerStorefrontResolution | null>(null)
@@ -651,7 +652,7 @@ export default function ProductPage({
       navigate(
         `/account/messages/${response.conversationId}`,
         {
-          state: productChatDrawerState(location,response.product)
+          state: productChatDrawerState(location,response.product,chatTriggerId)
         }
       )
     } catch (error) {
@@ -1522,7 +1523,7 @@ export default function ProductPage({
                   feedback={sellerDisplay.feedbackText}
                   actions={<>
                     <Link to={sellerDisplay.sellerUrl || '/seller/digitalhood'}>Visit store</Link>
-                    <button type="button" onClick={handleOpenSellerChat} disabled={isOpeningChat}>
+                    <button id={chatTriggerId} type="button" onClick={handleOpenSellerChat} disabled={isOpeningChat}>
                       {isOpeningChat ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <MessageCircle />}
                       {isOpeningChat ? 'Opening...' : 'Chat'}
                     </button>

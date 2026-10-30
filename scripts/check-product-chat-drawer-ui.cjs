@@ -66,6 +66,7 @@ async function main(){
         for(let n=0;n<16;n++){await page.keyboard.press('Tab');assert.equal(await drawer.evaluate(e=>e.contains(document.activeElement)),true,'keyboard stays in the modal')}
         await page.screenshot({path:path.join(output,theme+'-'+width+'.png'),fullPage:false})
         await page.keyboard.press('Escape');await drawer.waitFor({state:'detached'})
+        await page.waitForFunction(id=>document.activeElement?.id===id,await chat.getAttribute('id'),{timeout:2000})
         assert.equal(await chat.evaluate(e=>document.activeElement===e),true,'close restores the product Chat trigger')
         await chat.click();await drawer.waitFor();await input.waitFor();assert.equal(await input.inputValue(),questionDraft)
         await page.goBack();await drawer.waitFor({state:'detached'})

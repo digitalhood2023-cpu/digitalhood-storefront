@@ -12,7 +12,10 @@ export default function ProductChatDrawer() {
   const location = useLocation(), navigate = useNavigate()
   const [closeState,setCloseState] = useState<ChatCloseState>({busy:false,attachments:false})
   const [notice,setNotice] = useState('')
-  const trigger = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  // The trigger temporarily disables while opening; browsers may blur it before
+  // the request resolves. Retain its explicit identity instead of body focus.
+  const triggerId = (location.state as ChatDrawerRouteState | null)?.chatTriggerId
+  const trigger = useRef((triggerId ? document.getElementById(triggerId) : null) || (document.activeElement instanceof HTMLElement ? document.activeElement : null))
   const closeButton = useRef<HTMLButtonElement>(null)
   function canLeave() {
     if (closeState.busy) { setNotice('Please let the current send or photo preparation finish before leaving.'); return false }
