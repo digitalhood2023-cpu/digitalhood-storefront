@@ -1,0 +1,19 @@
+/* One typography contract for seller editing, moderation and buyer descriptions. */
+.dh-description-content { white-space:normal; color:var(--product-text,var(--editor-text)); font-size:14px; line-height:1.6; overflow-wrap:anywhere; }
+.dh-description-content.is-plain-text { white-space:pre-line; }
+.dh-description-content :is(p,div,ul,ol,table,dl,blockquote,h2,h3,h4) { margin:0 0 12px; }
+.dh-description-content > :last-child,.dh-description-content li > :last-child { margin-bottom:0; }
+.dh-description-content :is(ul,ol) { padding-left:24px; }
+.dh-description-content ul { list-style:disc outside; }.dh-description-content ol { list-style:decimal outside; }
+.dh-description-content li { display:list-item; margin:3px 0; }.dh-description-content li > p { margin-bottom:4px; }
+.dh-description-content li > :is(ul,ol) { margin:4px 0; }
+.dh-description-content h2 { font-size:20px; font-weight:800; line-height:1.35; }.dh-description-content h3 { font-size:18px; font-weight:800; }.dh-description-content h4 { font-size:16px; font-weight:800; }
+.dh-description-content strong,.dh-description-content b { font-weight:800; }.dh-description-content em,.dh-description-content i { font-style:italic; }
+.dh-description-content a { color:var(--product-accent,var(--editor-text)); text-decoration:underline; text-underline-offset:2px; }
+.dh-description-content blockquote { border-left:3px solid var(--product-line,var(--editor-line)); padding-left:12px; }
+.dh-description-content img { display:block; max-width:100%; height:auto; border-radius:12px; }
+.dh-description-content table { display:block; width:max-content; max-width:100%; overflow-x:auto; border-collapse:collapse; }
+.dh-description-content :is(td,th) { padding:8px 10px; border:1px solid var(--product-line,var(--editor-line)); vertical-align:top; text-align:left; min-width:100px; }
+.dh-description-content th { background:var(--product-muted-surface,var(--editor-field)); font-weight:800; }
+.dh-description-content dd { margin-left:20px; }
+@media(max-width:600px) { .dh-description-content { font-size:16px; } }

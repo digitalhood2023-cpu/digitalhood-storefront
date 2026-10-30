@@ -1,6 +1,7 @@
 import { createElement, useId, useMemo, useRef, type ReactNode } from 'react'
 import { extractDescriptionSpecificationRows, mergeProductSpecificationRows } from './productSpecifications'
 import './marketplace-product.css'
+import './description-content.css'
 
 // Version 1: keep this file and its CSS byte-identical across all three apps.
 export function MarketplaceProductLayout({ title, gallery, galleryFooter, children }: {
@@ -65,6 +66,11 @@ export function ProductDescription({ html }: { html: string }) {
       const children = Array.from(node.childNodes).map((child, index) => walk(child, key + '-' + index, depth + 1))
       if (!allowed.has(node.tagName)) return children
       const props: Record<string, unknown> = { key }
+      if (node.tagName === 'OL' || node.tagName === 'LI') {
+        const attribute = node.tagName === 'OL' ? 'start' : 'value'
+        const number = Number(node.getAttribute(attribute))
+        if (node.hasAttribute(attribute) && Number.isSafeInteger(number) && Math.abs(number) <= 10000) props[attribute] = number
+      }
       if (node.tagName === 'A' || node.tagName === 'IMG') {
         const url = node.getAttribute(node.tagName === 'A' ? 'href' : 'src') || ''
         if (!/^(https?:\/\/|\/(?!\/))/i.test(url)) return children
@@ -75,7 +81,7 @@ export function ProductDescription({ html }: { html: string }) {
     }
     return Array.from(doc.body.childNodes).map((node, index) => walk(node, String(index), 0))
   }, [html])
-  return <div className="dh-product-description">{content}</div>
+  return <div className={'dh-product-description dh-description-content' + (!/<\/?[a-z][^>]*>/i.test(html) ? ' is-plain-text' : '')}>{content}</div>
 }
 
 export type PreviewProduct = {

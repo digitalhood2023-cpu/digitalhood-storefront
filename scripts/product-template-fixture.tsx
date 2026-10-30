@@ -13,7 +13,7 @@ return <main style={{ maxWidth: 1200, margin: 'auto', padding: 12 }}>
     wooProductId: id,
     name: 'Protective phone case · fixture', productType: 'variable', regularPrice: '399', stockQuantity: 3,
     mainImage: photo('#ddd'), images: [photo('#ddd'), photo('#ccc')], condition: 'new', brand: 'Fixture', sku: 'CASE-BASE', category: 'Phone cases',
-    description: '<p>A <strong>protective case</strong> with a clear finish.</p><table><tbody><tr><th>Material</th><td>Silicone</td></tr></tbody></table><script>window.fixtureUnsafe = true</script><a href="javascript:alert(1)">Unsafe link</a><img src="javascript:alert(1)" onerror="window.fixtureUnsafe=true"/>',
+    description: '<p>A <strong>protective case</strong> with a clear finish.</p>\n\n<h2>Product features</h2>\n<ul>\n<li><p>Everyday protection</p><ul><li>Reinforced corners</li></ul></li>\n<li>Lightweight finish</li>\n</ul>\n<ol start="3"><li>Fit your device</li><li value="7">Check alignment</li></ol>\n<table><tbody><tr><th>Material</th><td>Silicone</td></tr>'+Array.from({length:30},(_,index)=>`\n<tr><th>Detail ${index}</th><td>Complete product specification retained beyond the former 1,400 character boundary.</td></tr>`).join('')+'</tbody></table>\n<p><img src="/logo.jpg" alt="Product detail photo"></p><script>window.fixtureUnsafe = true</script><a href="javascript:alert(1)">Unsafe link</a><img src="javascript:alert(1)" onerror="window.fixtureUnsafe=true"/>',
     attributes: [{ name: 'Colour', value: 'White' }, { name: 'Size', value: '6.1 inches' }],
     variations: [
       { id: 'red', attributes: { Colour: 'Red' }, regularPrice: '399', salePrice: '299', stockQuantity: 3, sku: 'CASE-RED', condition: 'new', image: photo('#ffaaa0') },
