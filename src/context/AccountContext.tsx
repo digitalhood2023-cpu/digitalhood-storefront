@@ -22,6 +22,7 @@ import {
 import { clearMarketplacePersonalBrowserState } from '@/lib/marketplaceBrowserState'
 import { clearOfflineAccountQueue } from '@/lib/networkResilience'
 import { useCartStore } from '@/store/cartStore'
+import { clearBuyerChatDrafts } from '@/lib/buyerChatDrafts'
 
 type AccountContextValue = {
   customer: AccountCustomer | null
@@ -49,6 +50,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const setSession = useCallback((token: string, nextCustomer: AccountCustomer) => {
+    clearBuyerChatDrafts()
     setAccountToken(token)
     setCachedAccountCustomer(nextCustomer)
     setCustomer(nextCustomer)
@@ -65,6 +67,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     const token = getAccountToken()
 
     if (!token) {
+      clearBuyerChatDrafts()
       void clearOfflineAccountQueue()
       setCustomer(null)
       setIsLoading(false)
@@ -85,6 +88,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       return response.customer
     } catch (requestError) {
       if (isAccountUnauthorizedError(requestError)) {
+        clearBuyerChatDrafts()
         clearAccountToken()
         clearCachedAccountCustomer()
         useCartStore.getState().clearCart()
@@ -110,6 +114,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    clearBuyerChatDrafts()
     setIsLoading(true)
     setError('')
     useCartStore.getState().clearCart()

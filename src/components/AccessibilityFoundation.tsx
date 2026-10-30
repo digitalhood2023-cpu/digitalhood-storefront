@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
+import { getChatDrawerBackground } from '@/lib/chatDrawerRoute'
 
 const MANAGED_MAIN_ATTRIBUTE = 'data-digitalhood-main'
 const MANAGED_TABINDEX_ATTRIBUTE = 'data-digitalhood-managed-tabindex'
@@ -7,8 +8,13 @@ const MANAGED_TABINDEX_ATTRIBUTE = 'data-digitalhood-managed-tabindex'
 export default function AccessibilityFoundation() {
   const location = useLocation()
   const initialRoute = useRef(true)
+  const previousDrawer = useRef<ReturnType<typeof getChatDrawerBackground>>(null)
 
   useEffect(() => {
+    const background = getChatDrawerBackground(location), previous = previousDrawer.current
+    previousDrawer.current = background
+    // The modal manages its own focus and restores the Chat trigger on close.
+    if (background || (previous && location.pathname === previous.pathname && location.search === previous.search)) return
     const shouldFocus = !initialRoute.current
     initialRoute.current = false
     let observer: MutationObserver | null = null

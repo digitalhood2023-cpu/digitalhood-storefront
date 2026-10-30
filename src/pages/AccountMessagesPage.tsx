@@ -39,6 +39,10 @@ import type {
 
 import Header from '@/sections/Header'
 import Footer from '@/sections/Footer'
+import { useAccount } from '@/context/AccountContext'
+import { buyerChatDraftKey, readBuyerChatDraft, writeBuyerChatDraft } from '@/lib/buyerChatDrafts'
+import type { ChatDrawerRouteState } from '@/lib/chatDrawerRoute'
+import type { ChatCloseState } from '@/components/chat/ProductChatDrawer'
 import ChatImageLightbox from '@/components/chat/ChatImageLightbox'
 import {
   createBuyerChatSocket,
@@ -946,7 +950,7 @@ function getChatMessageId(
   )
 }
 
-export default function AccountMessagesPage() {
+export default function AccountMessagesPage({ embedded = false, onCloseStateChange }: { embedded?: boolean; onCloseStateChange?: (state: ChatCloseState) => void }) {
   const {
     conversationId
   } = useParams<{
@@ -958,6 +962,9 @@ export default function AccountMessagesPage() {
 
   const navigate =
     useNavigate()
+  const { customer } = useAccount()
+  const draftKey = buyerChatDraftKey(customer?.id,conversationId)
+  const drawerProduct = (location.state as ChatDrawerRouteState | null)?.drawerProduct
 
   const [
     conversations,
@@ -1056,7 +1063,9 @@ export default function AccountMessagesPage() {
   const [
     draft,
     setDraft
-  ] = useState('')
+  ] = useState(() => readBuyerChatDraft(draftKey))
+  const [draftOwner,setDraftOwner] = useState(draftKey)
+  const draftConversationRef = useRef(conversationId)
 
   const [
     replyingTo,
@@ -1321,14 +1330,30 @@ export default function AccountMessagesPage() {
     ? pendingMediaItems.find(item => item.id === editingMediaId) || null
     : null
 
+  const closeBusy = isSending || isPreparingMedia || isSendingProduct || isSendingOrder || Boolean(mutationMessageId) || outgoingMediaItems.some(item => item.status === 'uploading') || messages.some(message => message.localStatus === 'sending')
+  const hasUnsentAttachments = pendingMediaItems.length > 0 || outgoingMediaItems.some(item => item.status === 'error') || messages.some(message => message.localStatus === 'failed') || Boolean(editingMessage || replyingTo)
+  useEffect(() => { onCloseStateChange?.({busy:closeBusy,attachments:hasUnsentAttachments}) },[closeBusy,hasUnsentAttachments,onCloseStateChange])
+  useEffect(() => {
+    if (draftOwner === draftKey && !editingMessage && !replyingTo) writeBuyerChatDraft(draftKey,draft)
+  },[draftKey,draftOwner,draft,editingMessage,replyingTo])
+  useEffect(() => {
+    if (!closeBusy && !hasUnsentAttachments && !draft.trim()) return
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload',warn)
+    return () => window.removeEventListener('beforeunload',warn)
+  },[closeBusy,hasUnsentAttachments,draft])
+
   useEffect(
     () => {
+      const sameConversation = draftConversationRef.current === conversationId
+      draftConversationRef.current = conversationId
       setReplyingTo(null)
       setEditingMessage(null)
       setEditingMediaId(null)
       setHighlightedMessageId(null)
       setMutationMessageId(null)
-      setDraft('')
+      setDraft(current => !draftOwner && draftKey && sameConversation && current ? current : readBuyerChatDraft(draftKey))
+      setDraftOwner(draftKey)
       pendingMediaItemsRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl))
       setPendingMediaItems([])
       setIsMediaBatchInConversation(false)
@@ -1337,7 +1362,7 @@ export default function AccountMessagesPage() {
         mediaInputRef.current.value = ''
       }
     },
-    [conversationId]
+    [conversationId,draftKey]
   )
 
   const loadInbox =
@@ -1939,7 +1964,7 @@ export default function AccountMessagesPage() {
           location.search,
         {
           replace: true,
-          state: null
+          state: embedded ? {...location.state,pendingProduct:undefined,pendingOrder:undefined} : null
         }
       )
     },
@@ -1948,6 +1973,7 @@ export default function AccountMessagesPage() {
       location.pathname,
       location.search,
       location.state,
+      embedded,
       navigate
     ]
   )
@@ -3258,12 +3284,12 @@ export default function AccountMessagesPage() {
   }
 
   return (
-    <div className="dh-chat-page flex min-h-[100svh] flex-col">
-      <Header />
+    <div className={'dh-chat-page flex flex-col ' + (embedded ? 'is-embedded' : 'min-h-[100svh]')}>
+      {!embedded && <Header />}
 
       <main className="py-1.5 lg:py-2">
         <div className="container mx-auto max-w-[1536px] px-3 sm:px-5 lg:px-6">
-          <div className={`${conversationId ? 'hidden md:flex' : 'flex'} mb-1.5 flex-wrap items-center justify-between gap-2`}>
+          {!embedded && <div className={`${conversationId ? 'hidden md:flex' : 'flex'} mb-1.5 flex-wrap items-center justify-between gap-2`}>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-dh-secondary sm:text-xs">
                 DigitalHood Marketplace
@@ -3281,7 +3307,7 @@ export default function AccountMessagesPage() {
               <ArrowLeft className="h-4 w-4" />
               My account
             </Link>
-          </div>
+          </div>}
 
           {error && (
             <div
@@ -3293,7 +3319,7 @@ export default function AccountMessagesPage() {
           )}
 
           <div className="dh-chat-shell grid h-[calc(100dvh-7.25rem)] min-h-[440px] max-h-[1100px] overflow-hidden rounded-xl border shadow-lg md:h-[calc(100dvh-10.5rem)] md:grid-cols-[280px_minmax(0,1fr)] lg:h-[calc(100dvh-8rem)] xl:grid-cols-[310px_minmax(0,1fr)]">
-            <aside
+            {!embedded && <aside
               className={`dh-chat-inbox border-r ${
                 conversationId
                   ? 'hidden md:flex'
@@ -3448,7 +3474,7 @@ export default function AccountMessagesPage() {
                   )
                 )}
               </div>
-            </aside>
+            </aside>}
 
             <section
               className={`${
@@ -3474,7 +3500,7 @@ export default function AccountMessagesPage() {
               ) : (
                 <>
                   <header className="dh-chat-header flex items-center gap-2.5 border-b px-3 py-2.5">
-                    <button
+                    {!embedded && <button
                       type="button"
                       onClick={() =>
                         navigate(
@@ -3485,7 +3511,7 @@ export default function AccountMessagesPage() {
                       aria-label="Back to conversations"
                     >
                       <ArrowLeft className="h-4 w-4" />
-                    </button>
+                    </button>}
 
                     <ConversationAvatar
                       item={
@@ -3524,7 +3550,13 @@ export default function AccountMessagesPage() {
                         {' · Marketplace conversation'}
                       </p>
                     </div>
+                    {embedded && <button type="button" aria-label="Refresh conversation" title="Refresh conversation" className="rounded-full p-2" onClick={() => { void loadInbox(); void loadConversation(conversationId) }} disabled={isLoadingMessages}><RefreshCw className={'h-4 w-4'+(isLoadingMessages?' animate-spin':'')} /></button>}
                   </header>
+                  {embedded && drawerProduct?.id && <div className="dh-chat-drawer-product" aria-label="Product being discussed">
+                    {drawerProduct.imageUrl && <img src={drawerProduct.imageUrl} alt="" />}
+                    <div><p>{drawerProduct.name}</p>{drawerProduct.price && <span>{drawerProduct.price}</span>}</div>
+                    {pendingProduct && <button type="button" disabled={closeBusy} onClick={() => void handleSendProduct()} aria-label="Share product in conversation">Share item</button>}
+                  </div>}
 
                   <div className="relative min-h-0 flex-1">
                     <div
@@ -4023,6 +4055,10 @@ export default function AccountMessagesPage() {
                     }
                     className="dh-chat-composer border-t p-1.5 sm:p-2"
                   >
+                    {embedded && !editingMessage && !replyingTo && pendingMediaItems.length === 0 && <>
+                      <div className="dh-chat-quick-questions" role="group" aria-label="Quick questions, added to your draft only">{['Is this item still available?','Can you deliver to my area?','What warranty is included?'].map(question => <button type="button" key={question} disabled={isSending} onClick={() => setDraft(current => (current.trim() ? current.trimEnd()+'\n'+question : question).slice(0,4000))}>{question}</button>)}</div>
+                      <p className="dh-chat-draft-hint">Text drafts are kept in this tab when you close chat. Keep payments on DigitalHood.</p>
+                    </>}
                     {(replyingTo ||
                       editingMessage) && (
                       <div className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
@@ -4211,7 +4247,7 @@ export default function AccountMessagesPage() {
                       </div>
                     )}
 
-                    {pendingProduct &&
+                    {!embedded && pendingProduct &&
                       pendingProduct
                         .conversationId ===
                           conversationId && (
@@ -4440,7 +4476,7 @@ export default function AccountMessagesPage() {
           />
         </Suspense>
       )}
-      <Footer />
+      {!embedded && <Footer />}
     </div>
   )
 }
