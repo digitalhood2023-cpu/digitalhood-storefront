@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigationType, useParams } from 'react-router-dom'
 
 import { AccountProvider } from '@/context/AccountContext'
@@ -13,6 +13,7 @@ import DigitalHoodAIShortcut from '@/components/DigitalHoodAIShortcut'
 import { clearBodyScrollLocks } from '@/lib/bodyScrollLock'
 import { getCurrentSellerDomainContext } from '@/lib/sellerDomains'
 import { RouteLoading } from '@/components/StartupBoundary'
+import { getChatDrawerBackground } from '@/lib/chatDrawerRoute'
 
 const Home = lazy(() => import('@/pages/Home'))
 const SellPage = lazy(() => import('@/pages/SellPage'))
@@ -39,6 +40,7 @@ const AccountSupportCasesPage = lazy(() => import('@/pages/AccountSupportCasesPa
 const AccountOrderIssuePage = lazy(() => import('@/pages/AccountOrderIssuePage'))
 const AccountResolutionsPage = lazy(() => import('@/pages/AccountResolutionsPage'))
 const AccountMessagesPage = lazy(() => import('@/pages/AccountMessagesPage'))
+const ProductChatDrawer = lazy(() => import('@/components/chat/ProductChatDrawer'))
 const AccountNotificationsPage = lazy(() => import('@/pages/AccountNotificationsPage'))
 const AccountFeedbackPage = lazy(() => import('@/pages/AccountFeedbackPage'))
 const MemberFeedbackPage = lazy(() => import('@/pages/MemberFeedbackPage'))
@@ -92,9 +94,14 @@ function SellerResolutionRedirect() {
 function NavigationScrollManager() {
   const location = useLocation()
   const navigationType = useNavigationType()
+  const drawerBackground = getChatDrawerBackground(location)
+  const previousDrawer = useRef(drawerBackground)
+  const drawerOpen = useRef(Boolean(drawerBackground))
+  drawerOpen.current = Boolean(drawerBackground)
 
   useEffect(() => {
     const handleLinkClick = (event: MouseEvent) => {
+      if (drawerOpen.current) return
       const target = event.target as HTMLElement | null
       const link = target?.closest('a')
 
@@ -128,12 +135,15 @@ function NavigationScrollManager() {
   }, [])
 
   useEffect(() => {
+    const previous = previousDrawer.current
+    previousDrawer.current = drawerBackground
+    if (drawerBackground || (previous && location.pathname === previous.pathname && location.search === previous.search)) return
     clearBodyScrollLocks()
 
     if (navigationType !== 'POP') {
       window.scrollTo({ top: 0, behavior: 'auto' })
     }
-  }, [location.pathname, location.search, location.hash, navigationType])
+  }, [location.pathname, location.search, location.hash, location.state, navigationType])
 
   return null
 }
@@ -144,6 +154,8 @@ function LegacyOrderDetailsRedirect() {
 }
 
 function App() {
+  const location = useLocation()
+  const chatBackground = getChatDrawerBackground(location)
   const sellerDomain = getCurrentSellerDomainContext()
 
   if (sellerDomain) {
@@ -196,7 +208,7 @@ function App() {
 
             <div className="min-h-[100svh]">
               <Suspense fallback={<PageLoader />}>
-                <Routes>
+                <Routes location={chatBackground || location}>
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<ShopPage />} />
                 <Route path="/sell" element={<SellPage />} />
@@ -278,6 +290,7 @@ function App() {
                 </Routes>
               </Suspense>
             </div>
+            {chatBackground && <Suspense fallback={null}><Routes><Route path="/account/messages/:conversationId" element={<ProductChatDrawer />} /></Routes></Suspense>}
             </RecentlyViewedProvider>
           </WishlistProvider>
         </MarketplaceStateProvider>

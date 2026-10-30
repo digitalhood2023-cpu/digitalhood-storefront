@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import {
   Check,
@@ -56,6 +56,7 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useRecentlyViewed } from '@/context/RecentlyViewedContext'
 import { useAccount } from '@/context/AccountContext'
 import { openProductConversation } from '@/api/chat'
+import { productChatDrawerState } from '@/lib/chatDrawerRoute'
 import {
   getPublicFeedback,
   type FeedbackSummary,
@@ -285,6 +286,8 @@ export default function ProductPage({
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const [isOpeningChat, setIsOpeningChat] = useState(false)
+  const [chatError,setChatError] = useState('')
+  const chatTriggerId = useId()
   const [isStartingSellerCheckout, setIsStartingSellerCheckout] = useState(false)
   const [sellerDomainResolution, setSellerDomainResolution] =
     useState<SellerStorefrontResolution | null>(null)
@@ -298,6 +301,7 @@ export default function ProductPage({
   const { toggleWishlist, isInWishlist } = useWishlist()
   const { addToRecentlyViewed } = useRecentlyViewed()
   const { isAuthenticated } = useAccount()
+  const location = useLocation()
 
   const pageRef = useRef<HTMLDivElement>(null)
   const galleryHistoryStateRef = useRef(false)
@@ -309,6 +313,12 @@ export default function ProductPage({
     multiTouch: boolean
   } | null>(null)
   const productLoadIdRef = useRef(0)
+  const chatAttemptRef = useRef(0)
+  useEffect(() => {
+    chatAttemptRef.current += 1
+    setIsOpeningChat(false); setChatError('')
+    return () => { chatAttemptRef.current += 1 }
+  },[slug])
 
   useEffect(() => {
     if (!sellerDomainHostname) {
@@ -629,30 +639,31 @@ export default function ProductPage({
     }
 
     setIsOpeningChat(true)
+    setChatError('')
+    const attempt = ++chatAttemptRef.current
 
     try {
       const response =
         await openProductConversation(
           product.id
         )
+      if (attempt !== chatAttemptRef.current) return
 
       navigate(
         `/account/messages/${response.conversationId}`,
         {
-          state: {
-            pendingProduct:
-              response.product
-          }
+          state: productChatDrawerState(location,response.product,chatTriggerId)
         }
       )
     } catch (error) {
-      window.alert(
+      if (attempt !== chatAttemptRef.current) return
+      setChatError(
         error instanceof Error
           ? error.message
           : 'Unable to open seller chat.'
       )
     } finally {
-      setIsOpeningChat(false)
+      if (attempt === chatAttemptRef.current) setIsOpeningChat(false)
     }
   }
 
@@ -1512,12 +1523,13 @@ export default function ProductPage({
                   feedback={sellerDisplay.feedbackText}
                   actions={<>
                     <Link to={sellerDisplay.sellerUrl || '/seller/digitalhood'}>Visit store</Link>
-                    <button type="button" onClick={handleOpenSellerChat} disabled={isOpeningChat}>
+                    <button id={chatTriggerId} type="button" onClick={handleOpenSellerChat} disabled={isOpeningChat}>
                       {isOpeningChat ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <MessageCircle />}
                       {isOpeningChat ? 'Opening...' : 'Chat'}
                     </button>
                   </>}
                 />}
+                {chatError && <p role="alert" className="my-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-slate-900">{chatError} <button type="button" className="font-bold underline" onClick={handleOpenSellerChat} disabled={isOpeningChat}>Try chat again</button></p>}
                 <MarketplaceProductOffer price={formatProductPrice(activePrice)}
                   shipping={<small><Truck />{shipping.fee === 0 ? '+ free shipping' : `+ ${formatProductPrice(shipping.fee)} shipping`}</small>}
                   meta={<>

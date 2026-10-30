@@ -58,6 +58,7 @@ jobs:
           done
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-resolution-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-template-ui.cjs
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-chat-drawer-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variation-review-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-sell-landing-ui.cjs
       - uses: actions/upload-artifact@v4
@@ -73,6 +74,7 @@ jobs:
           path: |
             scripts/product-template-ui/
             scripts/product-editor-ui/
+            scripts/product-chat-drawer-ui/
             scripts/variation-review-ui/
             scripts/sell-landing-ui/
           if-no-files-found: ignore
