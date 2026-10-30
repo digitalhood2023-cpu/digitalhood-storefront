@@ -89,7 +89,12 @@ async function main(){
         await chat.click();await drawer.waitFor();await input.waitFor()
         await input.fill('A private draft to continue in my inbox.')
         await drawer.getByRole('button',{name:'Open full messages inbox',exact:true}).click()
-        await drawer.waitFor({state:'detached'});await page.getByRole('heading',{name:'Messages',exact:true}).waitFor()
+        await drawer.waitFor({state:'detached'})
+        assert.equal(new URL(page.url()).pathname,`/account/messages/${id}`)
+        // The existing mobile inbox deliberately hides its page heading when a
+        // conversation is selected. Assert the actual full-page thread instead.
+        if(width>=768)await page.getByRole('heading',{name:'Messages',exact:true}).waitFor()
+        await page.getByPlaceholder('Write a message...',{exact:true}).waitFor()
         assert.equal(await page.getByPlaceholder('Write a message...',{exact:true}).inputValue(),'A private draft to continue in my inbox.')
         await page.goto(origin+'/account/messages/other-conversation')
         await page.getByPlaceholder('Write a message...',{exact:true}).waitFor();assert.equal(await page.getByPlaceholder('Write a message...',{exact:true}).inputValue(),'','drafts must never leak into another conversation')
