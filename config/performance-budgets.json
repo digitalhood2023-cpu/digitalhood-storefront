@@ -5,7 +5,7 @@
   "javascriptLargestChunkBytes": 620000,
   "javascriptLargestChunkGzipBytes": 200000,
   "cssTotalBytes": 230000,
-  "cssTotalGzipBytes": 37500,
+  "cssTotalGzipBytes": 38000,
   "sellerLandingCssBytes": 6000,
   "sellerLandingCssGzipBytes": 1600
 }

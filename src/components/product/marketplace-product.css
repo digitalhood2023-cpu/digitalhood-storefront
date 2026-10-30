@@ -48,10 +48,6 @@
 .dh-product-tablist button { min-width: 0; padding: 10px 3px; border: 0; border-radius: 9px; color: var(--product-muted); font-size: 12px; font-weight: 900; background: transparent; }
 .dh-product-tablist [aria-selected='true'],.dh-product-tablist [data-state='active'] { background: #26248c; color: #fff; }
 .dh-product-tabpanel { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--product-surface); overflow-wrap: anywhere; }
-.dh-product-description { white-space: pre-wrap; color: var(--product-muted); line-height: 1.6; overflow-wrap: anywhere; }
-.dh-product-description :is(p,ul,ol,table,dl) { margin: 0 0 12px; }.dh-product-description :is(ul,ol) { padding-left: 22px; }.dh-product-description strong { color: var(--product-text); }.dh-product-description a { color: var(--product-accent); text-decoration: underline; }
-.dh-product-description img { max-width: 100%; height: auto; border-radius: 12px; }.dh-product-description table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }.dh-product-description :is(td,th) { padding: 6px; border: 1px solid var(--product-line); }
-.dh-product-description ul { list-style: disc; }.dh-product-description ol { list-style: decimal; }
 .dh-product-section-title { margin: 0 0 12px; color: var(--product-text); font-size: 17px; font-weight: 900; }
 .dh-product-specs { margin: 0; border: 1px solid var(--product-line); border-radius: 12px; overflow: hidden; }.dh-product-specs > div { display: grid; grid-template-columns: minmax(0,.4fr) minmax(0,.6fr); gap: 12px; padding: 9px 12px; }.dh-product-specs > div:nth-child(odd) { background: var(--product-muted-surface); }.dh-product-specs dt { color: var(--product-muted); font-weight: 800; }.dh-product-specs dd { margin: 0; color: var(--product-text); overflow-wrap: anywhere; }
 .dh-product-variant { display: grid; gap: 6px; margin: 12px 0; }.dh-product-variant select { min-width: 0; width: 100%; padding: 9px; border: 1px solid var(--product-line); border-radius: 10px; background: var(--product-muted-surface); color: var(--product-text); }

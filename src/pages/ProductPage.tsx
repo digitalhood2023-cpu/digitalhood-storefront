@@ -182,21 +182,6 @@ function getProductDescriptionHtml(product: WooProduct) {
   )
 }
 
-function getVisibleDescriptionHtml(
-  descriptionHtml: string,
-  showFullDescription: boolean
-) {
-  if (!descriptionHtml) return ''
-
-  const shouldTruncate = descriptionHtml.length > 1400
-
-  if (!shouldTruncate || showFullDescription) {
-    return descriptionHtml
-  }
-
-  return `${descriptionHtml.slice(0, 1400)}...`
-}
-
 function formatProductPrice(price: number) {
   return `K${price.toLocaleString('en-ZM', {
     minimumFractionDigits: 2,
@@ -797,10 +782,6 @@ export default function ProductPage({
 
   const descriptionHtml = product ? getProductDescriptionHtml(product) : ''
   const hasLongDescription = descriptionHtml.length > 1400
-  const visibleDescriptionHtml = getVisibleDescriptionHtml(
-    descriptionHtml,
-    showFullDescription
-  )
 
   const productImages =
     product?.images && product.images.length > 0
@@ -1832,11 +1813,16 @@ export default function ProductPage({
                   description={<>
                     {descriptionHtml ? (
                       <div>
-                        <ProductDescription html={visibleDescriptionHtml} />
+                        {/* Collapse presentation, never slice HTML through a list, table or photo. */}
+                        <div id="product-full-description" style={hasLongDescription && !showFullDescription ? { maxHeight: '24rem', overflow: 'hidden' } : undefined}>
+                          <ProductDescription html={descriptionHtml} />
+                        </div>
 
                         {hasLongDescription && (
                           <button
                             type="button"
+                            aria-expanded={showFullDescription}
+                            aria-controls="product-full-description"
                             onClick={() =>
                               setShowFullDescription((current) => !current)
                             }
