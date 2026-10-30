@@ -4056,7 +4056,7 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
                     className="dh-chat-composer border-t p-1.5 sm:p-2"
                   >
                     {embedded && !editingMessage && !replyingTo && pendingMediaItems.length === 0 && <>
-                      <div className="dh-chat-quick-questions" role="group" aria-label="Quick questions, added to your draft only">{['Is this item still available?','Can you deliver to my area?','What warranty is included?'].map(question => <button type="button" key={question} disabled={isSending} onClick={() => setDraft(current => (current.trim() ? current.trimEnd()+'\n'+question : question).slice(0,4000))}>{question}</button>)}</div>
+                      <div className="dh-chat-quick-questions" role="group" aria-label="Quick questions, added to your draft only">{['Is this item still available?','Can you deliver to my area?','What warranty is included?'].map(question => <button type="button" key={question} disabled={isSending || draft.length > 3500 || draft.includes(question)} onClick={() => setDraft(current => (current.trim() ? current.trimEnd()+'\n'+question : question+(drawerProduct?.id ? '\nItem: '+drawerProduct.name+' (#'+drawerProduct.id+')' : '')).slice(0,4000))}>{question}</button>)}</div>
                       <p className="dh-chat-draft-hint">Text drafts are kept in this tab when you close chat. Keep payments on DigitalHood.</p>
                     </>}
                     {(replyingTo ||
