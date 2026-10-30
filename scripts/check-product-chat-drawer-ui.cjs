@@ -28,7 +28,7 @@ async function main(){
           let body={success:true,ok:true,products:[],categories:[],notifications:[],items:[],conversations:[],summary:{count:0,averageRating:0},unreadCount:0}
           if(p==='/api/auth/me')body={success:true,customer:{id:7,email:'fixture@example.invalid',firstName:'Fixture',lastName:'Buyer',billing:{},shipping:{}}}
           else if(p==='/api/products/slug/fixture-laptop'||p==='/api/products/42')body={product}
-          else if(p==='/api/conversations/product'){assert.equal(req.headers().authorization,'Bearer fixture-only');assert.deepEqual(req.postDataJSON(),{productId:42});body={ok:true,conversation:{id},product:{id:'42',name:product.name,price:'K299.00',imageUrl:origin+'/logo.jpg'}}}
+          else if(p==='/api/conversations/product'){assert.equal(req.headers().authorization,'Bearer fixture-only');assert.deepEqual(req.postDataJSON(),{productId:42});body={ok:true,conversation:{id},product:{id:'42',name:product.name,price:'299',imageUrl:''}}}
           else if(p==='/api/conversations')body={ok:true,conversations:[{id,storeName:'Fixture seller',counterparty:{type:'seller',id:'8',displayName:'Fixture seller',avatarUrl:origin+'/logo.jpg'},latestSequence:messages.at(-1).sequence,unreadCount:0}]}
           else if(p===`/api/conversations/${id}/messages`&&req.method()==='POST'){
             const payload=req.postDataJSON();sends.push(payload)
@@ -57,6 +57,8 @@ async function main(){
         assert.ok(await page.evaluate(()=>Math.abs(scrollY-window.chatTriggerScroll)<2),'opening must preserve the actual trigger-click scroll, after browser auto-scroll')
         assert.equal(await drawer.locator('.dh-chat-inbox').count(),0)
         assert.equal(await drawer.locator('.dh-chat-drawer-product').getByText('Fixture laptop',{exact:true}).count(),1)
+        assert.equal(await drawer.locator('.dh-chat-drawer-product').getByText('K299.00',{exact:true}).count(),1,'reference uses the listing currency format even when chat returns raw metadata')
+        assert.equal(await drawer.locator('.dh-chat-drawer-product img').evaluate(img=>img.complete&&img.naturalWidth>0),true,'reference uses the listing photo even when chat supplies no thumbnail')
         assert.equal(await drawer.getByRole('button',{name:'Share product in conversation',exact:true}).count(),1)
         assert.equal(requests.filter(r=>r.path===`/api/conversations/${id}/product`).length,0,'opening never sends a product message')
         assert.equal(sends.length,0)

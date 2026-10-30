@@ -652,7 +652,18 @@ export default function ProductPage({
       navigate(
         `/account/messages/${response.conversationId}`,
         {
-          state: productChatDrawerState(location,response.product,chatTriggerId)
+          state: {
+            ...productChatDrawerState(location,response.product,chatTriggerId),
+            // Chat authorizes the thread/product intent; the already-loaded
+            // listing supplies its display photo and local currency formatting.
+            // Keep the original pending intent unchanged for explicit sharing.
+            drawerProduct: {
+              ...response.product,
+              name: product.name,
+              imageUrl: getOptimizedImageUrl(displayImages[0], 'thumb'),
+              price: formatProductPrice(activePrice),
+            },
+          }
         }
       )
     } catch (error) {
