@@ -795,6 +795,7 @@ export default function SupportPage() {
 
                       {field.options ? <select aria-label={field.label} required={field.required} value={form.caseDetails[field.name] || ''} onChange={event => updateCaseDetail(field.name,event.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"><option value="">Select an option</option>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select> : field.textarea ? (
                         <textarea
+                          aria-label={field.label}
                           required={field.required}
                           rows={4}
                           maxLength={service ? 240 : undefined}
@@ -805,6 +806,7 @@ export default function SupportPage() {
                         />
                       ) : (
                         <input
+                          aria-label={field.label}
                           required={field.required}
                           type={field.type || 'text'}
                           maxLength={service ? 240 : undefined}
@@ -833,6 +835,7 @@ export default function SupportPage() {
               <label className="grid gap-1">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">{selectedFormConfig.messageLabel}</span>
                 <textarea
+                  aria-label={selectedFormConfig.messageLabel}
                   required
                   rows={7}
                   minLength={10}

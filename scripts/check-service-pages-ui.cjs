@@ -59,7 +59,7 @@ async function main(){
       failAudio=false;await page.getByRole('button',{name:'Retry catalogue',exact:true}).click();await page.getByRole('link',{name:/Fixture headphone/}).waitFor()
       assert.equal(await page.getByRole('link',{name:'See all audio accessories',exact:true}).getAttribute('href'),'/shop?q=headphone')
      }
-     await page.screenshot({path:path.join(output,`${theme}-${width}-${service.id}.png`),fullPage:true})
+     await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(output,`${theme}-${width}-${service.id}.png`),fullPage:true})
      assert.equal(created.length,beforePublic,'viewing a service must not submit enquiries')
      await page.locator(`main a[href="${service.path}/request"]`).first().click()
      await page.getByRole('heading',{name:service.action,exact:true,level:1}).waitFor()
@@ -71,7 +71,7 @@ async function main(){
      for(const field of service.fields){const control=page.getByLabel(field.label,{exact:true});if(field.options)await control.selectOption(field.options[0]);else await control.fill('Fixture model and specification')}
      await page.getByLabel(service.messageLabel,{exact:true}).fill('This is a local fixture enquiry, not a production request.')
      assert.ok(await contrast(page.getByLabel(service.messageLabel,{exact:true}),'form')>=4.5,theme+': intake text contrast')
-     await page.screenshot({path:path.join(output,`${theme}-${width}-${service.id}-request.png`),fullPage:true})
+     await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(output,`${theme}-${width}-${service.id}-request.png`),fullPage:true})
      await submit.click()
      if(service.id==='repair'){
       await page.getByText('Fixture desk unavailable. Please retry.',{exact:true}).waitFor()
@@ -88,6 +88,22 @@ async function main(){
    }catch(error){await page.screenshot({path:path.join(output,`${theme}-${width}-failure.png`),fullPage:true});console.error(JSON.stringify({errors,requests,created:created.map(x=>({type:x.type,subject:x.subject})),body:(await page.locator('body').innerText()).slice(-5500)}));throw error}
    finally{await context.close()}
   }
+  const readable=await browser.newContext({viewport:{width:390,height:844},javaScriptEnabled:false,serviceWorkers:'block'})
+  await readable.route('**/*',route=>new URL(route.request().url()).origin==='http://127.0.0.1:4276'?route.continue():route.abort())
+  const staticPage=await readable.newPage()
+  for(const service of content.services){
+   const response=await staticPage.goto('http://127.0.0.1:4276'+service.path)
+   assert.equal(response.status(),200);await staticPage.getByRole('heading',{level:1,name:service.heading,exact:true}).waitFor()
+   assert.equal(await staticPage.getByRole('main').count(),1)
+   assert.equal(await staticPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false)
+   await staticPage.getByText(service.faqs[0].q,{exact:true}).click();await staticPage.getByText(service.faqs[0].a,{exact:true}).waitFor()
+   await staticPage.evaluate(()=>window.scrollTo(0,0));await staticPage.screenshot({path:path.join(output,`no-javascript-${service.id}.png`),fullPage:true})
+   const request=await staticPage.goto('http://127.0.0.1:4276'+service.path+'/request')
+   assert.match(request.headers()['x-robots-tag'],/noindex/);assert.match(await staticPage.locator('main').innerText(),/secure enquiry form opens/)
+   assert.equal(await staticPage.locator('form').count(),0,'no misleading unverified static form')
+  }
+  await readable.close();results.push({javaScript:false,services:3,privateIntakes:true})
+  fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2))
   console.log(JSON.stringify({success:true,scenarios:results}))
  }finally{await browser?.close();server.kill()}
 }
