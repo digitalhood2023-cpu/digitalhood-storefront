@@ -793,7 +793,7 @@ export default function SupportPage() {
                         {field.label}
                       </span>
 
-                      {field.options ? <select required={field.required} value={form.caseDetails[field.name] || ''} onChange={event => updateCaseDetail(field.name,event.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"><option value="">Select an option</option>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select> : field.textarea ? (
+                      {field.options ? <select aria-label={field.label} required={field.required} value={form.caseDetails[field.name] || ''} onChange={event => updateCaseDetail(field.name,event.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"><option value="">Select an option</option>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select> : field.textarea ? (
                         <textarea
                           required={field.required}
                           rows={4}
