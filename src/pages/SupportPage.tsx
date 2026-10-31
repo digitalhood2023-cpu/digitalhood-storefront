@@ -17,6 +17,8 @@ import Footer from '@/sections/Footer'
 
 import SEO from '@/components/SEO'
 import { useAccount } from '@/context/AccountContext'
+import { buildServiceMessage, getServiceIntake } from '@/lib/services'
+import './service-intake.css'
 import {
   createSupportCase,
   lookupSupportCase,
@@ -33,6 +35,7 @@ type SupportCaseField = {
   required?: boolean
   textarea?: boolean
   type?: string
+  options?: string[]
 }
 
 type SupportCaseFormConfig = {
@@ -396,6 +399,7 @@ function StatusPill({ value }: { value?: string }) {
 
 export default function SupportPage() {
   const location = useLocation()
+  const service = getServiceIntake(location.pathname)
   const [searchParams] = useSearchParams()
   const { customer, isAuthenticated, isLoading: accountLoading } = useAccount()
   const [mode, setMode] = useState<SupportMode>(() => {
@@ -408,6 +412,7 @@ export default function SupportPage() {
   const [isLookingUp, setIsLookingUp] = useState(false)
   const [error, setError] = useState('')
   const [successCaseNumber, setSuccessCaseNumber] = useState('')
+  const [confirmationEmailSent,setConfirmationEmailSent] = useState(false)
   const [lookedUpCase, setLookedUpCase] = useState<PublicSupportCase | null>(null)
   const [turnstileToken, setTurnstileToken] = useState('')
   const [turnstileResetKey, setTurnstileResetKey] = useState(0)
@@ -490,7 +495,7 @@ export default function SupportPage() {
     return () => window.clearTimeout(syncTimer)
   }, [isAuthenticated, successCaseNumber, form.email])
 
-  const effectiveType = isAuthenticated && !ACCOUNT_SUPPORT_TYPES.has(form.type)
+  const effectiveType = service ? 'GENERAL_CONTACT' : isAuthenticated && !ACCOUNT_SUPPORT_TYPES.has(form.type)
     ? 'GENERAL_CONTACT'
     : form.type
 
@@ -498,9 +503,9 @@ export default function SupportPage() {
     return availableSupportTypes.find((item) => item.value === effectiveType) || availableSupportTypes[0]
   }, [availableSupportTypes, effectiveType])
 
-  const selectedFormConfig = useMemo(() => {
-    return supportCaseFormConfigs[effectiveType] || defaultSupportFormConfig
-  }, [effectiveType])
+  const selectedFormConfig: SupportCaseFormConfig = useMemo(() => {
+    return service ? {subjectPlaceholder:service.requestTitle,messageLabel:service.messageLabel,messagePlaceholder:service.messagePlaceholder,fields:service.fields} : supportCaseFormConfigs[effectiveType] || defaultSupportFormConfig
+  }, [effectiveType,service])
 
   function updateCaseDetail(name: string, value: string) {
     setForm((current) => ({
@@ -526,11 +531,13 @@ export default function SupportPage() {
     setIsSubmitting(true)
 
     try {
+      const subject = service ? service.requestTitle : form.subject
+      const message = service ? buildServiceMessage(service,form.caseDetails,form.message) : form.message
       const response = await createSupportCase(isAuthenticated
         ? {
             type: effectiveType,
-            subject: form.subject,
-            message: form.message,
+            subject,
+            message,
             companyWebsite: form.companyWebsite,
             'cf-turnstile-response': turnstileToken,
             startedAt,
@@ -538,12 +545,18 @@ export default function SupportPage() {
           }
         : {
             ...form,
+            ...(service ? {type:effectiveType,subject,message,caseDetails:{}} : {}),
             'cf-turnstile-response': turnstileToken,
             startedAt,
             pageUrl: window.location.href,
           })
 
+      if (!response?.success || typeof response.caseNumber !== 'string' || !response.caseNumber.trim()) {
+        throw new Error('We could not confirm your case reference. Check My support cases or contact DigitalHood before submitting again.')
+      }
+
       setSuccessCaseNumber(response.caseNumber)
+      setConfirmationEmailSent(response.email?.customerSent === true)
       setTurnstileToken('')
       setTurnstileResetKey((current) => current + 1)
       if (!isAuthenticated) {
@@ -598,10 +611,13 @@ export default function SupportPage() {
     <>
       <Header />
 
-      <main id="main-content" className="flex min-h-[100svh] flex-col" style={{ background: 'var(--dh-ui-page)', color: 'var(--dh-ui-text)' }}>
+      <main id="main-content" className={`flex min-h-[100svh] flex-col${service ? ' dh-service-intake' : ''}`} style={{ background: 'var(--dh-ui-page)', color: 'var(--dh-ui-text)' }}>
       <SEO
-        title="Contact DigitalHood Support | DigitalHood"
-        description="Contact DigitalHood securely or create and track a guest support case in Zambia."
+        priority={service ? 1001 : 10}
+        title={service ? `${service.requestTitle} | DigitalHood` : 'Contact DigitalHood Support | DigitalHood'}
+        description={service ? service.requestIntro : 'Contact DigitalHood securely or create and track a guest support case in Zambia.'}
+        path={location.pathname}
+        noindex={Boolean(service)}
       />
 
 
@@ -611,13 +627,13 @@ export default function SupportPage() {
             <div className="max-w-2xl">
               <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: 'var(--dh-ui-text-muted)' }}>
                 {isAuthenticated ? <ShieldCheck className="h-3.5 w-3.5" /> : <LifeBuoy className="h-3.5 w-3.5" />}
-                {isAuthenticated ? 'Account contact' : 'DigitalHood support'}
+                {service ? service.title : isAuthenticated ? 'Account contact' : 'DigitalHood support'}
               </p>
               <h1 className="mt-1.5 text-xl font-black sm:text-2xl">
-                {isAuthenticated ? `How can we help${customer?.firstName ? `, ${customer.firstName}` : ''}?` : 'Tell us how we can help'}
+                {service ? service.action : isAuthenticated ? `How can we help${customer?.firstName ? `, ${customer.firstName}` : ''}?` : 'Tell us how we can help'}
               </h1>
               <p className="mt-1.5 text-sm leading-6" style={{ color: 'var(--dh-ui-text-muted)' }}>
-                {isAuthenticated
+                {service ? service.requestIntro : isAuthenticated
                   ? 'Choose a reason, add a subject and tell us what you need.'
                   : 'Create a support request or use your case number and email to check an existing request.'}
               </p>
@@ -633,6 +649,7 @@ export default function SupportPage() {
         </div>
 
         <nav aria-label="Support guides" className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
+          {service && <Link to={service.path} className="underline">Back to {service.title}</Link>}
           <Link to="/help" className="underline">Help & FAQs</Link>
           <Link to="/shipping" className="underline">Shipping & delivery</Link>
           <Link to="/returns" className="underline">7-day returns & refunds</Link>
@@ -662,15 +679,15 @@ export default function SupportPage() {
             <p className="mt-1 text-sm font-semibold text-green-700">
               {isAuthenticated
                 ? 'It is linked to your account. You can follow every update in My support cases.'
-                : 'Keep this case number. We also sent a confirmation to the email you provided.'}
+                : confirmationEmailSent ? 'Keep this case number. A confirmation has been emailed to the address you provided.' : 'Keep this case number and your email address to track updates. If you need help, quote this reference when contacting DigitalHood.'}
             </p>
             {isAuthenticated && <Link to={`/account/support-cases?case=${encodeURIComponent(successCaseNumber)}`} className="mt-3 inline-flex h-9 items-center rounded-full bg-emerald-700 px-4 text-xs font-black text-white">Open my support cases</Link>}
           </div>
         )}
 
         {mode === 'create' || isAuthenticated ? (
-          <form onSubmit={handleCreateCase} className="grid gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:grid-cols-[280px_1fr] lg:p-5">
-            <div>
+          <form onSubmit={handleCreateCase} className={`grid gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:p-5 ${service ? 'mx-auto max-w-3xl' : 'lg:grid-cols-[280px_1fr]'}`}>
+            {!service && <div>
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
                 Support type
               </p>
@@ -695,7 +712,7 @@ export default function SupportPage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             <div className="grid gap-4">
               <div>
@@ -703,10 +720,10 @@ export default function SupportPage() {
                   Case form
                 </p>
                 <h2 className="mt-2 text-2xl font-black text-[#26248c]">
-                  {selectedType.label}
+                  {service ? 'Tell us about your device' : selectedType.label}
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {selectedType.helper}
+                  {service ? 'Your details stay in the case—not in the page URL. Never include passwords, PINs or identity documents.' : selectedType.helper}
                 </p>
               </div>
 
@@ -753,7 +770,7 @@ export default function SupportPage() {
                   />
                 </label>
 
-                <label className="grid gap-1">
+                {!service && <label className="grid gap-1">
                   <span className="text-xs font-black uppercase tracking-wide text-slate-500">Order number</span>
                   <input
                     value={form.orderNumber}
@@ -762,10 +779,10 @@ export default function SupportPage() {
                     placeholder={['ORDER_SUPPORT', 'PAYMENT_SUPPORT', 'DELIVERY_SUPPORT', 'RETURN_REFUND', 'WARRANTY_CLAIM'].includes(form.type) ? 'Required for this case type' : 'Optional'}
                     required={['ORDER_SUPPORT', 'PAYMENT_SUPPORT', 'DELIVERY_SUPPORT', 'RETURN_REFUND', 'WARRANTY_CLAIM'].includes(form.type)}
                   />
-                </label>
+                </label>}
               </div>}
 
-              {!isAuthenticated && selectedFormConfig.fields.length > 0 && (
+              {(service || !isAuthenticated) && selectedFormConfig.fields.length > 0 && (
                 <div className="grid gap-3 md:grid-cols-2">
                   {selectedFormConfig.fields.map((field) => (
                     <label
@@ -776,10 +793,12 @@ export default function SupportPage() {
                         {field.label}
                       </span>
 
-                      {field.textarea ? (
+                      {field.options ? <select aria-label={field.label} required={field.required} value={form.caseDetails[field.name] || ''} onChange={event => updateCaseDetail(field.name,event.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"><option value="">Select an option</option>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select> : field.textarea ? (
                         <textarea
+                          aria-label={field.label}
                           required={field.required}
                           rows={4}
+                          maxLength={service ? 240 : undefined}
                           value={form.caseDetails[field.name] || ''}
                           onChange={(event) => updateCaseDetail(field.name, event.target.value)}
                           className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-[#26248c]"
@@ -787,8 +806,10 @@ export default function SupportPage() {
                         />
                       ) : (
                         <input
+                          aria-label={field.label}
                           required={field.required}
                           type={field.type || 'text'}
+                          maxLength={service ? 240 : undefined}
                           value={form.caseDetails[field.name] || ''}
                           onChange={(event) => updateCaseDetail(field.name, event.target.value)}
                           className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"
@@ -800,7 +821,7 @@ export default function SupportPage() {
                 </div>
               )}
 
-              <label className="grid gap-1">
+              {!service && <label className="grid gap-1">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">Subject</span>
                 <input
                   required
@@ -809,13 +830,16 @@ export default function SupportPage() {
                   className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-[#26248c]"
                   placeholder={selectedFormConfig.subjectPlaceholder}
                 />
-              </label>
+              </label>}
 
               <label className="grid gap-1">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">{selectedFormConfig.messageLabel}</span>
                 <textarea
+                  aria-label={selectedFormConfig.messageLabel}
                   required
                   rows={7}
+                  minLength={10}
+                  maxLength={service ? 3500 : 5000}
                   value={form.message}
                   onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
                   className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-[#26248c]"
@@ -835,7 +859,7 @@ export default function SupportPage() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#26248c] px-5 py-4 text-sm font-black text-white transition hover:bg-[#ffb54a] hover:text-[#26248c] disabled:opacity-60 md:w-max"
               >
                 <Send className="h-4 w-4" />
-                {isSubmitting ? 'Sending…' : isAuthenticated ? 'Send to DigitalHood' : 'Create support case'}
+                {isSubmitting ? 'Sending…' : service ? 'Send service enquiry' : isAuthenticated ? 'Send to DigitalHood' : 'Create support case'}
               </button>
             </div>
           </form>

@@ -31,4 +31,7 @@
   <url>
     <loc>https://store.digitalhood.info/shops</loc>
   </url>
+  <url><loc>https://store.digitalhood.info/services/repair</loc></url>
+  <url><loc>https://store.digitalhood.info/services/accessories</loc></url>
+  <url><loc>https://store.digitalhood.info/services/swaps</loc></url>
 </urlset>

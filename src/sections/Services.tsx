@@ -117,7 +117,7 @@ export default function Services() {
               Need Help with Your Device?
             </h3>
             <p className="text-white/80">
-              Our expert technicians are ready to fix your gadgets
+              Start with an assessment. We confirm the next steps and quote with you.
             </p>
           </div>
           <Link to="/services/repair">
@@ -125,7 +125,7 @@ export default function Services() {
               size="lg"
               className="bg-dh-secondary text-dh-black hover:bg-white rounded-full px-8 font-semibold"
             >
-              Book a Repair
+              Request a Repair
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </Link>

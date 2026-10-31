@@ -1,0 +1,100 @@
+{
+  "locations": [
+    { "name": "Town branch", "address": "Protea House, Room 11, Chachacha Road, Lusaka", "map": "https://www.google.com/maps/search/?api=1&query=-15.423155%2C28.281279" },
+    { "name": "Handsworth Park", "address": "Senanga Road 46, Handsworth Park, Lusaka", "map": "https://www.google.com/maps/search/?api=1&query=-15.389366%2C28.337760" }
+  ],
+  "services": [
+    {
+      "id": "repair", "path": "/services/repair", "title": "Gadget Repair", "eyebrow": "Care for the tech you rely on", "heading": "Your device. Back in action.",
+      "description": "Request a phone, tablet or computer repair assessment in Lusaka. Share the fault, get a confirmed quote and follow your DigitalHood support case.",
+      "intro": "A cracked screen, a battery that will not last, a laptop that will not start. Tell us what is wrong and we will help you work out the next step.",
+      "action": "Request repair assessment", "requestTitle": "Gadget repair assessment", "requestIntro": "Tell us about the device and fault. We will confirm assessment arrangements, any diagnostic fees and a quote before work begins. Sending this enquiry does not confirm an appointment.",
+      "panels": [
+        { "title": "Phones & tablets", "text": "Screen and touch faults, batteries, charging ports, cameras and everyday device issues. Parts and repair suitability depend on your exact model." },
+        { "title": "Laptops & computers", "text": "Power and charging problems, screens, keyboards, storage and performance issues. Explain any error messages and when the fault started." },
+        { "title": "Diagnosis before decisions", "text": "Not sure what failed? Start with the symptoms. The team confirms what can be assessed, the likely options and any costs before you approve work." }
+      ],
+      "steps": [
+        { "title": "Tell us the problem", "text": "Send your model, symptoms and preferred branch. Your enquiry gets a support case number." },
+        { "title": "Confirm the assessment", "text": "The team arranges inspection and confirms any diagnostic fee, parts availability, quote and estimated timing." },
+        { "title": "Approve, repair, collect", "text": "Approve the agreed work first. Keep your case and receipt, and check the device at handover." }
+      ],
+      "checklist": ["Back up important data if the device still works.", "Note the model, symptoms, prior repairs and any liquid or impact damage.", "Do not send passwords, PINs, OTPs or private files in an enquiry.", "Ask what access is necessary before handing over a device.", "Bring proof of purchase for a warranty assessment; use your order page for marketplace warranty claims."],
+      "faqs": [
+        { "q": "How much will my repair cost?", "a": "The exact model, fault and available parts determine the quote. The team confirms assessment fees, if any, and repair costs before you approve work. No repair price is promised by this page." },
+        { "q": "Can you repair it today?", "a": "Timing depends on the diagnosis, parts and workload. Request an assessment and wait for a confirmed arrangement before travelling or sending your device." },
+        { "q": "Is my repair covered by a warranty?", "a": "Ask the team to state the applicable parts and workmanship cover in your quote and receipt. For a product already bought on DigitalHood, open the relevant order and use warranty support." },
+        { "q": "Can I arrange collection from outside Lusaka?", "a": "Ask through your case before shipping anything. Collection, transport charges and safe handover arrangements must be agreed first." }
+      ],
+      "fields": [
+        { "name": "deviceType", "label": "Device type", "required": true, "options": ["Phone", "Tablet", "Laptop", "Desktop computer", "Other gadget"] },
+        { "name": "deviceModel", "label": "Brand and exact model", "required": true, "placeholder": "e.g. Lenovo IdeaPad Slim 3 15IRU8" },
+        { "name": "preferredLocation", "label": "Preferred assessment location", "required": true, "options": ["Town – Chachacha Road", "Handsworth Park – Senanga Road", "Need collection or delivery guidance"] }
+      ],
+      "messageLabel": "What is wrong with the device?", "messagePlaceholder": "Describe the symptoms, when they started, any prior repair or damage, and what help you need. Do not include passwords or unlock codes."
+    },
+    {
+      "id": "accessories", "path": "/services/accessories", "title": "Quality Accessories", "eyebrow": "The little things that make tech work", "heading": "The right fit. For your everyday.",
+      "description": "Find phone and computer accessories on DigitalHood Zambia. Browse live chargers, cases, cables and audio products, or ask for compatibility help.",
+      "intro": "Power it, protect it, connect it. Browse real marketplace listings and check the exact fit before buying—not just a similar-looking plug or case.",
+      "action": "Ask about compatibility", "requestTitle": "Accessory compatibility enquiry", "requestIntro": "Tell us the exact device model and accessory you need. Our team can help you check specifications; suitability and availability must be confirmed before purchase.",
+      "panels": [
+        { "title": "Power with confidence", "text": "Check the connector, output voltage, wattage and charging standard. A USB-C shape alone does not guarantee laptop charging compatibility." },
+        { "title": "Protect the exact model", "text": "Match the model and generation for cases, screen protectors and replacement parts. Camera cut-outs and screen sizes can differ." },
+        { "title": "Connect your setup", "text": "Check your ports, operating system and supported features for hubs, adapters, keyboards, mice and audio accessories." }
+      ],
+      "steps": [
+        { "title": "Choose a type", "text": "Browse chargers, protection, cables or audio from the current marketplace catalogue." },
+        { "title": "Check the listing", "text": "Read the specifications, seller details, price, stock and compatibility notes." },
+        { "title": "Buy through DigitalHood", "text": "Open the product to choose variants and see checkout delivery options. Ask first if the fit is unclear." }
+      ],
+      "checklist": ["Use your device's full model number, not just the brand.", "Compare the required connector, power output and supported standards.", "Check seller feedback, listing specifications and available variants.", "Keep payment on DigitalHood and retain your order confirmation."],
+      "faqs": [
+        { "q": "Will this charger work with my laptop?", "a": "Compare the laptop's power requirements with the charger's stated output and connector. USB-C laptops may require specific USB Power Delivery wattage. Ask before buying if you cannot confirm the specification." },
+        { "q": "Can I return an accessory that does not fit?", "a": "Read the 7-day returns policy and the product's compatibility details before purchase. Return eligibility depends on the reason, condition and policy; an enquiry is not a guarantee of approval." },
+        { "q": "Are these products in stock?", "a": "The catalogue cards on this page come from the live marketplace. Open a listing for its current stock, variants and price; availability can change before checkout." }
+      ],
+      "fields": [
+        { "name": "deviceModel", "label": "Brand and exact device model", "required": true, "placeholder": "e.g. iPhone 16 Pro or Dell Latitude 5440" },
+        { "name": "accessoryNeeded", "label": "Accessory needed", "required": true, "placeholder": "e.g. USB-C laptop charger, case or HDMI adapter" }
+      ],
+      "messageLabel": "What would you like us to check?", "messagePlaceholder": "Tell us about the connector, power requirement, model year or product listing you are considering. Do not send passwords or private account information."
+    },
+    {
+      "id": "swaps", "path": "/services/swaps", "title": "Swaps & Top Up", "eyebrow": "A practical way to plan your upgrade", "heading": "Your next device starts here.",
+      "description": "Request a DigitalHood device swap assessment in Lusaka. Get your current device inspected, discuss an available upgrade and confirm any top-up difference.",
+      "intro": "Tell us about the device you own and the upgrade you want. We will assess suitability and discuss an offer—without guessing a value before inspection.",
+      "action": "Request swap assessment", "requestTitle": "Device swap and top-up assessment", "requestIntro": "Share the device you own, its condition and your preferred upgrade. Acceptance, valuation, upgrade availability and any top-up are confirmed after inspection. No offer or booking is created by this form.",
+      "panels": [
+        { "title": "A device you own", "text": "Start with the exact model and honest condition. Ownership and device status must be checked before any swap can be agreed." },
+        { "title": "An upgrade that fits", "text": "Name your preferred model or budget. The team checks suitable options and availability; no device is reserved by sending an enquiry." },
+        { "title": "One clear agreed difference", "text": "If your device is accepted, the team explains the agreed trade-in value, upgrade price and any top-up. Here, top-up means an upgrade price difference—not mobile airtime." }
+      ],
+      "steps": [
+        { "title": "Send your device details", "text": "Tell us the model, storage or memory, condition and desired upgrade. Keep your case number." },
+        { "title": "Inspect and agree", "text": "The team checks ownership, condition and suitability, then confirms an offer and available upgrade options." },
+        { "title": "Prepare a safe handover", "text": "Only after agreement: back up, sign out of personal accounts and follow the confirmed data-removal and handover instructions." }
+      ],
+      "checklist": ["Only offer a device you own and are entitled to transfer.", "Disclose faults, damage, previous repairs and included accessories.", "Have proof of ownership available for inspection; do not upload identity documents in this form.", "Do not send IMEI numbers, passwords, PINs or verification codes in the enquiry.", "Do not erase or ship the device until an assessment and handover plan are confirmed."],
+      "faqs": [
+        { "q": "How much is my device worth?", "a": "Value depends on the model, specifications, condition, ownership checks and demand. A final offer requires inspection; this page does not generate a guaranteed valuation." },
+        { "q": "Do you accept every device?", "a": "No. Acceptance depends on condition, suitability and verification. Locked, stolen or disputed-ownership devices cannot be accepted. Tell the team about any faults before visiting." },
+        { "q": "Does top-up mean airtime or mobile money?", "a": "No. In this service, a top-up is any agreed price difference between the accepted trade-in value and the chosen upgrade. Confirm the amount and payment method with DigitalHood before proceeding." },
+        { "q": "Can I swap a marketplace purchase instead of returning it?", "a": "A trade-in is separate from order returns, refunds and warranty claims. For a problem with an existing order, use the order's support options and the published marketplace policies." }
+      ],
+      "fields": [
+        { "name": "deviceModel", "label": "Current device model and storage / memory", "required": true, "placeholder": "e.g. Samsung Galaxy S23, 256GB" },
+        { "name": "deviceCondition", "label": "Current condition", "required": true, "options": ["Working – normal signs of use", "Working – visible damage or a known fault", "Not working – needs assessment"] },
+        { "name": "desiredUpgrade", "label": "Desired upgrade or budget", "required": true, "placeholder": "Preferred model or budget in ZMW" },
+        { "name": "preferredLocation", "label": "Preferred assessment location", "required": true, "options": ["Town – Chachacha Road", "Handsworth Park – Senanga Road", "Need collection or delivery guidance"] }
+      ],
+      "messageLabel": "Tell us more about your device", "messagePlaceholder": "Describe faults, damage, repairs and included accessories. Tell us what matters in your next device. Do not include passwords, IMEI numbers or identity documents."
+    }
+  ],
+  "accessoryGroups": [
+    { "id": "charging", "label": "Chargers & power", "query": "charger" },
+    { "id": "protection", "label": "Cases & protection", "query": "case" },
+    { "id": "cables", "label": "Cables & adapters", "query": "cable" },
+    { "id": "audio", "label": "Audio accessories", "query": "headphone" }
+  ]
+}
