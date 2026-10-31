@@ -78,6 +78,8 @@ async function main(){
      for(const field of service.fields){const control=page.getByLabel(field.label,{exact:true});if(field.options)await control.selectOption(field.options[0]);else await control.fill('Fixture model and specification')}
      await page.getByLabel(service.messageLabel,{exact:true}).fill('This is a local fixture enquiry, not a production request.')
      assert.ok(await contrast(page.getByLabel(service.messageLabel,{exact:true}),'form')>=4.5,theme+': intake text contrast')
+     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,theme+': no intake horizontal overflow')
+     assert.equal(await page.locator('form :is(input,select,textarea)').evaluateAll(elements=>elements.every(e=>{const r=e.getBoundingClientRect();return r.width===0||(r.left>=0&&r.right<=innerWidth+1)})),true,'intake fields stay inside the viewport')
      await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(output,`${theme}-${width}-${service.id}-request.png`),fullPage:true})
      await submit.click()
      if(service.id==='repair'){

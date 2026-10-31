@@ -1,4 +1,7 @@
 .dh-service-intake form { background:var(--dh-ui-surface); color:var(--dh-ui-text); border:1px solid var(--dh-ui-border); box-shadow:none; }
+.dh-service-intake form { width:100%; max-width:48rem; min-width:0; }
+.dh-service-intake form :is(div,label,input,select,textarea) { min-width:0; }
+.dh-service-intake form :is(input,select,textarea) { width:100%; max-width:100%; box-sizing:border-box; }
 .dh-service-intake form h2 { color:var(--dh-ui-text); font-size:20px; }
 .dh-service-intake form label > span,.dh-service-intake form p { color:var(--dh-ui-text-muted); }
 .dh-service-intake form :is(input,select,textarea) { background:var(--dh-ui-surface-muted); color:var(--dh-ui-text); border-color:var(--dh-ui-border); }
