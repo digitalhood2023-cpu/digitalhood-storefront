@@ -36,7 +36,17 @@ test('service intake serializes only bounded release-controlled fields into plai
   const content=JSON.parse(await fs.readFile(new URL('../config/services.json',import.meta.url),'utf8'))
   const source=(await fs.readFile(new URL('../src/lib/services.ts',import.meta.url),'utf8')).replace("import content from '../../config/services.json'",'const content = '+JSON.stringify(content))
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
-  const {buildServiceMessage,getServiceIntake}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'))
+  const {buildServiceMessage,getServiceIntake,isAccessoryListingTitle}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'))
+  for(const [title,group,expected] of [
+    ['ASUS ExpertBook P1 15.6 Core 5 512GB SSD','charging',false],
+    ['Microsoft Surface Laptop Charger 44W','charging',true],
+    ['USB-C to MagSafe 3 Magnetic Charging Cable','charging',true],
+    ['Showcase laptop 16GB','protection',false],
+    ['MagSafe iPhone 16 Pro Cases','protection',true],
+    ['USB-C Hub and HDMI Adapter','cables',true],
+    ['Wireless Headphones','audio',true],
+    ['Generic laptop with a charger in its description','unknown',false],
+  ])assert.equal(isAccessoryListingTitle(title,group),expected,title)
   for(const service of SERVICE_PAGES){
     const fields=Object.fromEntries(service.fields.map(field=>[field.name,'x'.repeat(500)]))
     const message=buildServiceMessage(service,{...fields,role:'administrator',email:'not-forwarded@example.invalid'},'m'.repeat(10000))

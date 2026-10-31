@@ -42,6 +42,13 @@ JS and 244,000 / 42,000 core CSS. New service catalogue/layout content is lazy;
 the largest-chunk and seller-landing stylesheet ceilings remain unchanged. No
 new dependencies, tracking integrations or remote fonts are added.
 
+Live verification found that the generic catalogue search can match a laptop's
+description mentioning its included charger. Accessory cards therefore require
+whole-word title evidence for the selected accessory type; description-only and
+substring matches are excluded. This gate adds no API requests or AI calls and
+does not imply device compatibility. A bounded search can show fewer than eight
+cards; catalogue browsing and compatibility enquiry remain available.
+
 Rollback: pin the storefront deployment to
 `f883ae25c0658f97211250a975b5dc2effbc8e6f`. No database migration or data reversal.
 Task progress and final release evidence are maintained in the workspace

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Loader2, Search } from 'lucide-react'
 import { fetchWooProducts, type WooProduct } from '@/lib/woocommerce'
 import { getOptimizedImageUrl } from '@/lib/images'
+import { isAccessoryListingTitle } from '@/lib/services'
 import content from '../../../config/services.json'
 
 const money = new Intl.NumberFormat('en-ZM', {style:'currency',currency:'ZMW'})
@@ -17,7 +18,7 @@ export default function AccessoryExplorer() {
     setProducts([]);setStatus('loading')
     fetchWooProducts(8,1,group.query).then(response => {
       if (current !== attempt.current) return
-      setProducts(response.products);setStatus('ready')
+      setProducts(response.products.filter(product=>isAccessoryListingTitle(product.name,group.id)));setStatus('ready')
     }).catch(() => { if(current === attempt.current) setStatus('error') })
     return () => { attempt.current += 1 }
   }, [group,retry])
