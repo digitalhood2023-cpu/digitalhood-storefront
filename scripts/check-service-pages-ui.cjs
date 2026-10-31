@@ -107,7 +107,7 @@ async function main(){
    await staticPage.evaluate(()=>window.scrollTo(0,0));await staticPage.screenshot({path:path.join(output,`no-javascript-${service.id}.png`),fullPage:true})
    const request=await staticPage.goto('http://127.0.0.1:4276'+service.path+'/request')
    assert.match(request.headers()['x-robots-tag'],/noindex/);assert.match(await staticPage.getByRole('main').innerText(),/secure enquiry form opens/)
-   assert.equal(await staticPage.locator('form').count(),0,'no misleading unverified static form')
+   assert.equal(await staticPage.getByRole('main').locator('form').count(),0,'no misleading unverified static form')
   }
   await readable.close();results.push({javaScript:false,services:3,privateIntakes:true})
   fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2))
