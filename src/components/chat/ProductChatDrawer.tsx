@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2, Maximize2, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -12,6 +12,7 @@ export default function ProductChatDrawer() {
   const location = useLocation(), navigate = useNavigate()
   const [closeState,setCloseState] = useState<ChatCloseState>({busy:false,attachments:false})
   const [notice,setNotice] = useState('')
+  useEffect(() => { if (!closeState.busy) setNotice('') }, [closeState.busy])
   // The trigger temporarily disables while opening; browsers may blur it before
   // the request resolves. Retain its explicit identity instead of body focus.
   const triggerId = (location.state as ChatDrawerRouteState | null)?.chatTriggerId
