@@ -21,6 +21,13 @@ async function main(){
      requests.push({path:p,method:req.method()});let body={success:true,products:[],categories:[],notifications:[],items:[],conversations:[],unreadCount:0}
      if(req.method()==='OPTIONS')return route.fulfill({headers,status:204})
      if(p==='/api/auth/me')body={success:true,customer:{id:7,email:'buyer@example.invalid',firstName:'Fixture',lastName:'Buyer',billing:{},shipping:{}}}
+     else if(p==='/api/account/marketplace-state'){
+      // Existing account hydration may synchronize an empty cart. This is not
+      // a service-page action; accept only this exact isolated fixture state.
+      assert.equal(account,true);assert.equal(req.headers().authorization,'Bearer fixture-only')
+      if(req.method()==='PUT'){const state=req.postDataJSON();assert.deepEqual(state.cartItems,[]);assert.equal((state.recentSearches||[]).length,0);assert.equal(Object.keys(state.storeSearches||{}).length,0)}else assert.equal(req.method(),'GET')
+      body={success:true,state:{cartItems:[],recentSearches:[],storeSearches:{}}}
+     }
      else if(p==='/api/products'){
       assert.equal(req.method(),'GET');assert.equal(u.searchParams.get('per_page'),'8')
       const q=u.searchParams.get('search')
@@ -35,7 +42,7 @@ async function main(){
       if(failCreate){failCreate=false;return route.fulfill({status:503,headers,json:{error:'Fixture desk unavailable. Please retry.'}})}
       body={success:true,caseNumber:'DH-CF-20261031-000007',email:{customerSent:false,adminSent:true}}
      }else if(p==='/api/support/cases/lookup')body={success:true,case:{caseNumber:'DH-CF-20261031-000007',status:'OPEN',type:'GENERAL_CONTACT',subject:'Fixture service enquiry',message:'Fixture request details',messages:[{id:'reply1',direction:'admin',message:'Fixture team response',createdAt:new Date().toISOString()}]}}
-     else assert.equal(req.method(),'GET','no unexpected mutation from public service pages')
+     else assert.equal(req.method(),'GET','no unexpected mutation: '+req.method()+' '+p)
      return route.fulfill({contentType:'application/json',headers,body:JSON.stringify(body)})
     }
     return u.origin===origin?route.continue():route.abort()
