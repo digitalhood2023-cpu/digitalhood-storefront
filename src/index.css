@@ -154,7 +154,8 @@
  * and apply only the focus-safe font floor on phone-sized viewports.
  */
 @media (max-width: 767px) {
-  :is(input, select, textarea) {
+  /* Chat has its own Safari-specific floor below; other controls stay unchanged. */
+  :is(input, select, textarea):not(.dh-chat-input) {
     font-size: 16px !important;
   }
 }
