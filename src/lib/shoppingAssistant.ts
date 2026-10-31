@@ -5,9 +5,12 @@ export type AssistantProduct = {
   whyPicked?:string; specifications: {label: string; value: string}[];
 }
 export type AssistantReply = {
+  citations?: {title:string;url:string;version?:string}[]; feedbackToken?:string; groundedInPolicy?:boolean;
   contextToken?:string; degraded?:boolean; searchState?:string; responseMode?: 'answer' | 'results'; answer: string; products: AssistantProduct[]; aiUsed: boolean; clarification?: boolean;
   filters: {key: string; value: string | number; label: string}[]; relaxedFilters: string[]; followups: string[];
 }
+export function assistantPrivateIntent(text:string){return /\b(?:track (?:my |an? )?order|where is my (?:order|parcel)|my (?:order|refund|payment|return|case)|(?:cancel|return|refund) (?:my |this |the )?(?:order|purchase|item)|order\s*#?\s*\d+|case\s*#?\s*[a-z]*\d+)\b/i.test(text)}
+export function assistantContainsSecrets(text:string){return /\b(?:password|passcode|pin|otp|one.time (?:code|password)|api[ _-]?key|secret[ _-]?key|card (?:number|cvv))\s*(?:is|:|=)\s*\S+/i.test(text)||/\bsk-[a-z0-9_-]{16,}\b/i.test(text)}
 export function safeProductImage(value: unknown) {
   try { const url = new URL(String(value)); return url.protocol === 'https:' && !url.username && !url.password ? url.href : '/product-placeholder.svg' } catch { return '/product-placeholder.svg' }
 }
@@ -35,7 +38,8 @@ export function normalizeAssistantReply(body: unknown): AssistantReply {
     } catch { return [] }
   }).slice(0,12)
   const filters = Array.isArray(raw.filters) ? raw.filters.filter(f => f && ['brand','category','maxPrice'].includes(f.key) && typeof f.label === 'string').slice(0,3).map(f=>({key:f.key,value:typeof f.value === 'number' || typeof f.value === 'string' ? f.value : '',label:f.label.slice(0,100)})) : []
-  return {contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,4000), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
+  const citations:NonNullable<AssistantReply['citations']>=Array.isArray(raw.citations)?raw.citations.slice(0,6).flatMap(c=>{try{const url=new URL(c?.url);if(url.origin!=='https://store.digitalhood.info'||url.search||url.username||url.password||!/^\/(?:returns|shipping|warranty|help|seller-terms|prohibited-products|data-protection|dispute-resolution|marketplace-terms)$/.test(url.pathname)||(url.hash&&!/^#policy-section-[1-9]\d?$/.test(url.hash))||typeof c.title!=='string')return [];return [{title:c.title.slice(0,180),url:url.href,version:/^\d{4}-\d{2}-\d{2}$/.test(c.version||'')?c.version:undefined}]}catch{return []}}):[]
+  return {citations,feedbackToken:typeof raw.feedbackToken==='string'&&/^[a-f0-9]{48}$/.test(raw.feedbackToken)?raw.feedbackToken:undefined,groundedInPolicy:raw.groundedInPolicy===true&&citations.length>0,contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,4000), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
 }
 export async function readAssistantResponse(response: Response, onText: (text: string) => void) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) return normalizeAssistantReply(await response.json())
@@ -97,7 +101,8 @@ export function normalizeConversations(value:unknown):AssistantConversation[]{
   seen.add(c.id)
   const turns:ChatTurn[]=c.turns.slice(-30).flatMap((t:ChatTurn)=>{try{
    if(typeof t.question!=='string' || !Number.isFinite(t.id))return []
-   return [{id:t.id,question:t.question.slice(0,500),reply:normalizeAssistantReply(t.reply),removeFilters:Array.isArray(t.removeFilters)?t.removeFilters.filter(k=>['brand','category','maxPrice'].includes(k)).slice(0,3):[],taskCompleted:t.taskCompleted===true,feedback:t.feedback==='up'||t.feedback==='down'?t.feedback:undefined,photoPreview:typeof t.photoPreview==='string' && t.photoPreview.length<=60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t.photoPreview)?t.photoPreview:undefined}]
+   if(assistantContainsSecrets(t.question)||assistantPrivateIntent(t.question))return []
+   return [{id:t.id,question:t.question.slice(0,4000),reply:normalizeAssistantReply(t.reply),removeFilters:Array.isArray(t.removeFilters)?t.removeFilters.filter(k=>['brand','category','maxPrice'].includes(k)).slice(0,3):[],taskCompleted:t.taskCompleted===true,feedback:t.feedback==='up'||t.feedback==='down'?t.feedback:undefined,photoPreview:typeof t.photoPreview==='string' && t.photoPreview.length<=60000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t.photoPreview)?t.photoPreview:undefined}]
   }catch{return []}})
   return turns.length?[{id:c.id,title:typeof c.title==='string'?c.title.slice(0,70):turns[0].question.slice(0,70),updated:Number.isFinite(c.updated)?c.updated:0,turns}]:[]
  })
