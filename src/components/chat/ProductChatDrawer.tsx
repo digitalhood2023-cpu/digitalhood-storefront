@@ -35,7 +35,7 @@ export default function ProductChatDrawer() {
         onCloseAutoFocus={event => { event.preventDefault(); if (trigger.current?.isConnected) trigger.current.focus({preventScroll:true}) }}
         onEscapeKeyDown={event => { if (document.querySelector('[data-seller-chat-drawer] [role="dialog"]')) event.preventDefault() }}>
         <div className="dh-seller-chat-heading">
-          <div><Dialog.Title>Message seller</Dialog.Title><Dialog.Description>Keep shopping while you talk. Nothing is sent automatically.</Dialog.Description></div>
+          <div><Dialog.Title>Message seller</Dialog.Title><Dialog.Description className="sr-only">Keep shopping while you talk. Nothing is sent automatically.</Dialog.Description></div>
           <button type="button" onClick={expand} disabled={closeState.busy} aria-label="Open full messages inbox" title="Open full inbox"><Maximize2 aria-hidden="true" /></button>
           <button ref={closeButton} type="button" onClick={close} disabled={closeState.busy} aria-label="Close seller chat"><X aria-hidden="true" /></button>
         </div>

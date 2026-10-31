@@ -44,6 +44,7 @@ import { buyerChatDraftKey, readBuyerChatDraft, writeBuyerChatDraft } from '@/li
 import type { ChatDrawerRouteState } from '@/lib/chatDrawerRoute'
 import type { ChatCloseState } from '@/components/chat/ProductChatDrawer'
 import ChatImageLightbox from '@/components/chat/ChatImageLightbox'
+import SellerChatFeedback from '@/components/chat/SellerChatFeedback'
 import {
   createBuyerChatSocket,
   deleteBuyerMessage,
@@ -1168,6 +1169,32 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
 
   const mediaInputRef =
     useRef<HTMLInputElement | null>(null)
+  const composerInputRef = useRef<HTMLTextAreaElement>(null)
+
+  useLayoutEffect(() => {
+    const field = composerInputRef.current
+    if (!field) return
+    const fit = () => {
+      const style = getComputedStyle(field)
+      const line = Number.parseFloat(style.lineHeight) || 20
+      const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
+      const border = Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth)
+      const maximum = line * 7 + padding + border
+      field.style.height = '0px'
+      const content = field.scrollHeight + border
+      field.style.height = `${Math.max(40, Math.min(content, maximum))}px`
+      field.style.overflowY = content > maximum ? 'auto' : 'hidden'
+    }
+    fit()
+    let width = field.clientWidth
+    const observer = new ResizeObserver(() => {
+      if (width === field.clientWidth) return
+      width = field.clientWidth
+      fit()
+    })
+    observer.observe(field)
+    return () => observer.disconnect()
+  }, [draft, conversationId, isLoadingMessages, embedded])
 
   const pendingMediaItemsRef = useRef<PendingMediaItem[]>([])
   const outgoingMediaItemsRef = useRef<OutgoingMediaItem[]>([])
@@ -1329,6 +1356,12 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
   const editingMediaItem = editingMediaId
     ? pendingMediaItems.find(item => item.id === editingMediaId) || null
     : null
+
+  const drawerProductWasShared = Boolean(drawerProduct?.id && messages.some(message =>
+    !message.deleted && (message.messageType || message.type) === 'product_card' && message.contexts?.some(context =>
+      String(context.externalId || context.safeSnapshot?.productId || context.safeSnapshot?.id || context.snapshot?.productId || context.snapshot?.id || '') === String(drawerProduct.id)
+    )
+  ))
 
   const closeBusy = isSending || isPreparingMedia || isSendingProduct || isSendingOrder || Boolean(mutationMessageId) || outgoingMediaItems.some(item => item.status === 'uploading') || messages.some(message => message.localStatus === 'sending')
   const hasUnsentAttachments = pendingMediaItems.length > 0 || outgoingMediaItems.some(item => item.status === 'error') || messages.some(message => message.localStatus === 'failed') || Boolean(editingMessage || replyingTo)
@@ -3520,13 +3553,15 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
                       online={
                         sellerOnline === true
                       }
+                      size={embedded ? 'xs' : 'md'}
                     />
 
                     <div className="min-w-0 flex-1">
-                      <h2 className="truncate font-display text-base font-black text-dh-primary">
-                        {getConversationTitle(
+                      <h2 className="flex min-w-0 items-center gap-1.5 font-display text-base font-black text-dh-primary">
+                        <span className="truncate">{getConversationTitle(
                           selectedConversation
-                        )}
+                        )}</span>
+                        <SellerChatFeedback sellerKey={selectedConversation?.storeId || (selectedConversation?.counterparty?.type === 'seller' ? selectedConversation.counterparty.id : '')} />
                       </h2>
 
                       <p className="text-xs font-semibold text-slate-500">
@@ -3552,7 +3587,7 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
                     </div>
                     {embedded && <button type="button" aria-label="Refresh conversation" title="Refresh conversation" className="rounded-full p-2" onClick={() => { void loadInbox(); void loadConversation(conversationId) }} disabled={isLoadingMessages}><RefreshCw className={'h-4 w-4'+(isLoadingMessages?' animate-spin':'')} /></button>}
                   </header>
-                  {embedded && drawerProduct?.id && <div className="dh-chat-drawer-product" aria-label="Product being discussed">
+                  {embedded && drawerProduct?.id && pendingProduct?.id === drawerProduct.id && !drawerProductWasShared && <div className="dh-chat-drawer-product" aria-label="Product being discussed">
                     {drawerProduct.imageUrl && <img src={drawerProduct.imageUrl} alt="" />}
                     <div><p>{drawerProduct.name}</p>{drawerProduct.price && <span>{drawerProduct.price}</span>}</div>
                     {pendingProduct && <button type="button" disabled={closeBusy} onClick={() => void handleSendProduct()} aria-label="Share product in conversation">Share item</button>}
@@ -4347,6 +4382,7 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
                       </button>
 
                       <textarea
+                        ref={composerInputRef}
                         disabled={isPreparingMedia}
                         value={
                           draft
@@ -4425,7 +4461,7 @@ export default function AccountMessagesPage({ embedded = false, onCloseStateChan
                         }
                         maxLength={pendingMediaItems.length > 0 ? 1000 : 4000}
                         rows={1}
-                        className="dh-chat-input min-h-10 max-h-28 flex-1 resize-y rounded-xl border px-3 py-2 font-sans text-sm font-medium outline-none transition focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
+                        className="dh-chat-input min-h-10 flex-1 resize-none rounded-xl border px-3 py-2 font-sans text-sm font-medium outline-none transition focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
                       />
 
                       <button

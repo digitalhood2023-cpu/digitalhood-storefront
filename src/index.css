@@ -780,6 +780,11 @@ html[data-theme='dark'] .shadow-card {
 }
 
 .dh-chat-input {
+  box-sizing: border-box;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  max-height: 158px;
   border-color: var(--dh-ui-border);
   color: var(--dh-ui-text);
   background: var(--dh-ui-surface-muted);
@@ -788,6 +793,14 @@ html[data-theme='dark'] .shadow-card {
 .dh-chat-input::placeholder {
   color: var(--dh-ui-text-subtle);
 }
+
+/* Keep native iPhone focus zoom from returning; never restrict page zoom. */
+@supports (-webkit-touch-callout: none) {
+  @media (pointer: coarse) { .dh-chat-input { font-size: 16px; } }
+}
+
+.dh-chat-feedback { flex: none; border-radius: 999px; padding: 2px 6px; font: 700 11px/16px var(--font-sans, sans-serif); color: #166534; background: #dcfce7; }
+html[data-theme='dark'] .dh-chat-feedback { color: #bbf7d0; background: #153b2c; }
 
 :is(.dh-notifications-page, .dh-notification-panel, .dh-chat-page) .text-slate-400 {
   color: #64748b;

@@ -246,7 +246,8 @@ export async function uploadFeedbackMedia(files: File[]) {
 export async function getPublicFeedback(
   targetType: 'products' | 'sellers' | 'members',
   targetKey: string | number,
-  page = 1
+  page = 1,
+  signal?: AbortSignal
 ) {
   return parseResponse<{
     success: boolean
@@ -255,7 +256,8 @@ export async function getPublicFeedback(
     pagination: Pagination
   }>(
     await fetch(
-      `${PAYMENTS_API_URL}/api/public/${targetType}/${encodeURIComponent(String(targetKey))}/feedback?page=${page}&limit=20`
+      `${PAYMENTS_API_URL}/api/public/${targetType}/${encodeURIComponent(String(targetKey))}/feedback?page=${page}&limit=20`,
+      { signal }
     )
   )
 }
