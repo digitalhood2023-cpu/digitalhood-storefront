@@ -13,7 +13,7 @@ async function main(){
   for(const theme of ['light','dark'])for(const width of [390,900,1440]){
    const account=theme==='dark',context=await browser.newContext({viewport:{width,height:1000},colorScheme:theme,serviceWorkers:'block',reducedMotion:'reduce'})
    const requests=[],created=[],errors=[];let failCreate=true,failAudio=true
-   await context.addInitScript(({theme,account})=>{localStorage.setItem('digitalhood-theme-preference-v1',theme);if(account)localStorage.setItem('digitalhood_customer_token','fixture-only');window.turnstile={render:(_element,options)=>{window.fixtureVerification=options.callback;options.callback('fixture-only-verification');return 'fixture-widget'},reset:()=>window.fixtureVerification?.('fixture-only-verification'),remove:()=>{}}},{theme,account})
+   await context.addInitScript(({theme,account})=>{localStorage.setItem('digitalhood-theme-preference-v1',theme);if(account)localStorage.setItem('digitalhood_customer_token','fixture-only');window.turnstile={render:(_element,options)=>{window.fixtureVerification=options.callback;queueMicrotask(()=>options.callback('fixture-only-verification'));return 'fixture-widget'},reset:()=>queueMicrotask(()=>window.fixtureVerification?.('fixture-only-verification')),remove:()=>{}}},{theme,account})
    await context.routeWebSocket('**/*',socket=>socket.close())
    await context.route('**/*',async route=>{
     const req=route.request(),u=new URL(req.url()),p=u.pathname,headers={'access-control-allow-origin':req.headers().origin||origin,'access-control-allow-headers':'content-type,authorization','access-control-allow-methods':'GET,POST,OPTIONS'}
