@@ -759,7 +759,7 @@ export const services: Service[] = [
   {
     id: '1',
     title: 'Gadget Repair',
-    description: 'Fast, reliable repair services for smartphones, tablets, and computers by certified technicians.',
+    description: 'Phone, tablet and computer repair assessments with clear quotes and trackable support.',
     icon: 'Wrench',
     link: '/services/repair',
   },
@@ -768,7 +768,7 @@ export const services: Service[] = [
     title: 'Quality Accessories',
     description: 'Carefully selected phone and computer accessories for durability and everyday performance.',
     icon: 'Package',
-    link: '/shop',
+    link: '/services/accessories',
   },
   {
     id: '3',

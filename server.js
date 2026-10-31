@@ -1,6 +1,7 @@
 import express from 'express';
 import { getSellLandingStyles, injectSellLandingContent } from './server/sellLandingPage.js';
 import { getPublicPolicy, injectPublicSupport, SUPPORT_ALIASES } from './server/supportPages.js';
+import { findService, findServiceRequest, getServiceStyles, injectServiceContent } from './server/servicePages.js';
 import { installLiteStorefront } from './server/liteStorefront.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import fs from 'fs/promises';
@@ -518,6 +519,7 @@ app.use(async (req, res) => {
     let html = injectSeo(await getIndexHtml(distDir), seo);
     if (seo.path === '/sell') html = injectSellLandingContent(html, await getSellLandingStyles(distDir));
     html = injectPublicSupport(html, req.path);
+    if (findService(req.path) || findServiceRequest(req.path)) html = injectServiceContent(html,req.path,await getServiceStyles(distDir));
 
     if (req.path === '/') {
       html = await injectHomePreload(html);

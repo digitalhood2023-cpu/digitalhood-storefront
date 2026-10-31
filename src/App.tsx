@@ -61,6 +61,7 @@ const PowerBankPage = lazy(() => import('@/pages/seo/PowerBankPage'))
 const ScreenRepairPage = lazy(() => import('@/pages/seo/ScreenRepairPage'))
 const AboutUsPage = lazy(() => import('@/pages/seo/AboutUsPage'))
 const SupportPage = lazy(() => import('@/pages/SupportPage'))
+const ServicePage = lazy(() => import('@/pages/ServicePage'))
 
 function PageLoader() {
   return <RouteLoading />
@@ -280,6 +281,12 @@ function App() {
                 <Route path="/contact" element={<SupportPage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/support/track" element={<SupportPage />} />
+                <Route path="/services/repair" element={<ServicePage kind="repair" />} />
+                <Route path="/services/accessories" element={<ServicePage kind="accessories" />} />
+                <Route path="/services/swaps" element={<ServicePage kind="swaps" />} />
+                <Route path="/services/repair/request" element={<SupportPage key="repair-request" />} />
+                <Route path="/services/accessories/request" element={<SupportPage key="accessories-request" />} />
+                <Route path="/services/swaps/request" element={<SupportPage key="swaps-request" />} />
 
                 <Route path="/buy-iphone-zambia" element={<IPhonePage />} />
                 <Route path="/buy-samsung-zambia" element={<SamsungPage />} />

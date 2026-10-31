@@ -11,6 +11,8 @@ on:
       - 'scripts/*product*'
       - 'scripts/*variation*'
       - 'config/product-template.json'
+      - 'config/services.json'
+      - 'scripts/check-service-pages-ui.cjs'
       - '.github/workflows/resolution-ui.yml'
 
 permissions:
@@ -59,6 +61,7 @@ jobs:
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-resolution-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-template-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-chat-drawer-ui.cjs
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-service-pages-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variation-review-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-sell-landing-ui.cjs
       - uses: actions/upload-artifact@v4
@@ -75,6 +78,7 @@ jobs:
             scripts/product-template-ui/
             scripts/product-editor-ui/
             scripts/product-chat-drawer-ui/
+            scripts/service-pages-ui/
             scripts/variation-review-ui/
             scripts/sell-landing-ui/
           if-no-files-found: ignore

@@ -23,6 +23,9 @@ type StaticRoute = SeoConfig & {
 }
 
 const STATIC_ROUTES: Record<string, StaticRoute> = {
+  '/services/repair': { heading:'Gadget Repair',title:'Gadget Repair in Zambia',description:'Request a phone, tablet or computer repair assessment in Lusaka, with confirmed quotes and trackable DigitalHood support.',path:'/services/repair' },
+  '/services/accessories': { heading:'Quality Accessories',title:'Quality Accessories in Zambia',description:'Browse live phone and computer accessories and ask DigitalHood for compatibility help.',path:'/services/accessories',schemaType:'CollectionPage' },
+  '/services/swaps': { heading:'Swaps & Top Up',title:'Device Swaps & Top Up in Zambia',description:'Request a device swap assessment in Lusaka. Inspection, availability and an agreed upgrade difference come before any offer.',path:'/services/swaps' },
   '/sell': {
     heading: sellContent.heading,
     title: sellContent.title,
@@ -249,6 +252,9 @@ const CANONICAL_ALIASES: Record<string, string> = {
 }
 
 const NOINDEX_PREFIXES = [
+  '/services/repair/request',
+  '/services/accessories/request',
+  '/services/swaps/request',
   '/cart',
   '/checkout',
   '/wishlist',

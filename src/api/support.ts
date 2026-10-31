@@ -59,8 +59,12 @@ export type PublicSupportCase = {
 
 async function supportRequest<T>(path: string, options: RequestInit = {}) {
   const token = getAccountToken()
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(),30000)
+  try {
   const response = await fetch(`${PAYMENTS_API_URL}${path}`, {
     ...options,
+    signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -76,6 +80,8 @@ async function supportRequest<T>(path: string, options: RequestInit = {}) {
     data = null
   }
 
+  if (controller.signal.aborted) throw new Error('Support request deadline exceeded.')
+
   if (!response.ok) {
     const detail = [data?.details, data?.error, data?.message]
       .find((value): value is string => typeof value === 'string' && value.length > 0)
@@ -83,6 +89,10 @@ async function supportRequest<T>(path: string, options: RequestInit = {}) {
   }
 
   return data as T
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('We could not confirm the request in time. Check My support cases or contact DigitalHood before submitting again.')
+    throw error
+  } finally { window.clearTimeout(timeout) }
 }
 
 export async function createSupportCase(payload: CreateSupportCasePayload) {

@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { buildSellPageSeo } from './sellLandingPage.js'
 import { getPublicPolicy } from './supportPages.js'
+import { SERVICE_PAGES, buildServiceSeo } from './servicePages.js'
 
 const SITE = 'https://store.digitalhood.info'
 const API = process.env.PAYMENTS_API_URL || 'https://payments.digitalhood.info'
@@ -16,6 +17,7 @@ const MAX_SITEMAP_PAGES = 100
 const PAGE_SIZE = 100
 
 const PUBLIC_ROUTES = [
+  ...SERVICE_PAGES.map(service => service.path),
   '/', '/shop', '/shops', '/sell', '/categories', '/phone-accessories-zambia', '/iphone-zambia',
   '/samsung-phones-zambia', '/laptops-zambia', '/headphones-zambia',
   '/power-banks-zambia', '/screen-repair-zambia', '/about', '/contact',
@@ -186,6 +188,8 @@ async function sellerSeo(key, options = {}) {
 
 export async function buildServerSeo(pathname, options = {}) {
   const path = normalize(pathname)
+  const service = buildServiceSeo(path)
+  if (service) return service
   if (path === '/sell') return buildSellPageSeo()
   const product = path.match(/^\/product\/([^/]+)$/)
   if (product) {
