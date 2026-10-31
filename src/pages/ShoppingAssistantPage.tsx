@@ -130,7 +130,7 @@ export default function ShoppingAssistantPage() {
     const conversationTurns=editingIndex===null?turns:turns.slice(0,editingIndex)
     const question=text.trim();if(busy || photoBusy || (question.length<3 && !isAssistantAcknowledgement(question)) || question.length>4000)return
     if(assistantContainsSecrets(question)){setError('Please remove passwords, PINs, OTPs, API keys and card details. Nothing was sent.');return}
-    if(assistantPrivateIntent(question)){setMessage('');setJob(/track|where/i.test(question)?'track':'return');setNotice('Use the secure order tools below. Your order details have not been sent to an AI model.');return}
+    if(assistantPrivateIntent(question)){setError('');setMessage('');setJob(/track|where/i.test(question)?'track':'return');setNotice('Use the secure order tools below. Your order details have not been sent to an AI model.');return}
     const id=++requestId.current;const controller=new AbortController();active.current=controller;const timer=setTimeout(()=>controller.abort(),35000)
     setBusy(true);setError('');setNotice('');setPreview('');setPendingQuestion(question);setSuggestions([]);setFocused(false)
     try {
