@@ -52,7 +52,7 @@
       "faqs": [
         { "q": "Will this charger work with my laptop?", "a": "Compare the laptop's power requirements with the charger's stated output and connector. USB-C laptops may require specific USB Power Delivery wattage. Ask before buying if you cannot confirm the specification." },
         { "q": "Can I return an accessory that does not fit?", "a": "Read the 7-day returns policy and the product's compatibility details before purchase. Return eligibility depends on the reason, condition and policy; an enquiry is not a guarantee of approval." },
-        { "q": "Are these products in stock?", "a": "The cards below come from the live marketplace. Open a listing for its current stock, variants and price; availability can change before checkout." }
+        { "q": "Are these products in stock?", "a": "The catalogue cards on this page come from the live marketplace. Open a listing for its current stock, variants and price; availability can change before checkout." }
       ],
       "fields": [
         { "name": "deviceModel", "label": "Brand and exact device model", "required": true, "placeholder": "e.g. iPhone 16 Pro or Dell Latitude 5440" },

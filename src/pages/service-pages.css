@@ -24,6 +24,7 @@
 .dh-service-checklist { display:grid; list-style:none; padding:0; gap:12px; margin-top:12px; }.dh-service-checklist li { display:flex; gap:9px; font-size:13px; line-height:1.7; color:var(--dh-ui-text-muted); }.dh-service-checklist svg { width:17px; height:17px; margin-top:3px; color:var(--dh-ui-text); }
 .dh-service-faq details { border-top:1px solid var(--dh-ui-border); padding:12px 0; }.dh-service-faq details:last-child { padding-bottom:0; }.dh-service-faq summary { cursor:pointer; font-size:13px; font-weight:750; }.dh-service-faq details p { padding-top:8px; }
 .dh-service-enquire .dh-service-primary { margin:13px 0 11px; }.dh-service-text-link { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:750; }
+.dh-service-enquire .dh-service-text-link { display:flex; width:fit-content; }
 .dh-service-location { margin:15px 0; padding-top:13px; border-top:1px solid var(--dh-ui-border); }.dh-service-location h3 { display:flex; align-items:center; gap:5px; }.dh-service-location svg { width:15px; height:15px; }.dh-service-location address { font-style:normal; font-size:12px; line-height:1.7; color:var(--dh-ui-text-muted); margin:5px 0; }.dh-service-location a { font-size:12px; text-decoration:underline; font-weight:700; }
 .dh-service-policy-links { display:grid; gap:10px; margin-top:12px; font-size:12px; font-weight:750; }
 .dh-services-page :is(a,button,summary):focus-visible { outline:3px solid #bd7405; outline-offset:3px; }
