@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2, Maximize2, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -12,6 +12,7 @@ export default function ProductChatDrawer() {
   const location = useLocation(), navigate = useNavigate()
   const [closeState,setCloseState] = useState<ChatCloseState>({busy:false,attachments:false})
   const [notice,setNotice] = useState('')
+  useEffect(() => { if (!closeState.busy) setNotice('') }, [closeState.busy])
   // The trigger temporarily disables while opening; browsers may blur it before
   // the request resolves. Retain its explicit identity instead of body focus.
   const triggerId = (location.state as ChatDrawerRouteState | null)?.chatTriggerId
@@ -35,7 +36,7 @@ export default function ProductChatDrawer() {
         onCloseAutoFocus={event => { event.preventDefault(); if (trigger.current?.isConnected) trigger.current.focus({preventScroll:true}) }}
         onEscapeKeyDown={event => { if (document.querySelector('[data-seller-chat-drawer] [role="dialog"]')) event.preventDefault() }}>
         <div className="dh-seller-chat-heading">
-          <div><Dialog.Title>Message seller</Dialog.Title><Dialog.Description>Keep shopping while you talk. Nothing is sent automatically.</Dialog.Description></div>
+          <div><Dialog.Title>Message seller</Dialog.Title><Dialog.Description className="sr-only">Keep shopping while you talk. Nothing is sent automatically.</Dialog.Description></div>
           <button type="button" onClick={expand} disabled={closeState.busy} aria-label="Open full messages inbox" title="Open full inbox"><Maximize2 aria-hidden="true" /></button>
           <button ref={closeButton} type="button" onClick={close} disabled={closeState.busy} aria-label="Close seller chat"><X aria-hidden="true" /></button>
         </div>
