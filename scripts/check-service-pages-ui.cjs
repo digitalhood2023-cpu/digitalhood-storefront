@@ -32,7 +32,8 @@ async function main(){
       assert.equal(req.method(),'GET');assert.equal(u.searchParams.get('per_page'),'8')
       const q=u.searchParams.get('search')
       if(q==='headphone'&&failAudio)return route.fulfill({status:503,headers,json:{error:'Fixture unavailable'}})
-      body={products:q==='cable'?[]:[{id:42,slug:'fixture-accessory',name:'Fixture '+q,price:'199',type:'simple',in_stock:true,purchasable:true,stock_status:'instock',stock_quantity:3,manage_stock:true,images:[{src:origin+'/logo.jpg'}],categories:[]}],total:1,totalPages:1}
+      const fixture={price:'199',type:'simple',in_stock:true,purchasable:true,stock_status:'instock',stock_quantity:3,manage_stock:true,images:[{src:origin+'/logo.jpg'}],categories:[]}
+      body={products:q==='cable'?[]:[{...fixture,id:42,slug:'fixture-accessory',name:'Fixture '+q},{...fixture,id:43,slug:'not-an-accessory',name:'ASUS ExpertBook Laptop Core 5 SSD',description:'Includes a charger, cable, case and headphone jack'},{...fixture,id:44,slug:'not-a-case',name:'Showcase Laptop',description:'A phone case is mentioned here'}],total:3,totalPages:1}
      }else if(p==='/api/support/cases'&&req.method()==='POST'){
       const payload=req.postDataJSON();created.push(payload)
       assert.equal(payload.type,'GENERAL_CONTACT');assert.equal(payload['cf-turnstile-response'],'fixture-only-verification')
@@ -61,6 +62,7 @@ async function main(){
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'no horizontal page overflow')
      if(service.id==='accessories'){
       await page.getByRole('link',{name:/Fixture charger/}).waitFor()
+      assert.equal(await page.locator('.dh-accessory-product').count(),1,'description-only and substring matches are not accessories')
       await page.getByRole('button',{name:'Cables & adapters',exact:true}).click();await page.getByRole('heading',{name:'No listings found in this selection.',exact:true}).waitFor()
       await page.getByRole('button',{name:'Audio accessories',exact:true}).click();await page.getByRole('button',{name:'Retry catalogue',exact:true}).waitFor()
       failAudio=false;await page.getByRole('button',{name:'Retry catalogue',exact:true}).click();await page.getByRole('link',{name:/Fixture headphone/}).waitFor()
