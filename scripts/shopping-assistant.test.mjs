@@ -6,8 +6,24 @@ import ts from 'typescript';
 // compiler to load this standalone helper without relying on type stripping.
 const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {nextAssistantTurnId,relevantAssistantFollowups,assistantPrivateIntent,assistantContainsSecrets,normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const {assistantRequestContext,nextAssistantTurnId,relevantAssistantFollowups,assistantPrivateIntent,assistantContainsSecrets,normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
+test('photo match transfers refreshed public ID context to typed purpose and name followups',()=>{
+ const speaker={...product,id:525,name:'Dell Pro Plus Wireless Speakerphone SL525 – Bluetooth 5.3'};
+ const photo={id:1,question:'Photo search',reply:normalizeAssistantReply({answer:'Visual match found',products:[speaker]})};
+ assert.deepEqual(assistantRequestContext('what is it used for?',[photo]),{contextToken:undefined,productIds:[525]});
+ assert.deepEqual(assistantRequestContext('Dell Pro Plus Wireless Speakerphone SL525',[photo]).productIds,[525]);
+ const clarification={id:2,question:'what is it used for?',reply:normalizeAssistantReply({answer:'Which product?',products:[],responseMode:'answer',contextToken:'c'.repeat(48)})};
+ assert.deepEqual(assistantRequestContext('what is it used for?',[photo,clarification]),{contextToken:'c'.repeat(48),productIds:[525]});
+ for(const q of ['Explain RAM','laptops available','find a laptop','thanks mate'])assert.deepEqual(assistantRequestContext(q,[photo]).productIds,[],q);
+ assert.deepEqual(assistantRequestContext('what is it used for?',[]).productIds,[]);
+ assert.deepEqual(assistantRequestContext('what is it used for?',[photo].slice(0,0)).productIds,[]);
+ const explanation={id:3,question:'Explain RAM',reply:normalizeAssistantReply({answer:'RAM is working memory.',products:[],responseMode:'answer',route:'conversation'})};
+ assert.deepEqual(assistantRequestContext('what is it used for?',[photo,explanation]).productIds,[]);
+ const noMatches={id:4,question:'find a different product',reply:normalizeAssistantReply({answer:'No matches',products:[],responseMode:'results'})};
+ assert.deepEqual(assistantRequestContext('what is it used for?',[photo,noMatches]).productIds,[]);
+ assert.deepEqual(assistantRequestContext('Dell Pro Plus Wireless Speakerphone SL525',[photo,explanation]).productIds,[525]);
+});
 test('result pagination keeps opaque continuations and safe counts, not arbitrary URLs or malformed metadata',()=>{
  const base={answer:'Matches',products:[product]},page={token:'c'.repeat(48),shown:4,matchedCount:13,hasMore:true,complete:true};
  assert.equal(normalizeAssistantReply({...base,pagination:page}).pagination.token,page.token);

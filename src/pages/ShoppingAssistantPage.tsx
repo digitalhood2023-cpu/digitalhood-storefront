@@ -6,7 +6,7 @@ import Footer from '@/sections/Footer'
 import AssistantDiscovery from '@/components/AssistantDiscovery'
 import AssistantPrivateOrders from '@/components/AssistantPrivateOrders'
 import AssistantAnswerOptions from '@/components/AssistantAnswerOptions'
-import {relevantAssistantFollowups,nextAssistantTurnId} from '@/lib/shoppingAssistant'
+import {relevantAssistantFollowups,nextAssistantTurnId,assistantRequestContext} from '@/lib/shoppingAssistant'
 import {useWishlist} from '@/context/WishlistContext'
 import type {Product} from '@/types'
 import SEO from '@/components/SEO'
@@ -145,7 +145,7 @@ export default function ShoppingAssistantPage() {
         const response=await searchProductsByImage(photo,question,controller.signal)
         reply=normalizeAssistantReply({answer:response.message || 'These are visual matches from the catalogue. Check the listing to confirm details.',aiUsed:false,products:response.suggestions.map(p=>({...p,price:Number(p.price),url:'https://store.digitalhood.info/product/'+encodeURIComponent(p.slug),stockStatus:p.stock_status,stockLabel:p.stock_label,canAddToCart:false,specifications:[]})),filters:[],followups:['Compare top two','Show specifications','Browse the shop']})
       }else{
-        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,previousSearch:[...conversationTurns].reverse().find(t=>t.reply.responseMode!=='answer')?.reply.searchState,contextToken:conversationTurns.at(-1)?.reply.contextToken,productIds:(contextIds.length?contextIds:selected.map(p=>p.id)).slice(0,4)}),signal:controller.signal})
+        const response=await fetch('https://ai.digitalhood.info/api/assistant/chat',{method:'POST',credentials:'omit',redirect:'error',headers:{'Content-Type':'application/json',Accept:'text/event-stream'},body:JSON.stringify({message:question,removeFilters,previousSearch:[...conversationTurns].reverse().find(t=>t.reply.responseMode!=='answer')?.reply.searchState,...assistantRequestContext(question,conversationTurns,contextIds,selected.map(p=>p.id))}),signal:controller.signal})
         if(!response.ok)throw new Error(response.status===429?'Please wait before sending another message.':'The assistant is unavailable right now. Please try again shortly.')
         reply=await readAssistantResponse(response,t=>{if(requestId.current===id)setPreview(t)})
       }
