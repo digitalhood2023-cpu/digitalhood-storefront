@@ -6,7 +6,7 @@ import Footer from '@/sections/Footer'
 import AssistantDiscovery from '@/components/AssistantDiscovery'
 import AssistantPrivateOrders from '@/components/AssistantPrivateOrders'
 import AssistantAnswerOptions from '@/components/AssistantAnswerOptions'
-import {relevantAssistantFollowups} from '@/lib/shoppingAssistant'
+import {relevantAssistantFollowups,nextAssistantTurnId} from '@/lib/shoppingAssistant'
 import {useWishlist} from '@/context/WishlistContext'
 import type {Product} from '@/types'
 import SEO from '@/components/SEO'
@@ -135,6 +135,7 @@ export default function ShoppingAssistantPage() {
     if(assistantContainsSecrets(question)){setError('Please remove passwords, PINs, OTPs, API keys and card details. Nothing was sent.');return}
     if(assistantPrivateIntent(question)){setError('');setMessage('');setJob(/track|where/i.test(question)?'track':'return');setNotice('Use the secure order tools below. Your order details have not been sent to an AI model.');return}
     const id=++requestId.current;const controller=new AbortController();active.current=controller;const timer=setTimeout(()=>controller.abort(),35000)
+    const turnId=nextAssistantTurnId(turns)
     setBusy(true);setError('');setNotice('');setPreview('');setPendingQuestion(question);setSuggestions([]);setFocused(false)
     try {
       let reply:AssistantReply
@@ -148,7 +149,7 @@ export default function ShoppingAssistantPage() {
       }
       if(requestId.current!==id)return
       if(reply.responseMode!=='answer' && reply.searchState){metric(/^(?:cheaper|show cheaper|only |under |below |budget |more like this)/i.test(question)?'refinements':'searches')}
-      setTurns(old=>[...(editIndex===null?old:old.slice(0,editIndex)),{id,question,reply,removeFilters,photoPreview:photo?photoPreview:undefined}].slice(-30));setEditingIndex(null);setMessage('');setPhoto(null);setPhotoPreview('');setContextIds([]);setShown(5);setSelected([]);setShowComparison(false)
+      setTurns(old=>[...(editIndex===null?old:old.slice(0,editIndex)),{id:turnId,question,reply,removeFilters,photoPreview:photo?photoPreview:undefined}].slice(-30));setEditingIndex(null);setMessage('');setPhoto(null);setPhotoPreview('');setContextIds([]);setShown(5);setSelected([]);setShowComparison(false)
     }catch(failure){if(requestId.current===id)setError(failure instanceof Error && failure.name!=='AbortError'?failure.message:'The search took too long. Please try again or browse the shop.')}
     finally{clearTimeout(timer);if(requestId.current===id){setBusy(false);setPreview('');setPendingQuestion('');active.current=null}}
   }

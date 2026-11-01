@@ -16,6 +16,12 @@ export function relevantAssistantFollowups(reply:AssistantReply){
   if(reply.route==='conversation'||reply.route==='private'||reply.route==='privacy')return []
   return [...new Set(reply.followups.map(label=>label.trim()).filter(label=>label&&!/^(?:change my search|browse the shop|talk to support)$/i.test(label)))].slice(0,2)
 }
+export function nextAssistantTurnId(turns:readonly {id:number}[],now=Date.now()){
+  let id=now
+  const used=new Set(turns.map(turn=>turn.id))
+  while(used.has(id))id++
+  return id
+}
 export function safeProductImage(value: unknown) {
   try { const url = new URL(String(value)); return url.protocol === 'https:' && !url.username && !url.password ? url.href : '/product-placeholder.svg' } catch { return '/product-placeholder.svg' }
 }
