@@ -2,9 +2,10 @@ export type AssistantProduct = {
   id: number; name: string; price: number; url: string; image: string; brand?: string;
   sellerStoreName?: string; stockStatus?: string; stockLabel?: string; averageRating?: number | null;
   ratingCount?: number; canAddToCart?: boolean; type?: string;
-  whyPicked?:string; specifications: {label: string; value: string}[];
+  whyPicked?:string; totalSales?:number; specifications: {label: string; value: string}[];
 }
 export type AssistantReply = {
+  pagination?:{token?:string;hasMore:boolean;shown:number;matchedCount:number;complete:boolean};expiredPage?:boolean;pageUnavailable?:boolean;
   route?:'catalogue'|'conversation'|'policy'|'private'|'privacy';
   citations?: {title:string;url:string;version?:string}[]; feedbackToken?:string; groundedInPolicy?:boolean;
   contextToken?:string; degraded?:boolean; searchState?:string; responseMode?: 'answer' | 'results'; answer: string; products: AssistantProduct[]; aiUsed: boolean; clarification?: boolean;
@@ -36,7 +37,7 @@ export function normalizeAssistantReply(body: unknown): AssistantReply {
       const p = value as AssistantProduct; const url = new URL(p.url)
       if (!Number.isSafeInteger(p.id) || p.id <= 0 || seen.has(p.id) || typeof p.name !== 'string' || !Number.isFinite(p.price) || p.price <= 0 || url.origin !== 'https://store.digitalhood.info' || !/^\/product\/[^/]+$/.test(url.pathname) || url.username || url.password) return []
       seen.add(p.id)
-      return [{whyPicked:typeof p.whyPicked==='string'?p.whyPicked.slice(0,180):'',id:p.id, price:p.price, name:p.name.slice(0,130), url:url.href, image:safeProductImage(p.image),
+      return [{totalSales:Number.isSafeInteger(p.totalSales)&&Number(p.totalSales)>0?Math.min(10000000,Number(p.totalSales)):0,whyPicked:typeof p.whyPicked==='string'?p.whyPicked.slice(0,180):'',id:p.id, price:p.price, name:p.name.slice(0,130), url:url.href, image:safeProductImage(p.image),
         brand:typeof p.brand === 'string' ? p.brand.slice(0,40) : '',
         sellerStoreName:typeof p.sellerStoreName === 'string' ? p.sellerStoreName.slice(0,100) : '',
         stockStatus:['instock','outofstock','onbackorder'].includes(p.stockStatus || '') ? p.stockStatus : 'unknown',
@@ -47,10 +48,12 @@ export function normalizeAssistantReply(body: unknown): AssistantReply {
         ratingCount:Number.isSafeInteger(p.ratingCount) && (p.ratingCount || 0)>0 ? p.ratingCount : 0,
         specifications:Array.isArray(p.specifications) ? p.specifications.filter(s => typeof s?.label === 'string' && typeof s?.value === 'string').slice(0,6).map(s => ({label:s.label.slice(0,60),value:s.value.slice(0,90)})) : []}]
     } catch { return [] }
-  }).slice(0,12)
+  }).slice(0,200)
   const filters = Array.isArray(raw.filters) ? raw.filters.filter(f => f && ['brand','category','maxPrice'].includes(f.key) && typeof f.label === 'string').slice(0,3).map(f=>({key:f.key,value:typeof f.value === 'number' || typeof f.value === 'string' ? f.value : '',label:f.label.slice(0,100)})) : []
   const citations:NonNullable<AssistantReply['citations']>=Array.isArray(raw.citations)?raw.citations.slice(0,6).flatMap(c=>{try{const url=new URL(c?.url);if(url.origin!=='https://store.digitalhood.info'||url.search||url.username||url.password||!/^\/(?:returns|shipping|warranty|help|seller-terms|prohibited-products|data-protection|dispute-resolution|marketplace-terms)$/.test(url.pathname)||(url.hash&&!/^#policy-section-[1-9]\d?$/.test(url.hash))||typeof c.title!=='string')return [];return [{title:c.title.slice(0,180),url:url.href,version:/^\d{4}-\d{2}-\d{2}$/.test(c.version||'')?c.version:undefined}]}catch{return []}}):[]
-  return {route:['catalogue','conversation','policy','private','privacy'].includes(String(raw.route))?raw.route as AssistantReply['route']:undefined,citations,feedbackToken:typeof raw.feedbackToken==='string'&&/^[a-f0-9]{48}$/.test(raw.feedbackToken)?raw.feedbackToken:undefined,groundedInPolicy:raw.groundedInPolicy===true&&citations.length>0,contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,4000), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
+  const page=raw.pagination as AssistantReply['pagination'];
+  const pagination=raw.products.length<=200&&page&&typeof page.hasMore==='boolean'&&Number.isSafeInteger(page.shown)&&page.shown>=0&&Number.isSafeInteger(page.matchedCount)&&page.matchedCount>=page.shown?{hasMore:page.hasMore,shown:page.shown,matchedCount:page.matchedCount,complete:page.complete===true,token:typeof page.token==='string'&&/^[a-f0-9]{48}$/.test(page.token)?page.token:undefined}:undefined;
+  return {pagination,expiredPage:raw.expiredPage===true,pageUnavailable:raw.pageUnavailable===true,route:['catalogue','conversation','policy','private','privacy'].includes(String(raw.route))?raw.route as AssistantReply['route']:undefined,citations,feedbackToken:typeof raw.feedbackToken==='string'&&/^[a-f0-9]{48}$/.test(raw.feedbackToken)?raw.feedbackToken:undefined,groundedInPolicy:raw.groundedInPolicy===true&&citations.length>0,contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,4000), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
 }
 export async function readAssistantResponse(response: Response, onText: (text: string) => void) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) return normalizeAssistantReply(await response.json())

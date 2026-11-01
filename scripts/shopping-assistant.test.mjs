@@ -8,6 +8,14 @@ const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.met
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {nextAssistantTurnId,relevantAssistantFollowups,assistantPrivateIntent,assistantContainsSecrets,normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
+test('result pagination keeps opaque continuations and safe counts, not arbitrary URLs or malformed metadata',()=>{
+ const base={answer:'Matches',products:[product]},page={token:'c'.repeat(48),shown:4,matchedCount:13,hasMore:true,complete:true};
+ assert.equal(normalizeAssistantReply({...base,pagination:page}).pagination.token,page.token);
+ assert.equal(normalizeAssistantReply({...base,pagination:{...page,token:'https://evil.invalid'}}).pagination.token,undefined);
+ assert.equal(normalizeAssistantReply({...base,pagination:{...page,shown:-1}}).pagination,undefined);
+ assert.equal(normalizeAssistantReply({...base,pagination:{...page,matchedCount:2}}).pagination,undefined);
+ const many=Array.from({length:20},(_,i)=>({...product,id:i+1}));assert.equal(normalizeAssistantReply({...base,products:many,pagination:{...page,shown:20,matchedCount:24}}).products.length,20);
+});
 test('policy citations allow only published marketplace routes and safe section anchors',()=>{const r=normalizeAssistantReply({answer:'Guidance',products:[],groundedInPolicy:true,feedbackToken:'a'.repeat(48),citations:[{title:'Returns',url:'https://store.digitalhood.info/returns#policy-section-1',version:'2026-10-20'},{title:'Bad',url:'https://attacker.test/returns'},{title:'Private',url:'https://store.digitalhood.info/orders/23'},{title:'Query',url:'https://store.digitalhood.info/returns?token=private'}]});assert.equal(r.citations.length,1);assert.equal(r.groundedInPolicy,true);assert.equal(r.feedbackToken,'a'.repeat(48));});
 test('private inputs are kept out of inference, suggestions and saved conversations',()=>{assert.equal(assistantPrivateIntent('refund my order 42'),true);assert.equal(assistantPrivateIntent('explain the refund policy'),false);assert.equal(assistantContainsSecrets('My password: abc123'),true);const history=normalizeConversations([{id:'chat',turns:[{id:1,question:'order #42',reply:{answer:'private',products:[]}},{id:2,question:'x'.repeat(3500),reply:{answer:'long input',products:[]}}]}]);assert.equal(history[0].turns.length,1);assert.equal(history[0].turns[0].question.length,3500);});
 test('rejects hostile links, invalid prices and duplicate results',()=>{
