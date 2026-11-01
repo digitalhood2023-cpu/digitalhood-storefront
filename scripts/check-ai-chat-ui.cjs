@@ -1,0 +1,49 @@
+// Actual App, isolated fixture APIs. No production model/account/commerce writes.
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path')
+const origin='http://127.0.0.1:4273',output=path.join(__dirname,'ai-chat-ui')
+async function main(){fs.mkdirSync(output,{recursive:true});const browser=await chromium.launch({headless:true}),results=[];try{
+ for(const theme of ['light','dark'])for(const width of [390,900,1440]){
+  const context=await browser.newContext({viewport:{width,height:1000},colorScheme:theme,serviceWorkers:'block',reducedMotion:'reduce'}),requests=[],errors=[]
+  await context.addInitScript(theme=>localStorage.setItem('digitalhood-theme-preference-v1',theme),theme)
+  await context.routeWebSocket('**/*',socket=>socket.close())
+  await context.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()),p=u.pathname,headers={'access-control-allow-origin':req.headers().origin||origin,'access-control-allow-headers':'content-type,authorization','access-control-allow-methods':'GET,POST,OPTIONS'}
+   if(p.startsWith('/api/')||p.includes('/wp-json/')){requests.push({path:p,method:req.method()});if(req.method()==='OPTIONS')return route.fulfill({status:204,headers});let body={success:true,products:[],categories:[],notifications:[],items:[],conversations:[],unreadCount:0}
+    if(p==='/api/assistant/chat'){
+     const message=req.postDataJSON().message
+     const shopping=message==='laptops available'
+     body={answer:shopping?'Here is a verified laptop option.':message==='Explain RAM'?'RAM is temporary working memory. Storage keeps files.':'More RAM can help when several applications are open.',route:shopping?'catalogue':'conversation',responseMode:shopping?'results':'answer',products:shopping?[{id:11,name:'Lenovo laptop',price:4999,url:'https://store.digitalhood.info/product/lenovo-laptop',image:'https://digitalhood.info/laptop.jpg',specifications:[],canAddToCart:false}]:[],contextToken:'b'.repeat(48),feedbackToken:'a'.repeat(48),aiUsed:true,followups:shopping?['Compare top two','Browse the shop','Show specifications']:['Change my search','Browse the shop','Talk to support']}
+     await new Promise(resolve=>setTimeout(resolve,400))
+    }else if(p==='/api/assistant/feedback')body={accepted:true}
+    else assert.equal(req.method(),'GET','unexpected mutation '+p)
+    return route.fulfill({headers,contentType:'application/json',body:JSON.stringify(body)})
+   }return u.origin===origin?route.continue():route.abort()
+  })
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message))
+  try{
+   await page.goto(origin+'/assistant');const input=page.locator('#shopping-question');await input.waitFor()
+   assert.equal(await page.locator('.ai-discovery').count(),0)
+   const before=requests.filter(r=>/suggest|search/.test(r.path)).length
+   await input.fill('Explain RAM');await page.waitForTimeout(350)
+   assert.equal(requests.filter(r=>/suggest|search/.test(r.path)).length,before)
+   await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByText('Thinking…',{exact:true}).waitFor();await page.getByText('RAM is temporary working memory. Storage keeps files.',{exact:true}).waitFor()
+   await input.fill('Why does more memory help?');await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByText('More RAM can help when several applications are open.',{exact:true}).waitFor()
+   assert.equal(await page.locator('.ai-turn').count(),2);assert.equal(await page.locator('.ai-answer-options').count(),1)
+   assert.equal(await page.getByRole('button',{name:'Helpful answer',exact:true}).count(),0)
+   assert.equal(await page.locator('.ai-next-actions').count(),0);assert.equal(await page.locator('.ai-products').count(),0)
+   assert.equal(await page.getByRole('button',{name:'Task complete',exact:true}).count(),0)
+   await page.screenshot({path:path.join(output,`${theme}-${width}-conversation.png`),fullPage:true})
+   await page.getByRole('button',{name:'Browse products',exact:true}).click();await page.locator('.ai-discovery').waitFor();await page.getByRole('button',{name:'Back to chat',exact:true}).click();await input.waitFor();assert.equal(await page.locator('.ai-discovery').count(),0)
+   await input.fill('laptops available');await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByRole('link',{name:'Lenovo laptop',exact:true}).waitFor()
+   assert.equal(await page.locator('.ai-answer-options').count(),1);assert.equal(await page.locator('.ai-next-actions').count(),1)
+   assert.ok(await page.locator('.ai-next-actions button').count()<=2)
+   assert.equal(await page.getByRole('button',{name:'Change my search',exact:true}).count(),0)
+   await page.locator('.ai-answer-options summary').click();await page.getByRole('button',{name:'Helpful answer',exact:true}).click();await page.getByText('Thank you. Your feedback was recorded without sending your conversation.',{exact:true}).waitFor()
+   await page.locator('.ai-answer-options summary').press('Escape');assert.equal(await page.getByRole('button',{name:'Helpful answer',exact:true}).count(),0)
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false)
+   const bounds=await page.locator('.ai-panel').boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width+1)
+   await page.screenshot({path:path.join(output,`${theme}-${width}-shopping.png`),fullPage:true});assert.deepEqual(errors,[])
+   results.push({theme,width,conversationFirst:true,noAmbientCatalogueQueries:true,discoveryOptIn:true,latestOptionsOnly:true,feedbackHiddenUntilRequested:true,relevantFollowups:true})
+  }catch(error){await page.screenshot({path:path.join(output,`${theme}-${width}-failure.png`),fullPage:true});console.error((await page.locator('body').innerText()).slice(-3000),errors);throw error}finally{await context.close()}
+ }fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results))
+ }finally{await browser.close()}}
+main().catch(e=>{console.error(e);process.exitCode=1})

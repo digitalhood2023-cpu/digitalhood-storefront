@@ -5,12 +5,23 @@ export type AssistantProduct = {
   whyPicked?:string; specifications: {label: string; value: string}[];
 }
 export type AssistantReply = {
+  route?:'catalogue'|'conversation'|'policy'|'private'|'privacy';
   citations?: {title:string;url:string;version?:string}[]; feedbackToken?:string; groundedInPolicy?:boolean;
   contextToken?:string; degraded?:boolean; searchState?:string; responseMode?: 'answer' | 'results'; answer: string; products: AssistantProduct[]; aiUsed: boolean; clarification?: boolean;
   filters: {key: string; value: string | number; label: string}[]; relaxedFilters: string[]; followups: string[];
 }
 export function assistantPrivateIntent(text:string){return /\b(?:track (?:my |an? )?order|where is my (?:order|parcel)|my (?:order|refund|payment|return|case)|(?:cancel|return|refund) (?:my |this |the )?(?:order|purchase|item)|order\s*#?\s*\d+|case\s*#?\s*[a-z]*\d+)\b/i.test(text)}
 export function assistantContainsSecrets(text:string){return /\b(?:password|passcode|pin|otp|one.time (?:code|password)|api[ _-]?key|secret[ _-]?key|card (?:number|cvv))\s*(?:is|:|=)\s*\S+/i.test(text)||/\bsk-[a-z0-9_-]{16,}\b/i.test(text)}
+export function relevantAssistantFollowups(reply:AssistantReply){
+  if(reply.route==='conversation'||reply.route==='private'||reply.route==='privacy')return []
+  return [...new Set(reply.followups.map(label=>label.trim()).filter(label=>label&&!/^(?:change my search|browse the shop|talk to support)$/i.test(label)))].slice(0,2)
+}
+export function nextAssistantTurnId(turns:readonly {id:number}[],now=Date.now()){
+  let id=now
+  const used=new Set(turns.map(turn=>turn.id))
+  while(used.has(id))id++
+  return id
+}
 export function safeProductImage(value: unknown) {
   try { const url = new URL(String(value)); return url.protocol === 'https:' && !url.username && !url.password ? url.href : '/product-placeholder.svg' } catch { return '/product-placeholder.svg' }
 }
@@ -39,7 +50,7 @@ export function normalizeAssistantReply(body: unknown): AssistantReply {
   }).slice(0,12)
   const filters = Array.isArray(raw.filters) ? raw.filters.filter(f => f && ['brand','category','maxPrice'].includes(f.key) && typeof f.label === 'string').slice(0,3).map(f=>({key:f.key,value:typeof f.value === 'number' || typeof f.value === 'string' ? f.value : '',label:f.label.slice(0,100)})) : []
   const citations:NonNullable<AssistantReply['citations']>=Array.isArray(raw.citations)?raw.citations.slice(0,6).flatMap(c=>{try{const url=new URL(c?.url);if(url.origin!=='https://store.digitalhood.info'||url.search||url.username||url.password||!/^\/(?:returns|shipping|warranty|help|seller-terms|prohibited-products|data-protection|dispute-resolution|marketplace-terms)$/.test(url.pathname)||(url.hash&&!/^#policy-section-[1-9]\d?$/.test(url.hash))||typeof c.title!=='string')return [];return [{title:c.title.slice(0,180),url:url.href,version:/^\d{4}-\d{2}-\d{2}$/.test(c.version||'')?c.version:undefined}]}catch{return []}}):[]
-  return {citations,feedbackToken:typeof raw.feedbackToken==='string'&&/^[a-f0-9]{48}$/.test(raw.feedbackToken)?raw.feedbackToken:undefined,groundedInPolicy:raw.groundedInPolicy===true&&citations.length>0,contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,4000), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
+  return {route:['catalogue','conversation','policy','private','privacy'].includes(String(raw.route))?raw.route as AssistantReply['route']:undefined,citations,feedbackToken:typeof raw.feedbackToken==='string'&&/^[a-f0-9]{48}$/.test(raw.feedbackToken)?raw.feedbackToken:undefined,groundedInPolicy:raw.groundedInPolicy===true&&citations.length>0,contextToken:typeof raw.contextToken==='string' && /^[a-f0-9]{48}$/.test(raw.contextToken)?raw.contextToken:undefined,degraded:raw.degraded===true,searchState:typeof raw.searchState==='string'?raw.searchState.slice(0,300):undefined,responseMode:raw.responseMode==='answer'?'answer':'results',answer:raw.answer.slice(0,4000), products, aiUsed:raw.aiUsed === true, clarification:raw.clarification === true, filters, relaxedFilters:Array.isArray(raw.relaxedFilters) ? raw.relaxedFilters.filter(k => k === 'maxPrice') : [], followups:Array.isArray(raw.followups) ? raw.followups.filter(f => typeof f === 'string').slice(0,3).map(f => f.slice(0,80)) : []}
 }
 export async function readAssistantResponse(response: Response, onText: (text: string) => void) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) return normalizeAssistantReply(await response.json())

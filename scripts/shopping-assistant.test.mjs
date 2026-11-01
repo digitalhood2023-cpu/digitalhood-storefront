@@ -6,13 +6,24 @@ import ts from 'typescript';
 // compiler to load this standalone helper without relying on type stripping.
 const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const {assistantPrivateIntent,assistantContainsSecrets,normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const {nextAssistantTurnId,relevantAssistantFollowups,assistantPrivateIntent,assistantContainsSecrets,normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
 test('policy citations allow only published marketplace routes and safe section anchors',()=>{const r=normalizeAssistantReply({answer:'Guidance',products:[],groundedInPolicy:true,feedbackToken:'a'.repeat(48),citations:[{title:'Returns',url:'https://store.digitalhood.info/returns#policy-section-1',version:'2026-10-20'},{title:'Bad',url:'https://attacker.test/returns'},{title:'Private',url:'https://store.digitalhood.info/orders/23'},{title:'Query',url:'https://store.digitalhood.info/returns?token=private'}]});assert.equal(r.citations.length,1);assert.equal(r.groundedInPolicy,true);assert.equal(r.feedbackToken,'a'.repeat(48));});
 test('private inputs are kept out of inference, suggestions and saved conversations',()=>{assert.equal(assistantPrivateIntent('refund my order 42'),true);assert.equal(assistantPrivateIntent('explain the refund policy'),false);assert.equal(assistantContainsSecrets('My password: abc123'),true);const history=normalizeConversations([{id:'chat',turns:[{id:1,question:'order #42',reply:{answer:'private',products:[]}},{id:2,question:'x'.repeat(3500),reply:{answer:'long input',products:[]}}]}]);assert.equal(history[0].turns.length,1);assert.equal(history[0].turns[0].question.length,3500);});
 test('rejects hostile links, invalid prices and duplicate results',()=>{
  const result=normalizeAssistantReply({answer:'hello',products:[product,product,{...product,id:2,url:'https://attacker.test/product/a'},{...product,id:3,price:-1},{...product,id:4,image:'javascript:alert(1)'}]});
  assert.deepEqual(result.products.map(p=>p.id),[1,4]);assert.equal(result.products[1].image,'/product-placeholder.svg');
+});
+test('normal conversation has no generic shopping followups; suggestions are relevant, distinct and capped',()=>{
+ const reply=normalizeAssistantReply({answer:'Explanation',products:[],route:'conversation',followups:['Change my search','Browse the shop','Talk to support']});
+ assert.equal(reply.route,'conversation');assert.deepEqual(relevantAssistantFollowups(reply),[]);
+ assert.deepEqual(relevantAssistantFollowups({...reply,route:'catalogue',followups:['Change my search','Compare these','Compare these','Show specifications','Browse the shop','Talk to support','Extra']}),['Compare these','Show specifications']);
+ assert.equal(normalizeAssistantReply({answer:'Safe',products:[],route:'execute_url'}).route,undefined);
+});
+test('restored history and fast replies do not reuse a response ID for feedback or React keys',()=>{
+ assert.equal(nextAssistantTurnId([{id:1},{id:2}],1),3);
+ assert.equal(nextAssistantTurnId([{id:100},{id:101}],100),102);
+ assert.equal(nextAssistantTurnId([{id:1}],100),100);
 });
 test('SSE split across UTF-8 and frame boundaries publishes cards only on complete result',async()=>{
  const encoder=new TextEncoder();const encoded=encoder.encode('event: text\ndata: {"text":"Kwacha ✨"}\n\nevent: result\ndata: '+JSON.stringify({answer:'Kwacha ✨',products:[product]})+'\n\n');
