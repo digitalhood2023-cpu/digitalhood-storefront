@@ -58,7 +58,7 @@ async function main(){fs.mkdirSync(output,{recursive:true});const browser=await 
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false)
    const bounds=await page.locator('.ai-panel').boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width+1)
    await page.screenshot({path:path.join(output,`${theme}-${width}-shopping.png`),fullPage:true});assert.deepEqual(errors,[])
-   await page.getByRole('button',{name:'New conversation',exact:true}).click()
+   const newChat=page.getByRole('button',{name:'New conversation',exact:true});if(await newChat.isVisible())await newChat.click();else await page.getByRole('button',{name:'New chat',exact:true}).click()
    await page.locator('input[type="file"]').setInputFiles({name:'speakerphone.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP3sAAAAASUVORK5CYII=','base64')})
    await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByText('Visual product match found.',{exact:true}).waitFor()
    for(const q of ['what is it used for?','Dell Pro Plus Wireless Speakerphone SL525','what is it used for?']){
