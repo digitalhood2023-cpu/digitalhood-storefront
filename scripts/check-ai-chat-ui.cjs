@@ -62,7 +62,7 @@ async function main(){fs.mkdirSync(output,{recursive:true});const browser=await 
    await page.locator('input[type="file"]').setInputFiles({name:'speakerphone.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP3sAAAAASUVORK5CYII=','base64')})
    await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByText('Visual product match found.',{exact:true}).waitFor()
    for(const q of ['what is it used for?','Dell Pro Plus Wireless Speakerphone SL525','what is it used for?']){
-    await input.fill(q);await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByRole('button',{name:'Send',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('.ai-send')?.disabled)
+    await input.fill(q);await page.getByRole('button',{name:'Send',exact:true}).click();await page.locator('.ai-turn[role="status"]').waitFor({state:'hidden'})
     assert.match(await page.locator('.ai-turn').last().innerText(),/hands-free calls and online meetings/)
    }
    await page.screenshot({path:path.join(output,`${theme}-${width}-photo-followthrough.png`),fullPage:true})
