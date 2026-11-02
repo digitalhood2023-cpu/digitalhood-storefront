@@ -106,6 +106,18 @@ export function resolveAssistantContext(message:string,explicitIds:number[],sele
 }
 
 export type ChatTurn={id:number;question:string;reply:AssistantReply;removeFilters?:string[];photoPreview?:string;feedback?:'up'|'down';taskCompleted?:boolean}
+// Resolve within the actual branch being sent, never another chat or edited-away
+// future turns. Photo results have no server token, but their public IDs can be
+// rechecked by the concierge rather than treating their names/specs as evidence.
+export function assistantRequestContext(message:string,turns:readonly ChatTurn[],explicitIds:number[]=[],selectedIds:number[]=[]){
+ const latest=[...turns].reverse()
+ const boundary=latest.findIndex(t=>(t.reply.responseMode!=='answer'&&!t.reply.products.length)||(t.reply.route==='conversation'&&!t.reply.clarification&&!isAssistantAcknowledgement(t.question))||t.reply.route==='private'||t.reply.route==='privacy'||t.reply.route==='policy')
+ const active=boundary<0?latest:latest.slice(0,boundary)
+ const previous=active.find(t=>t.reply.responseMode!=='answer')?.reply.products||[]
+ const focus=active.find(t=>t.reply.products.length)?.reply.products||[]
+ const known=[...new Map(turns.flatMap(t=>t.reply.products).map(p=>[p.id,p])).values()].slice(-80)
+ return {contextToken:turns.at(-1)?.reply.contextToken,productIds:resolveAssistantContext(message,explicitIds,selectedIds,previous.map(p=>p.id),focus.map(p=>p.id),known)}
+}
 export type AssistantConversation={id:string;title:string;updated:number;turns:ChatTurn[]}
 export function normalizeConversations(value:unknown):AssistantConversation[]{
  if(!Array.isArray(value))return []
