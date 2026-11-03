@@ -8,6 +8,23 @@ const source=await readFile(new URL('../src/lib/shoppingAssistant.ts',import.met
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {assistantRequestContext,nextAssistantTurnId,relevantAssistantFollowups,assistantPrivateIntent,assistantContainsSecrets,normalizeAssistantReply,readAssistantResponse,canConfirmAssistantCart,resolveAssistantContext,isAssistantAcknowledgement,incrementConciergeMetric,normalizeConversations,saveConversation,deleteConversation}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const product={id:1,name:'Phone',price:50,url:'https://store.digitalhood.info/product/phone',image:'https://digitalhood.info/phone.jpg',specifications:[]};
+const environmentSource=await readFile(new URL('../src/lib/assistantEnvironment.ts',import.meta.url),'utf8');
+const environmentJS=ts.transpileModule(environmentSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {assistantEnvironment}=await import('data:text/javascript;base64,'+Buffer.from(environmentJS).toString('base64'));
+test('browsing personalisation is explicit, topic-only, bounded and does not read history while off',()=>{
+ let reads=0;const readSearches=()=>{reads++;return ['laptops','person@example.com laptop','password: laptop','https://example.com/camera','wireless charger','headphones','camera']};
+ const off=assistantEnvironment({enabled:false,readSearches,recentlyViewed:[{name:'Phone'}]});assert.deepEqual(off.discoveryInterests,[]);assert.equal(reads,0);
+ const on=assistantEnvironment({enabled:true,readSearches});assert.deepEqual(on.discoveryInterests,['laptop','wireless-charger','headphones']);assert.equal(reads,1);assert.equal(typeof on.timeZone,'string');
+ assert.doesNotMatch(JSON.stringify(on),/@|example|password|https|raw/);
+ assert.deepEqual(assistantEnvironment({enabled:true,readSearches:()=>{throw Error('blocked')},recentlyViewed:[{name:'ASUS ExpertBook Core i5'}]}).discoveryInterests,['laptop']);
+ assert.deepEqual(assistantEnvironment({enabled:true,readSearches:()=>['refund my order 123 laptop','my PIN is 1234 charger']}).discoveryInterests,[]);
+});
+test('discovery metadata and sale display survive storage without unsafe flags/prices',()=>{
+ const a=normalizeAssistantReply({answer:'Offers',products:[{...product,onSale:true,regularPrice:80}],discovery:{kind:'deals',basis:'browsing',saleFallback:false}});
+ assert.equal(a.discovery.basis,'browsing');assert.equal(a.products[0].regularPrice,80);assert.equal(a.products[0].onSale,true);
+ const b=normalizeAssistantReply({answer:'Safe',products:[{...product,onSale:true,regularPrice:40}],discovery:{kind:'arbitrary_url',basis:'browsing'}});assert.equal(b.discovery,undefined);assert.equal(b.products[0].onSale,false);
+ const restored=normalizeConversations([{id:'test',turns:[{id:1,question:'deals',reply:a}]}]);assert.equal(restored[0].turns[0].reply.discovery.kind,'deals');
+});
 test('photo match transfers refreshed public ID context to typed purpose and name followups',()=>{
  const speaker={...product,id:525,name:'Dell Pro Plus Wireless Speakerphone SL525 – Bluetooth 5.3'};
  const photo={id:1,question:'Photo search',reply:normalizeAssistantReply({answer:'Visual match found',products:[speaker]})};
