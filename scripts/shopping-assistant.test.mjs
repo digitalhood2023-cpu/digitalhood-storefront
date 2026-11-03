@@ -25,6 +25,13 @@ test('discovery metadata and sale display survive storage without unsafe flags/p
  const b=normalizeAssistantReply({answer:'Safe',products:[{...product,onSale:true,regularPrice:40}],discovery:{kind:'arbitrary_url',basis:'browsing'}});assert.equal(b.discovery,undefined);assert.equal(b.products[0].onSale,false);
  const restored=normalizeConversations([{id:'test',turns:[{id:1,question:'deals',reply:a}]}]);assert.equal(restored[0].turns[0].reply.discovery.kind,'deals');
 });
+test('viewed devices retain their product topic instead of becoming RAM or SSD interests',()=>{
+ const hints=items=>assistantEnvironment({enabled:true,recentlyViewed:items.map(name=>({name,category:'Marketplace'}))}).discoveryInterests;
+ assert.deepEqual(hints(['HP Laptop Core i5, 8GB RAM, 512GB SSD','ASUS ExpertBook Core i3 8GB DDR5 256GB SSD']),['laptop']);
+ assert.deepEqual(hints(['ASUS All-in-One Desktop 16GB RAM 1TB SSD','Samsung Tablet 8GB RAM 256GB']),['desktop','tablet']);
+ assert.deepEqual(hints(['Laptop RAM replacement memory module','Laptop SSD replacement drive','65W Laptop Car Charger','iPhone screen protector']),['ram','storage','charger']);
+ assert.deepEqual(hints(['iPhone screen protector','Bluetooth Headphones for laptop and phone']),['phone-case','headphones']);
+});
 test('photo match transfers refreshed public ID context to typed purpose and name followups',()=>{
  const speaker={...product,id:525,name:'Dell Pro Plus Wireless Speakerphone SL525 – Bluetooth 5.3'};
  const photo={id:1,question:'Photo search',reply:normalizeAssistantReply({answer:'Visual match found',products:[speaker]})};
