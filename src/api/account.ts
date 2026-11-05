@@ -852,6 +852,7 @@ export async function getCustomerOrders(
 }
 
 export type CustomerOrderPaymentRetryResponse = {
+  statusToken?: string
   success: boolean
   mode: 'card' | 'mobile'
   selectedMethod?: 'card' | 'mobile'

@@ -1,3 +1,4 @@
+import { startPaymentConfirmationWatch } from '@/lib/paymentConfirmationWatch'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Elements } from '@stripe/react-stripe-js'
@@ -293,7 +294,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const pageRef = useRef<HTMLDivElement>(null)
-  const lencoPollingRef = useRef<number | null>(null)
+  const lencoPollingRef = useRef<ReturnType<typeof startPaymentConfirmationWatch> | null>(null)
   const checkoutSubmissionRef = useRef(false)
   const checkoutOrderAttemptRef = useRef(createPaymentAttemptId())
   const checkoutCreationAttemptedRef = useRef(false)
@@ -539,11 +540,16 @@ export default function CheckoutPage() {
     })}`
 
   const stopLencoPolling = () => {
-    if (lencoPollingRef.current) {
-      window.clearTimeout(lencoPollingRef.current)
-      lencoPollingRef.current = null
-    }
+    lencoPollingRef.current?.stop()
+    lencoPollingRef.current = null
   }
+
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === 'visible') lencoPollingRef.current?.refresh() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
+  }, [])
 
   const showConfirmedOrder = () => {
     setCheckoutProgressStage('confirmed')
@@ -1141,43 +1147,23 @@ export default function CheckoutPage() {
     }
   }
 
-  const pollLencoPayment = ({
-    reference,
-    orderId,
-    recoveryToken,
-  }: {
-    reference: string
-    orderId: number
-    recoveryToken: string
+  const pollLencoPayment = ({ reference, orderId, recoveryToken, statusToken = '' }: {
+    reference: string; orderId: number; recoveryToken: string; statusToken?: string
   }) => {
     stopLencoPolling()
-
-    const pollingStartedAt = Date.now()
-    const foregroundConfirmationBudgetMs = 10_000
-    const liveConfirmationWatchMs = 5 * 60_000
-    let hasEnteredBackgroundConfirmation = false
-    // Keep the blocking customer wait short. The durable ledger and provider
-    // reconciliation continue after this foreground budget. The same status
-    // watch also remains active while this page is open, and it never launches
-    // a second Mobile Money prompt.
-
     setCheckoutProgressStage('awaiting-approval')
-    setCheckoutProgressMessage('Approve the payment request on your phone, then wait for confirmation.')
-
-    const poll = async () => {
-      try {
-        const result = await verifyLencoMobileMoney(
-          reference,
-          orderId,
-          recoveryToken
-        )
+    setCheckoutProgressMessage('Approve the payment request on your phone. We will confirm your payment here.')
+    let token = statusToken
+    lencoPollingRef.current = startPaymentConfirmationWatch({
+      check: signal => verifyLencoMobileMoney(reference, orderId, recoveryToken, token, signal),
+      onResult: result => {
+        token = result.statusToken || token
         const paymentConfirmed = result.paid === true
         const paymentFailed =
           result.failed === true ||
           (result.terminal === true && !paymentConfirmed)
 
         if (paymentConfirmed) {
-          stopLencoPolling()
           setCheckoutProgressStage('confirming')
           setCheckoutProgressMessage('Payment received. Your order is being confirmed.')
           setSuccessState(getSuccessState('mobile-confirmed'))
@@ -1193,7 +1179,6 @@ export default function CheckoutPage() {
             result.message ||
             'The Mobile Money payment was not completed. Check the number, balance and approval prompt, then try again.'
 
-          stopLencoPolling()
           setIsSubmitting(false)
           setCheckoutProgressStage('failed')
           setSuccessState({
@@ -1213,52 +1198,22 @@ export default function CheckoutPage() {
         setCheckoutProgressMessage(
           result.message || 'Your request is still active. Approve it on your phone, then wait for confirmation.'
         )
-      } catch (error) {
-        console.error(error)
-        setCheckoutProgressMessage(
-          'Your connection changed before payment was confirmed. Open the order to check its current status.'
-        )
-      }
-
-      const elapsedMs = Date.now() - pollingStartedAt
-
-      if (
-        elapsedMs >= foregroundConfirmationBudgetMs &&
-        !hasEnteredBackgroundConfirmation
-      ) {
-        hasEnteredBackgroundConfirmation = true
+      },
+      onError: () => setCheckoutProgressMessage('Still checking the same payment securely. Do not pay again if money was deducted.'),
+      onDelayed: () => {
         setIsSubmitting(false)
         setCheckoutProgressStage('delayed')
-        setSuccessState({
-          title: 'Payment Is Still Being Confirmed',
-          message:
-            'Payment confirmation is taking longer than expected. You can leave this page and check the order later.',
-          nextStep:
-            'If money was deducted, do not pay again. Open the same order to view its payment state or contact support with the payment reference.',
-          confirmed: false,
-          failed: false,
-        })
+        setSuccessState({title: 'Waiting for Payment Confirmation',
+          message: 'Approve the request on your phone. We will confirm your payment here as soon as it is received.',
+          nextStep: 'If money was deducted, do not pay again. We are checking this same payment securely.',
+          confirmed: false, failed: false})
         setOrderComplete(true)
-      }
-
-      if (elapsedMs >= liveConfirmationWatchMs) {
-        stopLencoPolling()
-        return
-      }
-
-      // Stay responsive while the phone prompt is fresh, then ease back. The
-      // backend coalesces provider checks through a PostgreSQL lease, so this
-      // remains safe when several tabs or application replicas are active.
-      const nextDelayMs =
-        elapsedMs < foregroundConfirmationBudgetMs
-          ? 1250
-          : elapsedMs < 30_000
-            ? 2000
-            : 5000
-      lencoPollingRef.current = window.setTimeout(poll, nextDelayMs)
-    }
-
-    lencoPollingRef.current = window.setTimeout(poll, 750)
+      },
+      onTimeout: () => setSuccessState({title: 'Payment Still Pending',
+        message: 'Open the same order to check your latest payment status.',
+        nextStep: 'If money was deducted, do not pay again. Keep your payment reference for support.',
+        confirmed: false, failed: false}),
+    })
   }
 
   const createCardPaymentOnSubmit = async (): Promise<PreparedStripePayment> => {
@@ -1603,6 +1558,7 @@ export default function CheckoutPage() {
           reference: paymentReference,
           orderId: order.orderId,
           recoveryToken: order.recoveryToken,
+          statusToken: response.statusToken,
         })
 
         return

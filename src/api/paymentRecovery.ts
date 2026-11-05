@@ -88,12 +88,14 @@ export function verifyOrderPaymentRecovery(
   payment:
     | { reference: string }
     | { paymentIntentId: string; clientOutcome?: 'failed' | 'unknown' },
-  recoveryToken = ''
+  recoveryToken = '',
+  signal?: AbortSignal
 ) {
   return recoveryFetch<CustomerOrderPaymentVerificationResponse>(
     `/api/orders/${encodeURIComponent(String(orderId))}/payment-recovery/verify`,
     recoveryToken,
     {
+      signal,
       method: 'POST',
       body: JSON.stringify(payment),
     }

@@ -19,6 +19,7 @@ const checkout = read('src/pages/CheckoutPage.tsx')
 const overlay = read('src/components/checkout/CheckoutProgressOverlay.tsx')
 const stripe = read('src/components/payments/StripeCheckoutForm.tsx')
 const lencoApi = read('src/api/lenco.ts')
+const confirmationWatch = read('src/lib/paymentConfirmationWatch.ts')
 const paymentsApi = read('src/api/payments.ts')
 const paymentRecoveryApi = read('src/api/paymentRecovery.ts')
 const paymentRetryPage = read('src/pages/OrderPaymentRetryPage.tsx')
@@ -208,13 +209,12 @@ assert(
   'Pay Now must offer Card and Mobile Money on the same order with deferred card preparation'
 )
 assert(
-  checkout.includes('foregroundConfirmationBudgetMs = 10_000') &&
-    checkout.includes('liveConfirmationWatchMs = 5 * 60_000') &&
-    checkout.includes('window.setTimeout(poll, 750)') &&
-    checkout.includes('? 1250') &&
-    checkout.includes('? 2000') &&
-    checkout.includes(': 5000') &&
-    checkout.includes('hasEnteredBackgroundConfirmation') &&
+  checkout.includes('startPaymentConfirmationWatch({') &&
+    paymentRetryPage.includes('startPaymentConfirmationWatch<ConfirmationState>({') &&
+    confirmationWatch.includes('10_000') &&
+    confirmationWatch.includes('5 * 60_000') &&
+    confirmationWatch.includes('void poll()') &&
+    confirmationWatch.includes('new AbortController()') &&
     lencoApi.includes("cache: 'no-store'") &&
     paymentsApi.includes("cache: 'no-store'") &&
     paymentsApi.includes("'/api/payments/stripe/intents'") &&

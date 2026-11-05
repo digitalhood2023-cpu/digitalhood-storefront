@@ -16,6 +16,7 @@ export type LencoMobileMoneyPayload = {
 }
 
 export type LencoPaymentState = {
+  statusToken?: string
   paid?: boolean
   failed?: boolean
   pending?: boolean
@@ -59,18 +60,25 @@ async function lencoFetch<T>(
   const controller = new AbortController()
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs)
   let response: Response
+  let data: T | LencoErrorResponse | null = null
+  const abort = () => controller.abort()
+  options.signal?.addEventListener('abort', abort, { once: true })
+  if (options.signal?.aborted) controller.abort()
 
   try {
     response = await fetch(`${PAYMENTS_API_URL}${path}`, {
       ...options,
       cache: 'no-store',
-      signal: options.signal || controller.signal,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(accountToken ? { Authorization: `Bearer ${accountToken}` } : {}),
         ...(options.headers || {}),
       },
     })
+    try { data = (await response.json()) as T | LencoErrorResponse } catch (error) {
+      if (controller.signal.aborted) throw error
+    }
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(
@@ -81,14 +89,7 @@ async function lencoFetch<T>(
     throw error
   } finally {
     globalThis.clearTimeout(timeoutId)
-  }
-
-  let data: T | LencoErrorResponse | null = null
-
-  try {
-    data = (await response.json()) as T | LencoErrorResponse
-  } catch {
-    data = null
+    options.signal?.removeEventListener('abort', abort)
   }
 
   if (!response.ok) {
@@ -117,11 +118,14 @@ export async function initiateLencoMobileMoney(
 export async function verifyLencoMobileMoney(
   reference: string,
   orderId?: number | string,
-  recoveryToken = ''
+  recoveryToken = '',
+  statusToken = '',
+  signal?: AbortSignal
 ) {
   return lencoFetch<LencoVerificationResponse>('/api/lenco/verify', {
     method: 'POST',
-    body: JSON.stringify({ reference, orderId, recoveryToken }),
+    body: JSON.stringify({ reference, orderId, recoveryToken, ...(statusToken ? {statusToken} : {}) }),
+    signal,
   }, 8_000)
 }
 

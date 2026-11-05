@@ -1,3 +1,4 @@
+import { startPaymentConfirmationWatch, type ConfirmationState } from '@/lib/paymentConfirmationWatch'
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe, type StripeElementsOptions } from '@stripe/stripe-js'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -13,7 +14,7 @@ import {
   startOrderPaymentRecovery,
   verifyOrderPaymentRecovery,
 } from '@/api/paymentRecovery'
-import { detectMobileMoneyOperator } from '@/api/lenco'
+import { detectMobileMoneyOperator, verifyLencoMobileMoney } from '@/api/lenco'
 import StripeCheckoutForm, {
   type PreparedStripePayment,
 } from '@/components/payments/StripeCheckoutForm'
@@ -59,6 +60,7 @@ export default function OrderPaymentRetryPage() {
   const [countdown, setCountdown] = useState('0d 00h 00m 00s')
   const [selectedMethod, setSelectedMethod] = useState<'card' | 'mobile'>('mobile')
   const paymentMethodInitializedRef = useRef(false)
+  const mobileConfirmationActiveRef = useRef(false)
 
   useEffect(() => {
     if (accountLoading) return
@@ -90,7 +92,7 @@ export default function OrderPaymentRetryPage() {
 
     void loadRecoveryOrder(true)
     refreshTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void loadRecoveryOrder()
+      if (document.visibilityState === 'visible' && !mobileConfirmationActiveRef.current) void loadRecoveryOrder()
     }, 3_000)
 
     return () => {
@@ -124,50 +126,38 @@ export default function OrderPaymentRetryPage() {
 
   useEffect(() => {
     if (retry?.mode !== 'mobile' || !retry.reference) return
-    let active = true
-    let attempts = 0
-    let timeout: number | undefined
-
-    const poll = async () => {
-      attempts += 1
-      try {
-        const result = await verifyOrderPaymentRecovery(
-          orderId,
-          { reference: retry.reference! },
-          recoveryToken
-        )
-        if (!active) return
-        if (result.paid) {
+    mobileConfirmationActiveRef.current = true
+    const watch = startPaymentConfirmationWatch<ConfirmationState>({
+      check: signal => retry.statusToken
+        ? verifyLencoMobileMoney(retry.reference!, orderId, recoveryToken, retry.statusToken, signal)
+        : verifyOrderPaymentRecovery(orderId, {reference: retry.reference!}, recoveryToken, signal),
+      onResult: result => {
+        if (result.paid === true) {
+          mobileConfirmationActiveRef.current = false
           setMobileStatus('Payment confirmed. Opening your order…')
-          if (isAuthenticated) {
-            window.setTimeout(() => navigate(`/track-order/${orderId}`, { replace: true }), 700)
-          } else {
-            window.setTimeout(
-              () => navigate(
-                `/track-order/${orderId}?token=${encodeURIComponent(recoveryToken)}`,
-                { replace: true }
-              ),
-              700
-            )
-          }
-          return
-        }
-        if (result.failed) {
-          setMobileStatus('Payment was not approved. You can try again while the payment window remains open.')
+          const suffix = isAuthenticated ? '' : `?token=${encodeURIComponent(recoveryToken)}`
+          navigate(`/track-order/${orderId}${suffix}`, {replace: true})
+        } else if (result.failed === true) {
+          mobileConfirmationActiveRef.current = false
+          setMobileStatus('Payment was not approved. You can retry the same order.')
           setRetry(null)
-          return
-        }
-        setMobileStatus('Waiting for approval on your phone…')
-      } catch {
-        if (active) setMobileStatus('Still waiting for payment confirmation…')
-      }
-
-      if (active && attempts < 180) timeout = window.setTimeout(poll, 5000)
-      else if (active) setMobileStatus('Approval is taking longer than expected. You can safely return and check this order again.')
+        } else setMobileStatus('Approve the request on your phone. We will confirm your payment here…')
+      },
+      onError: () => setMobileStatus('Still checking the same payment securely. Do not pay again if money was deducted.'),
+      onTimeout: () => {
+        mobileConfirmationActiveRef.current = false
+        setMobileStatus('Confirmation is taking longer. Your payment is still being checked securely; do not pay again if money was deducted.')
+      },
+    })
+    const refresh = () => { if (document.visibilityState === 'visible') watch.refresh() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      mobileConfirmationActiveRef.current = false
+      watch.stop()
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
     }
-
-    timeout = window.setTimeout(poll, 2500)
-    return () => { active = false; if (timeout) window.clearTimeout(timeout) }
   }, [isAuthenticated, navigate, orderId, recoveryToken, retry])
 
   const prepareMobilePayment = async () => {
