@@ -38,6 +38,7 @@ type CheckoutProgressOverlayProps = {
   onRetry?: () => void
   onViewOrder?: () => void
   viewOrderLabel?: string
+  onCheckPayment?: () => void
   onContinueShopping?: () => void
 }
 
@@ -111,6 +112,7 @@ export default function CheckoutProgressOverlay({
   onRetry,
   onViewOrder,
   viewOrderLabel = 'View order',
+  onCheckPayment,
   onContinueShopping,
 }: CheckoutProgressOverlayProps) {
   if (stage === 'idle') return null
@@ -246,7 +248,7 @@ export default function CheckoutProgressOverlay({
           </div>
         </dl>
 
-        {paymentReference && terminal && (
+        {paymentReference && (terminal || onCheckPayment) && (
           <p className="mt-3 break-all text-[11px] font-semibold text-white/55">
             Payment reference: {paymentReference}
           </p>
@@ -263,16 +265,25 @@ export default function CheckoutProgressOverlay({
           </div>
         )}
 
-        {!terminal && (
+        {!terminal && !onCheckPayment && (
           <p className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-white/45">
             <Clock3 className="h-3.5 w-3.5" /> Please do not close or refresh this
             page
           </p>
         )}
 
-        {terminal && (
+        {onCheckPayment && (
+          <button
+            onClick={onCheckPayment}
+            className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-[#17143f] transition hover:bg-white/90"
+          >
+            <RefreshCw className="h-4 w-4" /> I’ve approved — check now
+          </button>
+        )}
+
+        {(terminal || onCheckPayment) && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {onViewOrder && orderNumber && (
+            {onViewOrder && orderNumber && !onCheckPayment && (
               <button
                 onClick={onViewOrder}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-[#17143f] transition hover:bg-white/90"

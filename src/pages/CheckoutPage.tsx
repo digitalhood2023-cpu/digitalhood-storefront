@@ -1201,18 +1201,18 @@ export default function CheckoutPage() {
       },
       onError: () => setCheckoutProgressMessage('Still checking the same payment securely. Do not pay again if money was deducted.'),
       onDelayed: () => {
+        setCheckoutProgressMessage('Approve the request on your phone. If you have already approved, we are waiting for your network to confirm it. Do not pay again.')
+      },
+      onTimeout: () => {
+        lencoPollingRef.current = null
         setIsSubmitting(false)
         setCheckoutProgressStage('delayed')
-        setSuccessState({title: 'Waiting for Payment Confirmation',
-          message: 'Approve the request on your phone. We will confirm your payment here as soon as it is received.',
-          nextStep: 'If money was deducted, do not pay again. We are checking this same payment securely.',
-          confirmed: false, failed: false})
         setOrderComplete(true)
+        setSuccessState({title: 'Payment Still Pending',
+          message: 'Open the same order to check your latest payment status.',
+          nextStep: 'If money was deducted, do not pay again. Keep your payment reference for support.',
+          confirmed: false, failed: false})
       },
-      onTimeout: () => setSuccessState({title: 'Payment Still Pending',
-        message: 'Open the same order to check your latest payment status.',
-        nextStep: 'If money was deducted, do not pay again. Keep your payment reference for support.',
-        confirmed: false, failed: false}),
     })
   }
 
@@ -2387,6 +2387,13 @@ export default function CheckoutPage() {
           : successState.failed
             ? 'Choose payment method'
             : 'Check payment status'}
+        onCheckPayment={paymentMethod === 'mobile' && lencoPollingRef.current &&
+          ['awaiting-approval', 'delayed'].includes(checkoutProgressStage)
+          ? () => {
+              setCheckoutProgressMessage('Checking your payment now. Confirmation will appear here as soon as your network completes it.')
+              lencoPollingRef.current?.refresh()
+            }
+          : undefined}
         onContinueShopping={() => {
           if (checkoutProgressStage === 'confirmed' && sellerReturnUrl) {
             window.location.assign(sellerReturnUrl)

@@ -45,7 +45,7 @@ export function startPaymentConfirmationWatch<T extends ConfirmationState>(optio
     } finally {
       running = false
       if (active) {
-        const interval = now() - started < 60_000 ? 1000 : 2000
+        const interval = now() - started < 90_000 ? 500 : 2000
         const delay = wakeRequested ? 0 : Math.max(0, interval - (now() - requestStarted))
         wakeRequested = false
         timer = schedule(() => { void poll() }, delay)
