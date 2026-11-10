@@ -65,6 +65,7 @@ jobs:
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-ai-evidence-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-ai-chat-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variation-review-ui.cjs
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variable-product-page-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-sell-landing-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -84,5 +85,6 @@ jobs:
             scripts/ai-evidence-ui/
             scripts/ai-chat-ui/
             scripts/variation-review-ui/
+            scripts/variable-product-page-ui/
             scripts/sell-landing-ui/
           if-no-files-found: ignore

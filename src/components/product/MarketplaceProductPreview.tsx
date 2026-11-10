@@ -13,13 +13,20 @@ function productMoney(value?: string | number) {
 export function MarketplaceProductPreview({ product, sellerName, sellerAvatar, selectedVariation, variationControl }: { product: PreviewProduct; sellerName?: string; sellerAvatar?: string; selectedVariation?: NonNullable<PreviewProduct['variations']>[number] | null; variationControl?: ReactNode }) {
   const feedback = useProductFeedback(product.wooProductId)
   const [tab, setTab] = useState('details')
-  const [selectedImage, setSelectedImage] = useState('')
+  const [imageChoice, setImageChoice] = useState({scope:'',url:''})
+  const [choices, setChoices] = useState<Record<string,string>>({})
   const [variantId, setVariantId] = useState('')
   const [viewer, setViewer] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
   const priorFocus = useRef<HTMLElement | null>(null)
   const variations = product.productType === 'variable' ? (product.variations || []).filter((item) => item.enabled !== false) : []
-  const variation = selectedVariation === undefined ? variations.find((item) => item.id === variantId) || variations[0] : selectedVariation || undefined
+  const options = (product.variationOptions || []).filter(o=>o.name&&o.values.length)
+  const matches = options.length && options.every(o=>o.values.includes(choices[o.name])) ? variations.filter(v=>options.every(o=>v.attributes?.[o.name]===choices[o.name])) : []
+  const picked = matches.length === 1 ? matches[0] : undefined
+  const variation = selectedVariation === undefined ? options.length ? picked : variations.find((item) => item.id === variantId) || variations[0] : selectedVariation || undefined
+  const imageScope = String(product.wooProductId||product.name)+':'+(variation?.id||'')
+  const selectedImage = imageChoice.scope === imageScope ? imageChoice.url : ''
+  function setSelectedImage(url:string) { setImageChoice({scope:imageScope,url}) }
   const images = [...new Set([variation?.image, product.mainImage, ...(product.images || [])].filter((item): item is string => Boolean(item)))]
   const image = images.includes(selectedImage) ? selectedImage : images[0]
   const stock = variation?.manageStock === 'parent' ? product.stockQuantity : variation ? variation.stockQuantity : product.stockQuantity
@@ -62,9 +69,13 @@ export function MarketplaceProductPreview({ product, sellerName, sellerAvatar, s
       </div>
     } galleryFooter={<div className="dh-product-dots">{images.map((url, index) => <button type="button" key={url} className={url === image ? 'is-active' : ''} onClick={() => setSelectedImage(url)} aria-label={'Show product image ' + (index + 1)} aria-pressed={url === image} />)}</div>}>
       <MarketplaceSellerStrip name={sellerName || product.sellerStoreName || 'Your store'} avatar={sellerAvatar} actions={<><button type="button" disabled>Visit store</button><button type="button" disabled><MessageCircle />Chat</button></>} />
-      <MarketplaceProductOffer price={product.productType === 'variable' && !variation && !regularPrice ? 'Select for price' : productMoney(validSale ? salePrice : regularPrice)} regularPrice={validSale ? productMoney(regularPrice) : undefined}
+      <MarketplaceProductOffer price={product.productType === 'variable' && !variation ? 'Select for price' : productMoney(validSale ? salePrice : regularPrice)} regularPrice={validSale ? productMoney(regularPrice) : undefined}
         shipping={<small><Truck />Delivery confirmed at checkout</small>} meta={<><span className={feedback.data?.count ? 'dh-product-signal dh-product-signal--rating' : ''}><Star />{feedback.data?.count ? `${feedback.data.averageRating.toFixed(1)} (${feedback.data.count})` : feedback.productId ? feedback.loading ? 'Loading buyer ratings…' : feedback.error ? 'Buyer ratings unavailable' : 'No verified ratings yet' : 'Buyer ratings appear after verified purchases'}</span>{product.category && <span>{product.category}</span>}</>} />
-      {variationControl ?? (variations.length > 0 && <label className="dh-product-variant"><strong>Available variations</strong><select aria-label="Preview variation" value={variation?.id || ''} onChange={(event) => { setVariantId(event.target.value); setSelectedImage('') }}>{variations.map((item) => <option key={item.id} value={item.id}>{Object.values(item.attributes || {}).join(' / ') || item.id}</option>)}</select></label>)}
+      {variationControl ?? (variations.length > 0 && <div className="dh-product-variant">
+        {options.map(o=><label key={o.name}><strong>{o.name}</strong><select aria-label={'Preview '+o.name} value={choices[o.name]||''} onChange={e=>{setChoices({...choices,[o.name]:e.target.value});setSelectedImage('')}}><option value="">Choose {o.name}</option>{o.values.map(v=><option key={v}>{v}</option>)}</select></label>)}
+        {!options.length&&<label><strong>Available variations</strong><select aria-label="Preview variation" value={variation?.id || ''} onChange={event=>{setVariantId(event.target.value);setSelectedImage('')}}>{variations.map(item=><option key={item.id} value={item.id}>{Object.values(item.attributes||{}).join(' / ')||item.id}</option>)}</select></label>}
+        {options.length>0&&!variation&&<small>Choose a listed combination to see its exact photo, price and stock.</small>}
+      </div>)}
       <div className="dh-product-purchase" aria-label="Inactive buyer actions"><button type="button" disabled><ShoppingCart />Add to Cart</button><button type="button" disabled><Zap />Buy it Now</button></div>
       <div className="dh-product-assurance"><span><Truck />Zambia delivery</span><span><Shield />Secure checkout</span></div>
       <MarketplaceProductTabs value={tab} onChange={setTab} description={<ProductDescription html={product.description || product.shortDescription || ''} />}

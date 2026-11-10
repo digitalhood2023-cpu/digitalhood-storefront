@@ -49,7 +49,7 @@ import {
 } from '@/lib/woocommerce'
 
 import { getShippingDetails } from '@/lib/shipping'
-import { effectiveVariationStock, purchaseOptions, selectMatchingVariation, selectionForVariation } from '@/lib/productVariationSelection'
+import { changeVariationChoice, effectiveVariationStock, purchaseOptions, selectMatchingVariation, selectionForVariation } from '@/lib/productVariationSelection'
 import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
@@ -893,10 +893,7 @@ export default function ProductPage({
     attributeName: string,
     value: string
   ) => {
-    setSelectedAttributes((current) => ({
-      ...current,
-      [attributeName]: value,
-    }))
+    setSelectedAttributes(current => changeVariationChoice(product?.variations || [], product?.attributes || [], current, attributeName, value))
 
     setSelectedImage(0)
     setQuantity(1)
@@ -1541,7 +1538,7 @@ export default function ProductPage({
                   </>}
                 />}
                 {chatError && <p role="alert" className="my-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-slate-900">{chatError} <button type="button" className="font-bold underline" onClick={handleOpenSellerChat} disabled={isOpeningChat}>Try chat again</button></p>}
-                <MarketplaceProductOffer price={formatProductPrice(activePrice)}
+                <MarketplaceProductOffer price={hasVariations && !matchingVariation ? 'From '+formatProductPrice(product.price) : formatProductPrice(activePrice)}
                   shipping={<small><Truck />{shipping.fee === 0 ? '+ free shipping' : `+ ${formatProductPrice(shipping.fee)} shipping`}</small>}
                   meta={<>
                     <span className={product.ratingCount > 0 && product.averageRating > 0 ? 'dh-product-signal dh-product-signal--rating' : ''} aria-label={ratingText}><Star />{product.ratingCount > 0 && product.averageRating > 0 ? `${product.averageRating.toFixed(1)} (${product.ratingCount})` : 'No ratings'}</span>
@@ -1572,6 +1569,7 @@ export default function ProductPage({
                               <button
                                 key={option}
                                 type="button"
+                                aria-pressed={isSelected}
                                 onClick={() =>
                                   handleVariationChange(
                                     attribute.name,
