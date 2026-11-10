@@ -46,7 +46,7 @@ async function main(){
         await choose('Phone A');await choose('128GB');assert.equal(await add.isDisabled(),true)
         await choose('Black');await price.getByText('K1,000.00',{exact:true}).waitFor()
         assert.equal(await add.isEnabled(),true);assert.match(await mainPhoto.getAttribute('src'),/fixture-black/)
-        await page.getByRole('button',{name:'Next product image',exact:true}).click()
+        await page.getByRole('button',{name:'Show product image 2',exact:true}).click()
         await choose('Phone B')
         assert.equal(await add.isDisabled(),true,'incompatible old options clear, not silently replaced')
         assert.equal(await page.getByRole('button',{name:'128GB',exact:true}).getAttribute('aria-pressed'),'false')
