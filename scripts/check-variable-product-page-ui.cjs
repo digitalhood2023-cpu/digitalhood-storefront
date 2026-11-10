@@ -7,6 +7,8 @@ const title='Private fixture phones'
 const photo=name=>origin+'/fixture-'+name+'.svg'
 const product={id:90900,name:title,slug:'fixture-phones',type:'variable',status:'publish',price:'1000',regular_price:'1000',stock_status:'instock',stock_quantity:10,manage_stock:true,in_stock:true,purchasable:true,images:[{src:photo('main')},{src:photo('black')},{src:photo('blue')}],categories:[{id:44,name:'Phones',slug:'phones'}],description:'<p>Isolated test phones.</p>',sellerStoreName:'Fixture seller',sellerKey:'8',attributes:[{id:1,name:'Model',variation:true,options:['Phone A','Phone B']},{id:2,name:'Storage',variation:true,options:['128GB','256GB']},{id:3,name:'Colour',variation:true,options:['Black','Blue']}],variations:[]}
 const variants=[{id:90901,price:'1000',regular_price:'1000',stock_quantity:3,image:{src:photo('black')},attributes:[{name:'Model',option:'Phone A'},{name:'Storage',option:'128GB'},{name:'Colour',option:'Black'}]},{id:90902,price:'1500',regular_price:'1500',stock_quantity:4,image:{src:photo('blue')},attributes:[{name:'Model',option:'Phone B'},{name:'Storage',option:'256GB'},{name:'Colour',option:'Blue'}]}].map(v=>({...v,status:'publish',stock_status:'instock',manage_stock:true,purchasable:true,in_stock:true}))
+// WooCommerce local/custom attributes all share numeric ID0.
+product.attributes.forEach(attribute=>{attribute.id=0})
 async function main(){
   fs.mkdirSync(output,{recursive:true})
   const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4342','--strictPort'],{stdio:'ignore'})
@@ -34,7 +36,7 @@ async function main(){
         if(p.startsWith('/fixture-'))return route.fulfill({contentType:'image/svg+xml',body:`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="480"><rect width="600" height="480" fill="${p.includes('blue')?'#174bce':p.includes('black')?'#171717':'#dddddd'}"/><text x="60" y="240" fill="white" font-size="36">${p}</text></svg>`})
         return u.origin===origin||u.protocol==='data:'?route.continue():route.abort()
       })
-      const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message))
+      const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&m.text().includes('same key'))errors.push(m.text())})
       try{
         await page.goto(origin+'/product/fixture-phones')
         await page.getByRole('heading',{name:title,exact:true}).waitFor()

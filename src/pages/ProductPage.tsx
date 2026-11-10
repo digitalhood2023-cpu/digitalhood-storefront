@@ -1550,7 +1550,7 @@ export default function ProductPage({
                 {purchaseOptions(product.attributes).length > 0 && (
                   <div className="space-y-5 mb-6">
                     {purchaseOptions(product.attributes).map((attribute) => (
-                      <div key={attribute.id}>
+                      <div key={`${attribute.id}:${attribute.name}`}>
                         <p className="text-sm font-semibold text-black mb-3">
                           {attribute.name}
                         </p>
