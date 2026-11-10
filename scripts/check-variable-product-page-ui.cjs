@@ -64,6 +64,11 @@ async function main(){
         const items=await page.evaluate(()=>JSON.parse(localStorage.getItem('digitalhood-cart'))?.state?.items)
         assert.equal(items.length,2,'different variants remain different cart lines');assert.equal(items.find(v=>v.variationId===90901).price,1000)
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false)
+        const contrast=await page.locator('.dh-storefront-options p,.dh-storefront-options button,.dh-storefront-variants h3,.dh-storefront-variants > div > button').evaluateAll(elements=>{
+          const luminance=value=>value.match(/[0-9.]+/g).slice(0,3).map(Number).map(c=>c/255).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4).reduce((s,c,i)=>s+c*[.2126,.7152,.0722][i],0)
+          return elements.map(element=>{let ancestor=element,bg='rgba(0, 0, 0, 0)';while(ancestor&&bg==='rgba(0, 0, 0, 0)'){bg=getComputedStyle(ancestor).backgroundColor;ancestor=ancestor.parentElement}const a=luminance(getComputedStyle(element).color),b=luminance(bg==='rgba(0, 0, 0, 0)'?'rgb(255, 255, 255)':bg);return{text:element.textContent,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)}})
+        })
+        for(const item of contrast)assert.ok(item.ratio>=4.5,JSON.stringify({theme,item}))
         await page.screenshot({path:path.join(output,theme+'-'+width+'.png'),fullPage:true})
         assert.deepEqual(errors,[]);assert.deepEqual(mutations,[],'fixture cart must not place orders or change stock')
         results.push({theme,width,exactPricePhoto:true,incompatibleChoiceCleared:true,distinctCartIdentity:true,commerceMutations:0})

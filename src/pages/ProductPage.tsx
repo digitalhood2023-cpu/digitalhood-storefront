@@ -1548,10 +1548,10 @@ export default function ProductPage({
                   </>}
                 />
                 {purchaseOptions(product.attributes).length > 0 && (
-                  <div className="space-y-5 mb-6">
+                  <div className="dh-storefront-options space-y-5 mb-6">
                     {purchaseOptions(product.attributes).map((attribute) => (
                       <div key={`${attribute.id}:${attribute.name}`}>
-                        <p className="text-sm font-semibold text-black mb-3">
+                        <p className="text-sm font-semibold text-[var(--product-text)] mb-3">
                           {attribute.name}
                         </p>
 
@@ -1593,10 +1593,10 @@ export default function ProductPage({
                 )}
 
                 {hasVariations && (
-                  <div className="mb-6 rounded-2xl border border-gray-200 p-4">
+                  <div className="dh-storefront-variants mb-6 rounded-2xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-black">
+                        <h3 className="font-semibold text-[var(--product-text)]">
                           Available variations
                         </h3>
 
@@ -1610,7 +1610,7 @@ export default function ProductPage({
                       <button
                         type="button"
                         onClick={() => { setVariationPage(1); setShowVariations((current) => !current) }}
-                        className="shrink-0 rounded-full border border-black px-4 py-2 text-xs font-semibold text-black transition hover:bg-black hover:text-white"
+                        className="shrink-0 rounded-full border border-[var(--product-line)] px-4 py-2 text-xs font-semibold text-[var(--product-text)] transition hover:bg-black hover:text-white"
                       >
                         {showVariations ? 'Hide' : 'Show'}
                       </button>
@@ -1618,7 +1618,7 @@ export default function ProductPage({
 
                     {matchingVariation && !showVariations && (
                       <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3">
-                        <span className="text-sm font-medium text-black">
+                        <span className="text-sm font-medium text-[var(--product-text)]">
                           {getVariationLabel(matchingVariation)}
                         </span>
 
