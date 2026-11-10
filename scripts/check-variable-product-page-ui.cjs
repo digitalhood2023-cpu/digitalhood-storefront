@@ -38,7 +38,7 @@ async function main(){
       try{
         await page.goto(origin+'/product/fixture-phones')
         await page.getByRole('heading',{name:title,exact:true}).waitFor()
-        const add=page.getByRole('button',{name:'Add to Cart',exact:true}),price=page.locator('.dh-product-price > strong')
+        const add=page.getByTestId('product-add-to-cart'),price=page.locator('.dh-product-price > strong')
         const choose=async name=>page.getByRole('button',{name,exact:true}).click()
         const mainPhoto=page.getByRole('img',{name:title,exact:true}).first()
         await page.getByRole('button',{name:'Phone A',exact:true}).waitFor()

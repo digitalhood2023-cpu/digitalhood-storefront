@@ -1749,6 +1749,7 @@ export default function ProductPage({
                   <Button
                     type="button"
                     onClick={handleAddToCart}
+                    data-testid="product-add-to-cart"
                     disabled={!canProceedToBuy}
                     className={`h-12 rounded-full font-semibold shadow-sm ${
                       !canProceedToBuy
