@@ -83,6 +83,8 @@ import {
   SellerDomainCommerceHeader,
 } from '@/components/seller/SellerDomainCommerceChrome'
 
+const productTextStyle = { color: 'var(--product-text)' }
+
 function getVariationLabel(variation: WooProductVariation) {
   const values = Object.values(variation.attributes || {}).filter(Boolean)
 
@@ -1551,7 +1553,7 @@ export default function ProductPage({
                   <div className="dh-storefront-options space-y-5 mb-6">
                     {purchaseOptions(product.attributes).map((attribute) => (
                       <div key={`${attribute.id}:${attribute.name}`}>
-                        <p className="text-sm font-semibold text-[var(--product-text)] mb-3">
+                        <p className="text-sm font-semibold mb-3" style={productTextStyle}>
                           {attribute.name}
                         </p>
 
@@ -1596,7 +1598,7 @@ export default function ProductPage({
                   <div className="dh-storefront-variants mb-6 rounded-2xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-[var(--product-text)]">
+                        <h3 className="font-semibold" style={productTextStyle}>
                           Available variations
                         </h3>
 
@@ -1610,7 +1612,8 @@ export default function ProductPage({
                       <button
                         type="button"
                         onClick={() => { setVariationPage(1); setShowVariations((current) => !current) }}
-                        className="shrink-0 rounded-full border border-[var(--product-line)] px-4 py-2 text-xs font-semibold text-[var(--product-text)] transition hover:bg-black hover:text-white"
+                        className="shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition"
+                        style={{ ...productTextStyle, borderColor: 'var(--product-line)' }}
                       >
                         {showVariations ? 'Hide' : 'Show'}
                       </button>
@@ -1618,7 +1621,7 @@ export default function ProductPage({
 
                     {matchingVariation && !showVariations && (
                       <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3">
-                        <span className="text-sm font-medium text-[var(--product-text)]">
+                        <span className="text-sm font-medium" style={productTextStyle}>
                           {getVariationLabel(matchingVariation)}
                         </span>
 
