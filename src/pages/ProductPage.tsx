@@ -49,7 +49,7 @@ import {
 } from '@/lib/woocommerce'
 
 import { getShippingDetails } from '@/lib/shipping'
-import { effectiveVariationStock, purchaseOptions, selectMatchingVariation, selectionForVariation } from '@/lib/productVariationSelection'
+import { changeVariationChoice, effectiveVariationStock, purchaseOptions, selectMatchingVariation, selectionForVariation } from '@/lib/productVariationSelection'
 import { getImageSrcSet, getOptimizedImageUrl } from '@/lib/images'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlist } from '@/context/WishlistContext'
@@ -82,6 +82,8 @@ import {
   SellerDomainCommerceFooter,
   SellerDomainCommerceHeader,
 } from '@/components/seller/SellerDomainCommerceChrome'
+
+const productTextStyle = { color: 'var(--product-text)' }
 
 function getVariationLabel(variation: WooProductVariation) {
   const values = Object.values(variation.attributes || {}).filter(Boolean)
@@ -893,10 +895,7 @@ export default function ProductPage({
     attributeName: string,
     value: string
   ) => {
-    setSelectedAttributes((current) => ({
-      ...current,
-      [attributeName]: value,
-    }))
+    setSelectedAttributes(current => changeVariationChoice(product?.variations || [], product?.attributes || [], current, attributeName, value))
 
     setSelectedImage(0)
     setQuantity(1)
@@ -1541,7 +1540,7 @@ export default function ProductPage({
                   </>}
                 />}
                 {chatError && <p role="alert" className="my-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-slate-900">{chatError} <button type="button" className="font-bold underline" onClick={handleOpenSellerChat} disabled={isOpeningChat}>Try chat again</button></p>}
-                <MarketplaceProductOffer price={formatProductPrice(activePrice)}
+                <MarketplaceProductOffer price={hasVariations && !matchingVariation ? 'From '+formatProductPrice(product.price) : formatProductPrice(activePrice)}
                   shipping={<small><Truck />{shipping.fee === 0 ? '+ free shipping' : `+ ${formatProductPrice(shipping.fee)} shipping`}</small>}
                   meta={<>
                     <span className={product.ratingCount > 0 && product.averageRating > 0 ? 'dh-product-signal dh-product-signal--rating' : ''} aria-label={ratingText}><Star />{product.ratingCount > 0 && product.averageRating > 0 ? `${product.averageRating.toFixed(1)} (${product.ratingCount})` : 'No ratings'}</span>
@@ -1551,10 +1550,10 @@ export default function ProductPage({
                   </>}
                 />
                 {purchaseOptions(product.attributes).length > 0 && (
-                  <div className="space-y-5 mb-6">
+                  <div className="dh-storefront-options space-y-5 mb-6">
                     {purchaseOptions(product.attributes).map((attribute) => (
-                      <div key={attribute.id}>
-                        <p className="text-sm font-semibold text-black mb-3">
+                      <div key={`${attribute.id}:${attribute.name}`}>
+                        <p className="text-sm font-semibold mb-3" style={productTextStyle}>
                           {attribute.name}
                         </p>
 
@@ -1572,6 +1571,7 @@ export default function ProductPage({
                               <button
                                 key={option}
                                 type="button"
+                                aria-pressed={isSelected}
                                 onClick={() =>
                                   handleVariationChange(
                                     attribute.name,
@@ -1595,10 +1595,10 @@ export default function ProductPage({
                 )}
 
                 {hasVariations && (
-                  <div className="mb-6 rounded-2xl border border-gray-200 p-4">
+                  <div className="dh-storefront-variants mb-6 rounded-2xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-black">
+                        <h3 className="font-semibold" style={productTextStyle}>
                           Available variations
                         </h3>
 
@@ -1612,7 +1612,8 @@ export default function ProductPage({
                       <button
                         type="button"
                         onClick={() => { setVariationPage(1); setShowVariations((current) => !current) }}
-                        className="shrink-0 rounded-full border border-black px-4 py-2 text-xs font-semibold text-black transition hover:bg-black hover:text-white"
+                        className="shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition"
+                        style={{ ...productTextStyle, borderColor: 'var(--product-line)' }}
                       >
                         {showVariations ? 'Hide' : 'Show'}
                       </button>
@@ -1620,7 +1621,7 @@ export default function ProductPage({
 
                     {matchingVariation && !showVariations && (
                       <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3">
-                        <span className="text-sm font-medium text-black">
+                        <span className="text-sm font-medium" style={productTextStyle}>
                           {getVariationLabel(matchingVariation)}
                         </span>
 
@@ -1751,6 +1752,7 @@ export default function ProductPage({
                   <Button
                     type="button"
                     onClick={handleAddToCart}
+                    data-testid="product-add-to-cart"
                     disabled={!canProceedToBuy}
                     className={`h-12 rounded-full font-semibold shadow-sm ${
                       !canProceedToBuy

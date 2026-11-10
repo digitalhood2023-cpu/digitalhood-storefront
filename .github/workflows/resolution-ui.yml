@@ -58,6 +58,7 @@ jobs:
             if curl -fsS http://127.0.0.1:4276/sell > /dev/null; then break; fi
             sleep 1
           done
+          NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-variable-product-page-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-resolution-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-template-ui.cjs
           NODE_PATH="$RUNNER_TEMP/resolution-ui/node_modules" node scripts/check-product-chat-drawer-ui.cjs
@@ -84,5 +85,6 @@ jobs:
             scripts/ai-evidence-ui/
             scripts/ai-chat-ui/
             scripts/variation-review-ui/
+            scripts/variable-product-page-ui/
             scripts/sell-landing-ui/
           if-no-files-found: ignore

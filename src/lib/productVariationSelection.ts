@@ -19,6 +19,19 @@ export function selectionForVariation(row: Variant, options: Options, previous: 
   return Object.fromEntries(purchaseOptions(options).map(o => [o.name,
     row.attributes[o.name] || (o.options.includes(previous[o.name]) ? previous[o.name] : o.options[0] || '')]))
 }
+// Keep the shopper's new choice, then retain only previous choices compatible
+// with a real row. Never silently select a different model/storage/colour.
+export function changeVariationChoice(rows: Variant[], options: Options, previous: Record<string,string>, name:string, value:string) {
+  const required=purchaseOptions(options),option=required.find(o=>o.name===name)
+  if(!option || (value && !option.options.includes(value)))return previous
+  const next:Record<string,string> = value ? {[name]:value} : {}
+  for(const o of required){
+    if(o.name===name || !o.options.includes(previous[o.name]))continue
+    const proposed={...next,[o.name]:previous[o.name]}
+    if(rows.some(row=>Object.entries(proposed).every(([k,v])=>!row.attributes[k]||row.attributes[k]===v)))next[o.name]=previous[o.name]
+  }
+  return next
+}
 type Stock = { stockManagedByParent?: boolean; stockQuantity?: number | null; stockStatus?: string; stockLabel?: string; stockTone?: string; canAddToCart?: boolean;
   stock_quantity?: number | null; stock_status?: string; stock_label?: string; stock_tone?: string; can_add_to_cart?: boolean }
 export function effectiveVariationStock<T extends Stock>(parent: Stock, row: T): T {
